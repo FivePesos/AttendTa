@@ -2,6 +2,7 @@ using ASI.Basecode.Services.Interfaces;
 using ASI.Basecode.Services.ServiceModels;
 using ASI.Basecode.WebApp.Mvc;
 using AutoMapper;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
@@ -10,6 +11,8 @@ using System.IO;
 
 namespace ASI.Basecode.WebApp.Controllers
 {
+    [Authorize(Roles = "admin,officer")]
+    [AutoValidateAntiforgeryToken]
     public class EventTypeController : ControllerBase<EventTypeController>
     {
         private readonly IEventTypeService _eventTypeService;

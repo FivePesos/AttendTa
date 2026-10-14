@@ -30,6 +30,7 @@ END
 ELSE
 BEGIN
     IF NULLIF(LTRIM(RTRIM(@AdminPasswordHash)), '') IS NULL
+       OR @AdminPasswordHash = '$(AdminPasswordHash)'
         THROW 51017, 'Supply an Auth-generated AdminPasswordHash; plaintext passwords are not accepted.', 1;
 
     BEGIN TRY

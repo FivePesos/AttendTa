@@ -109,7 +109,7 @@ namespace ASI.Basecode.Services.Services
             var member = _repository.GetMember(id);
             if (member == null)
             {
-                return;
+                throw new InvalidDataException("Member not found.");
             }
 
             if (actorUserId <= 0)

@@ -3,6 +3,7 @@ using ASI.Basecode.Services.ServiceModels;
 using ASI.Basecode.WebApp.Mvc;
 using ASI.Basecode.WebApp.Storage;
 using AutoMapper;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
@@ -12,6 +13,8 @@ using System.Threading.Tasks;
 
 namespace ASI.Basecode.WebApp.Controllers
 {
+    [Authorize(Roles = "admin,officer")]
+    [AutoValidateAntiforgeryToken]
     public class VenueController : ControllerBase<VenueController>
     {
         private readonly IVenueService _venueService;
@@ -67,7 +70,7 @@ namespace ASI.Basecode.WebApp.Controllers
             {
                 if (!string.IsNullOrWhiteSpace(savedImagePath))
                 {
-                    _venueImageStorage.Delete(savedImagePath);
+                    TryDeleteVenueImage(savedImagePath);
                 }
                 TempData["ErrorMessage"] = ex.Message;
                 return View(model);
@@ -76,7 +79,7 @@ namespace ASI.Basecode.WebApp.Controllers
             {
                 if (!string.IsNullOrWhiteSpace(savedImagePath))
                 {
-                    _venueImageStorage.Delete(savedImagePath);
+                    TryDeleteVenueImage(savedImagePath);
                 }
                 throw;
             }
@@ -130,7 +133,7 @@ namespace ASI.Basecode.WebApp.Controllers
                 if (!string.IsNullOrWhiteSpace(newImagePath)
                     && !string.Equals(existing.ImagePath, newImagePath, System.StringComparison.OrdinalIgnoreCase))
                 {
-                    _venueImageStorage.Delete(existing.ImagePath);
+                    TryDeleteVenueImage(existing.ImagePath);
                 }
                 TempData["SuccessMessage"] = "Venue updated successfully.";
                 return RedirectToAction("Index");
@@ -139,7 +142,7 @@ namespace ASI.Basecode.WebApp.Controllers
             {
                 if (!databaseUpdateSucceeded && !string.IsNullOrWhiteSpace(newImagePath))
                 {
-                    _venueImageStorage.Delete(newImagePath);
+                    TryDeleteVenueImage(newImagePath);
                 }
                 TempData["ErrorMessage"] = ex.Message;
                 return View(model);
@@ -148,7 +151,7 @@ namespace ASI.Basecode.WebApp.Controllers
             {
                 if (!databaseUpdateSucceeded && !string.IsNullOrWhiteSpace(newImagePath))
                 {
-                    _venueImageStorage.Delete(newImagePath);
+                    TryDeleteVenueImage(newImagePath);
                 }
                 throw;
             }
@@ -168,6 +171,20 @@ namespace ASI.Basecode.WebApp.Controllers
             }
 
             return RedirectToAction("Index");
+        }
+
+        private void TryDeleteVenueImage(string relativePath)
+        {
+            try
+            {
+                _venueImageStorage.Delete(relativePath);
+            }
+            catch (System.Exception ex) when (ex is IOException
+                                               || ex is System.UnauthorizedAccessException
+                                               || ex is InvalidDataException)
+            {
+                _logger.LogWarning(ex, "Could not clean up venue image {ImagePath}.", relativePath);
+            }
         }
     }
 }

@@ -6,14 +6,15 @@ meta {
 
 post {
   url: https://localhost:51629/Venue/Create
-  body: formUrlEncoded
+  body: multipartForm
   auth: none
 }
 
-body:form-urlencoded {
+body:multipart-form {
   RoomName: Room A
   Capacity: 50
   Location: Main
   AvailabilityNotes: weekdays
   ContactPerson: Admin
+  photo: @file(./fixtures/venue-test.png)
 }

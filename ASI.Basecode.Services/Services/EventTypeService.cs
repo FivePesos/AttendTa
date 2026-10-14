@@ -40,13 +40,19 @@ namespace ASI.Basecode.Services.Services
                 throw new InvalidDataException("A valid authenticated user is required to create an event type.");
             }
 
-            if (_repository.TypeNameExists(model.TypeName))
+            var normalizedTypeName = model.TypeName?.Trim();
+            if (string.IsNullOrWhiteSpace(normalizedTypeName))
+            {
+                throw new InvalidDataException("Type name is required.");
+            }
+
+            if (_repository.TypeNameExists(normalizedTypeName))
             {
                 throw new InvalidDataException("Event type name already exists.");
             }
 
             var eventType = new EventType();
-            eventType.TypeName = model.TypeName?.Trim();
+            eventType.TypeName = normalizedTypeName;
             eventType.Description = model.Description;
             eventType.IsActive = true;
             eventType.CreatedBy = actorUserId;
@@ -61,18 +67,24 @@ namespace ASI.Basecode.Services.Services
                 throw new InvalidDataException("A valid authenticated user is required to update an event type.");
             }
 
+            var normalizedTypeName = model.TypeName?.Trim();
+            if (string.IsNullOrWhiteSpace(normalizedTypeName))
+            {
+                throw new InvalidDataException("Type name is required.");
+            }
+
             var eventType = _repository.GetEventType(model.TypeId);
             if (eventType == null)
             {
                 throw new InvalidDataException("Event type not found.");
             }
 
-            if (_repository.TypeNameExists(model.TypeName, model.TypeId))
+            if (_repository.TypeNameExists(normalizedTypeName, model.TypeId))
             {
                 throw new InvalidDataException("Event type name already exists.");
             }
 
-            eventType.TypeName = model.TypeName?.Trim();
+            eventType.TypeName = normalizedTypeName;
             eventType.Description = model.Description;
             eventType.UpdatedBy = actorUserId;
             eventType.UpdatedAt = DateTime.UtcNow;
