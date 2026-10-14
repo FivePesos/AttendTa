@@ -31,33 +31,6 @@ namespace ASI.Basecode.WebApp.Controllers
         }
 
         [HttpGet]
-        public IActionResult Create()
-        {
-            return View(new MemberViewModel());
-        }
-
-        [HttpPost]
-        public IActionResult Create(MemberViewModel model)
-        {
-            if (!ModelState.IsValid)
-            {
-                return View(model);
-            }
-
-            try
-            {
-                _memberService.AddMember(model);
-                TempData["SuccessMessage"] = "Member added successfully.";
-                return RedirectToAction("Index");
-            }
-            catch (InvalidDataException ex)
-            {
-                TempData["ErrorMessage"] = ex.Message;
-                return View(model);
-            }
-        }
-
-        [HttpGet]
         public IActionResult Edit(int id)
         {
             var model = _memberService.GetMember(id);
@@ -79,7 +52,7 @@ namespace ASI.Basecode.WebApp.Controllers
 
             try
             {
-                _memberService.UpdateMember(model);
+                _memberService.UpdateMember(model, GetActorUserId());
                 TempData["SuccessMessage"] = "Member updated successfully.";
                 return RedirectToAction("Index");
             }
@@ -93,8 +66,15 @@ namespace ASI.Basecode.WebApp.Controllers
         [HttpPost]
         public IActionResult ToggleStatus(int id)
         {
-            _memberService.ToggleStatus(id);
-            TempData["SuccessMessage"] = "Member status updated.";
+            try
+            {
+                _memberService.ToggleStatus(id, GetActorUserId());
+                TempData["SuccessMessage"] = "Member status updated.";
+            }
+            catch (InvalidDataException ex)
+            {
+                TempData["ErrorMessage"] = ex.Message;
+            }
             return RedirectToAction("Index");
         }
     }

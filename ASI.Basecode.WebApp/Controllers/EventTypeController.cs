@@ -45,7 +45,7 @@ namespace ASI.Basecode.WebApp.Controllers
 
             try
             {
-                _eventTypeService.AddEventType(model);
+                _eventTypeService.AddEventType(model, GetActorUserId());
                 TempData["SuccessMessage"] = "Event type added successfully.";
                 return RedirectToAction("Index");
             }
@@ -78,7 +78,7 @@ namespace ASI.Basecode.WebApp.Controllers
 
             try
             {
-                _eventTypeService.UpdateEventType(model);
+                _eventTypeService.UpdateEventType(model, GetActorUserId());
                 TempData["SuccessMessage"] = "Event type updated successfully.";
                 return RedirectToAction("Index");
             }
@@ -87,6 +87,22 @@ namespace ASI.Basecode.WebApp.Controllers
                 TempData["ErrorMessage"] = ex.Message;
                 return View(model);
             }
+        }
+
+        [HttpPost]
+        public IActionResult ToggleActive(int id)
+        {
+            try
+            {
+                _eventTypeService.ToggleActive(id, GetActorUserId());
+                TempData["SuccessMessage"] = "Event type status updated.";
+            }
+            catch (InvalidDataException ex)
+            {
+                TempData["ErrorMessage"] = ex.Message;
+            }
+
+            return RedirectToAction("Index");
         }
     }
 }

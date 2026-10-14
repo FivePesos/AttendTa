@@ -13,6 +13,7 @@
         <tr>
             <th>Type Name</th>
             <th>Description</th>
+            <th>Status</th>
             <th></th>
         </tr>
     </thead>
@@ -22,8 +23,12 @@
             <tr>
                 <td>@eventType.TypeName</td>
                 <td>@eventType.Description</td>
+                <td>@(eventType.IsActive ? "Active" : "Inactive")</td>
                 <td>
                     <a asp-action="Edit" asp-route-id="@eventType.TypeId" class="btn btn-sm btn-outline-primary">Edit</a>
+                    <form asp-action="ToggleActive" asp-route-id="@eventType.TypeId" method="post" class="d-inline">
+                        <button type="submit" class="btn btn-sm @(eventType.IsActive ? "btn-outline-danger" : "btn-outline-success")">@(eventType.IsActive ? "Deactivate" : "Activate")</button>
+                    </form>
                 </td>
             </tr>
         }

@@ -5,7 +5,7 @@
 
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h2>Member Management</h2>
-    <a asp-action="Create" class="btn btn-primary">Add Member</a>
+    <span class="text-muted">Member profiles are linked to approved user accounts.</span>
 </div>
 
 <form asp-action="Index" method="get" class="mb-3">
@@ -20,9 +20,10 @@
         <tr>
             <th>Student Number</th>
             <th>Full Name</th>
-            <th>Course/Year</th>
+            <th>Course</th>
+            <th>Year</th>
             <th>Section</th>
-            <th>Contact</th>
+            <th>Mobile</th>
             <th>Membership Type</th>
             <th>Status</th>
             <th></th>
@@ -34,15 +35,16 @@
             <tr>
                 <td>@member.StudentNumber</td>
                 <td>@member.FullName</td>
-                <td>@member.CourseYear</td>
+                <td>@member.Course</td>
+                <td>@member.YearLevel</td>
                 <td>@member.Section</td>
-                <td>@member.ContactDetails</td>
+                <td>@member.MobileNumber</td>
                 <td>@member.MembershipType</td>
                 <td>@member.Status</td>
-                <td>
+                <td class="text-nowrap">
                     <a asp-action="Edit" asp-route-id="@member.MemberId" class="btn btn-sm btn-outline-primary">Edit</a>
                     <form asp-action="ToggleStatus" asp-route-id="@member.MemberId" method="post" class="d-inline">
-                        <button type="submit" class="btn btn-sm btn-outline-warning">@(member.Status == "active" ? "Deactivate" : "Activate")</button>
+                        <button type="submit" class="btn btn-sm @(member.Status == "active" ? "btn-outline-danger" : "btn-outline-success")">@(member.Status == "active" ? "Deactivate" : "Activate")</button>
                     </form>
                 </td>
             </tr>

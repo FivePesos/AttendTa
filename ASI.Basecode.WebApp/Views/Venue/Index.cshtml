@@ -16,6 +16,7 @@
             <th>Location</th>
             <th>Availability Notes</th>
             <th>Contact Person</th>
+            <th>Status</th>
             <th></th>
         </tr>
     </thead>
@@ -28,8 +29,12 @@
                 <td>@venue.Location</td>
                 <td>@venue.AvailabilityNotes</td>
                 <td>@venue.ContactPerson</td>
-                <td>
+                <td>@(venue.IsActive ? "Active" : "Inactive")</td>
+                <td class="text-nowrap">
                     <a asp-action="Edit" asp-route-id="@venue.VenueId" class="btn btn-sm btn-outline-primary">Edit</a>
+                    <form asp-action="ToggleActive" asp-route-id="@venue.VenueId" method="post" class="d-inline">
+                        <button type="submit" class="btn btn-sm @(venue.IsActive ? "btn-outline-danger" : "btn-outline-success")">@(venue.IsActive ? "Deactivate" : "Activate")</button>
+                    </form>
                 </td>
             </tr>
         }
