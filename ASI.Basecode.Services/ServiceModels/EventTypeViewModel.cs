@@ -7,8 +7,11 @@ namespace ASI.Basecode.Services.ServiceModels
         public int TypeId { get; set; }
 
         [Required(ErrorMessage = "Type name is required.")]
+        [StringLength(100, ErrorMessage = "Type name cannot exceed 100 characters.")]
         public string TypeName { get; set; }
 
         public string Description { get; set; }
+
+        public bool IsActive { get; set; } = true;
     }
 }

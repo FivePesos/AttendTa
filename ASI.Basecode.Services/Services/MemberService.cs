@@ -2,7 +2,7 @@ using ASI.Basecode.Data.Interfaces;
 using ASI.Basecode.Data.Models;
 using ASI.Basecode.Services.Interfaces;
 using ASI.Basecode.Services.ServiceModels;
-using AutoMapper;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -12,49 +12,69 @@ namespace ASI.Basecode.Services.Services
     public class MemberService : IMemberService
     {
         private readonly IMemberRepository _repository;
-        private readonly IMapper _mapper;
 
-        public MemberService(IMemberRepository repository, IMapper mapper)
+        public MemberService(IMemberRepository repository)
         {
             _repository = repository;
-            _mapper = mapper;
         }
 
         public List<MemberViewModel> GetMembers(string search = null)
         {
-            var query = _repository.GetMembers();
+            var query = _repository.GetMemberRecords();
             if (!string.IsNullOrWhiteSpace(search))
             {
                 query = query.Where(m => m.FullName.Contains(search) ||
+                                         m.Email.Contains(search) ||
                                          m.StudentNumber.Contains(search));
             }
-            return _mapper.Map<List<MemberViewModel>>(query.ToList());
+
+            return query.OrderBy(member => member.FullName)
+                .ThenBy(member => member.MemberId)
+                .Select(ToViewModel)
+                .ToList();
         }
 
         public MemberViewModel GetMember(int id)
         {
-            var member = _repository.GetMember(id);
-            return member == null ? null : _mapper.Map<MemberViewModel>(member);
+            var member = _repository.GetMemberRecord(id);
+            return member == null ? null : ToViewModel(member);
         }
 
-        public void AddMember(MemberViewModel model)
+        public void CreateMemberFromApprovedAccountRequest(int userId, MemberViewModel model, int actorUserId)
         {
+            if (userId <= 0 || actorUserId <= 0)
+            {
+                throw new InvalidDataException("A valid linked user and approving actor are required to create a member.");
+            }
+
+            if (_repository.UserHasMemberProfile(userId))
+            {
+                throw new InvalidDataException("This user already has a member profile.");
+            }
+
             if (_repository.StudentNumberExists(model.StudentNumber))
             {
                 throw new InvalidDataException("Student number already exists.");
             }
 
-            var member = new Member();
-            _mapper.Map(model, member);
-            if (string.IsNullOrWhiteSpace(member.Status))
+            var member = new Member
             {
-                member.Status = "active";
-            }
+                UserId = userId,
+                StudentNumber = model.StudentNumber,
+                Course = model.Course,
+                YearLevel = model.YearLevel,
+                Section = model.Section,
+                MobileNumber = model.MobileNumber,
+                MembershipType = model.MembershipType,
+                Status = "active",
+                CreatedBy = actorUserId,
+                CreatedAt = DateTime.UtcNow
+            };
 
             _repository.AddMember(member);
         }
 
-        public void UpdateMember(MemberViewModel model)
+        public void UpdateMember(MemberViewModel model, int actorUserId)
         {
             var member = _repository.GetMember(model.MemberId);
             if (member == null)
@@ -67,11 +87,24 @@ namespace ASI.Basecode.Services.Services
                 throw new InvalidDataException("Student number already exists.");
             }
 
-            _mapper.Map(model, member);
+            if (actorUserId <= 0)
+            {
+                throw new InvalidDataException("A valid authenticated user is required to update a member.");
+            }
+
+            member.StudentNumber = model.StudentNumber;
+            member.Course = model.Course;
+            member.YearLevel = model.YearLevel;
+            member.Section = model.Section;
+            member.MobileNumber = model.MobileNumber;
+            member.MembershipType = model.MembershipType;
+            member.Status = model.Status;
+            member.UpdatedBy = actorUserId;
+            member.UpdatedAt = DateTime.UtcNow;
             _repository.UpdateMember(member);
         }
 
-        public void ToggleStatus(int id)
+        public void ToggleStatus(int id, int actorUserId)
         {
             var member = _repository.GetMember(id);
             if (member == null)
@@ -79,27 +112,33 @@ namespace ASI.Basecode.Services.Services
                 return;
             }
 
+            if (actorUserId <= 0)
+            {
+                throw new InvalidDataException("A valid authenticated user is required to update a member.");
+            }
+
             member.Status = (member.Status ?? "active") == "active" ? "inactive" : "active";
+            member.UpdatedBy = actorUserId;
+            member.UpdatedAt = DateTime.UtcNow;
             _repository.UpdateMember(member);
         }
 
-        public void CreateMemberFromAccountRequest(string studentNumber, string fullName, string courseYear, string section)
+        private static MemberViewModel ToViewModel(MemberRecord member)
         {
-            if (_repository.StudentNumberExists(studentNumber))
+            return new MemberViewModel
             {
-                return;
-            }
-
-            var member = new Member
-            {
-                StudentNumber = studentNumber,
-                FullName = fullName,
-                CourseYear = courseYear,
-                Section = section,
-                Status = "active"
+                MemberId = member.MemberId,
+                UserId = member.UserId,
+                FullName = member.FullName,
+                Email = member.Email,
+                StudentNumber = member.StudentNumber,
+                Course = member.Course,
+                YearLevel = member.YearLevel,
+                Section = member.Section,
+                MobileNumber = member.MobileNumber,
+                MembershipType = member.MembershipType,
+                Status = member.Status
             };
-
-            _repository.AddMember(member);
         }
     }
 }

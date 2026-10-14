@@ -7,9 +7,8 @@ namespace ASI.Basecode.Services.Interfaces
     {
         List<MemberViewModel> GetMembers(string search = null);
         MemberViewModel GetMember(int id);
-        void AddMember(MemberViewModel model);
-        void UpdateMember(MemberViewModel model);
-        void ToggleStatus(int id);
-        void CreateMemberFromAccountRequest(string studentNumber, string fullName, string courseYear, string section);
+        void UpdateMember(MemberViewModel model, int actorUserId);
+        void ToggleStatus(int id, int actorUserId);
+        void CreateMemberFromApprovedAccountRequest(int userId, MemberViewModel model, int actorUserId);
     }
 }

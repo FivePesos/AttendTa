@@ -1,4 +1,6 @@
-﻿namespace ASI.Basecode.Data.Models
+﻿using System;
+
+namespace ASI.Basecode.Data.Models
 {
     public partial class Venue
     {
@@ -13,5 +15,17 @@
         public string AvailabilityNotes { get; set; }
 
         public string ContactPerson { get; set; }
+
+        public bool IsActive { get; set; }
+
+        public string ImagePath { get; set; }
+
+        public int CreatedBy { get; set; }
+
+        public DateTime CreatedAt { get; set; }
+
+        public int? UpdatedBy { get; set; }
+
+        public DateTime? UpdatedAt { get; set; }
     }
 }

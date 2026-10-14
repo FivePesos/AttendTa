@@ -7,7 +7,8 @@ namespace ASI.Basecode.Services.Interfaces
     {
         List<VenueViewModel> GetVenues();
         VenueViewModel GetVenue(int id);
-        void AddVenue(VenueViewModel model);
-        void UpdateVenue(VenueViewModel model);
+        void AddVenue(VenueViewModel model, int actorUserId);
+        void UpdateVenue(VenueViewModel model, int actorUserId);
+        void ToggleActive(int id, int actorUserId);
     }
 }

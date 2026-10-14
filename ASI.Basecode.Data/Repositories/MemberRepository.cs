@@ -17,6 +17,38 @@ namespace ASI.Basecode.Data.Repositories
             return this.GetDbSet<Member>();
         }
 
+        public IQueryable<MemberRecord> GetMemberRecords()
+        {
+            var members = this.GetDbSet<Member>().AsNoTracking();
+            var userSummaries = this.GetDbSet<MemberAccountSummary>();
+
+            return from member in members
+                   join user in userSummaries on member.UserId equals user.UserId
+                   select new MemberRecord
+                   {
+                       MemberId = member.MemberId,
+                       UserId = member.UserId,
+                       FullName = user.FullName,
+                       Email = user.Email,
+                       StudentNumber = member.StudentNumber,
+                       Course = member.Course,
+                       YearLevel = member.YearLevel,
+                       Section = member.Section,
+                       MobileNumber = member.MobileNumber,
+                       MembershipType = member.MembershipType,
+                       Status = member.Status,
+                       CreatedBy = member.CreatedBy,
+                       CreatedAt = member.CreatedAt,
+                       UpdatedBy = member.UpdatedBy,
+                       UpdatedAt = member.UpdatedAt
+                   };
+        }
+
+        public MemberRecord GetMemberRecord(int memberId)
+        {
+            return this.GetMemberRecords().FirstOrDefault(member => member.MemberId == memberId);
+        }
+
         public Member GetMember(int memberId)
         {
             return this.GetDbSet<Member>().FirstOrDefault(m => m.MemberId == memberId);
@@ -34,9 +66,9 @@ namespace ASI.Basecode.Data.Repositories
             UnitOfWork.SaveChanges();
         }
 
-        public bool MemberExists(int memberId)
+        public bool UserHasMemberProfile(int userId)
         {
-            return this.GetDbSet<Member>().Any(m => m.MemberId == memberId);
+            return this.GetDbSet<Member>().Any(m => m.UserId == userId);
         }
 
         public bool StudentNumberExists(string studentNumber, int? excludeId = null)
