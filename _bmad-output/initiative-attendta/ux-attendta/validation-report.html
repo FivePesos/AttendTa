@@ -1,0 +1,232 @@
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>UX Design Validation: AttendTa</title>
+<style>
+  :root {
+    --bg: #fafaf9;
+    --surface: #ffffff;
+    --border: #e7e5e4;
+    --text: #1c1917;
+    --muted: #78716c;
+
+    --verdict-strong: #16a34a;
+    --verdict-adequate: #65a30d;
+    --verdict-thin: #d97706;
+    --verdict-broken: #dc2626;
+
+    --sev-low: #64748b;
+    --sev-medium: #ca8a04;
+    --sev-high: #ea580c;
+    --sev-critical: #dc2626;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    font-size: 15px;
+  }
+  .container { max-width: 960px; margin: 0 auto; padding: 32px 24px 64px; }
+
+  header.report-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 24px;
+  }
+  .title h1 { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: -0.01em; }
+  .title .subtitle { color: var(--muted); font-size: 13px; margin-top: 4px; font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+
+  .synthesis {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--muted);
+    border-radius: 8px;
+    padding: 18px 22px;
+    margin-bottom: 24px;
+    font-size: 15.5px;
+  }
+  .synthesis p { margin: 0 0 10px; }
+  .synthesis p:last-child { margin-bottom: 0; }
+
+  .dimension-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 10px;
+    margin-bottom: 24px;
+  }
+  .dim-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+  }
+  .dim-card .dim-name { font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+  .dim-card .dim-verdict { font-size: 14px; font-weight: 600; }
+
+  section.dimension, section.reviewer-section { margin-bottom: 14px; }
+  section.dimension details, section.reviewer-section details {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  section summary {
+    padding: 14px 20px;
+    cursor: pointer;
+    user-select: none;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  section summary::-webkit-details-marker { display: none; }
+  section summary::before {
+    content: "▸";
+    display: inline-block;
+    color: var(--muted);
+    transition: transform 0.15s ease;
+  }
+  section details[open] summary::before { transform: rotate(90deg); }
+  section summary h2 {
+    display: inline;
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: -0.005em;
+    flex: 1;
+  }
+  .verdict-pill {
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: white;
+  }
+  .verdict-strong { background: var(--verdict-strong); }
+  .verdict-adequate { background: var(--verdict-adequate); }
+  .verdict-thin { background: var(--verdict-thin); }
+  .verdict-broken { background: var(--verdict-broken); }
+
+  .dim-body { padding: 4px 20px 18px; }
+  .dim-judgment { color: var(--text); font-size: 14.5px; }
+  .dim-judgment p { margin: 0 0 10px; }
+
+  .findings-list { padding: 0 20px 4px; }
+  article.finding {
+    padding: 14px 0;
+    border-top: 1px solid var(--border);
+  }
+  article.finding:first-child { border-top: none; }
+  article.finding header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 6px;
+  }
+  .badge {
+    font-size: 10.5px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    line-height: 1.4;
+  }
+  .badge-sev-low { background: rgba(100, 116, 139, 0.12); color: var(--sev-low); }
+  .badge-sev-medium { background: rgba(202, 138, 4, 0.14); color: var(--sev-medium); }
+  .badge-sev-high { background: rgba(234, 88, 12, 0.14); color: var(--sev-high); }
+  .badge-sev-critical { background: rgba(220, 38, 38, 0.14); color: var(--sev-critical); }
+  .finding-title { margin: 0; font-size: 15px; font-weight: 500; flex: 1; min-width: 200px; }
+  .finding-location { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12.5px; color: var(--muted); }
+  .finding-note, .finding-fix { margin-top: 6px; font-size: 14px; }
+  .finding-fix strong { color: var(--muted); font-weight: 500; }
+
+  .reviewer-source {
+    font-size: 12px;
+    color: var(--muted);
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  }
+
+  .mechanical {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin-top: 24px;
+    font-size: 14px;
+  }
+  .mechanical h3 { margin: 0 0 10px; font-size: 14px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+  .mechanical ul { margin: 0; padding-left: 20px; }
+  .mechanical li { margin-bottom: 4px; color: var(--text); }
+
+  footer.report-footer {
+    margin-top: 40px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--muted);
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  footer .meta { display: flex; gap: 24px; flex-wrap: wrap; }
+</style>
+</head>
+<body><div class="container"><header class="report-header"><div class="title"><h1>AttendTa — UX Design Validation Report</h1></div></header><div class="synthesis"><p>The spines provide a useful handoff: all five PRD journeys, the 12 paired component patterns, token references and local links are covered. Before implementation, clarify the approval outcome and several state, confirmation and accessibility behaviors. No critical findings were identified.</p><p>Documentation review only. No rendered UI, keyboard/screen-reader session, actual phone-camera scan, pixel parity or accessibility conformance was tested. The design and experience spines were not changed. Earlier report responses are superseded by this independent re-review.</p></div><div class="dimension-summary"><div class="dim-card"><div class="dim-name">Flow coverage</div><div class="dim-verdict">strong</div></div><div class="dim-card"><div class="dim-name">Token completeness</div><div class="dim-verdict">strong</div></div><div class="dim-card"><div class="dim-name">Component coverage</div><div class="dim-verdict">strong</div></div><div class="dim-card"><div class="dim-name">State coverage</div><div class="dim-verdict">adequate</div></div><div class="dim-card"><div class="dim-name">Visual reference coverage</div><div class="dim-verdict">adequate</div></div><div class="dim-card"><div class="dim-name">Bloat &amp; overspecification</div><div class="dim-verdict">adequate</div></div><div class="dim-card"><div class="dim-name">Inheritance discipline</div><div class="dim-verdict">strong</div></div><div class="dim-card"><div class="dim-name">Shape fit</div><div class="dim-verdict">strong</div></div></div><section class="dimension"><details ><summary><h2>Flow coverage</h2><span class="verdict-pill verdict-strong">strong</span></summary><div class="dim-body"><p>No unresolved finding in this category; see rubric review for evidence.</p></div></details></section><section class="dimension"><details ><summary><h2>Token completeness</h2><span class="verdict-pill verdict-strong">strong</span></summary><div class="dim-body"><p>No unresolved finding in this category; see rubric review for evidence.</p></div></details></section><section class="dimension"><details ><summary><h2>Component coverage</h2><span class="verdict-pill verdict-strong">strong</span></summary><div class="dim-body"><p>No unresolved finding in this category; see rubric review for evidence.</p></div></details></section><section class="dimension"><details ><summary><h2>State coverage</h2><span class="verdict-pill verdict-adequate">adequate</span></summary><div class="dim-body"><article class="finding"><header><span class="badge badge-sev-medium">Medium</span><h3>Complete empty-queue and history states</h3></header><p>EXPERIENCE.md:59–69</p><p>Empty states are not explicit for account-request/event management queues, My Events/history and certificate review queues. Existing master-data/log empty states are already covered.</p><p><strong>Fix:</strong> Describe valid-empty versus no-match states and an appropriate next step for each surface.</p></article></div></details></section><section class="dimension"><details ><summary><h2>Visual reference coverage</h2><span class="verdict-pill verdict-adequate">adequate</span></summary><div class="dim-body"><article class="finding"><header><span class="badge badge-sev-low">Low</span><h3>Indexed references trade inline discoverability for brevity</h3></header><p>DESIGN.md:135; imports/README.md; .memlog.md:74</p><p>Thirty-two imported files remain index-only rather than context-linked. All links resolve; the index is an explicitly accepted handoff choice.</p><p><strong>Fix:</strong> Optionally add a few contextual links for the highest-value references. This is an accepted tradeoff, not a blocker.</p></article></div></details></section><section class="dimension"><details ><summary><h2>Bloat &amp; overspecification</h2><span class="verdict-pill verdict-adequate">adequate</span></summary><div class="dim-body"><p>No unresolved finding in this category; see rubric review for evidence.</p></div></details></section><section class="dimension"><details ><summary><h2>Inheritance discipline</h2><span class="verdict-pill verdict-strong">strong</span></summary><div class="dim-body"><p>No unresolved finding in this category; see rubric review for evidence.</p></div></details></section><section class="dimension"><details ><summary><h2>Shape fit</h2><span class="verdict-pill verdict-strong">strong</span></summary><div class="dim-body"><p>No unresolved finding in this category; see rubric review for evidence.</p></div></details></section><section class="reviewer-section"><details><summary><h2>Requirements review</h2></summary><div class="dim-body"><article class="finding"><header><span class="badge badge-sev-high">High</span><h3>Clarify competing last-seat approvals</h3></header><p>EXPERIENCE.md:106</p><p>The failure path permits competing reviews to be rejected or returned with the current outcome. A valid competing approval that loses the last seat must become Waitlisted (PRD FR-16).</p><p><strong>Fix:</strong> Name Waitlisted explicitly; reserve rejection for an action that is no longer valid.</p></article><article class="finding"><header><span class="badge badge-sev-medium">Medium</span><h3>Distinguish membership inactivity from account deactivation</h3></header><p>EXPERIENCE.md:24–30,64</p><p>The UX groups access changes without explaining the two outcomes. Membership inactivity blocks participation while preserving account/history access; account deactivation blocks account access. The PRD remains authoritative.</p><p><strong>Fix:</strong> Give each control its own confirmation summary and upcoming-registration effects; state that neither triggers promotion. Parent triage lowers the reviewer’s High to Medium because this is missing UX clarity, with no explicit override of the PRD.</p></article><article class="finding"><header><span class="badge badge-sev-medium">Medium</span><h3>Scope required reasons by action</h3></header><p>EXPERIENCE.md:51</p><p>The generic dialog rule can imply every consequential action requires a reason, although FR-18 makes a member cancellation reason optional.</p><p><strong>Fix:</strong> Say reason required where specified; explicitly keep member cancellation optional.</p></article><article class="finding"><header><span class="badge badge-sev-medium">Medium</span><h3>Warn before final certificate decline</h3></header><p>EXPERIENCE.md:65,117–124</p><p>The flow lists decline but omits the required warning that it cannot be reopened in this release.</p><p><strong>Fix:</strong> Add the warning and required reason before confirmation.</p></article><article class="finding"><header><span class="badge badge-sev-low">Low</span><h3>Keep cutoff label distinct from stored status</h3></header><p>EXPERIENCE.md:62</p><p>Not confirmed before cutoff is listed beside actual statuses, inviting an unnecessary additional status.</p><p><strong>Fix:</strong> Describe it as a derived label for Pending/Waitlisted after the cutoff; stored status remains unchanged.</p></article><h3>Reviewer source — preserved</h3><pre style="white-space:pre-wrap"># Requirements Lens Review — AttendTa UX
+
+## Summary
+
+The spines preserve most major PRD flows and correctly defer to the PRD/SPEC. Five implementation-facing issues remain: one competing-review outcome conflicts with the requirements, one generic dialog rule contradicts optional cancellation reasons, and three state/decision distinctions need clearer UX treatment.
+
+## Findings
+
+- **High — Competing last-seat approval has the wrong failure outcome.** `EXPERIENCE.md:106` says competing reviews may be “rejected or returned with the current outcome.” The PRD says exactly one last-seat approval succeeds and the other becomes Waitlisted (`../prd-attendta/prd-attendta.md:61`); FR-16 says an approval without a free seat or with an earlier eligible waitlisted participant becomes Waitlisted (`../prd-attendta/prd-attendta.md:252-254`), consistent with SPEC §9.2 (`../../../docsss/AttendTa-System-Specification.md:194`). *Fix:* Make the competing approval&#x27;s visible outcome Waitlisted, with current status and next step; reserve rejection for an action that is no longer valid.
+
+- **High — Membership inactivity and account deactivation are not distinguished in the experience.** The access/admin pattern groups affected-registration preview and reason together (`EXPERIENCE.md:64`), while the IA lists member maintenance separately from role/access management without stating the different consequences (`EXPERIENCE.md:24-30`). The PRD requires membership inactivity to block participation while leaving account access intact, and account deactivation to block access (`../prd-attendta/prd-attendta.md:158`, `407-415`). SPEC confirms the distinction and preserves personal history/certificate access for membership-inactive members (`../../../docsss/AttendTa-System-Specification.md:118-126`). *Fix:* Specify separate controls and confirmation summaries: membership status blocks participation but preserves account/history access; account deactivation blocks access. Show the applicable upcoming-registration effects and state that no waitlist promotion occurs.
+
+- **Medium — The dialog rule makes member cancellation require a reason.** `EXPERIENCE.md:51` says consequential actions have a “required reason.” Member cancellation only has an optional reason (`../prd-attendta/prd-attendta.md:269-271`; SPEC §9.4, `../../../docsss/AttendTa-System-Specification.md:202`). *Fix:* Scope required reasons to actions that require them; keep member-cancellation reason optional while retaining the final-cancellation warning.
+
+- **Medium — The finality of certificate declines is not surfaced before the decision.** The certificate flow permits approving or declining each review but does not call out that decline is irreversible (`EXPERIENCE.md:117-124`); certificate states likewise omit the no-reopen rule (`EXPERIENCE.md:65`). The PRD requires a warning before decline and says it is final (`../prd-attendta/prd-attendta.md:352-355`); SPEC defers reopening and requires the warning (`../../../docsss/AttendTa-System-Specification.md:268-270`). *Fix:* Add a pre-confirmation warning that a declined review cannot be reopened in this release, alongside the required reason.
+
+- **Low — “Not confirmed before cutoff” reads like a separate registration status.** `EXPERIENCE.md:62` lists it beside Pending, Confirmed, Waitlisted and Cancelled. The PRD defines it as the display label for Pending or Waitlisted after event start (`../prd-attendta/prd-attendta.md:91`, `277`); SPEC says those underlying rows remain unchanged (`../../../docsss/AttendTa-System-Specification.md:206`). *Fix:* Describe it as a derived label on Pending/Waitlisted rows, preserving their stored status and excluding them from no-show counts.
+</pre></div></details></section><section class="reviewer-section"><details><summary><h2>Accessibility review</h2></summary><div class="dim-body"><article class="finding"><header><span class="badge badge-sev-medium">Medium</span><h3>Specify form-error focus recovery</h3></header><p>EXPERIENCE.md:45,68,77</p><p>Errors and labels are covered, but failed-submit focus destination and explicit programmatic field-error connections are unspecified.</p><p><strong>Fix:</strong> Focus an error summary or first invalid field, expose invalid state and connect each error to its control.</p></article><article class="finding"><header><span class="badge badge-sev-medium">Medium</span><h3>Specify dialog naming and modal isolation</h3></header><p>DESIGN.md:122; EXPERIENCE.md:51,77</p><p>Focus containment is specified, but accessible naming and isolation of background content are not explicit.</p><p><strong>Fix:</strong> Name the dialog from its visible title and make background content unavailable while it is open.</p></article><h3>Reviewer source — preserved</h3><pre style="white-space:pre-wrap"># Accessibility review
+
+**Scope:** Documentation-only review of `DESIGN.md`, `EXPERIENCE.md`, `.memlog.md`, and `imports/prototype-assets/DESIGN-TOKENS.md`. Findings refer to handoff clarity, not observed UI defects.
+
+## Assessment
+
+No high-severity documentation gaps found. The handoff already specifies the key phone scanner fallback and reachability requirements, keyboard operation and focus, reduced motion, table headers and keyboard scrolling, non-color status cues, async announcements, contrast guidance, and 320px/200% checks. `.memlog.md:74-75` records that these requirements were added and that implementation verification remains outstanding.
+
+## Findings
+
+### P2 — Define form error recovery for keyboard and assistive technology
+
+**Evidence:** `EXPERIENCE.md:45` requires persistent labels and associated errors; `EXPERIENCE.md:68` requires field-specific event-form errors; `EXPERIENCE.md:77` requires tied labels and descriptive error text. The handoff does not say where focus goes after an unsuccessful submit or explicitly say that each inline error is programmatically connected to its field.
+
+**Fix:** Add one sentence to the Input pattern or Accessibility Floor: on failed submission, focus an error summary or the first invalid control; expose the invalid state and programmatically associate each field&#x27;s error with that control. Keep the existing valid-value retention rule.
+
+### P2 — Specify the dialog&#x27;s accessible name and modal boundary
+
+**Evidence:** `DESIGN.md:122` calls for a clear dialog title; `EXPERIENCE.md:51` says focus enters, Escape/cancel closes, and focus returns; `EXPERIENCE.md:77` adds focus trapping and restoration. The handoff does not explicitly connect the visible title to the dialog&#x27;s accessible name or specify that background content is unavailable while the modal is open.
+
+**Fix:** State that the dialog is named by its visible title and that opening it makes background content unavailable to interaction and assistive technology until it closes. Keep the already specified focus entry, containment, Escape/cancel, and return behavior.
+
+## Coverage confirmed
+
+- **Phone scanner:** `EXPERIENCE.md:64,81` covers denied/unavailable camera, reachable controls, event selection, and camera-free fallback; `EXPERIENCE.md:115` describes explicit manual confirmation. `.memlog.md:66,69,75` cautions that screenshots do not verify device camera operation.
+- **Tables and reports:** `EXPERIENCE.md:50,77` covers associated headers, reading order, keyboard horizontal scrolling, and non-color report alternatives.
+- **Status:** `DESIGN.md:90,117` requires words alongside functional color; `EXPERIENCE.md:49,77` covers exposed selection and announcements for changed results and async outcomes.
+- **Visual accessibility:** `DESIGN.md:92,133-134` points to verified contrast pairs, visible focus, reduced motion, and touch target size; the token register restricts faint ink and small amber text (`DESIGN-TOKENS.md:15,22-25,44-50,53-64,206-208`).
+
+## Limitations
+
+This review inspected documentation only. It did not test the prototype or a future app with keyboard, screen readers, zoom, camera permissions, or actual phones; the UX documents themselves state that accessibility conformance is not established (`EXPERIENCE.md:14,77`; `.memlog.md:75`).
+</pre></div></details></section><footer class="report-footer">F:\AttendTa\_bmad-output\initiative-attendta\ux-attendta<br>2026-11-04T18:19:53+08:00<br>DESIGN.md · EXPERIENCE.md · review-rubric.md · review-requirements.md · review-accessibility.md</footer></div></body></html>
