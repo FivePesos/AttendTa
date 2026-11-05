@@ -37,4 +37,32 @@ public class ManilaTimeFormatterTests
         Assert.Equal(string.Empty, ManilaTimeFormatter.Format((DateTime?)null));
         Assert.Equal(string.Empty, ManilaTimeFormatter.Format((DateTimeOffset?)null));
     }
+
+    [Fact]
+    public void FormWallClockValuesConvertToUtcAndBack()
+    {
+        var posted = new DateTime(2026, 12, 10, 9, 0, 0, DateTimeKind.Unspecified);
+        var utc = ManilaTimeFormatter.ToUtc(posted);
+
+        Assert.Equal(new DateTime(2026, 12, 10, 1, 0, 0), utc);
+        Assert.Equal(DateTimeKind.Utc, utc.Kind);
+
+        var redisplayed = ManilaTimeFormatter.ToLocal(utc);
+        Assert.Equal(posted, redisplayed);
+        Assert.Equal(DateTimeKind.Unspecified, redisplayed.Kind);
+    }
+
+    [Fact]
+    public void ToUtcLeavesAnAlreadyUtcValueUnchanged()
+    {
+        var utc = new DateTime(2026, 12, 10, 1, 0, 0, DateTimeKind.Utc);
+
+        Assert.Equal(utc, ManilaTimeFormatter.ToUtc(utc));
+    }
+
+    [Fact]
+    public void ToLocalRejectsLocalTimestamps()
+    {
+        Assert.Throws<ArgumentException>(() => ManilaTimeFormatter.ToLocal(new DateTime(2026, 12, 10, 1, 0, 0, DateTimeKind.Local)));
+    }
 }
