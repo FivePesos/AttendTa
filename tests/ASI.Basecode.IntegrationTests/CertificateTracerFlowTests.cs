@@ -2,9 +2,14 @@ using ASI.Basecode.Data;
 using ASI.Basecode.Data.Models;
 using ASI.Basecode.Data.Models.Lookups;
 using ASI.Basecode.Services.Interfaces;
+using ASI.Basecode.Services.ServiceModels;
 using ASI.Basecode.Services.Security;
 using ASI.Basecode.WebApp.Storage;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Hosting.Server;
+using Microsoft.AspNetCore.Hosting.Server.Features;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -12,6 +17,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using System.Globalization;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.IO;
 using Microsoft.Extensions.Logging;
 using System.Net;
@@ -24,6 +30,109 @@ namespace ASI.Basecode.IntegrationTests;
 
 public sealed class CertificateTracerFlowTests(SqlServerDatabaseFixture fixture) : IClassFixture<SqlServerDatabaseFixture>
 {
+    [Fact]
+    public async Task RendererCreatesOneA4LandscapePageWithSnapshotDatesBrandingFontAndWatermark()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        using var factory = CreateFactory(fixture.ConnectionString, "Development", new StorageProbe());
+        using var renderScope = factory.Services.CreateScope();
+        var renderer = renderScope.ServiceProvider.GetRequiredService<ICertificatePdfRenderer>();
+        var snapshot = new CertificatePdfSnapshot(
+            "Jamie Cruz",
+            "Campus Leadership Summit",
+            new DateTime(2026, 1, 1, 18, 30, 0, DateTimeKind.Utc),
+            new DateTime(2026, 1, 2, 3, 15, 0, DateTimeKind.Unspecified),
+            "AT-2026-000042");
+
+        var pdf = await renderer.RenderSnapshotAsync(snapshot, cancellationToken);
+        var text = await ExtractPdfTextAsync(pdf, cancellationToken);
+        var normalizedText = NormalizePdfText(text);
+        var info = await ReadPdfInfoAsync(pdf, cancellationToken);
+        var fonts = await ReadPdfFontsAsync(pdf, cancellationToken);
+        AssertOneLandscapeA4Page(info);
+        Assert.Contains("jamiecruz", normalizedText, StringComparison.Ordinal);
+        Assert.Contains("campusleadershipsummit", normalizedText, StringComparison.Ordinal);
+        Assert.Contains("at-2026-000042", normalizedText, StringComparison.Ordinal);
+        Assert.Contains("eventstart", normalizedText, StringComparison.Ordinal);
+        Assert.Contains("dateissued", normalizedText, StringComparison.Ordinal);
+        Assert.Contains("2026-01-0202:30asia/manila", normalizedText, StringComparison.Ordinal);
+        Assert.Contains("2026-01-0211:15asia/manila", normalizedText, StringComparison.Ordinal);
+        Assert.Contains("universityofcebu", normalizedText, StringComparison.Ordinal);
+        Assert.Contains("developmentsample", normalizedText, StringComparison.Ordinal);
+        Assert.Contains("notanofficialcertificate", normalizedText, StringComparison.Ordinal);
+        Assert.Matches(new Regex(@"(?im)^.*Cinzel.*\byes\s+yes\s+yes\b"), fonts);
+        Assert.Contains("/Subtype /Image", Encoding.Latin1.GetString(pdf), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task RendererDisplaysMarkupAsTextAndBlocksNetworkRequests()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        using var factory = CreateFactory(fixture.ConnectionString, "Development", new StorageProbe());
+        await using var networkProbe = await CertificateNetworkProbe.StartAsync();
+        using var renderScope = factory.Services.CreateScope();
+        var renderer = renderScope.ServiceProvider.GetRequiredService<ICertificatePdfRenderer>();
+        var payload = $"<img src=\"{networkProbe.Url}/probe\" alt=\"untrusted\"> & recipient";
+        var snapshot = new CertificatePdfSnapshot(
+            payload,
+            "Event <script>fetch('" + networkProbe.Url + "/probe')</script>",
+            new DateTime(2026, 1, 1, 18, 30, 0, DateTimeKind.Utc),
+            new DateTime(2026, 1, 2, 3, 15, 0, DateTimeKind.Utc),
+            "AT-HTML-0001");
+
+        var pdf = await renderer.RenderSnapshotAsync(snapshot, cancellationToken);
+        var text = NormalizePdfText(await ExtractPdfTextAsync(pdf, cancellationToken));
+
+        Assert.Contains("<img", text, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(NormalizePdfText(networkProbe.Url), text, StringComparison.Ordinal);
+        Assert.Contains("<script>", text, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(0, networkProbe.RequestCount);
+        AssertOneLandscapeA4Page(await ReadPdfInfoAsync(pdf, cancellationToken));
+    }
+
+    [Fact]
+    public async Task RendererKeepsMaximumLengthSnapshotValuesOnOnePage()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        using var factory = CreateFactory(fixture.ConnectionString, "Development", new StorageProbe());
+        using var renderScope = factory.Services.CreateScope();
+        var renderer = renderScope.ServiceProvider.GetRequiredService<ICertificatePdfRenderer>();
+        var recipient = new string('W', 255);
+        var eventTitle = new string('M', 255);
+        var certificateNumber = new string('A', 100);
+        Assert.Equal(255, recipient.Length);
+        Assert.Equal(255, eventTitle.Length);
+
+        var pdf = await renderer.RenderSnapshotAsync(new CertificatePdfSnapshot(
+            recipient,
+            eventTitle,
+            new DateTime(2026, 1, 1, 18, 30, 0, DateTimeKind.Utc),
+            new DateTime(2026, 1, 2, 3, 15, 0, DateTimeKind.Utc),
+            certificateNumber), cancellationToken);
+        var text = NormalizePdfText(await ExtractPdfTextRawAsync(pdf, cancellationToken));
+        Assert.Contains(NormalizePdfText(recipient), text, StringComparison.Ordinal);
+        Assert.Contains(NormalizePdfText(eventTitle), text, StringComparison.Ordinal);
+        Assert.Contains(certificateNumber.ToLowerInvariant(), text, StringComparison.Ordinal);
+        AssertOneLandscapeA4Page(await ReadPdfInfoAsync(pdf, cancellationToken));
+    }
+
+    [Fact]
+    public async Task RendererRejectsLocalKindSnapshotTimestamps()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        using var factory = CreateFactory(fixture.ConnectionString, "Development", new StorageProbe());
+        using var renderScope = factory.Services.CreateScope();
+        var renderer = renderScope.ServiceProvider.GetRequiredService<ICertificatePdfRenderer>();
+        var snapshot = new CertificatePdfSnapshot(
+            "Jamie Cruz",
+            "Campus Leadership Summit",
+            new DateTime(2026, 1, 1, 18, 30, 0, DateTimeKind.Local),
+            new DateTime(2026, 1, 2, 3, 15, 0, DateTimeKind.Utc),
+            "AT-2026-000042");
+
+        await Assert.ThrowsAsync<ArgumentException>(() => renderer.RenderSnapshotAsync(snapshot, cancellationToken));
+    }
+
     [Fact]
     public async Task TracerRequiresConfirmedRegistrationAndManagementInDevelopmentAndDeletesStreamedPdf()
     {
@@ -321,15 +430,149 @@ public sealed class CertificateTracerFlowTests(SqlServerDatabaseFixture fixture)
         Assert.InRange(Math.Abs(height - 595.28), 0, 1);
     }
 
+    private static Task<string> ExtractPdfTextAsync(byte[] pdf, CancellationToken cancellationToken) =>
+        RunPdfToolAsync("pdftotext", "ATTENDTA_PDFTOTEXT", pdf, ["-layout", "{pdf}", "-"], cancellationToken);
+
+    private static Task<string> ExtractPdfTextRawAsync(byte[] pdf, CancellationToken cancellationToken) =>
+        RunPdfToolAsync("pdftotext", "ATTENDTA_PDFTOTEXT", pdf, ["-raw", "{pdf}", "-"], cancellationToken);
+
+    private static Task<string> ReadPdfInfoAsync(byte[] pdf, CancellationToken cancellationToken) =>
+        RunPdfToolAsync("pdfinfo", "ATTENDTA_PDFINFO", pdf, ["{pdf}"], cancellationToken);
+
+    private static Task<string> ReadPdfFontsAsync(byte[] pdf, CancellationToken cancellationToken) =>
+        RunPdfToolAsync("pdffonts", "ATTENDTA_PDFFONTS", pdf, ["{pdf}"], cancellationToken);
+
+    private static string NormalizePdfText(string text) =>
+        Regex.Replace(text, @"\s+", string.Empty, RegexOptions.CultureInvariant).ToLowerInvariant();
+
+    private static async Task<string> RunPdfToolAsync(
+        string executableName,
+        string executableEnvironmentVariable,
+        byte[] pdf,
+        IReadOnlyList<string> arguments,
+        CancellationToken cancellationToken)
+    {
+        var configuredPath = Environment.GetEnvironmentVariable(executableEnvironmentVariable);
+        var executable = string.IsNullOrWhiteSpace(configuredPath) ? executableName : configuredPath;
+        if (!string.IsNullOrWhiteSpace(configuredPath) && !File.Exists(configuredPath))
+        {
+            throw new InvalidOperationException($"{executableEnvironmentVariable} must point to an existing {executableName} executable.");
+        }
+
+        var pdfPath = Path.Combine(Path.GetTempPath(), $"AttendTa-Certificate-{Guid.NewGuid():N}.pdf");
+        await File.WriteAllBytesAsync(pdfPath, pdf, cancellationToken);
+        try
+        {
+            using var process = new Process
+            {
+                StartInfo = new ProcessStartInfo
+                {
+                    FileName = executable,
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    CreateNoWindow = true
+                }
+            };
+            foreach (var argument in arguments)
+            {
+                process.StartInfo.ArgumentList.Add(argument == "{pdf}" ? pdfPath : argument);
+            }
+
+            try
+            {
+                process.Start();
+            }
+            catch (System.ComponentModel.Win32Exception exception)
+            {
+                throw new InvalidOperationException(
+                    $"Certificate PDF inspection requires Poppler's {executableName}; add it to PATH or set {executableEnvironmentVariable}.",
+                    exception);
+            }
+
+            var standardOutputTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
+            var standardErrorTask = process.StandardError.ReadToEndAsync(cancellationToken);
+            await process.WaitForExitAsync(cancellationToken);
+            var standardOutput = await standardOutputTask;
+            var standardError = await standardErrorTask;
+            if (process.ExitCode != 0)
+            {
+                throw new InvalidOperationException($"{executableName} could not inspect the generated certificate PDF: {standardError}");
+            }
+
+            return standardOutput;
+        }
+        finally
+        {
+            File.Delete(pdfPath);
+        }
+    }
+
+    private static void AssertOneLandscapeA4Page(string pdfInfo)
+    {
+        var pages = Regex.Match(pdfInfo, @"(?m)^Pages:\s*(?<count>\d+)", RegexOptions.CultureInvariant);
+        Assert.True(pages.Success, "pdfinfo did not report a page count.");
+        Assert.Equal("1", pages.Groups["count"].Value);
+
+        var size = Regex.Match(
+            pdfInfo,
+            @"(?m)^Page size:\s*(?<width>[\d.]+)\s+x\s+(?<height>[\d.]+)\s+pts",
+            RegexOptions.CultureInvariant);
+        Assert.True(size.Success, "pdfinfo did not report the generated PDF page size.");
+        var width = double.Parse(size.Groups["width"].Value, CultureInfo.InvariantCulture);
+        var height = double.Parse(size.Groups["height"].Value, CultureInfo.InvariantCulture);
+        Assert.True(width > height, $"Expected landscape PDF dimensions but got {width} × {height} points.");
+        Assert.InRange(Math.Abs(width - 841.89), 0, 1);
+        Assert.InRange(Math.Abs(height - 595.28), 0, 1);
+    }
+
     private sealed class StorageProbe
     {
         public string? PromotedKey { get; set; }
         public List<string> DeletedPaths { get; } = new();
     }
 
+    private sealed class CertificateNetworkProbe : IAsyncDisposable
+    {
+        private readonly WebApplication application;
+        private int requestCount;
+
+        private CertificateNetworkProbe(WebApplication application)
+        {
+            this.application = application;
+        }
+
+        public string Url { get; private set; } = string.Empty;
+        public int RequestCount => Volatile.Read(ref requestCount);
+
+        public static async Task<CertificateNetworkProbe> StartAsync()
+        {
+            var builder = WebApplication.CreateBuilder();
+            builder.WebHost.UseUrls("http://127.0.0.1:0");
+            var application = builder.Build();
+            var probe = new CertificateNetworkProbe(application);
+            application.MapGet("/probe", (HttpContext context) =>
+            {
+                Interlocked.Increment(ref probe.requestCount);
+                context.Response.StatusCode = StatusCodes.Status204NoContent;
+                return Task.CompletedTask;
+            });
+
+            await application.StartAsync();
+            var addresses = application.Services.GetRequiredService<IServer>().Features.Get<IServerAddressesFeature>()!;
+            probe.Url = addresses.Addresses.Single(address => address.StartsWith("http://127.0.0.1:", StringComparison.Ordinal));
+            return probe;
+        }
+
+        public async ValueTask DisposeAsync() => await application.DisposeAsync();
+    }
+
     private sealed class FailingPdfRenderer(string physicalPath) : ICertificatePdfRenderer
     {
         public Task<byte[]> RenderSampleAsync(CancellationToken cancellationToken = default) =>
+            Task.FromException<byte[]>(new IOException($"Renderer could not write {physicalPath}."));
+
+        public Task<byte[]> RenderSnapshotAsync(CertificatePdfSnapshot snapshot, CancellationToken cancellationToken = default) =>
             Task.FromException<byte[]>(new IOException($"Renderer could not write {physicalPath}."));
     }
 

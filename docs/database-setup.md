@@ -140,8 +140,21 @@ dotnet tests\ASI.Basecode.IntegrationTests\bin\Debug\net10.0\ASI.Basecode.Integr
 
 The principal in `ATTENDTA_TEST_SQL` must be allowed to create and drop databases on a local
 instance. The runner's `-parallelMode none` option serializes test classes because each fixture
-creates its own SQL database. The certificate PDF tracer integration test launches headless
-Chromium through Microsoft.Playwright; the command above installs its matching browser revision.
-CI installs Chromium and its operating-system dependencies from the Release build before running
-the SQL integration suite. The tracer uses only its fixed inline sample, writes the PDF to private
-`certificates/` storage for the response, and deletes it when the response stream is disposed.
+creates its own SQL database. Certificate PDF integration tests launch headless Chromium through
+Microsoft.Playwright and inspect its actual output with Poppler's `pdftotext`, `pdfinfo` and
+`pdffonts` commands. Install a Poppler distribution and make all three commands available on
+`PATH`; or point the test runner at their full paths in the current PowerShell session:
+
+```powershell
+$env:ATTENDTA_PDFTOTEXT = "C:\tools\poppler\Library\bin\pdftotext.exe"
+$env:ATTENDTA_PDFINFO = "C:\tools\poppler\Library\bin\pdfinfo.exe"
+$env:ATTENDTA_PDFFONTS = "C:\tools\poppler\Library\bin\pdffonts.exe"
+```
+
+The assertions extract the supplied text, confirm one landscape A4 page, and check that Cinzel is
+embedded. The matching Playwright Chromium revision is installed by the command above. The Cinzel
+regular and semibold files are bundled under `ASI.Basecode.WebApp/wwwroot/fonts/cinzel/` with their
+SIL Open Font License at `ASI.Basecode.WebApp/wwwroot/fonts/cinzel/OFL.txt`. Any CI job that runs
+the integration suite must install Poppler and Chromium before running it. The tracer keeps its
+Development-only access, writes its fixed sample PDF to private `certificates/` storage for the
+response, and deletes it when the response stream is disposed.
