@@ -22,6 +22,16 @@ namespace ASI.Basecode.Data.Repositories
             return this.GetDbSet<Venue>();
         }
 
+        public async Task<IReadOnlyList<Venue>> GetActiveVenuesAsync(CancellationToken cancellationToken = default)
+        {
+            return await GetDbSet<Venue>()
+                .AsNoTracking()
+                .Where(venue => venue.IsActive)
+                .OrderBy(venue => venue.RoomName)
+                .ThenBy(venue => venue.VenueId)
+                .ToListAsync(cancellationToken);
+        }
+
         public Task<int> CountAsync(CancellationToken cancellationToken = default) =>
             GetDbSet<Venue>().AsNoTracking().CountAsync(cancellationToken);
 

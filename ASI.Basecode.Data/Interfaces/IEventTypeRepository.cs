@@ -7,6 +7,7 @@ namespace ASI.Basecode.Data.Interfaces
 {
     public interface IEventTypeRepository
     {
+        Task<IReadOnlyList<EventType>> GetActiveEventTypesAsync(CancellationToken cancellationToken = default);
         Task<int> CountEventTypesAsync(CancellationToken cancellationToken = default);
         Task<IReadOnlyList<EventType>> GetEventTypesPageAsync(int offset, int pageSize, CancellationToken cancellationToken = default);
         EventType GetEventType(int typeId);

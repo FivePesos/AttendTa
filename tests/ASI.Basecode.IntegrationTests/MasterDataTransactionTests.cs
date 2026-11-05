@@ -457,6 +457,7 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
     }
     private sealed class EventTypeRepositoryThatSavesThenFails(IEventTypeRepository inner, IUnitOfWork unitOfWork) : IEventTypeRepository
     {
+        public Task<IReadOnlyList<EventType>> GetActiveEventTypesAsync(CancellationToken cancellationToken = default) => inner.GetActiveEventTypesAsync(cancellationToken);
         public Task<int> CountEventTypesAsync(CancellationToken cancellationToken = default) => inner.CountEventTypesAsync(cancellationToken);
         public Task<IReadOnlyList<EventType>> GetEventTypesPageAsync(int offset, int pageSize, CancellationToken cancellationToken = default) => inner.GetEventTypesPageAsync(offset, pageSize, cancellationToken);
         public EventType GetEventType(int typeId) => inner.GetEventType(typeId);
@@ -477,6 +478,7 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
     private sealed class VenueRepositoryThatSavesThenFails(IVenueRepository inner, IUnitOfWork unitOfWork) : IVenueRepository
     {
         public IQueryable<Venue> GetVenues() => inner.GetVenues();
+        public Task<IReadOnlyList<Venue>> GetActiveVenuesAsync(CancellationToken cancellationToken = default) => inner.GetActiveVenuesAsync(cancellationToken);
         public Task<int> CountAsync(CancellationToken cancellationToken = default) => inner.CountAsync(cancellationToken);
         public Task<IReadOnlyList<Venue>> GetPageAsync(int skip, int take, CancellationToken cancellationToken = default) => inner.GetPageAsync(skip, take, cancellationToken);
         public Venue GetVenue(int venueId) => inner.GetVenue(venueId);
