@@ -133,8 +133,15 @@ test class, from the same canonical script. Point it at a local SQL Server **mas
 
 ```powershell
 $env:ATTENDTA_TEST_SQL = "Server=(localdb)\MSSQLLocalDB;Database=master;Trusted_Connection=True;TrustServerCertificate=True"
-dotnet test tests/ASI.Basecode.IntegrationTests/ASI.Basecode.IntegrationTests.csproj
+dotnet build ASI.Basecode.sln
+pwsh "ASI.Basecode.WebApp\bin\Debug\net10.0\playwright.ps1" install chromium
+dotnet tests\ASI.Basecode.IntegrationTests\bin\Debug\net10.0\ASI.Basecode.IntegrationTests.dll -parallelMode none
 ```
 
 The principal in `ATTENDTA_TEST_SQL` must be allowed to create and drop databases on a local
-instance.
+instance. The runner's `-parallelMode none` option serializes test classes because each fixture
+creates its own SQL database. The certificate PDF tracer integration test launches headless
+Chromium through Microsoft.Playwright; the command above installs its matching browser revision.
+CI installs Chromium and its operating-system dependencies from the Release build before running
+the SQL integration suite. The tracer uses only its fixed inline sample, writes the PDF to private
+`certificates/` storage for the response, and deletes it when the response stream is disposed.
