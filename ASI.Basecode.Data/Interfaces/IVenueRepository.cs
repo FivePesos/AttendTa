@@ -1,5 +1,7 @@
 using ASI.Basecode.Data.Models;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace ASI.Basecode.Data.Interfaces
 {
@@ -7,8 +9,8 @@ namespace ASI.Basecode.Data.Interfaces
     {
         IQueryable<Venue> GetVenues();
         Venue GetVenue(int venueId);
-        void AddVenue(Venue venue);
-        void UpdateVenue(Venue venue);
+        Task AddVenueAsync(Venue venue, CancellationToken cancellationToken = default);
+        Task UpdateVenueAsync(Venue venue, CancellationToken cancellationToken = default);
         bool VenueExists(int venueId);
     }
 }

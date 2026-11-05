@@ -1,5 +1,7 @@
 using ASI.Basecode.Services.ServiceModels;
 using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace ASI.Basecode.Services.Interfaces
 {
@@ -7,8 +9,8 @@ namespace ASI.Basecode.Services.Interfaces
     {
         List<EventTypeViewModel> GetEventTypes();
         EventTypeViewModel GetEventType(int id);
-        void AddEventType(EventTypeViewModel model, int actorUserId);
-        void UpdateEventType(EventTypeViewModel model, int actorUserId);
-        void ToggleActive(int id, int actorUserId);
+        Task AddEventTypeAsync(EventTypeViewModel model, int actorUserId, CancellationToken cancellationToken = default);
+        Task UpdateEventTypeAsync(EventTypeViewModel model, int actorUserId, CancellationToken cancellationToken = default);
+        Task ToggleActiveAsync(int id, int actorUserId, CancellationToken cancellationToken = default);
     }
 }

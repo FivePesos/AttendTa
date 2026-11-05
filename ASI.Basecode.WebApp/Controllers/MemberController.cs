@@ -1,3 +1,4 @@
+using ASI.Basecode.Resources;
 using ASI.Basecode.Resources.Constants;
 using ASI.Basecode.Services.Interfaces;
 using ASI.Basecode.Services.ServiceModels;
@@ -8,7 +9,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using System.IO;
+using System.Threading.Tasks;
 
 namespace ASI.Basecode.WebApp.Controllers
 {
@@ -50,7 +51,7 @@ namespace ASI.Basecode.WebApp.Controllers
         }
 
         [HttpPost]
-        public IActionResult Edit(MemberViewModel model)
+        public async Task<IActionResult> Edit(MemberViewModel model)
         {
             if (!ModelState.IsValid)
             {
@@ -59,11 +60,11 @@ namespace ASI.Basecode.WebApp.Controllers
 
             try
             {
-                _memberService.UpdateMember(model, GetActorUserId());
+                await _memberService.UpdateMemberAsync(model, GetActorUserId(), HttpContext.RequestAborted);
                 TempData["SuccessMessage"] = "Member updated successfully.";
                 return RedirectToAction("Index");
             }
-            catch (InvalidDataException ex)
+            catch (DomainException ex)
             {
                 TempData["ErrorMessage"] = ex.Message;
                 return View(model);
@@ -71,14 +72,14 @@ namespace ASI.Basecode.WebApp.Controllers
         }
 
         [HttpPost]
-        public IActionResult ToggleStatus(int id)
+        public async Task<IActionResult> ToggleStatus(int id)
         {
             try
             {
-                _memberService.ToggleStatus(id, GetActorUserId());
+                await _memberService.ToggleStatusAsync(id, GetActorUserId(), HttpContext.RequestAborted);
                 TempData["SuccessMessage"] = "Member status updated.";
             }
-            catch (InvalidDataException ex)
+            catch (DomainException ex)
             {
                 TempData["ErrorMessage"] = ex.Message;
             }
