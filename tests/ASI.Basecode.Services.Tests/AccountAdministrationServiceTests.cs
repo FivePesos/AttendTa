@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using ASI.Basecode.Data.Interfaces;
@@ -122,5 +123,17 @@ public class AccountAdministrationServiceTests
             LastTake = take;
             return Task.FromResult<IReadOnlyList<AccountListItem>>(Records);
         }
+
+        public Task<AccountListItem?> GetAccountAsync(int accountId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(Records.FirstOrDefault(record => record.AccountId == accountId));
+
+        public Task<IReadOnlyList<RoleOption>> GetRolesAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<RoleOption>>([]);
+
+        public Task<int> CountActiveAdministratorsAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(0);
+
+        public Task AcquireLastAdministratorLockAsync(CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
     }
 }

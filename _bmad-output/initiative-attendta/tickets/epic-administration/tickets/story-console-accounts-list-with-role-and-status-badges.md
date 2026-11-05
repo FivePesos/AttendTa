@@ -9,7 +9,8 @@ hitl: false
 risk: low
 tracker_id: "52"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/52"
-tracker_status: backlog
+tracker_status: done
+assignee: "FivePesos"
 ---
 
 # Console accounts list with role and status badges

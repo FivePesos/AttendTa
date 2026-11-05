@@ -30,6 +30,7 @@ else
                     <th scope="col">Email</th>
                     <th scope="col">Role</th>
                     <th scope="col">Status</th>
+                    <th scope="col">Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -40,6 +41,7 @@ else
                         <td>@account.Email</td>
                         <td><span class="badge badge-@account.RoleCode">@account.RoleLabel</span></td>
                         <td><span class="badge @(account.IsActive ? "badge-active" : "badge-inactive")">@(account.IsActive ? "Active" : "Inactive")</span></td>
+                        <td><a asp-action="ChangeRole" asp-route-id="@account.AccountId" class="button button-secondary">Change role</a></td>
                     </tr>
                 }
             </tbody>
