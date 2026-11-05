@@ -2,7 +2,7 @@
 @source "../Views/**/*.cshtml";
 @source "../wwwroot/js/**/*.js";
 /* Dynamic status and shell classes are enumerated so they survive source scanning. */
-@source inline("authenticated public-shell management-header notice-error notice-success");
+@source inline("authenticated public-shell public-wide management-header notice-error notice-success");
 @theme {
   --color-ink-primary: #090d16;
   --color-ink-secondary: #334155;
@@ -45,6 +45,7 @@
   .nav-logout { width: 100%; text-align: left; cursor: pointer; border: 0; background: transparent; }
   .main-content { max-width: 1280px; padding: 2rem 1rem; margin: auto; min-width: 0; }
   .public-shell .main-content { max-width: 448px; }
+  .public-shell.public-wide .main-content { max-width: 576px; }
   .login-card, .panel { background: white; border: 1px solid #e2e8f0; border-radius: 10px; padding: 1.5rem; box-shadow: 0 4px 12px -2px #0f172a0d; }
   .login-card { font-family: "Plus Jakarta Sans", sans-serif; margin-top: 2rem; } .muted { color: #475569; } .login-card .muted { margin-bottom: 1.5rem; }
   .page-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }

@@ -8,7 +8,7 @@ hitl: false
 risk: high
 tracker_id: "10"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/10"
-tracker_status: backlog
+tracker_status: done
 ---
 
 # Canonical database schema update and EF Core mapping for all ten tables with lookup foreign keys

@@ -9,7 +9,8 @@ hitl: true
 risk: high
 tracker_id: "11"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/11"
-tracker_status: backlog
+tracker_status: done
+assignee: "FivePesos"
 ---
 
 # Provisioned administrator logs in by email via Argon2id into authenticated session with active role checks
