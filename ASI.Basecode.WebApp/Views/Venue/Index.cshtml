@@ -16,6 +16,7 @@
             <th>Location</th>
             <th>Availability Notes</th>
             <th>Contact Person</th>
+            <th>Photo</th>
             <th>Status</th>
             <th></th>
         </tr>
@@ -29,6 +30,11 @@
                 <td>@venue.Location</td>
                 <td>@venue.AvailabilityNotes</td>
                 <td>@venue.ContactPerson</td>
+                <td>
+                    <a asp-action="Photo" asp-route-id="@venue.VenueId" target="_blank" rel="noopener">
+                        <img src="@Url.Action("Photo", new { id = venue.VenueId })" alt="Photo of @venue.RoomName" width="96" height="64" class="rounded object-fit-cover" />
+                    </a>
+                </td>
                 <td>@(venue.IsActive ? "Active" : "Inactive")</td>
                 <td class="text-nowrap">
                     <a asp-action="Edit" asp-route-id="@venue.VenueId" class="btn btn-sm btn-outline-primary">Edit</a>

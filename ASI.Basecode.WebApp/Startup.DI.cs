@@ -43,8 +43,8 @@ namespace ASI.Basecode.WebApp
             this._services.AddScoped<IEventTypeRepository, EventTypeRepository>();
             this._services.AddScoped<IVenueRepository, VenueRepository>();
 
-            // Local, private venue-photo storage.
-            this._services.AddScoped<IVenueImageStorage, VenueImageStorage>();
+            // Shared server-local storage for private images, certificates and renderer files.
+            this._services.AddScoped<IPrivateFileStore, PrivateFileStore>();
 
             // Current request actor for service-layer authorization and audit.
             this._services.AddScoped<ICurrentActor, HttpCurrentActor>();

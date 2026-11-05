@@ -103,6 +103,29 @@ email, not username.
 Data Protection keys are stored under `<Common:SetupRoot>/keys` so cookies survive restarts.
 Deleting that folder signs every user out.
 
+## Existing venue photo paths
+
+The older app stored venue keys as `venues/<name>` relative to `<Common:SetupRoot>/uploads`.
+The shared private store reads `uploads/venues/<name>` relative to `<Common:SetupRoot>`; the
+physical photos stay in the same directory. Fresh databases already use the new path form.
+
+For an existing local database, schedule a brief app outage and follow this order so no running
+version reads keys using the wrong root:
+
+1. Stop the app version that still uses the venue-only store.
+2. Back up the intended local database and `<Common:SetupRoot>/uploads` together.
+3. Run the migration against the disposable local `AttendTaMVP_Test` database:
+
+   ```powershell
+   sqlcmd -S "(localdb)\MSSQLLocalDB" -E -b -d "AttendTaMVP_Test" -i "database\migrate-venue-image-paths.sql"
+   ```
+
+4. Deploy and start the version that reads `uploads/venues/<name>` from `Common:SetupRoot`.
+
+The script is idempotent and does not move files. It checks every legacy key against the 500-character
+column limit before updating any row. If a key would be too long, it prints the affected venue IDs and
+stops with all paths unchanged. Do not run it against `AsiBasecodeDB`, shared databases, or production.
+
 ## Integration tests
 
 The integration test project creates and drops its own `AttendTa_IT_<guid>` database for each
