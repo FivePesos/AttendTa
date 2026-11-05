@@ -28,6 +28,6 @@
 <div class="field">
     <label for="photo" class="field-label">Venue photo</label>
     <input id="photo" name="photo" aria-describedby="photo-help photo-validation" type="file" accept="image/png,image/jpeg" class="field-control" />
-    <small id="photo-help" class="muted">A JPEG or PNG photo is required when creating a venue. Select a new photo to replace the existing one.</small>
+    <small id="photo-help" class="muted">A JPEG or PNG photo up to 2 MiB is required when creating a venue. Select a new photo to replace the existing one.</small>
     @Html.ValidationMessage("photo", null, new { id = "photo-validation", @class = "field-error" })
 </div>

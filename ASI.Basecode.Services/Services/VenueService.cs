@@ -1,14 +1,17 @@
 using ASI.Basecode.Data.Interfaces;
 using ASI.Basecode.Data.Models;
 using ASI.Basecode.Resources;
+using ASI.Basecode.Resources.Constants;
 using ASI.Basecode.Services.Interfaces;
 using ASI.Basecode.Services.ServiceModels;
 using AutoMapper;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 
 namespace ASI.Basecode.Services.Services
 {
@@ -16,13 +19,23 @@ namespace ASI.Basecode.Services.Services
     {
         private readonly IVenueRepository _repository;
         private readonly IUnitOfWork _unitOfWork;
+        private readonly TimeProvider _timeProvider;
         private readonly IMapper _mapper;
+        private readonly IPrivateFileStore _files;
+        private readonly IActivityLogWriter _audit;
+        private readonly ICurrentActor _actor;
+        private readonly ILogger<VenueService> _logger;
 
-        public VenueService(IVenueRepository repository, IUnitOfWork unitOfWork, IMapper mapper)
+        public VenueService(IVenueRepository repository, IUnitOfWork unitOfWork, IMapper mapper, TimeProvider timeProvider, IPrivateFileStore files, IActivityLogWriter audit, ICurrentActor actor, ILogger<VenueService> logger)
         {
             _repository = repository;
             _unitOfWork = unitOfWork;
+            _timeProvider = timeProvider;
             _mapper = mapper;
+            _files = files;
+            _audit = audit;
+            _actor = actor;
+            _logger = logger;
         }
 
         public List<VenueViewModel> GetVenues()
@@ -37,66 +50,88 @@ namespace ASI.Basecode.Services.Services
             return venue == null ? null : _mapper.Map<VenueViewModel>(venue);
         }
 
-        public async Task AddVenueAsync(VenueViewModel model, int actorUserId, CancellationToken cancellationToken = default)
+        private sealed record VenueAuditValues(string RoomName, int Capacity, string Location, string AvailabilityNotes, string ContactPerson, bool PhotoChanged) : IAuditValues;
+
+        private static VenueAuditValues Snapshot(Venue venue, bool photoChanged) =>
+            new(venue.RoomName, venue.Capacity, venue.Location, venue.AvailabilityNotes, venue.ContactPerson, photoChanged);
+
+        private static bool IsVenuePhoto(string key) =>
+            !string.IsNullOrWhiteSpace(key) && key.StartsWith("uploads/venues/", StringComparison.Ordinal) &&
+            key.Length > "uploads/venues/".Length && key.IndexOfAny(new[] { '/', '\\' }, "uploads/venues/".Length) < 0 &&
+            key != "uploads/venues/..";
+
+        private void ValidateWrite(VenueViewModel model, int actorUserId)
         {
-            if (actorUserId <= 0)
-            {
-                throw new DomainException(OutcomeCode.Forbidden, "A valid authenticated user is required to create a venue.");
-            }
-
-            if (string.IsNullOrWhiteSpace(model.ImagePath))
-            {
-                throw new DomainException(OutcomeCode.Invalid, "A venue photo is required.", nameof(VenueViewModel.ImagePath));
-            }
-
-            await _unitOfWork.ExecuteInTransactionAsync(async ct =>
-            {
-                var venue = new Venue();
-                venue.RoomName = model.RoomName?.Trim();
-                venue.Capacity = model.Capacity;
-                venue.Location = model.Location;
-                venue.AvailabilityNotes = model.AvailabilityNotes;
-                venue.ContactPerson = model.ContactPerson;
-                venue.ImagePath = model.ImagePath;
-                venue.IsActive = true;
-                venue.CreatedBy = actorUserId;
-                venue.CreatedAt = DateTime.UtcNow;
-                await _repository.AddVenueAsync(venue, ct);
-                await _unitOfWork.SaveChangesAsync(ct);
-            }, cancellationToken);
+            if (!_actor.IsAuthenticated || actorUserId <= 0 || _actor.UserId != actorUserId)
+                throw new DomainException(OutcomeCode.Forbidden, "A valid authenticated user is required.");
+            if (model.Capacity <= 0)
+                throw new DomainException(OutcomeCode.Invalid, "Capacity must be greater than 0.", nameof(VenueViewModel.Capacity));
+            if (_unitOfWork.Database.Database.CurrentTransaction != null || System.Transactions.Transaction.Current != null)
+                throw new InvalidOperationException("Venue writes require ownership of the transaction.");
         }
 
-        public async Task UpdateVenueAsync(VenueViewModel model, int actorUserId, CancellationToken cancellationToken = default)
+        private void DeleteBestEffort(string key)
         {
-            if (actorUserId <= 0)
-            {
-                throw new DomainException(OutcomeCode.Forbidden, "A valid authenticated user is required to update a venue.");
-            }
+            if (string.IsNullOrWhiteSpace(key)) return;
+            try { _files.Delete(key); }
+            catch (Exception) { _logger.LogWarning("Could not clean up a venue photo."); }
+        }
 
-            if (string.IsNullOrWhiteSpace(model.ImagePath))
+        public async Task AddVenueAsync(VenueViewModel model, int actorUserId, Stream photo, string extension, CancellationToken cancellationToken = default)
+        {
+            ValidateWrite(model, actorUserId);
+            if (photo == null) throw new DomainException(OutcomeCode.Invalid, "A venue photo is required.", "photo");
+            string newPath = null;
+            try
             {
-                throw new DomainException(OutcomeCode.Invalid, "A venue photo is required.", nameof(VenueViewModel.ImagePath));
-            }
-
-            await _unitOfWork.ExecuteInTransactionAsync(async ct =>
-            {
-                var venue = _repository.GetVenue(model.VenueId);
-                if (venue == null)
+                newPath = await _files.SaveAsync(PrivateFileArea.VenueImages, photo, extension, cancellationToken);
+                await _unitOfWork.ExecuteInTransactionAsync(async ct =>
                 {
-                    throw new DomainException(OutcomeCode.NotFound, "Venue not found.");
-                }
+                    var venue = new Venue { RoomName = model.RoomName?.Trim(), Capacity = model.Capacity, Location = model.Location,
+                        AvailabilityNotes = model.AvailabilityNotes, ContactPerson = model.ContactPerson, ImagePath = newPath,
+                        IsActive = true, CreatedBy = actorUserId, CreatedAt = _timeProvider.GetUtcNow().UtcDateTime };
+                    await _repository.AddVenueAsync(venue, ct);
+                    await _unitOfWork.SaveChangesAsync(ct);
+                    _audit.Append(new AuditEntry(AuditActions.VenueCreated, "venues", venue.VenueId, NewValues: Snapshot(venue, true)));
+                    await _unitOfWork.SaveChangesAsync(ct);
+                }, cancellationToken);
+            }
+            catch { DeleteBestEffort(newPath); throw; }
+        }
 
-                venue.RoomName = model.RoomName?.Trim();
-                venue.Capacity = model.Capacity;
-                venue.Location = model.Location;
-                venue.AvailabilityNotes = model.AvailabilityNotes;
-                venue.ContactPerson = model.ContactPerson;
-                venue.ImagePath = model.ImagePath;
-                venue.UpdatedBy = actorUserId;
-                venue.UpdatedAt = DateTime.UtcNow;
-                await _repository.UpdateVenueAsync(venue, ct);
-                await _unitOfWork.SaveChangesAsync(ct);
-            }, cancellationToken);
+        public async Task UpdateVenueAsync(VenueViewModel model, int actorUserId, Stream photo, string extension, CancellationToken cancellationToken = default)
+        {
+            ValidateWrite(model, actorUserId);
+            string newPath = null;
+            string oldPath = null;
+            try
+            {
+                if (photo != null) newPath = await _files.SaveAsync(PrivateFileArea.VenueImages, photo, extension, cancellationToken);
+                await _unitOfWork.ExecuteInTransactionAsync(async ct =>
+                {
+                    var venue = await _repository.LockVenueAsync(model.VenueId, ct);
+                    if (venue == null) throw new DomainException(OutcomeCode.NotFound, "Venue not found.");
+                    if (await _repository.HasEventAboveCapacityAsync(venue.VenueId, model.Capacity, ct))
+                        throw new DomainException(OutcomeCode.Invalid, "Capacity cannot be below the participant limit of a draft or published event.", nameof(VenueViewModel.Capacity));
+                    oldPath = venue.ImagePath;
+                    if (!IsVenuePhoto(oldPath) && newPath == null)
+                        throw new DomainException(OutcomeCode.Invalid, "A venue photo is required.", "photo");
+                    var oldValues = Snapshot(venue, newPath != null);
+                    venue.RoomName = model.RoomName?.Trim();
+                    venue.Capacity = model.Capacity;
+                    venue.Location = model.Location;
+                    venue.AvailabilityNotes = model.AvailabilityNotes;
+                    venue.ContactPerson = model.ContactPerson;
+                    if (newPath != null) venue.ImagePath = newPath;
+                    venue.UpdatedBy = actorUserId;
+                    venue.UpdatedAt = _timeProvider.GetUtcNow().UtcDateTime;
+                    await _repository.UpdateVenueAsync(venue, ct);
+                    _audit.Append(new AuditEntry(AuditActions.VenueEdited, "venues", venue.VenueId, OldValues: oldValues, NewValues: Snapshot(venue, newPath != null)));
+                    await _unitOfWork.SaveChangesAsync(ct);
+                }, cancellationToken);
+            }
+            catch { DeleteBestEffort(newPath); throw; }
+            if (newPath != null && IsVenuePhoto(oldPath) && !string.Equals(oldPath, newPath, StringComparison.OrdinalIgnoreCase)) DeleteBestEffort(oldPath);
         }
 
         public async Task ToggleActiveAsync(int id, int actorUserId, CancellationToken cancellationToken = default)
@@ -108,7 +143,7 @@ namespace ASI.Basecode.Services.Services
 
             await _unitOfWork.ExecuteInTransactionAsync(async ct =>
             {
-                var venue = _repository.GetVenue(id);
+                var venue = await _repository.LockVenueAsync(id, ct);
                 if (venue == null)
                 {
                     throw new DomainException(OutcomeCode.NotFound, "Venue not found.");
@@ -116,7 +151,7 @@ namespace ASI.Basecode.Services.Services
 
                 venue.IsActive = !venue.IsActive;
                 venue.UpdatedBy = actorUserId;
-                venue.UpdatedAt = DateTime.UtcNow;
+                venue.UpdatedAt = _timeProvider.GetUtcNow().UtcDateTime;
                 await _repository.UpdateVenueAsync(venue, ct);
                 await _unitOfWork.SaveChangesAsync(ct);
             }, cancellationToken);

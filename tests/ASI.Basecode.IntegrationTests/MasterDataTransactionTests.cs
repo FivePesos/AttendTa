@@ -35,6 +35,20 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
 
     private AsiBasecodeDBContext Context() => new(new DbContextOptionsBuilder<AsiBasecodeDBContext>().UseSqlServer(fixture.ConnectionString).Options);
 
+    private static VenueService VenueWriter(IVenueRepository repository, UnitOfWork work, int actorId, RecordingVenueImageStorage storage = null)
+    {
+        var actor = new TestActor(actorId);
+        return new VenueService(repository, work, Mapper, TimeProvider.System, storage ?? new RecordingVenueImageStorage("uploads/venues/test.jpg"),
+            new ActivityLogWriter((AsiBasecodeDBContext)work.Database, actor, TimeProvider.System), actor, NullLogger<VenueService>.Instance);
+    }
+
+    private sealed class TestActor(int id) : ICurrentActor
+    {
+        public bool IsAuthenticated => true;
+        public int UserId => id;
+        public string Role => "admin";
+    }
+
     private static string UniqueName(string prefix) => $"{prefix}-{Guid.NewGuid():N}";
 
     private static User NewUser() => new()
@@ -94,7 +108,7 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
         await using var observer = Context();
         var unitOfWork = new UnitOfWork(writer);
         var actorId = await SeedUserAsync(ct);
-        var service = new EventTypeService(new EventTypeRepositoryThatSavesThenFails(new EventTypeRepository(unitOfWork), unitOfWork), unitOfWork, Mapper);
+        var service = new EventTypeService(new EventTypeRepositoryThatSavesThenFails(new EventTypeRepository(unitOfWork), unitOfWork), unitOfWork, Mapper, TimeProvider.System);
         var name = UniqueName("Type");
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => service.AddEventTypeAsync(EventTypeModel(name), actorId, ct));
@@ -111,7 +125,7 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
         await using var observer = Context();
         var unitOfWork = new UnitOfWork(writer);
         var actorId = await SeedUserAsync(ct);
-        var service = new EventTypeService(new EventTypeRepository(unitOfWork), unitOfWork, Mapper);
+        var service = new EventTypeService(new EventTypeRepository(unitOfWork), unitOfWork, Mapper, TimeProvider.System);
         var name = UniqueName("Type");
 
         await service.AddEventTypeAsync(EventTypeModel(name), actorId, ct);
@@ -127,7 +141,7 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
         await using var observer = Context();
         var unitOfWork = new UnitOfWork(writer);
         var actorId = await SeedUserAsync(ct);
-        var service = new EventTypeService(new EventTypeRepository(unitOfWork), unitOfWork, Mapper);
+        var service = new EventTypeService(new EventTypeRepository(unitOfWork), unitOfWork, Mapper, TimeProvider.System);
         var name = UniqueName("Type");
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => unitOfWork.ExecuteInTransactionAsync(async inner =>
@@ -147,10 +161,10 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
         await using var observer = Context();
         var unitOfWork = new UnitOfWork(writer);
         var actorId = await SeedUserAsync(ct);
-        var service = new VenueService(new VenueRepositoryThatSavesThenFails(new VenueRepository(unitOfWork), unitOfWork), unitOfWork, Mapper);
+        var service = VenueWriter(new VenueRepositoryThatSavesThenFails(new VenueRepository(unitOfWork), unitOfWork), unitOfWork, actorId);
         var roomName = UniqueName("Room");
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => service.AddVenueAsync(VenueModel(roomName), actorId, ct));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.AddVenueAsync(VenueModel(roomName), actorId, new MemoryStream(), ".jpg", ct));
 
         Assert.Empty(writer.ChangeTracker.Entries());
         Assert.False(await observer.Venues.AnyAsync(v => v.RoomName == roomName, ct));
@@ -164,32 +178,71 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
         await using var observer = Context();
         var unitOfWork = new UnitOfWork(writer);
         var actorId = await SeedUserAsync(ct);
-        var service = new VenueService(new VenueRepository(unitOfWork), unitOfWork, Mapper);
+        var service = VenueWriter(new VenueRepository(unitOfWork), unitOfWork, actorId);
         var roomName = UniqueName("Room");
 
-        await service.AddVenueAsync(VenueModel(roomName), actorId, ct);
+        await service.AddVenueAsync(VenueModel(roomName), actorId, new MemoryStream(), ".jpg", ct);
 
         Assert.True(await observer.Venues.AnyAsync(v => v.RoomName == roomName, ct));
+        var venue = await observer.Venues.SingleAsync(v => v.RoomName == roomName, ct);
+        var audit = await observer.ActivityLogs.SingleAsync(a => a.EntityType == "venues" && a.EntityId == venue.VenueId, ct);
+        Assert.DoesNotContain("uploads/", audit.NewValues, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
-    public async Task VenueWriteJoinsAnOuterTransactionThatRollsBack()
+    public async Task VenueCapacityChecksOnlyActiveEventLimitsAndPreservesPhoto()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var actorId = await SeedUserAsync(ct);
+        await using var writer = Context();
+        var unit = new UnitOfWork(writer);
+        var service = VenueWriter(new VenueRepository(unit), unit, actorId);
+        var type = new EventType { TypeName = UniqueName("Event"), Description = "test", IsActive = true, CreatedBy = actorId, CreatedAt = DateTime.UtcNow };
+        var venue = new Venue { RoomName = UniqueName("Room"), Capacity = 40, ImagePath = "uploads/venues/old.jpg", IsActive = true, CreatedBy = actorId, CreatedAt = DateTime.UtcNow };
+        writer.EventTypes.Add(type);
+        writer.Venues.Add(venue);
+        await writer.SaveChangesAsync(ct);
+        writer.Set<Event>().Add(new Event { Title = "Published", TypeId = type.TypeId, VenueId = venue.VenueId, StartsAt = DateTime.UtcNow.AddDays(2), RegistrationDeadline = DateTime.UtcNow.AddDays(1), ParticipantLimit = 30, EventStatusId = EventStatusCode.Published, CreatedBy = actorId, CreatedAt = DateTime.UtcNow });
+        writer.Set<Event>().Add(new Event { Title = "Cancelled", TypeId = type.TypeId, VenueId = venue.VenueId, StartsAt = DateTime.UtcNow.AddDays(2), RegistrationDeadline = DateTime.UtcNow.AddDays(1), ParticipantLimit = 50, EventStatusId = EventStatusCode.Cancelled, CreatedBy = actorId, CreatedAt = DateTime.UtcNow });
+        writer.Set<Event>().Add(new Event { Title = "Completed", TypeId = type.TypeId, VenueId = venue.VenueId, StartsAt = DateTime.UtcNow.AddDays(2), RegistrationDeadline = DateTime.UtcNow.AddDays(1), ParticipantLimit = 60, EventStatusId = EventStatusCode.Completed, CreatedBy = actorId, CreatedAt = DateTime.UtcNow });
+        await writer.SaveChangesAsync(ct);
+        var model = new VenueViewModel { VenueId = venue.VenueId, RoomName = venue.RoomName, Capacity = 29 };
+        var error = await Assert.ThrowsAsync<DomainException>(() => service.UpdateVenueAsync(model, actorId, null, null, ct));
+        Assert.Equal(OutcomeCode.Invalid, error.Outcome);
+        Assert.Equal(nameof(VenueViewModel.Capacity), error.Field);
+        await using var observer = Context();
+        Assert.Equal(40, (await observer.Venues.AsNoTracking().SingleAsync(v => v.VenueId == venue.VenueId, ct)).Capacity);
+        Assert.False(await observer.ActivityLogs.AnyAsync(a => a.EntityType == "venues" && a.EntityId == venue.VenueId, ct));
+        model.Capacity = 30;
+        await service.UpdateVenueAsync(model, actorId, null, null, ct);
+        var updated = await observer.Venues.AsNoTracking().SingleAsync(v => v.VenueId == venue.VenueId, ct);
+        Assert.Equal(30, updated.Capacity);
+        Assert.Equal("uploads/venues/old.jpg", updated.ImagePath);
+        var log = await observer.ActivityLogs.SingleAsync(a => a.EntityType == "venues" && a.EntityId == venue.VenueId, ct);
+        Assert.DoesNotContain("uploads/", log.NewValues, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("uploads/", log.OldValues, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task VenueWriteRejectsAnOuterTransaction()
     {
         var ct = TestContext.Current.CancellationToken;
         await using var writer = Context();
         await using var observer = Context();
         var unitOfWork = new UnitOfWork(writer);
         var actorId = await SeedUserAsync(ct);
-        var service = new VenueService(new VenueRepository(unitOfWork), unitOfWork, Mapper);
+        var storage = new RecordingVenueImageStorage("uploads/venues/test.jpg");
+        var service = VenueWriter(new VenueRepository(unitOfWork), unitOfWork, actorId, storage);
         var roomName = UniqueName("Room");
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => unitOfWork.ExecuteInTransactionAsync(async inner =>
         {
-            await service.AddVenueAsync(VenueModel(roomName), actorId, inner);
+            await service.AddVenueAsync(VenueModel(roomName), actorId, new MemoryStream(), ".jpg", inner);
             throw new InvalidOperationException("The outer work failed.");
         }, ct));
 
         Assert.False(await observer.Venues.AnyAsync(v => v.RoomName == roomName, ct));
+        Assert.Equal(0, storage.Saves);
     }
 
     [Fact]
@@ -200,7 +253,7 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
         await using var observer = Context();
         var unitOfWork = new UnitOfWork(writer);
         var (actorId, linkedUserId) = await SeedUsersAsync(ct);
-        var service = new MemberService(new MemberRepositoryThatSavesThenFails(new MemberRepository(unitOfWork), unitOfWork), unitOfWork, new TestCurrentActor(actorId));
+        var service = new MemberService(new MemberRepositoryThatSavesThenFails(new MemberRepository(unitOfWork), unitOfWork), unitOfWork, TimeProvider.System, new TestCurrentActor(actorId));
         var studentNumber = UniqueName("SN");
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => service.CreateMemberFromApprovedAccountRequestAsync(linkedUserId, MemberModel(studentNumber), actorId, ct));
@@ -217,7 +270,7 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
         await using var observer = Context();
         var unitOfWork = new UnitOfWork(writer);
         var (actorId, linkedUserId) = await SeedUsersAsync(ct);
-        var service = new MemberService(new MemberRepository(unitOfWork), unitOfWork, new TestCurrentActor(actorId));
+        var service = new MemberService(new MemberRepository(unitOfWork), unitOfWork, TimeProvider.System, new TestCurrentActor(actorId));
         var studentNumber = UniqueName("SN");
 
         await service.CreateMemberFromApprovedAccountRequestAsync(linkedUserId, MemberModel(studentNumber), actorId, ct);
@@ -233,7 +286,7 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
         await using var observer = Context();
         var unitOfWork = new UnitOfWork(writer);
         var (actorId, linkedUserId) = await SeedUsersAsync(ct);
-        var service = new MemberService(new MemberRepository(unitOfWork), unitOfWork, new TestCurrentActor(actorId));
+        var service = new MemberService(new MemberRepository(unitOfWork), unitOfWork, TimeProvider.System, new TestCurrentActor(actorId));
         var studentNumber = UniqueName("SN");
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => unitOfWork.ExecuteInTransactionAsync(async inner =>
@@ -253,7 +306,7 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
         await using var observer = Context();
         var unitOfWork = new UnitOfWork(writer);
         var actorId = await SeedUserAsync(ct);
-        var service = new EventTypeService(new EventTypeRepository(unitOfWork), unitOfWork, Mapper);
+        var service = new EventTypeService(new EventTypeRepository(unitOfWork), unitOfWork, Mapper, TimeProvider.System);
         var name = UniqueName("Type");
 
         Assert.Equal(OutcomeCode.Forbidden, (await Assert.ThrowsAsync<DomainException>(() => service.AddEventTypeAsync(EventTypeModel(name), 0, ct))).Outcome);
@@ -277,14 +330,14 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
         await using var observer = Context();
         var unitOfWork = new UnitOfWork(writer);
         var actorId = await SeedUserAsync(ct);
-        var service = new VenueService(new VenueRepository(unitOfWork), unitOfWork, Mapper);
+        var service = VenueWriter(new VenueRepository(unitOfWork), unitOfWork, actorId);
         var roomName = UniqueName("Room");
 
-        Assert.Equal(OutcomeCode.Forbidden, (await Assert.ThrowsAsync<DomainException>(() => service.AddVenueAsync(VenueModel(roomName), 0, ct))).Outcome);
-        var missingPhoto = await Assert.ThrowsAsync<DomainException>(() => service.AddVenueAsync(VenueModel(roomName, "  "), actorId, ct));
+        Assert.Equal(OutcomeCode.Forbidden, (await Assert.ThrowsAsync<DomainException>(() => service.AddVenueAsync(VenueModel(roomName), 0, null, null, ct))).Outcome);
+        var missingPhoto = await Assert.ThrowsAsync<DomainException>(() => service.AddVenueAsync(VenueModel(roomName, "  "), actorId, null, null, ct));
         Assert.Equal(OutcomeCode.Invalid, missingPhoto.Outcome);
-        Assert.Equal(nameof(VenueViewModel.ImagePath), missingPhoto.Field);
-        Assert.Equal(OutcomeCode.NotFound, (await Assert.ThrowsAsync<DomainException>(() => service.UpdateVenueAsync(new VenueViewModel { VenueId = int.MaxValue, RoomName = roomName, Capacity = 20, ImagePath = "venues/test.jpg" }, actorId, ct))).Outcome);
+        Assert.Equal("photo", missingPhoto.Field);
+        Assert.Equal(OutcomeCode.NotFound, (await Assert.ThrowsAsync<DomainException>(() => service.UpdateVenueAsync(new VenueViewModel { VenueId = int.MaxValue, RoomName = roomName, Capacity = 20, ImagePath = "venues/test.jpg" }, actorId, null, null, ct))).Outcome);
         Assert.Equal(OutcomeCode.NotFound, (await Assert.ThrowsAsync<DomainException>(() => service.ToggleActiveAsync(int.MaxValue, actorId, ct))).Outcome);
         Assert.False(await observer.Venues.AnyAsync(v => v.RoomName == roomName, ct));
     }
@@ -297,7 +350,7 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
         await using var observer = Context();
         var unitOfWork = new UnitOfWork(writer);
         var (actorId, linkedUserId) = await SeedUsersAsync(ct);
-        var service = new MemberService(new MemberRepository(unitOfWork), unitOfWork, new TestCurrentActor(actorId));
+        var service = new MemberService(new MemberRepository(unitOfWork), unitOfWork, TimeProvider.System, new TestCurrentActor(actorId));
         var studentNumber = UniqueName("SN");
 
         Assert.Equal(OutcomeCode.Forbidden, (await Assert.ThrowsAsync<DomainException>(() => service.CreateMemberFromApprovedAccountRequestAsync(linkedUserId, MemberModel(studentNumber), 0, ct))).Outcome);
@@ -317,32 +370,7 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
     }
 
     [Fact]
-    public async Task VenueImageStorageRefusesBadPhotosWithFileFailure()
-    {
-        var root = Path.Combine(Path.GetTempPath(), "attendta-master-data", Guid.NewGuid().ToString("N"));
-        var webRoot = Path.Combine(root, "wwwroot");
-        Directory.CreateDirectory(root);
-        Directory.CreateDirectory(webRoot);
-        try
-        {
-            var configuration = new ConfigurationBuilder()
-                .AddInMemoryCollection(new Dictionary<string, string?> { ["Common:SetupRoot"] = root })
-                .Build();
-            var storage = new VenueImageStorage(configuration, new TestWebHostEnvironment(webRoot));
-
-            Assert.Equal(OutcomeCode.FileFailure, (await Assert.ThrowsAsync<DomainException>(() => storage.SaveAsync(null!))).Outcome);
-            Assert.Equal(OutcomeCode.FileFailure, (await Assert.ThrowsAsync<DomainException>(() => storage.SaveAsync(Photo("photo.gif", [0x47, 0x49, 0x46, 0x38])))).Outcome);
-            Assert.Equal(OutcomeCode.FileFailure, (await Assert.ThrowsAsync<DomainException>(() => storage.SaveAsync(Photo("photo.png", [0xFF, 0xD8, 0xFF])))).Outcome);
-            Assert.False(Directory.Exists(Path.Combine(root, "uploads")));
-        }
-        finally
-        {
-            Directory.Delete(root, recursive: true);
-        }
-    }
-
-    [Fact]
-    public async Task VenueCreateCleansUpTheSavedImageWhenTheServiceRefuses()
+    public async Task VenueCreateLeavesPhotoHandlingToTheService()
     {
         var httpContext = new DefaultHttpContext
         {
@@ -364,17 +392,25 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
         var result = await controller.Create(VenueModel("Room"), Photo("photo.png", [0x89, 0x50, 0x4E, 0x47]));
 
         Assert.IsType<ViewResult>(result);
-        Assert.Equal("venues/saved.jpg", Assert.Single(storage.Deleted));
+        Assert.Empty(storage.Deleted);
+        Assert.Equal(0, storage.Saves);
         Assert.Equal("Refused.", controller.TempData["ErrorMessage"]);
     }
 
     private static IFormFile Photo(string fileName, byte[] content) => new FormFile(new MemoryStream(content), 0, content.Length, "photo", fileName);
 
-    private sealed class RecordingVenueImageStorage(string savedPath) : IVenueImageStorage
+    private sealed class RecordingVenueImageStorage(string savedPath) : IPrivateFileStore
     {
         public List<string> Deleted { get; } = [];
+        public int Saves { get; private set; }
 
-        public Task<string> SaveAsync(IFormFile image) => Task.FromResult(savedPath);
+        public Task<string> SaveAsync(PrivateFileArea area, Stream content, string extension, CancellationToken cancellationToken = default) { Saves++; return Task.FromResult(savedPath); }
+
+        public string CreateTemporaryPath(string extension) => throw new NotSupportedException();
+
+        public Task<string> PromoteAsync(string temporaryPath, PrivateFileArea area, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+        public Task<Stream> OpenReadAsync(string relativePath, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
         public void Delete(string relativePath) => Deleted.Add(relativePath);
     }
@@ -385,10 +421,10 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
 
         public VenueViewModel GetVenue(int id) => null!;
 
-        public Task AddVenueAsync(VenueViewModel model, int actorUserId, CancellationToken cancellationToken = default) =>
+        public Task AddVenueAsync(VenueViewModel model, int actorUserId, Stream photo, string extension, CancellationToken cancellationToken = default) =>
             throw new DomainException(OutcomeCode.Invalid, "Refused.");
 
-        public Task UpdateVenueAsync(VenueViewModel model, int actorUserId, CancellationToken cancellationToken = default) =>
+        public Task UpdateVenueAsync(VenueViewModel model, int actorUserId, Stream photo, string extension, CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
 
         public Task ToggleActiveAsync(int id, int actorUserId, CancellationToken cancellationToken = default) =>
@@ -410,17 +446,6 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
         public int UserId => userId;
         public string Role => "admin";
     }
-
-    private sealed class TestWebHostEnvironment(string webRoot) : IWebHostEnvironment
-    {
-        public string ApplicationName { get; set; } = "ASI.Basecode.IntegrationTests";
-        public IFileProvider WebRootFileProvider { get; set; } = new NullFileProvider();
-        public string WebRootPath { get; set; } = webRoot;
-        public string EnvironmentName { get; set; } = "Development";
-        public string ContentRootPath { get; set; } = webRoot;
-        public IFileProvider ContentRootFileProvider { get; set; } = new NullFileProvider();
-    }
-
     private sealed class EventTypeRepositoryThatSavesThenFails(IEventTypeRepository inner, IUnitOfWork unitOfWork) : IEventTypeRepository
     {
         public IQueryable<EventType> GetEventTypes() => inner.GetEventTypes();
@@ -441,6 +466,8 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
     {
         public IQueryable<Venue> GetVenues() => inner.GetVenues();
         public Venue GetVenue(int venueId) => inner.GetVenue(venueId);
+        public Task<Venue> LockVenueAsync(int venueId, CancellationToken cancellationToken = default) => inner.LockVenueAsync(venueId, cancellationToken);
+        public Task<bool> HasEventAboveCapacityAsync(int venueId, int capacity, CancellationToken cancellationToken = default) => inner.HasEventAboveCapacityAsync(venueId, capacity, cancellationToken);
         public bool VenueExists(int venueId) => inner.VenueExists(venueId);
         public Task UpdateVenueAsync(Venue venue, CancellationToken cancellationToken = default) => inner.UpdateVenueAsync(venue, cancellationToken);
 

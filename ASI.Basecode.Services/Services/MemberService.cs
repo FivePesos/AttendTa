@@ -16,12 +16,14 @@ namespace ASI.Basecode.Services.Services
     {
         private readonly IMemberRepository _repository;
         private readonly IUnitOfWork _unitOfWork;
+        private readonly TimeProvider _timeProvider;
         private readonly ICurrentActor _currentActor;
 
-        public MemberService(IMemberRepository repository, IUnitOfWork unitOfWork, ICurrentActor currentActor)
+        public MemberService(IMemberRepository repository, IUnitOfWork unitOfWork, TimeProvider timeProvider, ICurrentActor currentActor)
         {
             _repository = repository;
             _unitOfWork = unitOfWork;
+            _timeProvider = timeProvider;
             _currentActor = currentActor;
         }
 
@@ -98,7 +100,7 @@ namespace ASI.Basecode.Services.Services
                     MembershipType = model.MembershipType,
                     Status = "active",
                     CreatedBy = actorUserId,
-                    CreatedAt = DateTime.UtcNow
+                    CreatedAt = _timeProvider.GetUtcNow().UtcDateTime
                 };
 
                 await _repository.AddMemberAsync(member, ct);
@@ -134,7 +136,7 @@ namespace ASI.Basecode.Services.Services
                 member.MembershipType = model.MembershipType;
                 member.Status = model.Status;
                 member.UpdatedBy = actorUserId;
-                member.UpdatedAt = DateTime.UtcNow;
+                member.UpdatedAt = _timeProvider.GetUtcNow().UtcDateTime;
                 await _repository.UpdateMemberAsync(member, ct);
                 await _unitOfWork.SaveChangesAsync(ct);
             }, cancellationToken);
@@ -157,7 +159,7 @@ namespace ASI.Basecode.Services.Services
 
                 member.Status = (member.Status ?? "active") == "active" ? "inactive" : "active";
                 member.UpdatedBy = actorUserId;
-                member.UpdatedAt = DateTime.UtcNow;
+                member.UpdatedAt = _timeProvider.GetUtcNow().UtcDateTime;
                 await _repository.UpdateMemberAsync(member, ct);
                 await _unitOfWork.SaveChangesAsync(ct);
             }, cancellationToken);

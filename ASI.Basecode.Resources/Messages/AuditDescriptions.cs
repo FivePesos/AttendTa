@@ -10,6 +10,8 @@ public static class AuditDescriptions
     public static string ForAction(string action) => action switch
     {
         AuditActions.AccountRequestApproved => Templates.GetString("AccountRequestApproved") ?? throw new InvalidOperationException("Missing audit template."),
+        AuditActions.VenueCreated => Templates.GetString("VenueCreated") ?? throw new InvalidOperationException("Missing audit template."),
+        AuditActions.VenueEdited => Templates.GetString("VenueEdited") ?? throw new InvalidOperationException("Missing audit template."),
         _ => throw new ArgumentException("Unsupported audit action.", nameof(action))
     };
 }

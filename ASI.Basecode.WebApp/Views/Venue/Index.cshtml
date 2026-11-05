@@ -17,6 +17,7 @@
             <th scope="col">Location</th>
             <th scope="col">Availability Notes</th>
             <th scope="col">Contact Person</th>
+            <th scope="col">Photo</th>
             <th scope="col">Status</th>
             <th scope="col">Actions</th>
         </tr>
@@ -30,6 +31,11 @@
                 <td>@venue.Location</td>
                 <td>@venue.AvailabilityNotes</td>
                 <td>@venue.ContactPerson</td>
+                <td>
+                    <a asp-action="Photo" asp-route-id="@venue.VenueId" target="_blank" rel="noopener">
+                        <img src="@Url.Action("Photo", new { id = venue.VenueId })" alt="Photo of @venue.RoomName" width="96" height="64" class="rounded object-fit-cover" />
+                    </a>
+                </td>
                 <td>@(venue.IsActive ? "Active" : "Inactive")</td>
                 <td class="actions">
                     <a asp-action="Edit" asp-route-id="@venue.VenueId" class="button button-secondary">Edit</a>
