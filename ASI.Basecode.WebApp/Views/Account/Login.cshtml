@@ -10,5 +10,6 @@
         <div class="field"><label asp-for="Password"></label><input asp-for="Password" aria-describedby="Password-validation" type="password" autocomplete="current-password" /><span id="Password-validation" asp-validation-for="Password" class="field-error"></span></div>
         <button class="button button-primary full-width" type="submit">Sign in</button>
     </form>
+    <p class="muted">New to AttendTa? <a asp-controller="AccountRequest" asp-action="Request">Request membership</a></p>
 </section>
 @section Scripts { <partial name="_ValidationScriptsPartial" /> }
