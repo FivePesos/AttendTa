@@ -56,10 +56,13 @@ jobs:
       - name: Build solution
         run: dotnet build ASI.Basecode.sln --no-restore --configuration Release
 
+      - name: Install Playwright Chromium
+        run: pwsh ASI.Basecode.WebApp/bin/Release/net10.0/playwright.ps1 install --with-deps chromium
+
       - name: Run service tests
         run: dotnet test --project tests/ASI.Basecode.Services.Tests/ASI.Basecode.Services.Tests.csproj --no-build --no-restore --configuration Release
 
       - name: Run SQL integration tests
-        run: dotnet test --project tests/ASI.Basecode.IntegrationTests/ASI.Basecode.IntegrationTests.csproj --no-build --no-restore --configuration Release
+        run: dotnet tests/ASI.Basecode.IntegrationTests/bin/Release/net10.0/ASI.Basecode.IntegrationTests.dll -parallelMode none
         env:
           ATTENDTA_TEST_SQL: "Server=localhost,1433;Database=master;User ID=sa;Encrypt=True;TrustServerCertificate=True"
