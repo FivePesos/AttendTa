@@ -46,6 +46,11 @@ namespace ASI.Basecode.Services.Services
                 throw new InvalidDataException("Type name is required.");
             }
 
+            if (string.IsNullOrWhiteSpace(model.Description))
+            {
+                throw new InvalidDataException("Description is required.");
+            }
+
             if (_repository.TypeNameExists(normalizedTypeName))
             {
                 throw new InvalidDataException("Event type name already exists.");
@@ -71,6 +76,11 @@ namespace ASI.Basecode.Services.Services
             if (string.IsNullOrWhiteSpace(normalizedTypeName))
             {
                 throw new InvalidDataException("Type name is required.");
+            }
+
+            if (string.IsNullOrWhiteSpace(model.Description))
+            {
+                throw new InvalidDataException("Description is required.");
             }
 
             var eventType = _repository.GetEventType(model.TypeId);

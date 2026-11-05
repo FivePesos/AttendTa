@@ -19,4 +19,10 @@
     <ProjectReference Include="..\..\ASI.Basecode.WebApp\ASI.Basecode.WebApp.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Include="..\..\database\attendta-mvp-schema.sql" Link="database\attendta-mvp-schema.sql" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\database\seed-local-admin.sql" Link="database\seed-local-admin.sql" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\database\seed-event-types.sql" Link="database\seed-event-types.sql" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>
