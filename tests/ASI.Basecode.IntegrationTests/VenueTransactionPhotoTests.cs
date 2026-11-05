@@ -286,6 +286,15 @@ public sealed class VenueTransactionPhotoTests(SqlServerDatabaseFixture fixture)
             Assert.Equal("Concurrent edit", updated.RoomName);
             Assert.Equal("uploads/venues/new.jpg", updated.ImagePath);
             Assert.Equal(75, updated.Capacity);
+            var log = Assert.Single(await observer.ActivityLogs.AsNoTracking()
+                .Where(a => a.EntityType == "venues" && a.EntityId == venueId).ToListAsync(ct));
+            Assert.Equal("venue.status_changed", log.Action);
+            Assert.Contains("\"IsActive\":true", log.OldValues, StringComparison.Ordinal);
+            Assert.Contains("\"IsActive\":false", log.NewValues, StringComparison.Ordinal);
+            Assert.Contains("\"LinkedEventCount\":0", log.OldValues, StringComparison.Ordinal);
+            Assert.Contains("\"LinkedEventCount\":0", log.NewValues, StringComparison.Ordinal);
+            Assert.DoesNotContain("uploads/", log.OldValues, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("uploads/", log.NewValues, StringComparison.OrdinalIgnoreCase);
         }
         finally
         {

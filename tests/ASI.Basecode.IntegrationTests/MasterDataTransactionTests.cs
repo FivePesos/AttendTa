@@ -425,7 +425,8 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
 
     private sealed class RefusingVenueService : IVenueService
     {
-        public List<VenueViewModel> GetVenues() => [];
+        public Task<PagedResult<VenueViewModel>> GetPageAsync(int? pageNumber, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new PagedResult<VenueViewModel>(Array.Empty<VenueViewModel>(), 1, 0));
 
         public VenueViewModel GetVenue(int id) => null!;
 
@@ -476,8 +477,11 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
     private sealed class VenueRepositoryThatSavesThenFails(IVenueRepository inner, IUnitOfWork unitOfWork) : IVenueRepository
     {
         public IQueryable<Venue> GetVenues() => inner.GetVenues();
+        public Task<int> CountAsync(CancellationToken cancellationToken = default) => inner.CountAsync(cancellationToken);
+        public Task<IReadOnlyList<Venue>> GetPageAsync(int skip, int take, CancellationToken cancellationToken = default) => inner.GetPageAsync(skip, take, cancellationToken);
         public Venue GetVenue(int venueId) => inner.GetVenue(venueId);
         public Task<Venue> LockVenueAsync(int venueId, CancellationToken cancellationToken = default) => inner.LockVenueAsync(venueId, cancellationToken);
+        public Task<int> CountLinkedEventsAsync(int venueId, CancellationToken cancellationToken = default) => inner.CountLinkedEventsAsync(venueId, cancellationToken);
         public Task<bool> HasEventAboveCapacityAsync(int venueId, int capacity, CancellationToken cancellationToken = default) => inner.HasEventAboveCapacityAsync(venueId, capacity, cancellationToken);
         public bool VenueExists(int venueId) => inner.VenueExists(venueId);
         public Task UpdateVenueAsync(Venue venue, CancellationToken cancellationToken = default) => inner.UpdateVenueAsync(venue, cancellationToken);

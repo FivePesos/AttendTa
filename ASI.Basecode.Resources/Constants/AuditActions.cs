@@ -8,4 +8,5 @@ public static class AuditActions
     public const string EventTypeStatusChanged = "event_type.status_changed";
     public const string VenueCreated = "venue.created";
     public const string VenueEdited = "venue.edited";
+    public const string VenueStatusChanged = "venue.status_changed";
 }
