@@ -35,6 +35,7 @@ namespace ASI.Basecode.WebApp
             this._services.AddSingleton<IPasswordHasher, Argon2PasswordHasher>();
             this._services.AddScoped<IAccountService, AccountService>();
             this._services.AddScoped<IAccountRequestQueueService, AccountRequestQueueService>();
+            this._services.AddScoped<IActivityLogReaderService, ActivityLogReaderService>();
             this._services.AddScoped<IAccountRequestService, AccountRequestService>();
             this._services.AddScoped<IAccountAdministrationService, AccountAdministrationService>();
             this._services.AddScoped<IMemberService, MemberService>();
@@ -45,6 +46,7 @@ namespace ASI.Basecode.WebApp
             // Repositories
             this._services.AddScoped<IUserRepository, UserRepository>();
             this._services.AddScoped<IAccountRequestRepository, AccountRequestRepository>();
+            this._services.AddScoped<IActivityLogReaderRepository, ActivityLogReaderRepository>();
             this._services.AddScoped<IAccountAdministrationRepository, AccountAdministrationRepository>();
             this._services.AddScoped<IMemberRepository, MemberRepository>();
             this._services.AddScoped<IEventTypeRepository, EventTypeRepository>();
