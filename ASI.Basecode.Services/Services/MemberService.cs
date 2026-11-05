@@ -1,6 +1,7 @@
 using ASI.Basecode.Data.Interfaces;
 using ASI.Basecode.Data.Models;
 using ASI.Basecode.Resources;
+using ASI.Basecode.Resources.Constants;
 using ASI.Basecode.Services.Interfaces;
 using ASI.Basecode.Services.ServiceModels;
 using System;
@@ -15,11 +16,13 @@ namespace ASI.Basecode.Services.Services
     {
         private readonly IMemberRepository _repository;
         private readonly IUnitOfWork _unitOfWork;
+        private readonly ICurrentActor _currentActor;
 
-        public MemberService(IMemberRepository repository, IUnitOfWork unitOfWork)
+        public MemberService(IMemberRepository repository, IUnitOfWork unitOfWork, ICurrentActor currentActor)
         {
             _repository = repository;
             _unitOfWork = unitOfWork;
+            _currentActor = currentActor;
         }
 
         public List<MemberViewModel> GetMembers(string search = null)
@@ -42,6 +45,22 @@ namespace ASI.Basecode.Services.Services
         {
             var member = _repository.GetMemberRecord(id);
             return member == null ? null : ToViewModel(member);
+        }
+
+        public async Task<MemberViewModel> GetSelfProfileAsync(CancellationToken cancellationToken = default)
+        {
+            if (!_currentActor.IsAuthenticated || !string.Equals(_currentActor.Role, RoleCodes.Member, StringComparison.Ordinal))
+            {
+                throw new DomainException(OutcomeCode.Forbidden, "Access denied.");
+            }
+
+            var member = await _repository.GetMemberRecordByUserIdAsync(_currentActor.UserId, cancellationToken);
+            if (member == null)
+            {
+                throw new DomainException(OutcomeCode.NotFound, "Member profile not found.");
+            }
+
+            return ToViewModel(member);
         }
 
         public async Task CreateMemberFromApprovedAccountRequestAsync(int userId, MemberViewModel model, int actorUserId, CancellationToken cancellationToken = default)

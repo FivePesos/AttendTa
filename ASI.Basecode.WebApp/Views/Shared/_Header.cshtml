@@ -2,6 +2,7 @@
 @{
     var authenticated = User.Identity?.IsAuthenticated == true;
     var management = User.IsInRole(RoleCodes.Admin) || User.IsInRole(RoleCodes.Officer);
+    var member = User.IsInRole(RoleCodes.Member);
     var role = User.IsInRole(RoleCodes.Admin) ? "Administrator" : User.IsInRole(RoleCodes.Officer) ? "Officer" : "Member";
     var controller = ViewContext.RouteData.Values["controller"]?.ToString();
 }
@@ -27,6 +28,10 @@
                         <a asp-controller="EventType" asp-action="Index" aria-current="@(controller == "EventType" ? "page" : null)">Event types</a>
                         <a asp-controller="Venue" asp-action="Index" aria-current="@(controller == "Venue" ? "page" : null)">Venues</a>
                     }
+                    @if (member)
+                    {
+                        <a asp-controller="Profile" asp-action="Index" aria-current="@(controller == "Profile" ? "page" : null)">Profile</a>
+                    }
                     <div class="account-name">@User.Identity?.Name <span>@role</span></div>
                     <form asp-controller="Account" asp-action="Logout" method="post"><button type="submit" class="nav-logout">Sign out</button></form>
                 </nav>
@@ -42,6 +47,10 @@
                 <a asp-controller="Member" asp-action="Index" aria-current="@(controller == "Member" ? "page" : null)">Members</a>
                 <a asp-controller="EventType" asp-action="Index" aria-current="@(controller == "EventType" ? "page" : null)">Event types</a>
                 <a asp-controller="Venue" asp-action="Index" aria-current="@(controller == "Venue" ? "page" : null)">Venues</a>
+            }
+            @if (member)
+            {
+                <a asp-controller="Profile" asp-action="Index" aria-current="@(controller == "Profile" ? "page" : null)">Profile</a>
             }
             <div class="account-name">@User.Identity?.Name <span>@role</span></div>
             <form asp-controller="Account" asp-action="Logout" method="post"><button type="submit" class="nav-logout">Sign out</button></form>
