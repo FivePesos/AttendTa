@@ -319,6 +319,12 @@ public class AccountRequestServiceTests
     {
         public List<AccountRequest> Requests { get; } = new();
 
+        public Task<int> CountByStatusAsync(AccountRequestStatusCode status, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task<IReadOnlyList<AccountRequestQueueItem>> GetPageByStatusAsync(AccountRequestStatusCode status, int skip, int take, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
         public Task<AccountRequest> LockAccountRequestAsync(int requestId, CancellationToken cancellationToken = default)
         {
             return Task.FromResult(Requests.FirstOrDefault(request => request.RequestId == requestId))!;

@@ -1,6 +1,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 using ASI.Basecode.Resources;
+using ASI.Basecode.Resources.Constants;
 using ASI.Basecode.Services.Interfaces;
 using ASI.Basecode.Services.ServiceModels;
 using ASI.Basecode.WebApp.Mvc;
@@ -16,10 +17,10 @@ namespace ASI.Basecode.WebApp.Controllers
     /// <summary>
     /// Anonymous membership request submission and acknowledgment.
     /// </summary>
-    [AllowAnonymous]
     public class AccountRequestController : ControllerBase<AccountRequestController>
     {
         private readonly IAccountRequestService _accountRequestService;
+        private readonly IAccountRequestQueueService _accountRequestQueueService;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="AccountRequestController"/> class.
@@ -34,9 +35,28 @@ namespace ASI.Basecode.WebApp.Controllers
             ILoggerFactory loggerFactory,
             IConfiguration configuration,
             IMapper mapper,
-            IAccountRequestService accountRequestService) : base(httpContextAccessor, loggerFactory, configuration, mapper)
+            IAccountRequestService accountRequestService,
+            IAccountRequestQueueService accountRequestQueueService) : base(httpContextAccessor, loggerFactory, configuration, mapper)
         {
             _accountRequestService = accountRequestService;
+            _accountRequestQueueService = accountRequestQueueService;
+        }
+
+        [HttpGet]
+        [Authorize(Policy = Policies.Management)]
+        [Route("AccountRequest")]
+        [Route("AccountRequest/Index")]
+        public async Task<IActionResult> Index(string status = "pending", int? page = null)
+        {
+            var normalizedStatus = status?.Trim().ToLowerInvariant() switch
+            {
+                "approved" => "approved",
+                "rejected" => "rejected",
+                _ => "pending"
+            };
+            ViewBag.Status = normalizedStatus;
+            var result = await _accountRequestQueueService.GetPageAsync(normalizedStatus, page, HttpContext.RequestAborted);
+            return View(result);
         }
 
         /// <summary>
@@ -44,6 +64,7 @@ namespace ASI.Basecode.WebApp.Controllers
         /// </summary>
         /// <returns>The request form.</returns>
         [HttpGet]
+        [AllowAnonymous]
         [ActionName("Request")]
         public IActionResult RequestForm()
         {
@@ -57,6 +78,7 @@ namespace ASI.Basecode.WebApp.Controllers
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <returns>The acknowledgment redirect, or the form with field or summary errors.</returns>
         [HttpPost]
+        [AllowAnonymous]
         [ActionName("Request")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> SubmitRequest(AccountRequestViewModel model, CancellationToken cancellationToken)
@@ -84,6 +106,7 @@ namespace ASI.Basecode.WebApp.Controllers
         /// </summary>
         /// <returns>The acknowledgment page.</returns>
         [HttpGet]
+        [AllowAnonymous]
         public IActionResult Submitted()
         {
             return View();
