@@ -8,7 +8,8 @@ hitl: false
 risk: high
 tracker_id: "14"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/14"
-tracker_status: backlog
+tracker_status: done
+assignee: "FivePesos"
 ---
 
 # Master-data repositories and services write inside the caller-owned transaction
