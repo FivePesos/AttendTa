@@ -1,5 +1,6 @@
 using ASI.Basecode.Services.ServiceModels;
 using System.Collections.Generic;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -9,8 +10,8 @@ namespace ASI.Basecode.Services.Interfaces
     {
         List<VenueViewModel> GetVenues();
         VenueViewModel GetVenue(int id);
-        Task AddVenueAsync(VenueViewModel model, int actorUserId, CancellationToken cancellationToken = default);
-        Task UpdateVenueAsync(VenueViewModel model, int actorUserId, CancellationToken cancellationToken = default);
+        Task AddVenueAsync(VenueViewModel model, int actorUserId, Stream photo, string extension, CancellationToken cancellationToken = default);
+        Task UpdateVenueAsync(VenueViewModel model, int actorUserId, Stream photo, string extension, CancellationToken cancellationToken = default);
         Task ToggleActiveAsync(int id, int actorUserId, CancellationToken cancellationToken = default);
     }
 }

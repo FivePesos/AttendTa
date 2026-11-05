@@ -196,6 +196,35 @@ public sealed class VenuePhotoFlowTests(SqlServerDatabaseFixture fixture) : ICla
             Assert.Equal(HttpStatusCode.OK, fetchedUpload.StatusCode);
             Assert.Equal("image/jpeg", fetchedUpload.Content.Headers.ContentType?.MediaType);
             Assert.Equal(uploadedPhoto, await fetchedUpload.Content.ReadAsByteArrayAsync(ct));
+
+            var officerEditPage = await officerClient.GetAsync($"/Venue/Edit?id={uploadedVenueId}", ct);
+            Assert.Equal(HttpStatusCode.OK, officerEditPage.StatusCode);
+            var officerEditToken = Regex.Match(await officerEditPage.Content.ReadAsStringAsync(ct), "__RequestVerificationToken[^>]*value=\"([^\"]+)\"", RegexOptions.IgnoreCase);
+            Assert.True(officerEditToken.Success);
+            using var officerEdit = new MultipartFormDataContent();
+            officerEdit.Add(new StringContent(officerEditToken.Groups[1].Value), "__RequestVerificationToken");
+            officerEdit.Add(new StringContent(uploadedVenueId.ToString()), "VenueId");
+            officerEdit.Add(new StringContent("Officer edited venue"), "RoomName");
+            officerEdit.Add(new StringContent("45"), "Capacity");
+            var officerEditResult = await officerClient.PostAsync("/Venue/Edit", officerEdit, ct);
+            Assert.Equal(HttpStatusCode.Redirect, officerEditResult.StatusCode);
+            var fetchedAfterEdit = await officerClient.GetAsync($"/Venue/Photo?id={uploadedVenueId}", ct);
+            Assert.Equal(HttpStatusCode.OK, fetchedAfterEdit.StatusCode);
+            Assert.Equal(uploadedPhoto, await fetchedAfterEdit.Content.ReadAsByteArrayAsync(ct));
+            await using (var context = new AsiBasecodeDBContext(options))
+            {
+                var edited = await context.Venues.AsNoTracking().SingleAsync(v => v.VenueId == uploadedVenueId, ct);
+                Assert.Equal("Officer edited venue", edited.RoomName);
+                Assert.Equal(45, edited.Capacity);
+                var audits = await context.ActivityLogs.AsNoTracking().Where(a => a.EntityType == "venues" && a.EntityId == uploadedVenueId).ToListAsync(ct);
+                Assert.Equal(2, audits.Count);
+                Assert.All(audits, audit =>
+                {
+                    Assert.Equal(officerId, audit.ActorUserId);
+                    Assert.DoesNotContain("uploads/", audit.OldValues ?? "", StringComparison.OrdinalIgnoreCase);
+                    Assert.DoesNotContain("uploads/", audit.NewValues ?? "", StringComparison.OrdinalIgnoreCase);
+                });
+            }
         }
         finally
         {
