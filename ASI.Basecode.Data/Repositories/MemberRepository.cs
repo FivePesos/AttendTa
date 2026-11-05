@@ -1,5 +1,6 @@
 using ASI.Basecode.Data.Interfaces;
 using ASI.Basecode.Data.Models;
+using ASI.Basecode.Data.Models.Lookups;
 using Basecode.Data.Repositories;
 using Microsoft.EntityFrameworkCore;
 using System.Linq;
@@ -20,23 +21,23 @@ namespace ASI.Basecode.Data.Repositories
         public IQueryable<MemberRecord> GetMemberRecords()
         {
             var members = this.GetDbSet<Member>().AsNoTracking();
-            var userSummaries = this.GetDbSet<MemberAccountSummary>();
+            var users = this.GetDbSet<User>().AsNoTracking();
 
             return from member in members
-                   join user in userSummaries on member.UserId equals user.UserId
+                   join user in users on member.UserId equals user.Id
                    select new MemberRecord
                    {
                        MemberId = member.MemberId,
                        UserId = member.UserId,
-                       FullName = user.FullName,
-                       Email = user.Email,
+                       FullName = user.Name,
+                       Email = user.UserId,
                        StudentNumber = member.StudentNumber,
                        Course = member.Course,
                        YearLevel = member.YearLevel,
                        Section = member.Section,
                        MobileNumber = member.MobileNumber,
                        MembershipType = member.MembershipType,
-                       Status = member.Status,
+                       Status = member.MembershipStatusId == MembershipStatusCode.Active ? "active" : "inactive",
                        CreatedBy = member.CreatedBy,
                        CreatedAt = member.CreatedAt,
                        UpdatedBy = member.UpdatedBy,
