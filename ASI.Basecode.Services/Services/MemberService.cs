@@ -39,20 +39,13 @@ namespace ASI.Basecode.Services.Services
             _audit = audit ?? throw new ArgumentNullException(nameof(audit));
         }
 
-        public List<MemberViewModel> GetMembers(string search = null)
+        public async Task<PagedResult<MemberViewModel>> GetPageAsync(string search, int? pageNumber, CancellationToken cancellationToken = default)
         {
-            var query = _repository.GetMemberRecords();
-            if (!string.IsNullOrWhiteSpace(search))
-            {
-                query = query.Where(m => m.FullName.Contains(search) ||
-                                         m.Email.Contains(search) ||
-                                         m.StudentNumber.Contains(search));
-            }
-
-            return query.OrderBy(member => member.FullName)
-                .ThenBy(member => member.MemberId)
-                .Select(ToViewModel)
-                .ToList();
+            var totalCount = await _repository.CountAsync(search, cancellationToken);
+            var request = new PageRequest(pageNumber);
+            var page = request.NormalizePageNumber(totalCount);
+            var records = await _repository.GetPageAsync(search, request.GetOffset(page), PageRequest.FixedPageSize, cancellationToken);
+            return new PagedResult<MemberViewModel>(records.Select(ToViewModel).ToList(), page, totalCount);
         }
 
         public MemberViewModel GetMember(int id)

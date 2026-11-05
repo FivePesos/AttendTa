@@ -31,9 +31,9 @@ namespace ASI.Basecode.WebApp.Controllers
         [HttpGet]
         [Route("Member")]
         [Route("Member/Index")]
-        public IActionResult Index(string search)
+        public async Task<IActionResult> Index(string search, int? page)
         {
-            var members = _memberService.GetMembers(search);
+            var members = await _memberService.GetPageAsync(search, page, HttpContext.RequestAborted);
             ViewBag.Search = search;
             return View(members);
         }
