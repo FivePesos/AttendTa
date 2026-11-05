@@ -380,6 +380,8 @@ public class AccountRequestServiceTests
 
         public MemberRecord GetMemberRecord(int memberId) => null!;
 
+        public Task<MemberRecord> GetMemberRecordByUserIdAsync(int userId, CancellationToken cancellationToken = default) => Task.FromResult<MemberRecord>(null!);
+
         public Member GetMember(int memberId) => Members.FirstOrDefault(member => member.MemberId == memberId)!;
 
         public Task AddMemberAsync(Member member, CancellationToken cancellationToken = default)
