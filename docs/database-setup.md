@@ -103,6 +103,18 @@ email, not username.
 Data Protection keys are stored under `<Common:SetupRoot>/keys` so cookies survive restarts.
 Deleting that folder signs every user out.
 
+## Certificate signatory asset
+
+Official certificate rendering uses the approved, non-secret settings in
+`ASI.Basecode.WebApp/appsettings.json` under `Certificates:Signatory`: the name
+`Christian Kyle Ducay`, the title `Organization President`, and the packaged signature asset
+`img/christian-kyle-ducay-signature.png`. The fixed template validates these values against the
+approved identity and rejects a missing or invalid signature asset before returning a PDF. Keep
+the image at `ASI.Basecode.WebApp/wwwroot/img/christian-kyle-ducay-signature.png` in deployed
+packages; it is embedded into the PDF, so certificate rendering makes no external image request.
+Do not replace the approved details or signature with placeholders. The Development tracer keeps
+its visibly watermarked sample rendering and does not issue official certificates.
+
 ## Existing venue photo paths
 
 The older app stored venue keys as `venues/<name>` relative to `<Common:SetupRoot>/uploads`.
