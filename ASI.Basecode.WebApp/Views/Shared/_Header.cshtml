@@ -29,6 +29,10 @@
                         <a asp-controller="EventType" asp-action="Index" aria-current="@(controller == "EventType" ? "page" : null)">Event types</a>
                         <a asp-controller="Venue" asp-action="Index" aria-current="@(controller == "Venue" ? "page" : null)">Venues</a>
                     }
+                    @if (User.IsInRole(RoleCodes.Admin))
+                    {
+                        <a asp-controller="ActivityLog" asp-action="Index" aria-current="@(controller == "ActivityLog" ? "page" : null)">Activity log</a>
+                    }
                     @if (member)
                     {
                         <a asp-controller="Profile" asp-action="Index" aria-current="@(controller == "Profile" ? "page" : null)">Profile</a>
@@ -49,6 +53,10 @@
                 <a asp-controller="AccountRequest" asp-action="Index" aria-current="@(controller == "AccountRequest" ? "page" : null)">Account requests</a>
                 <a asp-controller="EventType" asp-action="Index" aria-current="@(controller == "EventType" ? "page" : null)">Event types</a>
                 <a asp-controller="Venue" asp-action="Index" aria-current="@(controller == "Venue" ? "page" : null)">Venues</a>
+            }
+            @if (User.IsInRole(RoleCodes.Admin))
+            {
+                <a asp-controller="ActivityLog" asp-action="Index" aria-current="@(controller == "ActivityLog" ? "page" : null)">Activity log</a>
             }
             @if (member)
             {
