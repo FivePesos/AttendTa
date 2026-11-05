@@ -82,7 +82,7 @@ context:
 
 ## Implementation Notes
 
-Implemented the paged repository/service read, the audited active toggle, the controller page preservation, the paged Tailwind view, the `.venue-thumb` component and both HTTP integration tests. Build is clean with zero warnings; 52 service tests pass. The full integration suite is 116/117: the only failure is the unrelated `CertificateTracerFlowTests` because Playwright Chromium is not installed in this environment.
+Implemented the paged repository/service read, the audited active toggle, the controller page preservation, the paged Tailwind view, the `.venue-thumb` component and both HTTP integration tests. The build succeeds; the one nullable warning is pre-existing in `MasterDataTransactionTests`. Before the rebase the service suite was 52/52 and the integration suite 116/117. After rebasing onto dev `829e1a5`, the service suite is 66/66 and the integration suite is 125/130; the five failures are all `CertificateTracerFlowTests` because Playwright Chromium is not installed in this environment.
 
 Two route facts were confirmed during implementation. First, `/Venue` needed an explicit attribute route because the app's default route has no action default; `/Venue/Index` is kept as an alias, and the toggle redirect uses the named `VenueIndex` route so it returns to `/Venue?page=N`. Second, the authorized photo route is `/Venue/Photo?id={id}` because the default route has no `{id?}` segment; the plan's `/Venue/Photo/{id}` is shorthand for the same authorized action. `IVenueRepository.GetVenues()` is retained but is now unused by production code; the refactor sweep can remove it.
 
