@@ -46,6 +46,13 @@ namespace ASI.Basecode.Data.Repositories
                 .SingleOrDefaultAsync(user => user.Id == userId, cancellationToken);
         }
 
+        public Task AddAsync(User user, CancellationToken cancellationToken = default)
+        {
+            ArgumentNullException.ThrowIfNull(user);
+            this.GetDbSet<User>().Add(user);
+            return Task.CompletedTask;
+        }
+
         public async Task<string> GetRoleCodeAsync(RoleCode roleId, CancellationToken cancellationToken = default)
         {
             var role = await this.GetDbSet<RoleLookup>()
