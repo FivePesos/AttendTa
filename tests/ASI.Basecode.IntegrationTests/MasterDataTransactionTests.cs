@@ -317,31 +317,6 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
     }
 
     [Fact]
-    public async Task VenueImageStorageRefusesBadPhotosWithFileFailure()
-    {
-        var root = Path.Combine(Path.GetTempPath(), "attendta-master-data", Guid.NewGuid().ToString("N"));
-        var webRoot = Path.Combine(root, "wwwroot");
-        Directory.CreateDirectory(root);
-        Directory.CreateDirectory(webRoot);
-        try
-        {
-            var configuration = new ConfigurationBuilder()
-                .AddInMemoryCollection(new Dictionary<string, string?> { ["Common:SetupRoot"] = root })
-                .Build();
-            var storage = new VenueImageStorage(configuration, new TestWebHostEnvironment(webRoot));
-
-            Assert.Equal(OutcomeCode.FileFailure, (await Assert.ThrowsAsync<DomainException>(() => storage.SaveAsync(null!))).Outcome);
-            Assert.Equal(OutcomeCode.FileFailure, (await Assert.ThrowsAsync<DomainException>(() => storage.SaveAsync(Photo("photo.gif", [0x47, 0x49, 0x46, 0x38])))).Outcome);
-            Assert.Equal(OutcomeCode.FileFailure, (await Assert.ThrowsAsync<DomainException>(() => storage.SaveAsync(Photo("photo.png", [0xFF, 0xD8, 0xFF])))).Outcome);
-            Assert.False(Directory.Exists(Path.Combine(root, "uploads")));
-        }
-        finally
-        {
-            Directory.Delete(root, recursive: true);
-        }
-    }
-
-    [Fact]
     public async Task VenueCreateCleansUpTheSavedImageWhenTheServiceRefuses()
     {
         var httpContext = new DefaultHttpContext
@@ -370,11 +345,17 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
 
     private static IFormFile Photo(string fileName, byte[] content) => new FormFile(new MemoryStream(content), 0, content.Length, "photo", fileName);
 
-    private sealed class RecordingVenueImageStorage(string savedPath) : IVenueImageStorage
+    private sealed class RecordingVenueImageStorage(string savedPath) : IPrivateFileStore
     {
         public List<string> Deleted { get; } = [];
 
-        public Task<string> SaveAsync(IFormFile image) => Task.FromResult(savedPath);
+        public Task<string> SaveAsync(PrivateFileArea area, Stream content, string extension, CancellationToken cancellationToken = default) => Task.FromResult(savedPath);
+
+        public string CreateTemporaryPath(string extension) => throw new NotSupportedException();
+
+        public Task<string> PromoteAsync(string temporaryPath, PrivateFileArea area, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+        public Task<Stream> OpenReadAsync(string relativePath, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
         public void Delete(string relativePath) => Deleted.Add(relativePath);
     }
@@ -402,16 +383,6 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
         public void SaveTempData(HttpContext context, IDictionary<string, object> values)
         {
         }
-    }
-
-    private sealed class TestWebHostEnvironment(string webRoot) : IWebHostEnvironment
-    {
-        public string ApplicationName { get; set; } = "ASI.Basecode.IntegrationTests";
-        public IFileProvider WebRootFileProvider { get; set; } = new NullFileProvider();
-        public string WebRootPath { get; set; } = webRoot;
-        public string EnvironmentName { get; set; } = "Development";
-        public string ContentRootPath { get; set; } = webRoot;
-        public IFileProvider ContentRootFileProvider { get; set; } = new NullFileProvider();
     }
 
     private sealed class EventTypeRepositoryThatSavesThenFails(IEventTypeRepository inner, IUnitOfWork unitOfWork) : IEventTypeRepository

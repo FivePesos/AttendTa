@@ -108,8 +108,13 @@ Reference by path only. The SPEC is the source of truth for planned features not
 - Master Data inserts require a valid authenticated actor ID for `created_by`; never hard-code or
   substitute `0`. `ControllerBase.GetActorUserId()` reads the real `users.user_id` from the
   authenticated cookie claims.
-- Venue `image_path` is required and relative. Venue photos are stored outside `wwwroot` under
-  `<Common:SetupRoot>\uploads\venues`; accept JPEG/PNG up to 5 MiB and persist only a relative path.
+- Venue `image_path` is required and relative, stored as `uploads/venues/<name>` from
+  `<Common:SetupRoot>`. The shared private store is rooted outside `wwwroot` and the deployment
+  tree; venue and event images accept JPEG/PNG up to 2 MiB and persist only area-prefixed relative paths.
+- Existing venue keys in the `venues/<name>` form are migrated with
+  `database/migrate-venue-image-paths.sql`; stop the old app before the migration and deploy the
+  new app before restarting. Back up the intended local database and setup-root uploads first.
+  Never run this migration against shared or production databases or `AsiBasecodeDB`.
 - `database/seed-local-admin.sql` creates the initial Administrator from the `AdminName`,
   `AdminEmail` and `AdminPasswordHash` sqlcmd variables. Do not commit plaintext passwords, password
   hashes, or shared test passwords.

@@ -3,14 +3,15 @@ using ASI.Basecode.Resources.Constants;
 using ASI.Basecode.Services.Interfaces;
 using ASI.Basecode.Services.ServiceModels;
 using ASI.Basecode.WebApp.Mvc;
-using ASI.Basecode.WebApp.Storage;
 using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using System;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace ASI.Basecode.WebApp.Controllers
@@ -20,23 +21,55 @@ namespace ASI.Basecode.WebApp.Controllers
     public class VenueController : ControllerBase<VenueController>
     {
         private readonly IVenueService _venueService;
-        private readonly IVenueImageStorage _venueImageStorage;
+        private readonly IPrivateFileStore _privateFileStore;
 
         public VenueController(IHttpContextAccessor httpContextAccessor,
                                ILoggerFactory loggerFactory,
                                 IConfiguration configuration,
                                 IMapper mapper,
                                 IVenueService venueService,
-                                IVenueImageStorage venueImageStorage) : base(httpContextAccessor, loggerFactory, configuration, mapper)
+                                IPrivateFileStore privateFileStore) : base(httpContextAccessor, loggerFactory, configuration, mapper)
         {
             _venueService = venueService;
-            _venueImageStorage = venueImageStorage;
+            _privateFileStore = privateFileStore;
         }
 
         public IActionResult Index()
         {
             var venues = _venueService.GetVenues();
             return View(venues);
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> Photo(int id, CancellationToken cancellationToken)
+        {
+            var venue = _venueService.GetVenue(id);
+            if (venue == null)
+            {
+                return NotFound();
+            }
+
+            var extension = Path.GetExtension(venue.ImagePath ?? string.Empty).ToLowerInvariant();
+            var contentType = extension switch
+            {
+                ".jpg" or ".jpeg" => "image/jpeg",
+                ".png" => "image/png",
+                _ => null
+            };
+            if (contentType is null)
+            {
+                return NotFound();
+            }
+
+            try
+            {
+                var stream = await _privateFileStore.OpenReadAsync(venue.ImagePath, cancellationToken);
+                return File(stream, contentType);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
+            {
+                return NotFound();
+            }
         }
 
         [HttpGet]
@@ -62,11 +95,30 @@ namespace ASI.Basecode.WebApp.Controllers
                     throw new DomainException(OutcomeCode.Forbidden, "A valid authenticated user is required to create a venue.");
                 }
 
-                savedImagePath = await _venueImageStorage.SaveAsync(photo);
+                await using var content = photo?.OpenReadStream();
+                if (content == null)
+                {
+                    throw new InvalidDataException("A venue photo is required.");
+                }
+
+                savedImagePath = await _privateFileStore.SaveAsync(
+                    PrivateFileArea.VenueImages,
+                    content,
+                    Path.GetExtension(photo.FileName),
+                    HttpContext.RequestAborted);
                 model.ImagePath = savedImagePath;
                 await _venueService.AddVenueAsync(model, actorUserId, HttpContext.RequestAborted);
                 TempData["SuccessMessage"] = "Venue added successfully.";
                 return RedirectToAction("Index");
+            }
+            catch (InvalidDataException ex)
+            {
+                if (!string.IsNullOrWhiteSpace(savedImagePath))
+                {
+                    TryDeleteVenueImage(savedImagePath);
+                }
+                ModelState.AddModelError("photo", ex.Message);
+                return View(model);
             }
             catch (DomainException ex)
             {
@@ -126,7 +178,12 @@ namespace ASI.Basecode.WebApp.Controllers
                 model.ImagePath = existing.ImagePath;
                 if (photo != null && photo.Length > 0)
                 {
-                    newImagePath = await _venueImageStorage.SaveAsync(photo);
+                    await using var content = photo.OpenReadStream();
+                    newImagePath = await _privateFileStore.SaveAsync(
+                        PrivateFileArea.VenueImages,
+                        content,
+                        Path.GetExtension(photo.FileName),
+                        HttpContext.RequestAborted);
                     model.ImagePath = newImagePath;
                 }
 
@@ -139,6 +196,15 @@ namespace ASI.Basecode.WebApp.Controllers
                 }
                 TempData["SuccessMessage"] = "Venue updated successfully.";
                 return RedirectToAction("Index");
+            }
+            catch (InvalidDataException ex)
+            {
+                if (!databaseUpdateSucceeded && !string.IsNullOrWhiteSpace(newImagePath))
+                {
+                    TryDeleteVenueImage(newImagePath);
+                }
+                ModelState.AddModelError("photo", ex.Message);
+                return View(model);
             }
             catch (DomainException ex)
             {
@@ -179,13 +245,13 @@ namespace ASI.Basecode.WebApp.Controllers
         {
             try
             {
-                _venueImageStorage.Delete(relativePath);
+                _privateFileStore.Delete(relativePath);
             }
-            catch (System.Exception ex) when (ex is IOException
-                                               || ex is System.UnauthorizedAccessException
-                                               || ex is DomainException)
+            catch (Exception ex) when (ex is IOException
+                                       || ex is UnauthorizedAccessException
+                                       || ex is InvalidDataException)
             {
-                _logger.LogWarning(ex, "Could not clean up venue image {ImagePath}.", relativePath);
+                _logger.LogWarning("Could not clean up a venue photo after its database update.");
             }
         }
     }
