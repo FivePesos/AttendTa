@@ -166,13 +166,13 @@ namespace ASI.Basecode.Services.Services
 
                 await _memberService.CreateMemberFromApprovedAccountRequestAsync(user.Id, new MemberViewModel
                 {
+                    FullName = request.FullName,
                     StudentNumber = request.StudentNumber,
                     Course = request.Course,
                     YearLevel = request.YearLevel,
                     Section = request.Section,
-                    MobileNumber = request.MobileNumber,
-                    Status = "active"
-                }, reviewerId, ct);
+                    MobileNumber = request.MobileNumber
+                }, ct);
 
                 request.AccountRequestStatusId = AccountRequestStatusCode.Approved;
                 request.ReviewedBy = reviewerId;

@@ -71,7 +71,11 @@ namespace ASI.Basecode.Data.Repositories
 
         public Task UpdateMemberAsync(Member member, CancellationToken cancellationToken = default)
         {
-            this.SetEntityState(member, EntityState.Modified);
+            if (Context.Entry(member).State == EntityState.Detached)
+            {
+                throw new System.InvalidOperationException("Only a tracked member can be updated.");
+            }
+
             return Task.CompletedTask;
         }
 

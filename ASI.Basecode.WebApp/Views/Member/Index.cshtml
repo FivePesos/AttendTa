@@ -44,9 +44,6 @@
                 <td>@member.Status</td>
                 <td class="actions">
                     <a asp-action="Edit" asp-route-id="@member.MemberId" class="button button-secondary">Edit</a>
-                    <form asp-action="ToggleStatus" asp-route-id="@member.MemberId" method="post" class="inline-form">
-                        <button type="submit" class="button button-secondary">@(member.Status == "active" ? "Deactivate" : "Activate")</button>
-                    </form>
                 </td>
             </tr>
         }

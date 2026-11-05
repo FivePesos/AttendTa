@@ -1,9 +1,19 @@
 @model MemberViewModel
 
 <div class="field">
+    <label asp-for="FullName" class="field-label">Full name</label>
+    <input asp-for="FullName" aria-describedby="FullName-validation" class="field-control" />
+    <span id="FullName-validation" asp-validation-for="FullName" class="field-error"></span>
+</div>
+<div class="field">
     <label asp-for="StudentNumber" class="field-label">Student number</label>
     <input asp-for="StudentNumber" aria-describedby="StudentNumber-validation" class="field-control" />
     <span id="StudentNumber-validation" asp-validation-for="StudentNumber" class="field-error"></span>
+</div>
+<div class="field">
+    <label asp-for="StudentNumberCorrectionReason" class="field-label">Reason for student-number correction</label>
+    <textarea asp-for="StudentNumberCorrectionReason" aria-describedby="StudentNumberCorrectionReason-validation" class="field-control" rows="3"></textarea>
+    <span id="StudentNumberCorrectionReason-validation" asp-validation-for="StudentNumberCorrectionReason" class="field-error"></span>
 </div>
 <div class="field">
     <label asp-for="Course" class="field-label"></label>
@@ -29,12 +39,4 @@
     <label asp-for="MembershipType" class="field-label">Membership type</label>
     <input asp-for="MembershipType" aria-describedby="MembershipType-validation" class="field-control" />
     <span id="MembershipType-validation" asp-validation-for="MembershipType" class="field-error"></span>
-</div>
-<div class="field">
-    <label asp-for="Status" class="field-label"></label>
-    <select asp-for="Status" aria-describedby="Status-validation" class="field-control">
-        <option value="active">Active</option>
-        <option value="inactive">Inactive</option>
-    </select>
-    <span id="Status-validation" asp-validation-for="Status" class="field-error"></span>
 </div>

@@ -56,6 +56,7 @@ namespace ASI.Basecode.WebApp.Controllers
         {
             if (!ModelState.IsValid)
             {
+                RestoreCanonicalEmail(model);
                 return View(model);
             }
 
@@ -67,24 +68,15 @@ namespace ASI.Basecode.WebApp.Controllers
             }
             catch (DomainException ex)
             {
-                TempData["ErrorMessage"] = ex.Message;
-                return View(model);
+                RestoreCanonicalEmail(model);
+                return HandleDomainException(ex, model, "Index");
             }
         }
 
-        [HttpPost]
-        public async Task<IActionResult> ToggleStatus(int id)
+        private void RestoreCanonicalEmail(MemberViewModel model)
         {
-            try
-            {
-                await _memberService.ToggleStatusAsync(id, GetActorUserId(), HttpContext.RequestAborted);
-                TempData["SuccessMessage"] = "Member status updated.";
-            }
-            catch (DomainException ex)
-            {
-                TempData["ErrorMessage"] = ex.Message;
-            }
-            return RedirectToAction("Index");
+            model.Email = _memberService.GetMember(model.MemberId)?.Email;
+            ModelState.Remove(nameof(MemberViewModel.Email));
         }
     }
 }
