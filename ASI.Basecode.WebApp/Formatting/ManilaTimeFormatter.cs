@@ -8,8 +8,15 @@ namespace ASI.Basecode.WebApp.Formatting
     {
         private static readonly TimeZoneInfo Manila = TimeZoneInfo.FindSystemTimeZoneById("Asia/Manila");
 
-        public static string Format(DateTime value) =>
-            Format(new DateTimeOffset(DateTime.SpecifyKind(value, DateTimeKind.Utc)));
+        /// <summary>Formats a UTC timestamp, treating unspecified SQL datetime2 values as UTC.</summary>
+        /// <exception cref="ArgumentException">The timestamp is marked as local time.</exception>
+        public static string Format(DateTime value)
+        {
+            if (value.Kind == DateTimeKind.Local)
+                throw new ArgumentException("Use a UTC or unspecified database timestamp, or provide a DateTimeOffset.", nameof(value));
+
+            return Format(new DateTimeOffset(DateTime.SpecifyKind(value, DateTimeKind.Utc)));
+        }
 
         public static string Format(DateTime? value) => value.HasValue ? Format(value.Value) : string.Empty;
 
