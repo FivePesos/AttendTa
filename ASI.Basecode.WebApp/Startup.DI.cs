@@ -8,7 +8,6 @@ using ASI.Basecode.WebApp.Authentication;
 using ASI.Basecode.WebApp.Models;
 using ASI.Basecode.WebApp.Storage;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -25,7 +24,6 @@ namespace ASI.Basecode.WebApp
         {
             // Framework
             this._services.TryAddSingleton<IHttpContextAccessor, HttpContextAccessor>();
-            this._services.TryAddSingleton<IActionContextAccessor, ActionContextAccessor>();
 
             // Common
             this._services.AddScoped<TokenProvider>();
