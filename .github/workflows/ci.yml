@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - dev
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    services:
+      sqlserver:
+        image: mcr.microsoft.com/mssql/server:2025-latest
+        env:
+          ACCEPT_EULA: Y
+          MSSQL_PID: Developer
+          # Configure this repository Actions secret with a strong SQL Server password.
+          MSSQL_SA_PASSWORD: ${{ secrets.MSSQL_SA_PASSWORD }}
+        ports:
+          - 1433:1433
+        options: >-
+          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P \"$MSSQL_SA_PASSWORD\" -b -l 2 -Q 'SELECT 1' || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 12
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore solution
+        run: dotnet restore ASI.Basecode.sln
+
+      - name: Build solution
+        run: dotnet build ASI.Basecode.sln --no-restore --configuration Release
+
+      - name: Run service tests
+        run: dotnet test tests/ASI.Basecode.Services.Tests/ASI.Basecode.Services.Tests.csproj --no-build --no-restore --configuration Release
+
+      - name: Run SQL integration tests
+        run: dotnet test tests/ASI.Basecode.IntegrationTests/ASI.Basecode.IntegrationTests.csproj --no-build --no-restore --configuration Release
+        env:
+          ConnectionStrings__DefaultConnection: "Server=localhost,1433;Database=master;User ID=sa;Encrypt=True;TrustServerCertificate=True"
+          MSSQL_SA_PASSWORD: ${{ secrets.MSSQL_SA_PASSWORD }}
