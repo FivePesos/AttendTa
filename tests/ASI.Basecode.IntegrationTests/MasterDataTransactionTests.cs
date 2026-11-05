@@ -94,7 +94,7 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
         await using var observer = Context();
         var unitOfWork = new UnitOfWork(writer);
         var actorId = await SeedUserAsync(ct);
-        var service = new EventTypeService(new EventTypeRepositoryThatSavesThenFails(new EventTypeRepository(unitOfWork), unitOfWork), unitOfWork, Mapper);
+        var service = new EventTypeService(new EventTypeRepositoryThatSavesThenFails(new EventTypeRepository(unitOfWork), unitOfWork), unitOfWork, Mapper, TimeProvider.System);
         var name = UniqueName("Type");
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => service.AddEventTypeAsync(EventTypeModel(name), actorId, ct));
@@ -111,7 +111,7 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
         await using var observer = Context();
         var unitOfWork = new UnitOfWork(writer);
         var actorId = await SeedUserAsync(ct);
-        var service = new EventTypeService(new EventTypeRepository(unitOfWork), unitOfWork, Mapper);
+        var service = new EventTypeService(new EventTypeRepository(unitOfWork), unitOfWork, Mapper, TimeProvider.System);
         var name = UniqueName("Type");
 
         await service.AddEventTypeAsync(EventTypeModel(name), actorId, ct);
@@ -127,7 +127,7 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
         await using var observer = Context();
         var unitOfWork = new UnitOfWork(writer);
         var actorId = await SeedUserAsync(ct);
-        var service = new EventTypeService(new EventTypeRepository(unitOfWork), unitOfWork, Mapper);
+        var service = new EventTypeService(new EventTypeRepository(unitOfWork), unitOfWork, Mapper, TimeProvider.System);
         var name = UniqueName("Type");
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => unitOfWork.ExecuteInTransactionAsync(async inner =>
@@ -147,7 +147,7 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
         await using var observer = Context();
         var unitOfWork = new UnitOfWork(writer);
         var actorId = await SeedUserAsync(ct);
-        var service = new VenueService(new VenueRepositoryThatSavesThenFails(new VenueRepository(unitOfWork), unitOfWork), unitOfWork, Mapper);
+        var service = new VenueService(new VenueRepositoryThatSavesThenFails(new VenueRepository(unitOfWork), unitOfWork), unitOfWork, Mapper, TimeProvider.System);
         var roomName = UniqueName("Room");
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => service.AddVenueAsync(VenueModel(roomName), actorId, ct));
@@ -164,7 +164,7 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
         await using var observer = Context();
         var unitOfWork = new UnitOfWork(writer);
         var actorId = await SeedUserAsync(ct);
-        var service = new VenueService(new VenueRepository(unitOfWork), unitOfWork, Mapper);
+        var service = new VenueService(new VenueRepository(unitOfWork), unitOfWork, Mapper, TimeProvider.System);
         var roomName = UniqueName("Room");
 
         await service.AddVenueAsync(VenueModel(roomName), actorId, ct);
@@ -180,7 +180,7 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
         await using var observer = Context();
         var unitOfWork = new UnitOfWork(writer);
         var actorId = await SeedUserAsync(ct);
-        var service = new VenueService(new VenueRepository(unitOfWork), unitOfWork, Mapper);
+        var service = new VenueService(new VenueRepository(unitOfWork), unitOfWork, Mapper, TimeProvider.System);
         var roomName = UniqueName("Room");
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => unitOfWork.ExecuteInTransactionAsync(async inner =>
@@ -200,7 +200,7 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
         await using var observer = Context();
         var unitOfWork = new UnitOfWork(writer);
         var (actorId, linkedUserId) = await SeedUsersAsync(ct);
-        var service = new MemberService(new MemberRepositoryThatSavesThenFails(new MemberRepository(unitOfWork), unitOfWork), unitOfWork);
+        var service = new MemberService(new MemberRepositoryThatSavesThenFails(new MemberRepository(unitOfWork), unitOfWork), unitOfWork, TimeProvider.System);
         var studentNumber = UniqueName("SN");
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => service.CreateMemberFromApprovedAccountRequestAsync(linkedUserId, MemberModel(studentNumber), actorId, ct));
@@ -217,7 +217,7 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
         await using var observer = Context();
         var unitOfWork = new UnitOfWork(writer);
         var (actorId, linkedUserId) = await SeedUsersAsync(ct);
-        var service = new MemberService(new MemberRepository(unitOfWork), unitOfWork);
+        var service = new MemberService(new MemberRepository(unitOfWork), unitOfWork, TimeProvider.System);
         var studentNumber = UniqueName("SN");
 
         await service.CreateMemberFromApprovedAccountRequestAsync(linkedUserId, MemberModel(studentNumber), actorId, ct);
@@ -233,7 +233,7 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
         await using var observer = Context();
         var unitOfWork = new UnitOfWork(writer);
         var (actorId, linkedUserId) = await SeedUsersAsync(ct);
-        var service = new MemberService(new MemberRepository(unitOfWork), unitOfWork);
+        var service = new MemberService(new MemberRepository(unitOfWork), unitOfWork, TimeProvider.System);
         var studentNumber = UniqueName("SN");
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => unitOfWork.ExecuteInTransactionAsync(async inner =>
@@ -253,7 +253,7 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
         await using var observer = Context();
         var unitOfWork = new UnitOfWork(writer);
         var actorId = await SeedUserAsync(ct);
-        var service = new EventTypeService(new EventTypeRepository(unitOfWork), unitOfWork, Mapper);
+        var service = new EventTypeService(new EventTypeRepository(unitOfWork), unitOfWork, Mapper, TimeProvider.System);
         var name = UniqueName("Type");
 
         Assert.Equal(OutcomeCode.Forbidden, (await Assert.ThrowsAsync<DomainException>(() => service.AddEventTypeAsync(EventTypeModel(name), 0, ct))).Outcome);
@@ -277,7 +277,7 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
         await using var observer = Context();
         var unitOfWork = new UnitOfWork(writer);
         var actorId = await SeedUserAsync(ct);
-        var service = new VenueService(new VenueRepository(unitOfWork), unitOfWork, Mapper);
+        var service = new VenueService(new VenueRepository(unitOfWork), unitOfWork, Mapper, TimeProvider.System);
         var roomName = UniqueName("Room");
 
         Assert.Equal(OutcomeCode.Forbidden, (await Assert.ThrowsAsync<DomainException>(() => service.AddVenueAsync(VenueModel(roomName), 0, ct))).Outcome);
@@ -297,7 +297,7 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
         await using var observer = Context();
         var unitOfWork = new UnitOfWork(writer);
         var (actorId, linkedUserId) = await SeedUsersAsync(ct);
-        var service = new MemberService(new MemberRepository(unitOfWork), unitOfWork);
+        var service = new MemberService(new MemberRepository(unitOfWork), unitOfWork, TimeProvider.System);
         var studentNumber = UniqueName("SN");
 
         Assert.Equal(OutcomeCode.Forbidden, (await Assert.ThrowsAsync<DomainException>(() => service.CreateMemberFromApprovedAccountRequestAsync(linkedUserId, MemberModel(studentNumber), 0, ct))).Outcome);

@@ -16,12 +16,14 @@ namespace ASI.Basecode.Services.Services
     {
         private readonly IVenueRepository _repository;
         private readonly IUnitOfWork _unitOfWork;
+        private readonly TimeProvider _timeProvider;
         private readonly IMapper _mapper;
 
-        public VenueService(IVenueRepository repository, IUnitOfWork unitOfWork, IMapper mapper)
+        public VenueService(IVenueRepository repository, IUnitOfWork unitOfWork, IMapper mapper, TimeProvider timeProvider)
         {
             _repository = repository;
             _unitOfWork = unitOfWork;
+            _timeProvider = timeProvider;
             _mapper = mapper;
         }
 
@@ -60,7 +62,7 @@ namespace ASI.Basecode.Services.Services
                 venue.ImagePath = model.ImagePath;
                 venue.IsActive = true;
                 venue.CreatedBy = actorUserId;
-                venue.CreatedAt = DateTime.UtcNow;
+                venue.CreatedAt = _timeProvider.GetUtcNow().UtcDateTime;
                 await _repository.AddVenueAsync(venue, ct);
                 await _unitOfWork.SaveChangesAsync(ct);
             }, cancellationToken);
@@ -93,7 +95,7 @@ namespace ASI.Basecode.Services.Services
                 venue.ContactPerson = model.ContactPerson;
                 venue.ImagePath = model.ImagePath;
                 venue.UpdatedBy = actorUserId;
-                venue.UpdatedAt = DateTime.UtcNow;
+                venue.UpdatedAt = _timeProvider.GetUtcNow().UtcDateTime;
                 await _repository.UpdateVenueAsync(venue, ct);
                 await _unitOfWork.SaveChangesAsync(ct);
             }, cancellationToken);
@@ -116,7 +118,7 @@ namespace ASI.Basecode.Services.Services
 
                 venue.IsActive = !venue.IsActive;
                 venue.UpdatedBy = actorUserId;
-                venue.UpdatedAt = DateTime.UtcNow;
+                venue.UpdatedAt = _timeProvider.GetUtcNow().UtcDateTime;
                 await _repository.UpdateVenueAsync(venue, ct);
                 await _unitOfWork.SaveChangesAsync(ct);
             }, cancellationToken);
