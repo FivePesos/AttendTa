@@ -17,16 +17,16 @@ public class EventTypeTimestampTests
         var service = new EventTypeService(repository, new ImmediateUnitOfWork(), null!, clock);
         var model = new EventTypeViewModel { TypeId = 1, TypeName = "Workshop", Description = "Description" };
 
-        await service.AddEventTypeAsync(model, 1);
+        await service.AddEventTypeAsync(model, 1, TestContext.Current.CancellationToken);
         Assert.Equal(clock.Now.UtcDateTime, repository.Item!.CreatedAt);
         Assert.Equal(DateTimeKind.Utc, repository.Item.CreatedAt.Kind);
 
         clock.Now = clock.Now.AddHours(1);
-        await service.UpdateEventTypeAsync(model, 1);
+        await service.UpdateEventTypeAsync(model, 1, TestContext.Current.CancellationToken);
         Assert.Equal(clock.Now.UtcDateTime, repository.Item.UpdatedAt);
 
         clock.Now = clock.Now.AddHours(1);
-        await service.ToggleActiveAsync(1, 1);
+        await service.ToggleActiveAsync(1, 1, TestContext.Current.CancellationToken);
         Assert.Equal(clock.Now.UtcDateTime, repository.Item.UpdatedAt);
         Assert.False(repository.Item.IsActive);
     }

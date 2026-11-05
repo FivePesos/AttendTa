@@ -24,6 +24,14 @@ public class ManilaTimeFormatterTests
     }
 
     [Fact]
+    public void LocalDateTimeIsRejectedInsteadOfBeingMisinterpretedAsUtc()
+    {
+        var timestamp = new DateTime(2026, 1, 1, 18, 30, 0, DateTimeKind.Local);
+        Assert.Throws<ArgumentException>(() => ManilaTimeFormatter.Format(timestamp));
+        Assert.Throws<ArgumentException>(() => ManilaTimeFormatter.Format((DateTime?)timestamp));
+    }
+
+    [Fact]
     public void NullTimestampsAreEmpty()
     {
         Assert.Equal(string.Empty, ManilaTimeFormatter.Format((DateTime?)null));

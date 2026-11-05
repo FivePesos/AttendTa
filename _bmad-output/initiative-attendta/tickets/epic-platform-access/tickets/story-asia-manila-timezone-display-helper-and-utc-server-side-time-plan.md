@@ -3,7 +3,7 @@ title: 'Asia/Manila timezone display helper and UTC server-side time standard'
 type: 'feature'
 ticket: '4'
 created: '2026-11-05'
-status: 'in-progress'
+status: 'built'
 baseline_revision: '97145106aa3a3f1a3ee8acdc89943cc871577f7b'
 route: 'full'
 route_source: 'auto'
@@ -52,10 +52,10 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `ASI.Basecode.Services/Services/{EventType,Member,Venue}Service.cs` — inject `TimeProvider` and use `GetUtcNow().UtcDateTime` for every timestamp.
-- [ ] `ASI.Basecode.WebApp/` and `ASI.Basecode.WebApp/Views/_ViewImports.cshtml` — add a single reusable formatter for UTC `DateTime` and `DateTimeOffset`, including nullable inputs; expose it in Razor and label output `Asia/Manila`.
-- [ ] `tests/ASI.Basecode.Services.Tests/` — use a fixed fake clock and test a real service's create/update/toggle timestamp behavior with test doubles, without relying on wall time.
-- [ ] `tests/ASI.Basecode.IntegrationTests/` — update direct constructors and test formatter rollover, UTC/unspecified kinds, offset instant and null.
+- [x] `ASI.Basecode.Services/Services/{EventType,Member,Venue}Service.cs` — inject `TimeProvider` and use `GetUtcNow().UtcDateTime` for every timestamp.
+- [x] `ASI.Basecode.WebApp/` and `ASI.Basecode.WebApp/Views/_ViewImports.cshtml` — add a single reusable formatter for UTC `DateTime` and `DateTimeOffset`, including nullable inputs; expose it in Razor and label output `Asia/Manila`.
+- [x] `tests/ASI.Basecode.Services.Tests/` — use a fixed fake clock and test a real service's create/update/toggle timestamp behavior with test doubles, without relying on wall time.
+- [x] `tests/ASI.Basecode.IntegrationTests/` — update direct constructors and test formatter rollover, UTC/unspecified kinds, offset instant and null.
 
 **Acceptance Criteria:**
 - Given a fixed injected clock, when a tested service creates, updates or toggles a record, then its written timestamp equals the clock's UTC instant.
@@ -66,6 +66,10 @@ context:
 ## Implementation Notes
 
 Implemented the service clock injection, shared formatter, constructor updates, and tests. Source search found no direct wall-clock reads in Services or Data. Build and tests were not run: the .NET 10 SDK and ATTENDTA_TEST_SQL are unavailable. The user requested skipping SDK-dependent verification to expedite a PR. Matrix tests are written but have not run; implementation remains in progress and review has not run.
+
+Follow-up on 2026-11-05: independently reviewed merged PR #92 at `6ebadb67e7781a7951ad74a98ec5003711afddc5`. A Release build and all 17 service and 87 isolated LocalDB integration tests passed; the build reported three xUnit cancellation warnings. A follow-up rejects local-kind `DateTime` values and passes the test cancellation token. This independent review does not represent a BMAD review run or product acceptance.
+
+Follow-up verification: Release build passed with zero warnings and errors; all 17 service and 88 isolated LocalDB integration tests passed, including rejection of local-kind values through both `DateTime` overloads.
 
 ## Plan Change Log
 
