@@ -12,6 +12,27 @@ using Microsoft.Extensions.Logging;
 
 const string HashPasswordArgument = "--hash-password";
 
+if (Array.IndexOf(args, "--demo-readiness") >= 0)
+{
+    return await ASI.Basecode.WebApp.Readiness.DemoReadiness.RunAsync();
+}
+
+if (Array.IndexOf(args, "--hash-password-env") >= 0)
+{
+    var secret = Environment.GetEnvironmentVariable("ATTENDTA_HASH_SECRET");
+    if (string.IsNullOrEmpty(secret))
+    {
+        Console.Error.WriteLine("ATTENDTA_HASH_SECRET is required.");
+        return 2;
+    }
+    var timer = Stopwatch.StartNew();
+    var hash = new Argon2PasswordHasher().Hash(secret);
+    timer.Stop();
+    Console.Out.WriteLine(hash);
+    Console.Error.WriteLine($"Argon2id hash generated in {timer.ElapsedMilliseconds} ms.");
+    return 0;
+}
+
 var hashPasswordIndex = Array.IndexOf(args, HashPasswordArgument);
 if (hashPasswordIndex >= 0)
 {
