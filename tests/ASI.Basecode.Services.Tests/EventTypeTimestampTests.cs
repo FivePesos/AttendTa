@@ -1,5 +1,10 @@
+using System.Collections.Generic;
+using System.Text.Json;
 using ASI.Basecode.Data.Interfaces;
 using ASI.Basecode.Data.Models;
+using ASI.Basecode.Resources;
+using ASI.Basecode.Resources.Constants;
+using ASI.Basecode.Services.Interfaces;
 using ASI.Basecode.Services.ServiceModels;
 using ASI.Basecode.Services.Services;
 using Microsoft.EntityFrameworkCore;
@@ -10,26 +15,70 @@ namespace ASI.Basecode.Services.Tests;
 public class EventTypeTimestampTests
 {
     [Fact]
-    public async Task CreateUpdateAndToggleUseTheInjectedClock()
+    public async Task CreateUpdateAndToggleUseTheInjectedClockAndWriteAuditSnapshots()
     {
         var clock = new FixedClock { Now = new DateTimeOffset(2026, 1, 1, 18, 30, 0, TimeSpan.Zero) };
         var repository = new MemoryEventTypes();
-        var service = new EventTypeService(repository, new ImmediateUnitOfWork(), null!, clock);
-        var model = new EventTypeViewModel { TypeId = 1, TypeName = "Workshop", Description = "Description" };
+        var audit = new RecordingAudit();
+        var service = new EventTypeService(repository, new ImmediateUnitOfWork(), null!, clock, audit, new FixedActor(7));
+        var model = new EventTypeViewModel { TypeId = 1, TypeName = "  Workshop  ", Description = "  Description  " };
 
-        await service.AddEventTypeAsync(model, 1, TestContext.Current.CancellationToken);
+        await service.AddEventTypeAsync(model, TestContext.Current.CancellationToken);
         Assert.Equal(clock.Now.UtcDateTime, repository.Item!.CreatedAt);
         Assert.Equal(DateTimeKind.Utc, repository.Item.CreatedAt.Kind);
+        Assert.Equal("Workshop", repository.Item.TypeName);
+        Assert.Equal("Description", repository.Item.Description);
+        Assert.Equal(7, repository.Item.CreatedBy);
+        var created = Assert.Single(audit.Entries);
+        Assert.Equal(AuditActions.EventTypeCreated, created.Action);
+        Assert.Equal("event_types", created.EntityType);
+        Assert.Equal(repository.Item.TypeId, created.EntityId);
+        Assert.Null(created.OldValues);
+        Assert.Contains("\"TypeName\":\"Workshop\"", Json(created.NewValues));
+        Assert.Contains("\"Description\":\"Description\"", Json(created.NewValues));
+        Assert.Contains("\"IsActive\":true", Json(created.NewValues));
 
         clock.Now = clock.Now.AddHours(1);
-        await service.UpdateEventTypeAsync(model, 1, TestContext.Current.CancellationToken);
+        await service.UpdateEventTypeAsync(new EventTypeViewModel { TypeId = 1, TypeName = "Seminar", Description = "Edited" }, TestContext.Current.CancellationToken);
         Assert.Equal(clock.Now.UtcDateTime, repository.Item.UpdatedAt);
+        Assert.Equal(7, repository.Item.UpdatedBy);
+        Assert.Equal(2, audit.Entries.Count);
+        var edited = audit.Entries[1];
+        Assert.Equal(AuditActions.EventTypeEdited, edited.Action);
+        Assert.Contains("\"TypeName\":\"Workshop\"", Json(edited.OldValues));
+        Assert.Contains("\"TypeName\":\"Seminar\"", Json(edited.NewValues));
 
         clock.Now = clock.Now.AddHours(1);
-        await service.ToggleActiveAsync(1, 1, TestContext.Current.CancellationToken);
+        repository.LinkedEvents = 3;
+        await service.ToggleActiveAsync(1, TestContext.Current.CancellationToken);
         Assert.Equal(clock.Now.UtcDateTime, repository.Item.UpdatedAt);
         Assert.False(repository.Item.IsActive);
+        Assert.Equal(3, audit.Entries.Count);
+        var status = audit.Entries[2];
+        Assert.Equal(AuditActions.EventTypeStatusChanged, status.Action);
+        Assert.Contains("\"IsActive\":true", Json(status.OldValues));
+        Assert.Contains("\"IsActive\":false", Json(status.NewValues));
+        Assert.Contains("\"LinkedEventCount\":3", Json(status.OldValues));
+        Assert.Contains("\"LinkedEventCount\":3", Json(status.NewValues));
     }
+
+    [Fact]
+    public async Task AnonymousActorIsForbiddenAndWritesNothing()
+    {
+        var repository = new MemoryEventTypes();
+        var audit = new RecordingAudit();
+        var service = new EventTypeService(repository, new ImmediateUnitOfWork(), null!, TimeProvider.System, audit, new FixedActor(0, isAuthenticated: false));
+
+        var error = await Assert.ThrowsAsync<DomainException>(() => service.AddEventTypeAsync(
+            new EventTypeViewModel { TypeName = "Workshop", Description = "Description" },
+            TestContext.Current.CancellationToken));
+
+        Assert.Equal(OutcomeCode.Forbidden, error.Outcome);
+        Assert.Null(repository.Item);
+        Assert.Empty(audit.Entries);
+    }
+
+    private static string Json(IAuditValues values) => JsonSerializer.Serialize(values, values.GetType());
 
     private sealed class FixedClock : TimeProvider
     {
@@ -37,14 +86,42 @@ public class EventTypeTimestampTests
         public override DateTimeOffset GetUtcNow() => Now;
     }
 
+    private sealed class FixedActor(int userId, bool isAuthenticated = true) : ICurrentActor
+    {
+        public bool IsAuthenticated => isAuthenticated;
+        public int UserId => userId;
+        public string Role => "officer";
+    }
+
+    private sealed class RecordingAudit : IActivityLogWriter
+    {
+        public List<AuditEntry> Entries { get; } = [];
+
+        public void Append(AuditEntry entry) => Entries.Add(entry);
+    }
+
     private sealed class MemoryEventTypes : IEventTypeRepository
     {
         public EventType? Item { get; private set; }
-        public IQueryable<EventType> GetEventTypes() => Item is null ? Array.Empty<EventType>().AsQueryable() : new[] { Item }.AsQueryable();
+        public int LinkedEvents { get; set; }
+
+        public Task<int> CountEventTypesAsync(CancellationToken cancellationToken = default) => Task.FromResult(Item is null ? 0 : 1);
+
+        public Task<IReadOnlyList<EventType>> GetEventTypesPageAsync(int offset, int pageSize, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<EventType>>(Item is null ? [] : [Item]);
+
         public EventType GetEventType(int typeId) => Item!;
+
+        public Task<EventType> LockEventTypeAsync(int typeId, CancellationToken cancellationToken = default) => Task.FromResult(Item!);
+
+        public Task<int> CountLinkedEventsAsync(int typeId, CancellationToken cancellationToken = default) => Task.FromResult(LinkedEvents);
+
         public bool EventTypeExists(int typeId) => Item is not null;
+
         public bool TypeNameExists(string typeName, int? excludeId = null) => false;
+
         public Task AddEventTypeAsync(EventType eventType, CancellationToken cancellationToken = default) { Item = eventType; return Task.CompletedTask; }
+
         public Task UpdateEventTypeAsync(EventType eventType, CancellationToken cancellationToken = default) { Item = eventType; return Task.CompletedTask; }
     }
 

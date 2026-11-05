@@ -28,9 +28,12 @@ namespace ASI.Basecode.WebApp.Controllers
             _eventTypeService = eventTypeService;
         }
 
-        public IActionResult Index()
+        [HttpGet]
+        [Route("EventType")]
+        [Route("EventType/Index")]
+        public async Task<IActionResult> Index(int? page = null)
         {
-            var eventTypes = _eventTypeService.GetEventTypes();
+            var eventTypes = await _eventTypeService.GetPageAsync(page, HttpContext.RequestAborted);
             return View(eventTypes);
         }
 
@@ -50,14 +53,13 @@ namespace ASI.Basecode.WebApp.Controllers
 
             try
             {
-                await _eventTypeService.AddEventTypeAsync(model, GetActorUserId(), HttpContext.RequestAborted);
+                await _eventTypeService.AddEventTypeAsync(model, HttpContext.RequestAborted);
                 TempData["SuccessMessage"] = "Event type added successfully.";
                 return RedirectToAction("Index");
             }
             catch (DomainException ex)
             {
-                TempData["ErrorMessage"] = ex.Message;
-                return View(model);
+                return HandleDomainException(ex, model);
             }
         }
 
@@ -83,14 +85,13 @@ namespace ASI.Basecode.WebApp.Controllers
 
             try
             {
-                await _eventTypeService.UpdateEventTypeAsync(model, GetActorUserId(), HttpContext.RequestAborted);
+                await _eventTypeService.UpdateEventTypeAsync(model, HttpContext.RequestAborted);
                 TempData["SuccessMessage"] = "Event type updated successfully.";
                 return RedirectToAction("Index");
             }
             catch (DomainException ex)
             {
-                TempData["ErrorMessage"] = ex.Message;
-                return View(model);
+                return HandleDomainException(ex, model);
             }
         }
 
@@ -99,7 +100,7 @@ namespace ASI.Basecode.WebApp.Controllers
         {
             try
             {
-                await _eventTypeService.ToggleActiveAsync(id, GetActorUserId(), HttpContext.RequestAborted);
+                await _eventTypeService.ToggleActiveAsync(id, HttpContext.RequestAborted);
                 TempData["SuccessMessage"] = "Event type status updated.";
             }
             catch (DomainException ex)
