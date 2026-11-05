@@ -21,7 +21,7 @@ public sealed class ActivityLogWriter(AsiBasecodeDBContext context, ICurrentActo
         if (context.Database.CurrentTransaction == null) throw new InvalidOperationException("Audit requires an active transaction.");
         if (!actor.IsAuthenticated || actor.UserId <= 0) throw new InvalidOperationException("Audit requires an authenticated user.");
         var description = AuditDescriptions.ForAction(entry.Action);
-        if (entry.Action == ASI.Basecode.Resources.Constants.AuditActions.AccountRequestApproved && entry.EntityType != "account_requests") throw new ArgumentException("Unsupported audit entity type.");
+        if ((entry.Action == ASI.Basecode.Resources.Constants.AuditActions.AccountRequestApproved || entry.Action == ASI.Basecode.Resources.Constants.AuditActions.AccountRequestRejected) && entry.EntityType != "account_requests") throw new ArgumentException("Unsupported audit entity type.");
         if ((entry.Action == ASI.Basecode.Resources.Constants.AuditActions.EventTypeCreated || entry.Action == ASI.Basecode.Resources.Constants.AuditActions.EventTypeEdited || entry.Action == ASI.Basecode.Resources.Constants.AuditActions.EventTypeStatusChanged) && entry.EntityType != "event_types") throw new ArgumentException("Unsupported audit entity type.");
         if ((entry.Action == ASI.Basecode.Resources.Constants.AuditActions.VenueCreated || entry.Action == ASI.Basecode.Resources.Constants.AuditActions.VenueEdited) && entry.EntityType != "venues") throw new ArgumentException("Unsupported audit entity type.");
         if (string.IsNullOrWhiteSpace(entry.EntityType) || entry.EntityId <= 0) throw new ArgumentException("Audit entity is required.");

@@ -22,6 +22,11 @@ namespace ASI.Basecode.Data.Interfaces
         Task<User> LockUserAsync(int userId, CancellationToken cancellationToken = default);
 
         /// <summary>
+        /// Stages a new user for insertion. The caller saves through the unit of work.
+        /// </summary>
+        Task AddAsync(User user, CancellationToken cancellationToken = default);
+
+        /// <summary>
         /// Reads the lowercase lookup code for a role id.
         /// </summary>
         Task<string> GetRoleCodeAsync(RoleCode roleId, CancellationToken cancellationToken = default);

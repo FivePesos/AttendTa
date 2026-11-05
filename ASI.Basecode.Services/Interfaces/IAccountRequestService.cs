@@ -5,7 +5,7 @@ using ASI.Basecode.Services.ServiceModels;
 namespace ASI.Basecode.Services.Interfaces
 {
     /// <summary>
-    /// Anonymous membership request submission.
+    /// Anonymous membership request submission and Management decisions.
     /// </summary>
     public interface IAccountRequestService
     {
@@ -22,5 +22,17 @@ namespace ASI.Basecode.Services.Interfaces
         /// student number that is already in use.
         /// </exception>
         Task SubmitAsync(AccountRequestViewModel model, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Approves a pending account request, creating its active Member account and profile
+        /// and recording the audit entry in the caller-owned transaction.
+        /// </summary>
+        Task ApproveAsync(int requestId, int actorUserId, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Rejects a pending account request, recording the reason and audit entry in the
+        /// caller-owned transaction.
+        /// </summary>
+        Task RejectAsync(int requestId, string reason, int actorUserId, CancellationToken cancellationToken = default);
     }
 }

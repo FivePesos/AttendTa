@@ -10,6 +10,7 @@ public static class AuditDescriptions
     public static string ForAction(string action) => action switch
     {
         AuditActions.AccountRequestApproved => Templates.GetString("AccountRequestApproved") ?? throw new InvalidOperationException("Missing audit template."),
+        AuditActions.AccountRequestRejected => Templates.GetString("AccountRequestRejected") ?? throw new InvalidOperationException("Missing audit template."),
         AuditActions.EventTypeCreated => Templates.GetString("EventTypeCreated") ?? throw new InvalidOperationException("Missing audit template."),
         AuditActions.EventTypeEdited => Templates.GetString("EventTypeEdited") ?? throw new InvalidOperationException("Missing audit template."),
         AuditActions.EventTypeStatusChanged => Templates.GetString("EventTypeStatusChanged") ?? throw new InvalidOperationException("Missing audit template."),

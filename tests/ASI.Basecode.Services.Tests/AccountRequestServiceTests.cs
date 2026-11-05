@@ -1,12 +1,14 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using ASI.Basecode.Data.Interfaces;
 using ASI.Basecode.Data.Models;
 using ASI.Basecode.Data.Models.Lookups;
 using ASI.Basecode.Resources;
+using ASI.Basecode.Resources.Constants;
 using ASI.Basecode.Services.Interfaces;
 using ASI.Basecode.Services.Security;
 using ASI.Basecode.Services.ServiceModels;
@@ -277,6 +279,167 @@ public class AccountRequestServiceTests
         Assert.Null(request.MobileNumber);
     }
 
+    [Fact]
+    public async Task ManagementOfficerApprovalCreatesActiveMemberAndAuditsWithoutChangingThePasswordHash()
+    {
+        var harness = new Harness();
+        var request = PendingRequest();
+        var originalHash = request.PasswordHash;
+        harness.Requests.Requests.Add(request);
+
+        await harness.Service.ApproveAsync(request.RequestId, harness.Actor.UserId, TestContext.Current.CancellationToken);
+
+        var user = Assert.Single(harness.Users.Users);
+        Assert.Equal(request.Email, user.UserId);
+        Assert.Equal(request.FullName, user.Name);
+        Assert.Equal(originalHash, user.Password);
+        Assert.Equal(RoleCode.Member, user.RoleId);
+        Assert.True(user.IsActive);
+        Assert.Equal(harness.Actor.UserId, user.CreatedById);
+        Assert.Equal(AccountRequestStatusCode.Approved, request.AccountRequestStatusId);
+        Assert.Null(request.PasswordHash);
+        Assert.Equal(user.Id, request.CreatedUserId);
+        Assert.Equal(harness.Actor.UserId, request.ReviewedBy);
+        Assert.Equal(FixedNow.UtcDateTime, request.ReviewedAt);
+        Assert.Null(request.ReviewNotes);
+        Assert.Equal(2, harness.UnitOfWork.SaveCount);
+        Assert.Equal(user.Id, harness.MemberService.CreatedUserId);
+        Assert.Equal(harness.Actor.UserId, harness.MemberService.ActorUserId);
+        Assert.Equal(request.StudentNumber, harness.MemberService.Model!.StudentNumber);
+        Assert.Equal(request.Course, harness.MemberService.Model.Course);
+        Assert.Equal(request.YearLevel, harness.MemberService.Model.YearLevel);
+        Assert.Equal(request.Section, harness.MemberService.Model.Section);
+        Assert.Equal(request.MobileNumber, harness.MemberService.Model.MobileNumber);
+        Assert.Equal("active", harness.MemberService.Model.Status);
+        var audit = Assert.Single(harness.Audit.Entries);
+        Assert.Equal(AuditActions.AccountRequestApproved, audit.Action);
+        Assert.Equal("account_requests", audit.EntityType);
+        Assert.Equal(request.RequestId, audit.EntityId);
+        Assert.DoesNotContain("hash", JsonSerializer.Serialize(audit), StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(originalHash, JsonSerializer.Serialize(audit), StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(false, "officer", 42)]
+    [InlineData(true, "member", 42)]
+    [InlineData(true, "admin", 43)]
+    public async Task ApprovalRequiresAnAuthenticatedMatchingManagementActor(bool authenticated, string role, int actorId)
+    {
+        var harness = new Harness();
+        harness.Actor.IsAuthenticatedValue = authenticated;
+        harness.Actor.RoleValue = role;
+        harness.Requests.Requests.Add(PendingRequest());
+
+        var exception = await Assert.ThrowsAsync<DomainException>(
+            () => harness.Service.ApproveAsync(1, actorId, TestContext.Current.CancellationToken));
+
+        Assert.Equal(OutcomeCode.Forbidden, exception.Outcome);
+        Assert.Empty(harness.Users.Users);
+        Assert.Empty(harness.Audit.Entries);
+        Assert.Equal(0, harness.UnitOfWork.TransactionCount);
+    }
+
+    [Fact]
+    public async Task RejectionRequiresANonblankReasonWithoutChangingRequestOrWritingAudit()
+    {
+        var harness = new Harness();
+        var request = PendingRequest();
+        var originalHash = request.PasswordHash;
+        harness.Requests.Requests.Add(request);
+
+        var exception = await Assert.ThrowsAsync<DomainException>(
+            () => harness.Service.RejectAsync(request.RequestId, "  \t ", harness.Actor.UserId, TestContext.Current.CancellationToken));
+
+        Assert.Equal(OutcomeCode.Invalid, exception.Outcome);
+        Assert.Equal(AccountRequestStatusCode.Pending, request.AccountRequestStatusId);
+        Assert.Equal(originalHash, request.PasswordHash);
+        Assert.Null(request.ReviewedBy);
+        Assert.Empty(harness.Audit.Entries);
+        Assert.Equal(0, harness.UnitOfWork.SaveCount);
+    }
+
+    [Fact]
+    public async Task MissingAndAlreadyFinalizedRequestsReturnNotFoundAndStale()
+    {
+        var harness = new Harness();
+        var missing = await Assert.ThrowsAsync<DomainException>(
+            () => harness.Service.ApproveAsync(99, harness.Actor.UserId, TestContext.Current.CancellationToken));
+        Assert.Equal(OutcomeCode.NotFound, missing.Outcome);
+
+        var finalized = PendingRequest();
+        finalized.AccountRequestStatusId = AccountRequestStatusCode.Rejected;
+        finalized.PasswordHash = null;
+        harness.Requests.Requests.Add(finalized);
+        var stale = await Assert.ThrowsAsync<DomainException>(
+            () => harness.Service.RejectAsync(finalized.RequestId, "duplicate attempt", harness.Actor.UserId, TestContext.Current.CancellationToken));
+
+        Assert.Equal(OutcomeCode.Stale, stale.Outcome);
+        Assert.Empty(harness.Users.Users);
+        Assert.Empty(harness.Audit.Entries);
+        Assert.Equal(0, harness.UnitOfWork.SaveCount);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task ApprovalRejectsExistingEmailOrStudentNumberIncludingInactiveMembers(bool emailConflict)
+    {
+        var harness = new Harness();
+        var request = PendingRequest();
+        harness.Requests.Requests.Add(request);
+        if (emailConflict)
+        {
+            harness.Users.Users.Add(new User { Id = 17, UserId = request.Email, IsActive = false });
+        }
+        else
+        {
+            harness.Members.Members.Add(new Member
+            {
+                StudentNumber = request.StudentNumber,
+                MembershipStatusId = MembershipStatusCode.Inactive
+            });
+        }
+
+        var exception = await Assert.ThrowsAsync<DomainException>(
+            () => harness.Service.ApproveAsync(request.RequestId, harness.Actor.UserId, TestContext.Current.CancellationToken));
+
+        Assert.Equal(OutcomeCode.Duplicate, exception.Outcome);
+        Assert.Equal(AccountRequestStatusCode.Pending, request.AccountRequestStatusId);
+        Assert.NotNull(request.PasswordHash);
+        Assert.Empty(harness.Audit.Entries);
+        Assert.Empty(harness.MemberService.Calls);
+        Assert.Equal(0, harness.UnitOfWork.SaveCount);
+    }
+
+    [Fact]
+    public async Task RejectionRecordsReviewerReasonClearsHashAndPermitsResubmission()
+    {
+        var harness = new Harness();
+        var request = PendingRequest();
+        harness.Requests.Requests.Add(request);
+
+        await harness.Service.RejectAsync(request.RequestId, "  Not eligible this term.  ", harness.Actor.UserId, TestContext.Current.CancellationToken);
+
+        Assert.Equal(AccountRequestStatusCode.Rejected, request.AccountRequestStatusId);
+        Assert.Null(request.PasswordHash);
+        Assert.Equal(harness.Actor.UserId, request.ReviewedBy);
+        Assert.Equal(FixedNow.UtcDateTime, request.ReviewedAt);
+        Assert.Equal("Not eligible this term.", request.ReviewNotes);
+        Assert.Empty(harness.Users.Users);
+        Assert.Empty(harness.MemberService.Calls);
+        var audit = Assert.Single(harness.Audit.Entries);
+        Assert.Equal(AuditActions.AccountRequestRejected, audit.Action);
+        Assert.Equal("Not eligible this term.", audit.Reason);
+        Assert.Equal(1, harness.UnitOfWork.SaveCount);
+
+        var resubmission = ValidModel();
+        resubmission.Email = request.Email;
+        resubmission.StudentNumber = request.StudentNumber;
+        await harness.Service.SubmitAsync(resubmission, TestContext.Current.CancellationToken);
+        Assert.Equal(2, harness.Requests.Requests.Count);
+        Assert.Equal(AccountRequestStatusCode.Pending, harness.Requests.Requests[1].AccountRequestStatusId);
+    }
+
     private static AccountRequestViewModel ValidModel()
     {
         return new AccountRequestViewModel
@@ -293,6 +456,21 @@ public class AccountRequestServiceTests
         };
     }
 
+    private static AccountRequest PendingRequest() => new()
+    {
+        RequestId = 1,
+        StudentNumber = "2023-01234",
+        FullName = "Ana Reyes",
+        Email = "ana.reyes@example.com",
+        PasswordHash = "$argon2id$original-approved-hash",
+        Course = "BSIT",
+        YearLevel = 2,
+        Section = "A",
+        MobileNumber = "09171234567",
+        AccountRequestStatusId = AccountRequestStatusCode.Pending,
+        RequestedAt = FixedNow.UtcDateTime.AddDays(-1)
+    };
+
     private sealed class Harness
     {
         public FakeAccountRequestRepository Requests { get; } = new();
@@ -301,12 +479,51 @@ public class AccountRequestServiceTests
         public FakeUnitOfWork UnitOfWork { get; } = new();
         public Argon2PasswordHasher Hasher { get; } = new();
         public FixedClock Clock { get; } = new() { Now = FixedNow };
+        public FakeCurrentActor Actor { get; } = new() { Id = 42, RoleValue = "officer" };
+        public FakeMemberService MemberService { get; } = new();
+        public FakeActivityLogWriter Audit { get; } = new();
         public AccountRequestService Service { get; }
 
         public Harness()
         {
-            Service = new AccountRequestService(Requests, Users, Members, UnitOfWork, Hasher, Clock);
+            Service = new AccountRequestService(Requests, Users, Members, UnitOfWork, Hasher, Clock, Actor, MemberService, Audit);
         }
+    }
+
+    private sealed class FakeCurrentActor : ICurrentActor
+    {
+        public int Id { get; set; }
+        public bool IsAuthenticatedValue { get; set; } = true;
+        public string RoleValue { get; set; } = "officer";
+        public bool IsAuthenticated => IsAuthenticatedValue;
+        public int UserId => Id;
+        public string Role => RoleValue;
+    }
+
+    private sealed class FakeMemberService : IMemberService
+    {
+        public List<(int UserId, MemberViewModel Model, int ActorUserId)> Calls { get; } = new();
+        public int CreatedUserId => Calls.Single().UserId;
+        public int ActorUserId => Calls.Single().ActorUserId;
+        public MemberViewModel? Model => Calls.SingleOrDefault().Model;
+
+        public List<MemberViewModel> GetMembers(string search = null!) => throw new NotSupportedException();
+        public MemberViewModel GetMember(int id) => throw new NotSupportedException();
+        public Task<MemberViewModel> GetSelfProfileAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task UpdateMemberAsync(MemberViewModel model, int actorUserId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task ToggleStatusAsync(int id, int actorUserId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+        public Task CreateMemberFromApprovedAccountRequestAsync(int userId, MemberViewModel model, int actorUserId, CancellationToken cancellationToken = default)
+        {
+            Calls.Add((userId, model, actorUserId));
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class FakeActivityLogWriter : IActivityLogWriter
+    {
+        public List<AuditEntry> Entries { get; } = new();
+        public void Append(AuditEntry entry) => Entries.Add(entry);
     }
 
     private sealed class FixedClock : TimeProvider
@@ -372,6 +589,13 @@ public class AccountRequestServiceTests
             return Task.FromResult(Users.FirstOrDefault(user => user.Id == userId))!;
         }
 
+        public Task AddAsync(User user, CancellationToken cancellationToken = default)
+        {
+            user.Id = Users.Count == 0 ? 100 : Users.Max(item => item.Id) + 1;
+            Users.Add(user);
+            return Task.CompletedTask;
+        }
+
         public Task<string> GetRoleCodeAsync(RoleCode roleId, CancellationToken cancellationToken = default)
         {
             return Task.FromResult<string>(null!);
@@ -413,6 +637,7 @@ public class AccountRequestServiceTests
         public Exception? SaveFailure { get; set; }
 
         public int SaveCount { get; private set; }
+        public int TransactionCount { get; private set; }
 
         public DbContext Database => throw new NotSupportedException();
 
@@ -431,11 +656,13 @@ public class AccountRequestServiceTests
 
         public Task ExecuteInTransactionAsync(Func<CancellationToken, Task> work, CancellationToken cancellationToken = default)
         {
+            TransactionCount++;
             return work(cancellationToken);
         }
 
         public Task<T> ExecuteInTransactionAsync<T>(Func<CancellationToken, Task<T>> work, CancellationToken cancellationToken = default)
         {
+            TransactionCount++;
             return work(cancellationToken);
         }
     }
