@@ -42,6 +42,13 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
             new ActivityLogWriter((AsiBasecodeDBContext)work.Database, actor, TimeProvider.System), actor, NullLogger<VenueService>.Instance);
     }
 
+    private static EventTypeService EventTypeWriter(IEventTypeRepository repository, UnitOfWork work, int actorId)
+    {
+        var actor = new TestActor(actorId);
+        return new EventTypeService(repository, work, Mapper, TimeProvider.System,
+            new ActivityLogWriter((AsiBasecodeDBContext)work.Database, actor, TimeProvider.System), actor);
+    }
+
     private sealed class TestActor(int id) : ICurrentActor
     {
         public bool IsAuthenticated => true;
@@ -108,10 +115,10 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
         await using var observer = Context();
         var unitOfWork = new UnitOfWork(writer);
         var actorId = await SeedUserAsync(ct);
-        var service = new EventTypeService(new EventTypeRepositoryThatSavesThenFails(new EventTypeRepository(unitOfWork), unitOfWork), unitOfWork, Mapper, TimeProvider.System);
+        var service = EventTypeWriter(new EventTypeRepositoryThatSavesThenFails(new EventTypeRepository(unitOfWork), unitOfWork), unitOfWork, actorId);
         var name = UniqueName("Type");
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => service.AddEventTypeAsync(EventTypeModel(name), actorId, ct));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.AddEventTypeAsync(EventTypeModel(name), ct));
 
         Assert.Empty(writer.ChangeTracker.Entries());
         Assert.False(await observer.EventTypes.AnyAsync(t => t.TypeName == name, ct));
@@ -125,10 +132,10 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
         await using var observer = Context();
         var unitOfWork = new UnitOfWork(writer);
         var actorId = await SeedUserAsync(ct);
-        var service = new EventTypeService(new EventTypeRepository(unitOfWork), unitOfWork, Mapper, TimeProvider.System);
+        var service = EventTypeWriter(new EventTypeRepository(unitOfWork), unitOfWork, actorId);
         var name = UniqueName("Type");
 
-        await service.AddEventTypeAsync(EventTypeModel(name), actorId, ct);
+        await service.AddEventTypeAsync(EventTypeModel(name), ct);
 
         Assert.True(await observer.EventTypes.AnyAsync(t => t.TypeName == name, ct));
     }
@@ -141,12 +148,12 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
         await using var observer = Context();
         var unitOfWork = new UnitOfWork(writer);
         var actorId = await SeedUserAsync(ct);
-        var service = new EventTypeService(new EventTypeRepository(unitOfWork), unitOfWork, Mapper, TimeProvider.System);
+        var service = EventTypeWriter(new EventTypeRepository(unitOfWork), unitOfWork, actorId);
         var name = UniqueName("Type");
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => unitOfWork.ExecuteInTransactionAsync(async inner =>
         {
-            await service.AddEventTypeAsync(EventTypeModel(name), actorId, inner);
+            await service.AddEventTypeAsync(EventTypeModel(name), inner);
             throw new InvalidOperationException("The outer work failed.");
         }, ct));
 
@@ -306,18 +313,19 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
         await using var observer = Context();
         var unitOfWork = new UnitOfWork(writer);
         var actorId = await SeedUserAsync(ct);
-        var service = new EventTypeService(new EventTypeRepository(unitOfWork), unitOfWork, Mapper, TimeProvider.System);
+        var service = EventTypeWriter(new EventTypeRepository(unitOfWork), unitOfWork, actorId);
+        var anonymous = EventTypeWriter(new EventTypeRepository(unitOfWork), unitOfWork, 0);
         var name = UniqueName("Type");
 
-        Assert.Equal(OutcomeCode.Forbidden, (await Assert.ThrowsAsync<DomainException>(() => service.AddEventTypeAsync(EventTypeModel(name), 0, ct))).Outcome);
-        Assert.Equal(OutcomeCode.Invalid, (await Assert.ThrowsAsync<DomainException>(() => service.AddEventTypeAsync(EventTypeModel("   "), actorId, ct))).Outcome);
-        Assert.Equal(OutcomeCode.Invalid, (await Assert.ThrowsAsync<DomainException>(() => service.AddEventTypeAsync(new EventTypeViewModel { TypeName = name, Description = "  " }, actorId, ct))).Outcome);
-        Assert.Equal(OutcomeCode.NotFound, (await Assert.ThrowsAsync<DomainException>(() => service.UpdateEventTypeAsync(new EventTypeViewModel { TypeId = int.MaxValue, TypeName = name, Description = "Description" }, actorId, ct))).Outcome);
-        Assert.Equal(OutcomeCode.NotFound, (await Assert.ThrowsAsync<DomainException>(() => service.ToggleActiveAsync(int.MaxValue, actorId, ct))).Outcome);
+        Assert.Equal(OutcomeCode.Forbidden, (await Assert.ThrowsAsync<DomainException>(() => anonymous.AddEventTypeAsync(EventTypeModel(name), ct))).Outcome);
+        Assert.Equal(OutcomeCode.Invalid, (await Assert.ThrowsAsync<DomainException>(() => service.AddEventTypeAsync(EventTypeModel("   "), ct))).Outcome);
+        Assert.Equal(OutcomeCode.Invalid, (await Assert.ThrowsAsync<DomainException>(() => service.AddEventTypeAsync(new EventTypeViewModel { TypeName = name, Description = "  " }, ct))).Outcome);
+        Assert.Equal(OutcomeCode.NotFound, (await Assert.ThrowsAsync<DomainException>(() => service.UpdateEventTypeAsync(new EventTypeViewModel { TypeId = int.MaxValue, TypeName = name, Description = "Description" }, ct))).Outcome);
+        Assert.Equal(OutcomeCode.NotFound, (await Assert.ThrowsAsync<DomainException>(() => service.ToggleActiveAsync(int.MaxValue, ct))).Outcome);
         Assert.False(await observer.EventTypes.AnyAsync(t => t.TypeName == name, ct));
 
-        await service.AddEventTypeAsync(EventTypeModel(name), actorId, ct);
-        var duplicate = await Assert.ThrowsAsync<DomainException>(() => service.AddEventTypeAsync(EventTypeModel(name), actorId, ct));
+        await service.AddEventTypeAsync(EventTypeModel(name), ct);
+        var duplicate = await Assert.ThrowsAsync<DomainException>(() => service.AddEventTypeAsync(EventTypeModel(name), ct));
         Assert.Equal(OutcomeCode.Duplicate, duplicate.Outcome);
         Assert.Equal(1, await observer.EventTypes.CountAsync(t => t.TypeName == name, ct));
     }
@@ -448,8 +456,11 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
     }
     private sealed class EventTypeRepositoryThatSavesThenFails(IEventTypeRepository inner, IUnitOfWork unitOfWork) : IEventTypeRepository
     {
-        public IQueryable<EventType> GetEventTypes() => inner.GetEventTypes();
+        public Task<int> CountEventTypesAsync(CancellationToken cancellationToken = default) => inner.CountEventTypesAsync(cancellationToken);
+        public Task<IReadOnlyList<EventType>> GetEventTypesPageAsync(int offset, int pageSize, CancellationToken cancellationToken = default) => inner.GetEventTypesPageAsync(offset, pageSize, cancellationToken);
         public EventType GetEventType(int typeId) => inner.GetEventType(typeId);
+        public Task<EventType> LockEventTypeAsync(int typeId, CancellationToken cancellationToken = default) => inner.LockEventTypeAsync(typeId, cancellationToken);
+        public Task<int> CountLinkedEventsAsync(int typeId, CancellationToken cancellationToken = default) => inner.CountLinkedEventsAsync(typeId, cancellationToken);
         public bool EventTypeExists(int typeId) => inner.EventTypeExists(typeId);
         public bool TypeNameExists(string typeName, int? excludeId = null) => inner.TypeNameExists(typeName, excludeId);
         public Task UpdateEventTypeAsync(EventType eventType, CancellationToken cancellationToken = default) => inner.UpdateEventTypeAsync(eventType, cancellationToken);

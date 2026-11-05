@@ -1,5 +1,5 @@
 using ASI.Basecode.Data.Models;
-using System.Linq;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -7,8 +7,11 @@ namespace ASI.Basecode.Data.Interfaces
 {
     public interface IEventTypeRepository
     {
-        IQueryable<EventType> GetEventTypes();
+        Task<int> CountEventTypesAsync(CancellationToken cancellationToken = default);
+        Task<IReadOnlyList<EventType>> GetEventTypesPageAsync(int offset, int pageSize, CancellationToken cancellationToken = default);
         EventType GetEventType(int typeId);
+        Task<EventType> LockEventTypeAsync(int typeId, CancellationToken cancellationToken = default);
+        Task<int> CountLinkedEventsAsync(int typeId, CancellationToken cancellationToken = default);
         Task AddEventTypeAsync(EventType eventType, CancellationToken cancellationToken = default);
         Task UpdateEventTypeAsync(EventType eventType, CancellationToken cancellationToken = default);
         bool EventTypeExists(int typeId);
