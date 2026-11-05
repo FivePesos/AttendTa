@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Security.Claims;
 using System.Threading.Tasks;
 using ASI.Basecode.Resources.Constants;
@@ -38,6 +38,8 @@ namespace ASI.Basecode.WebApp
                         OnValidatePrincipal = ValidatePrincipalAsync
                     };
                 });
+
+            this._services.AddAntiforgery(options => options.HeaderName = "RequestVerificationToken");
 
             this._services.AddAuthorization(options =>
             {

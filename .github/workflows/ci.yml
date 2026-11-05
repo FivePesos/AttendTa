@@ -12,6 +12,19 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ASI.Basecode.WebApp/package-lock.json
+
+      - name: Build and verify CSS
+        run: |
+          npm --prefix ASI.Basecode.WebApp ci
+          npm --prefix ASI.Basecode.WebApp run css:build
+          git diff --exit-code -- ASI.Basecode.WebApp/wwwroot/css/app.css
+
       - name: Set up .NET 10
         uses: actions/setup-dotnet@v4
         with:
