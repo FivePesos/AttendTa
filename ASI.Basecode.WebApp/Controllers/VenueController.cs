@@ -1,3 +1,4 @@
+using ASI.Basecode.Resources;
 using ASI.Basecode.Resources.Constants;
 using ASI.Basecode.Services.Interfaces;
 using ASI.Basecode.Services.ServiceModels;
@@ -91,7 +92,7 @@ namespace ASI.Basecode.WebApp.Controllers
                 var actorUserId = GetActorUserId();
                 if (actorUserId <= 0)
                 {
-                    throw new InvalidDataException("A valid authenticated user is required to create a venue.");
+                    throw new DomainException(OutcomeCode.Forbidden, "A valid authenticated user is required to create a venue.");
                 }
 
                 await using var content = photo?.OpenReadStream();
@@ -106,11 +107,20 @@ namespace ASI.Basecode.WebApp.Controllers
                     Path.GetExtension(photo.FileName),
                     HttpContext.RequestAborted);
                 model.ImagePath = savedImagePath;
-                _venueService.AddVenue(model, actorUserId);
+                await _venueService.AddVenueAsync(model, actorUserId, HttpContext.RequestAborted);
                 TempData["SuccessMessage"] = "Venue added successfully.";
                 return RedirectToAction("Index");
             }
             catch (InvalidDataException ex)
+            {
+                if (!string.IsNullOrWhiteSpace(savedImagePath))
+                {
+                    TryDeleteVenueImage(savedImagePath);
+                }
+                ModelState.AddModelError("photo", ex.Message);
+                return View(model);
+            }
+            catch (DomainException ex)
             {
                 if (!string.IsNullOrWhiteSpace(savedImagePath))
                 {
@@ -162,7 +172,7 @@ namespace ASI.Basecode.WebApp.Controllers
                 var actorUserId = GetActorUserId();
                 if (actorUserId <= 0)
                 {
-                    throw new InvalidDataException("A valid authenticated user is required to update a venue.");
+                    throw new DomainException(OutcomeCode.Forbidden, "A valid authenticated user is required to update a venue.");
                 }
 
                 model.ImagePath = existing.ImagePath;
@@ -177,7 +187,7 @@ namespace ASI.Basecode.WebApp.Controllers
                     model.ImagePath = newImagePath;
                 }
 
-                _venueService.UpdateVenue(model, actorUserId);
+                await _venueService.UpdateVenueAsync(model, actorUserId, HttpContext.RequestAborted);
                 databaseUpdateSucceeded = true;
                 if (!string.IsNullOrWhiteSpace(newImagePath)
                     && !string.Equals(existing.ImagePath, newImagePath, System.StringComparison.OrdinalIgnoreCase))
@@ -188,6 +198,15 @@ namespace ASI.Basecode.WebApp.Controllers
                 return RedirectToAction("Index");
             }
             catch (InvalidDataException ex)
+            {
+                if (!databaseUpdateSucceeded && !string.IsNullOrWhiteSpace(newImagePath))
+                {
+                    TryDeleteVenueImage(newImagePath);
+                }
+                ModelState.AddModelError("photo", ex.Message);
+                return View(model);
+            }
+            catch (DomainException ex)
             {
                 if (!databaseUpdateSucceeded && !string.IsNullOrWhiteSpace(newImagePath))
                 {
@@ -207,14 +226,14 @@ namespace ASI.Basecode.WebApp.Controllers
         }
 
         [HttpPost]
-        public IActionResult ToggleActive(int id)
+        public async Task<IActionResult> ToggleActive(int id)
         {
             try
             {
-                _venueService.ToggleActive(id, GetActorUserId());
+                await _venueService.ToggleActiveAsync(id, GetActorUserId(), HttpContext.RequestAborted);
                 TempData["SuccessMessage"] = "Venue status updated.";
             }
-            catch (InvalidDataException ex)
+            catch (DomainException ex)
             {
                 TempData["ErrorMessage"] = ex.Message;
             }

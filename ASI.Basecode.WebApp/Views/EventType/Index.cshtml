@@ -3,18 +3,19 @@
     ViewData["Title"] = "Event Types";
 }
 
-<div class="d-flex justify-content-between align-items-center mb-3">
+<div class="page-heading">
     <h2>Event Type Management</h2>
-    <a asp-action="Create" class="btn btn-primary">Add Event Type</a>
+    <a asp-action="Create" class="button button-primary">Add Event Type</a>
 </div>
 
-<table class="table table-striped">
+<div class="table-scroll" role="region" aria-label="EventType table" tabindex="0">
+<table class="data-table">
     <thead>
         <tr>
-            <th>Type Name</th>
-            <th>Description</th>
-            <th>Status</th>
-            <th></th>
+            <th scope="col">Type Name</th>
+            <th scope="col">Description</th>
+            <th scope="col">Status</th>
+            <th scope="col">Actions</th>
         </tr>
     </thead>
     <tbody>
@@ -25,12 +26,18 @@
                 <td>@eventType.Description</td>
                 <td>@(eventType.IsActive ? "Active" : "Inactive")</td>
                 <td>
-                    <a asp-action="Edit" asp-route-id="@eventType.TypeId" class="btn btn-sm btn-outline-primary">Edit</a>
-                    <form asp-action="ToggleActive" asp-route-id="@eventType.TypeId" method="post" class="d-inline">
-                        <button type="submit" class="btn btn-sm @(eventType.IsActive ? "btn-outline-danger" : "btn-outline-success")">@(eventType.IsActive ? "Deactivate" : "Activate")</button>
+                    <a asp-action="Edit" asp-route-id="@eventType.TypeId" class="button button-secondary">Edit</a>
+                    <form asp-action="ToggleActive" asp-route-id="@eventType.TypeId" method="post" class="inline-form">
+                        <button type="submit" class="button button-secondary">@(eventType.IsActive ? "Deactivate" : "Activate")</button>
                     </form>
                 </td>
             </tr>
         }
     </tbody>
 </table>
+</div>
+
+@if (Model.Count == 0)
+{
+    <p class="empty-state">No records found.</p>
+}

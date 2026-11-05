@@ -103,7 +103,7 @@ Reference by path only. The SPEC is the source of truth for planned features not
   are owned by other members. Coordinate schema/API boundaries rather than implementing those modules.
 - MVP `members.user_id` is required and unique. Full name/email belong to the linked user; member
   records carry course, year level, section, mobile number, membership type, and membership status.
-  Member creation is exposed through `CreateMemberFromApprovedAccountRequest` for Auth integration;
+  Member creation is exposed through `CreateMemberFromApprovedAccountRequestAsync` for Auth integration;
   do not add standalone member creation.
 - Master Data inserts require a valid authenticated actor ID for `created_by`; never hard-code or
   substitute `0`. `ControllerBase.GetActorUserId()` reads the real `users.user_id` from the

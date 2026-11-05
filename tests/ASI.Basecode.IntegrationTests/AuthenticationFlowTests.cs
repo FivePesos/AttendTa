@@ -1,10 +1,15 @@
 using System.Net;
+using System.Text.Encodings.Web;
 using System.Text.RegularExpressions;
 using ASI.Basecode.Data;
 using ASI.Basecode.Data.Models;
 using ASI.Basecode.Data.Models.Lookups;
 using ASI.Basecode.Services.Security;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
 
@@ -241,6 +246,177 @@ public class AuthenticationFlowTests : IClassFixture<SqlServerDatabaseFixture>, 
             TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.BadRequest, logout.StatusCode);
+    }
+
+    [Fact]
+    public async Task AnonymousShellHasNoAuthenticatedNavigation()
+    {
+        var html = await (await client.GetAsync("/Account/Login", TestContext.Current.CancellationToken)).Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+        Assert.DoesNotContain("Mobile navigation", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("/Member", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("Sign out", html, StringComparison.Ordinal);
+        Assert.Contains("name=\"RequestVerificationToken\"", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("https://", html, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
+    [InlineData(AdminEmail, true)]
+    [InlineData(OfficerEmail, true)]
+    [InlineData(MemberEmail, false)]
+    public async Task ShellShowsOnlyAvailableRoleNavigation(string email, bool management)
+    {
+        await SignInAsync(email, Password);
+        var html = await (await client.GetAsync("/Home/Index", TestContext.Current.CancellationToken)).Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+        Assert.Contains("Mobile navigation", html, StringComparison.Ordinal);
+        Assert.Contains("Sign out", html, StringComparison.Ordinal);
+        Assert.Contains("/css/app.css", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("https://", html, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("bootstrap", html, StringComparison.OrdinalIgnoreCase);
+        if (management) { Assert.Contains("class=\"management-topbar\"", html, StringComparison.Ordinal); Assert.Contains("/Member", html, StringComparison.Ordinal); Assert.Contains("/EventType", html, StringComparison.Ordinal); Assert.Contains("/Venue", html, StringComparison.Ordinal); }
+        else { Assert.DoesNotContain("class=\"management-topbar\"", html, StringComparison.Ordinal); Assert.DoesNotContain("/Member", html, StringComparison.Ordinal); Assert.DoesNotContain("/EventType", html, StringComparison.Ordinal); Assert.DoesNotContain("/Venue", html, StringComparison.Ordinal); }
+    }
+
+    [Fact]
+    public async Task AjaxHeaderAcceptsTokenAndFeedbackAppearsOnce()
+    {
+        await SignInAsync(AdminEmail, Password);
+        var page = await client.GetStringAsync("/EventType/Index", TestContext.Current.CancellationToken);
+        var token = Regex.Match(page, "<meta name=\"RequestVerificationToken\" content=\"([^\"]+)\"").Groups[1].Value;
+        Assert.NotEmpty(token);
+        using var invalid = new HttpRequestMessage(HttpMethod.Post, "/EventType/ToggleActive?id=0");
+        invalid.Headers.Add("RequestVerificationToken", "invalid");
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.SendAsync(invalid, TestContext.Current.CancellationToken)).StatusCode);
+        using var valid = new HttpRequestMessage(HttpMethod.Post, "/EventType/ToggleActive?id=0");
+        valid.Headers.Add("RequestVerificationToken", token);
+        Assert.Equal(HttpStatusCode.Redirect, (await client.SendAsync(valid, TestContext.Current.CancellationToken)).StatusCode);
+        var result = await client.GetStringAsync("/EventType/Index", TestContext.Current.CancellationToken);
+        Assert.Contains("Event type not found.", result, StringComparison.Ordinal);
+        Assert.Contains("role=\"alert\"", result, StringComparison.Ordinal);
+        var next = await client.GetStringAsync("/EventType/Index", TestContext.Current.CancellationToken);
+        Assert.DoesNotContain("Event type not found.", next, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task SuccessfulMutationShowsEncodedDataAndSuccessOnce()
+    {
+        await SignInAsync(AdminEmail, Password);
+        var token = await GetAntiforgeryTokenAsync("/EventType/Create");
+        var name = "<script>" + Guid.NewGuid().ToString("N") + "</script>";
+        var response = await client.PostAsync("/EventType/Create", new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["TypeName"] = name,
+            ["Description"] = "Test description",
+            ["__RequestVerificationToken"] = token
+        }), TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        var html = await client.GetStringAsync("/EventType/Index", TestContext.Current.CancellationToken);
+        Assert.Contains("Event type added successfully.", html, StringComparison.Ordinal);
+        Assert.Contains("role=\"status\"", html, StringComparison.Ordinal);
+        Assert.Contains("&lt;script&gt;", html, StringComparison.Ordinal);
+        Assert.DoesNotContain(name, html, StringComparison.Ordinal);
+        var next = await client.GetStringAsync("/EventType/Index", TestContext.Current.CancellationToken);
+        Assert.DoesNotContain("Event type added successfully.", next, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("success", "notice-success", "status")]
+    [InlineData("error", "notice-error", "alert")]
+    public async Task TempDataFeedbackIsEncodedInTheRenderedLayout(string scenario, string noticeClass, string role)
+    {
+        await using var feedbackFactory = factory.WithWebHostBuilder(builder =>
+            builder.ConfigureTestServices(services =>
+                services.Configure<MvcOptions>(options => options.Filters.Add(new FeedbackTestFilter()))));
+        using var feedbackClient = feedbackFactory.CreateClient();
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/Account/Login");
+        request.Headers.Add("X-Feedback-Test", scenario);
+
+        using var response = await feedbackClient.SendAsync(request, TestContext.Current.CancellationToken);
+        response.EnsureSuccessStatusCode();
+        var html = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+        Assert.Contains($"class=\"notice {noticeClass}\" role=\"{role}\"", html, StringComparison.Ordinal);
+        Assert.Contains(HtmlEncoder.Default.Encode(FeedbackTestFilter.Payload), html, StringComparison.Ordinal);
+        Assert.DoesNotContain(FeedbackTestFilter.Payload, html, StringComparison.Ordinal);
+        Assert.Single(Regex.Matches(html, "class=\"notice ").Cast<Match>());
+    }
+
+    [Theory]
+    [InlineData("empty")]
+    [InlineData("whitespace")]
+    public async Task EmptyTempDataDoesNotRenderANotice(string scenario)
+    {
+        await using var feedbackFactory = factory.WithWebHostBuilder(builder =>
+            builder.ConfigureTestServices(services =>
+                services.Configure<MvcOptions>(options => options.Filters.Add(new FeedbackTestFilter()))));
+        using var feedbackClient = feedbackFactory.CreateClient();
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/Account/Login");
+        request.Headers.Add("X-Feedback-Test", scenario);
+
+        using var response = await feedbackClient.SendAsync(request, TestContext.Current.CancellationToken);
+        response.EnsureSuccessStatusCode();
+        var html = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+        Assert.DoesNotContain("class=\"notice ", html, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("/Account/Login", "/Account/Login", false, "Email", "Password")]
+    [InlineData("/EventType/Create", "/EventType/Create", true, "TypeName", "Description")]
+    [InlineData("/Venue/Create", "/Venue/Create", true, "RoomName", "Capacity")]
+    [InlineData("/Home/Index", "/Member/Edit", true, "StudentNumber", "Course")]
+    public async Task InvalidPostAssociatesFieldErrorsWithControls(string tokenPath, string postPath, bool signIn, string first, string second)
+    {
+        if (signIn) await SignInAsync(AdminEmail, Password);
+        var token = await GetAntiforgeryTokenAsync(tokenPath);
+        using var response = await client.PostAsync(postPath, new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["__RequestVerificationToken"] = token,
+            ["Capacity"] = "not-a-number"
+        }), TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var html = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+        AssertErrorAssociation(html, first);
+        AssertErrorAssociation(html, second);
+    }
+
+    [Theory]
+    [InlineData("/Member", "No members found.")]
+    [InlineData("/Member?search=%20%20", "No members found.")]
+    [InlineData("/Member?search=unmatched", "No members match your search.")]
+    public async Task EmptyMemberDirectoryExplainsSearchState(string path, string message)
+    {
+        await SignInAsync(AdminEmail, Password);
+        var html = await client.GetStringAsync(path, TestContext.Current.CancellationToken);
+        Assert.Contains(message, html, StringComparison.Ordinal);
+    }
+
+    private static void AssertErrorAssociation(string html, string field)
+    {
+        var input = Regex.Match(html, $"<(?:input|select|textarea)\\b[^>]*\\bname=\"{field}\"[^>]*>", RegexOptions.IgnoreCase);
+        Assert.True(input.Success, $"No control for {field}.");
+        Assert.Contains($"aria-describedby=\"{field}-validation\"", input.Value, StringComparison.Ordinal);
+        var error = Regex.Match(html, $"<span[^>]*id=\"{field}-validation\"[^>]*>(.*?)</span>", RegexOptions.Singleline | RegexOptions.IgnoreCase);
+        Assert.True(error.Success, $"No error container for {field}.");
+        Assert.False(string.IsNullOrWhiteSpace(Regex.Replace(error.Groups[1].Value, "<[^>]+>", "")), $"No server error for {field}.");
+    }
+
+    // Test-only filter supplies otherwise-unreachable values to the real layout without a production endpoint.
+    private sealed class FeedbackTestFilter : IAsyncResultFilter
+    {
+        public const string Payload = "<script>alert(\"feedback\")</script>";
+
+        public async Task OnResultExecutionAsync(ResultExecutingContext context, ResultExecutionDelegate next)
+        {
+            if (context.Controller is Controller controller)
+            {
+                switch (context.HttpContext.Request.Headers["X-Feedback-Test"].ToString())
+                {
+                    case "success": controller.TempData["SuccessMessage"] = Payload; break;
+                    case "error": controller.TempData["ErrorMessage"] = Payload; break;
+                    case "empty": controller.TempData["SuccessMessage"] = ""; controller.TempData["ErrorMessage"] = ""; break;
+                    case "whitespace": controller.TempData["SuccessMessage"] = "  "; controller.TempData["ErrorMessage"] = "  "; break;
+                }
+            }
+            await next();
+        }
     }
 
     private async Task<HttpResponseMessage> SignInAsync(string email, string password)

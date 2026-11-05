@@ -1,5 +1,7 @@
 using ASI.Basecode.Data.Models;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace ASI.Basecode.Data.Interfaces
 {
@@ -8,8 +10,8 @@ namespace ASI.Basecode.Data.Interfaces
         IQueryable<MemberRecord> GetMemberRecords();
         MemberRecord GetMemberRecord(int memberId);
         Member GetMember(int memberId);
-        void AddMember(Member member);
-        void UpdateMember(Member member);
+        Task AddMemberAsync(Member member, CancellationToken cancellationToken = default);
+        Task UpdateMemberAsync(Member member, CancellationToken cancellationToken = default);
         bool UserHasMemberProfile(int userId);
         bool StudentNumberExists(string studentNumber, int? excludeId = null);
     }

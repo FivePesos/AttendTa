@@ -1,21 +1,25 @@
 using ASI.Basecode.Data.Interfaces;
 using ASI.Basecode.Data.Models;
+using ASI.Basecode.Resources;
 using ASI.Basecode.Services.Interfaces;
 using ASI.Basecode.Services.ServiceModels;
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace ASI.Basecode.Services.Services
 {
     public class MemberService : IMemberService
     {
         private readonly IMemberRepository _repository;
+        private readonly IUnitOfWork _unitOfWork;
 
-        public MemberService(IMemberRepository repository)
+        public MemberService(IMemberRepository repository, IUnitOfWork unitOfWork)
         {
             _repository = repository;
+            _unitOfWork = unitOfWork;
         }
 
         public List<MemberViewModel> GetMembers(string search = null)
@@ -40,87 +44,104 @@ namespace ASI.Basecode.Services.Services
             return member == null ? null : ToViewModel(member);
         }
 
-        public void CreateMemberFromApprovedAccountRequest(int userId, MemberViewModel model, int actorUserId)
+        public async Task CreateMemberFromApprovedAccountRequestAsync(int userId, MemberViewModel model, int actorUserId, CancellationToken cancellationToken = default)
         {
-            if (userId <= 0 || actorUserId <= 0)
-            {
-                throw new InvalidDataException("A valid linked user and approving actor are required to create a member.");
-            }
-
-            if (_repository.UserHasMemberProfile(userId))
-            {
-                throw new InvalidDataException("This user already has a member profile.");
-            }
-
-            if (_repository.StudentNumberExists(model.StudentNumber))
-            {
-                throw new InvalidDataException("Student number already exists.");
-            }
-
-            var member = new Member
-            {
-                UserId = userId,
-                StudentNumber = model.StudentNumber,
-                Course = model.Course,
-                YearLevel = model.YearLevel,
-                Section = model.Section,
-                MobileNumber = model.MobileNumber,
-                MembershipType = model.MembershipType,
-                Status = "active",
-                CreatedBy = actorUserId,
-                CreatedAt = DateTime.UtcNow
-            };
-
-            _repository.AddMember(member);
-        }
-
-        public void UpdateMember(MemberViewModel model, int actorUserId)
-        {
-            var member = _repository.GetMember(model.MemberId);
-            if (member == null)
-            {
-                throw new InvalidDataException("Member not found.");
-            }
-
-            if (_repository.StudentNumberExists(model.StudentNumber, model.MemberId))
-            {
-                throw new InvalidDataException("Student number already exists.");
-            }
-
             if (actorUserId <= 0)
             {
-                throw new InvalidDataException("A valid authenticated user is required to update a member.");
+                throw new DomainException(OutcomeCode.Forbidden, "A valid linked user and approving actor are required to create a member.");
             }
 
-            member.StudentNumber = model.StudentNumber;
-            member.Course = model.Course;
-            member.YearLevel = model.YearLevel;
-            member.Section = model.Section;
-            member.MobileNumber = model.MobileNumber;
-            member.MembershipType = model.MembershipType;
-            member.Status = model.Status;
-            member.UpdatedBy = actorUserId;
-            member.UpdatedAt = DateTime.UtcNow;
-            _repository.UpdateMember(member);
+            if (userId <= 0)
+            {
+                throw new DomainException(OutcomeCode.Invalid, "A valid linked user and approving actor are required to create a member.");
+            }
+
+            await _unitOfWork.ExecuteInTransactionAsync(async ct =>
+            {
+                if (_repository.UserHasMemberProfile(userId))
+                {
+                    throw new DomainException(OutcomeCode.Duplicate, "This user already has a member profile.");
+                }
+
+                if (_repository.StudentNumberExists(model.StudentNumber))
+                {
+                    throw new DomainException(OutcomeCode.Duplicate, "Student number already exists.", nameof(MemberViewModel.StudentNumber));
+                }
+
+                var member = new Member
+                {
+                    UserId = userId,
+                    StudentNumber = model.StudentNumber,
+                    Course = model.Course,
+                    YearLevel = model.YearLevel,
+                    Section = model.Section,
+                    MobileNumber = model.MobileNumber,
+                    MembershipType = model.MembershipType,
+                    Status = "active",
+                    CreatedBy = actorUserId,
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                await _repository.AddMemberAsync(member, ct);
+                await _unitOfWork.SaveChangesAsync(ct);
+            }, cancellationToken);
         }
 
-        public void ToggleStatus(int id, int actorUserId)
+        public async Task UpdateMemberAsync(MemberViewModel model, int actorUserId, CancellationToken cancellationToken = default)
         {
-            var member = _repository.GetMember(id);
-            if (member == null)
-            {
-                throw new InvalidDataException("Member not found.");
-            }
-
             if (actorUserId <= 0)
             {
-                throw new InvalidDataException("A valid authenticated user is required to update a member.");
+                throw new DomainException(OutcomeCode.Forbidden, "A valid authenticated user is required to update a member.");
             }
 
-            member.Status = (member.Status ?? "active") == "active" ? "inactive" : "active";
-            member.UpdatedBy = actorUserId;
-            member.UpdatedAt = DateTime.UtcNow;
-            _repository.UpdateMember(member);
+            await _unitOfWork.ExecuteInTransactionAsync(async ct =>
+            {
+                var member = _repository.GetMember(model.MemberId);
+                if (member == null)
+                {
+                    throw new DomainException(OutcomeCode.NotFound, "Member not found.");
+                }
+
+                if (_repository.StudentNumberExists(model.StudentNumber, model.MemberId))
+                {
+                    throw new DomainException(OutcomeCode.Duplicate, "Student number already exists.", nameof(MemberViewModel.StudentNumber));
+                }
+
+                member.StudentNumber = model.StudentNumber;
+                member.Course = model.Course;
+                member.YearLevel = model.YearLevel;
+                member.Section = model.Section;
+                member.MobileNumber = model.MobileNumber;
+                member.MembershipType = model.MembershipType;
+                member.Status = model.Status;
+                member.UpdatedBy = actorUserId;
+                member.UpdatedAt = DateTime.UtcNow;
+                await _repository.UpdateMemberAsync(member, ct);
+                await _unitOfWork.SaveChangesAsync(ct);
+            }, cancellationToken);
+        }
+
+        public async Task ToggleStatusAsync(int id, int actorUserId, CancellationToken cancellationToken = default)
+        {
+            if (actorUserId <= 0)
+            {
+                throw new DomainException(OutcomeCode.Forbidden, "A valid authenticated user is required to update a member.");
+            }
+
+            await _unitOfWork.ExecuteInTransactionAsync(async ct =>
+            {
+                var member = _repository.GetMember(id);
+                if (member == null)
+                {
+                    throw new DomainException(OutcomeCode.NotFound, "Member not found.");
+                }
+
+                member.Status = (member.Status ?? "active") == "active" ? "inactive" : "active";
+                member.UpdatedBy = actorUserId;
+                member.UpdatedAt = DateTime.UtcNow;
+                await _repository.UpdateMemberAsync(member, ct);
+                await _unitOfWork.SaveChangesAsync(ct);
+            }, cancellationToken);
         }
 
         private static MemberViewModel ToViewModel(MemberRecord member)

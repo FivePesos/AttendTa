@@ -4,6 +4,8 @@ using ASI.Basecode.Data.Models.Lookups;
 using Basecode.Data.Repositories;
 using Microsoft.EntityFrameworkCore;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace ASI.Basecode.Data.Repositories
 {
@@ -55,16 +57,16 @@ namespace ASI.Basecode.Data.Repositories
             return this.GetDbSet<Member>().FirstOrDefault(m => m.MemberId == memberId);
         }
 
-        public void AddMember(Member member)
+        public Task AddMemberAsync(Member member, CancellationToken cancellationToken = default)
         {
             this.GetDbSet<Member>().Add(member);
-            UnitOfWork.SaveChanges();
+            return Task.CompletedTask;
         }
 
-        public void UpdateMember(Member member)
+        public Task UpdateMemberAsync(Member member, CancellationToken cancellationToken = default)
         {
             this.SetEntityState(member, EntityState.Modified);
-            UnitOfWork.SaveChanges();
+            return Task.CompletedTask;
         }
 
         public bool UserHasMemberProfile(int userId)

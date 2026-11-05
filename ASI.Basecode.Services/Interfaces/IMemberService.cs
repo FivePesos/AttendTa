@@ -1,5 +1,7 @@
 using ASI.Basecode.Services.ServiceModels;
 using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace ASI.Basecode.Services.Interfaces
 {
@@ -7,8 +9,8 @@ namespace ASI.Basecode.Services.Interfaces
     {
         List<MemberViewModel> GetMembers(string search = null);
         MemberViewModel GetMember(int id);
-        void UpdateMember(MemberViewModel model, int actorUserId);
-        void ToggleStatus(int id, int actorUserId);
-        void CreateMemberFromApprovedAccountRequest(int userId, MemberViewModel model, int actorUserId);
+        Task UpdateMemberAsync(MemberViewModel model, int actorUserId, CancellationToken cancellationToken = default);
+        Task ToggleStatusAsync(int id, int actorUserId, CancellationToken cancellationToken = default);
+        Task CreateMemberFromApprovedAccountRequestAsync(int userId, MemberViewModel model, int actorUserId, CancellationToken cancellationToken = default);
     }
 }
