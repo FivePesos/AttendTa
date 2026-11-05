@@ -29,6 +29,9 @@ namespace ASI.Basecode.WebApp
                 CreateMap<EventType, EventTypeViewModel>();
                 CreateMap<VenueViewModel, Venue>();
                 CreateMap<Venue, VenueViewModel>();
+                CreateMap<EventViewModel, Event>();
+                CreateMap<Event, EventViewModel>();
+                CreateMap<EventListItem, EventViewModel>();
             }
         }
     }
