@@ -11,6 +11,7 @@ using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
@@ -35,12 +36,12 @@ public sealed class VenueTransactionPhotoTests(SqlServerDatabaseFixture fixture)
         public string Role => "officer";
     }
 
-    private static VenueService Service(AsiBasecodeDBContext context, IPrivateFileStore files, int actorId)
+    private static VenueService Service(AsiBasecodeDBContext context, IPrivateFileStore files, int actorId, ILogger<VenueService>? logger = null)
     {
         var unit = new UnitOfWork(context);
         var actor = new Actor(actorId);
         return new VenueService(new VenueRepository(unit), unit, Mapper, TimeProvider.System, files,
-            new ActivityLogWriter(context, actor, TimeProvider.System), actor, NullLogger<VenueService>.Instance);
+            new ActivityLogWriter(context, actor, TimeProvider.System), actor, logger ?? NullLogger<VenueService>.Instance);
     }
 
     private async Task<(int ActorId, int VenueId, int TypeId)> SeedAsync(string photo, CancellationToken ct)
@@ -400,7 +401,16 @@ public sealed class VenueTransactionPhotoTests(SqlServerDatabaseFixture fixture)
         public string CreateTemporaryPath(string extension) => inner.CreateTemporaryPath(extension);
         public Task<string> PromoteAsync(string path, PrivateFileArea area, CancellationToken ct = default) => inner.PromoteAsync(path, area, ct);
         public Task<Stream> OpenReadAsync(string path, CancellationToken ct = default) => inner.OpenReadAsync(path, ct);
-        public void Delete(string path) => throw new IOException("Injected cleanup failure");
+        public void Delete(string path) => throw new IOException($"Injected cleanup failure: {path}");
+    }
+
+    private sealed class RecordingLogger : ILogger<VenueService>
+    {
+        public List<(LogLevel Level, string Message, Exception? Exception)> Entries { get; } = [];
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+        public bool IsEnabled(LogLevel logLevel) => true;
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter) =>
+            Entries.Add((logLevel, formatter(state, exception), exception));
     }
 
     [Fact]
@@ -415,7 +425,12 @@ public sealed class VenueTransactionPhotoTests(SqlServerDatabaseFixture fixture)
         var (actorId, venueId, _) = await SeedAsync(oldPhoto, ct);
         await using var writer = Context();
         using var photo = new MemoryStream(image);
-        await Service(writer, new DeleteFails(files), actorId).UpdateVenueAsync(Model(venueId), actorId, photo, ".jpg", ct);
+        var logger = new RecordingLogger();
+        await Service(writer, new DeleteFails(files), actorId, logger).UpdateVenueAsync(Model(venueId), actorId, photo, ".jpg", ct);
+        var entry = Assert.Single(logger.Entries);
+        Assert.Equal(LogLevel.Warning, entry.Level);
+        Assert.DoesNotContain(oldPhoto, entry.Message);
+        Assert.Null(entry.Exception);
         await using var observer = Context();
         var venue = await observer.Venues.AsNoTracking().SingleAsync(v => v.VenueId == venueId, ct);
         Assert.Equal("Edited room", venue.RoomName);
