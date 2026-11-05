@@ -4,6 +4,7 @@ using ASI.Basecode.Data.Models.Lookups;
 using ASI.Basecode.Services.Interfaces;
 using ASI.Basecode.Services.ServiceModels;
 using ASI.Basecode.Services.Security;
+using ASI.Basecode.WebApp.Rendering;
 using ASI.Basecode.WebApp.Storage;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -15,6 +16,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Options;
 using System.Globalization;
 using System.Collections.Concurrent;
 using System.Diagnostics;
@@ -31,7 +34,7 @@ namespace ASI.Basecode.IntegrationTests;
 public sealed class CertificateTracerFlowTests(SqlServerDatabaseFixture fixture) : IClassFixture<SqlServerDatabaseFixture>
 {
     [Fact]
-    public async Task RendererCreatesOneA4LandscapePageWithSnapshotDatesBrandingFontAndWatermark()
+    public async Task RendererCreatesOfficialA4LandscapePageWithApprovedSignatoryAndNoDevelopmentMarkings()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         using var factory = CreateFactory(fixture.ConnectionString, "Development", new StorageProbe());
@@ -58,10 +61,71 @@ public sealed class CertificateTracerFlowTests(SqlServerDatabaseFixture fixture)
         Assert.Contains("2026-01-0202:30asia/manila", normalizedText, StringComparison.Ordinal);
         Assert.Contains("2026-01-0211:15asia/manila", normalizedText, StringComparison.Ordinal);
         Assert.Contains("universityofcebu", normalizedText, StringComparison.Ordinal);
+        Assert.Contains("christiankyleducay", normalizedText, StringComparison.Ordinal);
+        Assert.Contains("organizationpresident", normalizedText, StringComparison.Ordinal);
+        Assert.DoesNotContain("developmentsample", normalizedText, StringComparison.Ordinal);
+        Assert.DoesNotContain("notanofficialcertificate", normalizedText, StringComparison.Ordinal);
+        Assert.Matches(new Regex(@"(?im)^.*Cinzel.*\byes\s+yes\s+yes\b"), fonts);
+        Assert.True(Regex.Matches(Encoding.Latin1.GetString(pdf), @"/Subtype\s*/Image", RegexOptions.CultureInvariant).Count >= 2,
+            "The official PDF should embed both the AttendTa logo and the approved signature image.");
+    }
+
+    [Fact]
+    public async Task RendererKeepsDevelopmentTracerSampleWatermarked()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        using var factory = CreateFactory(fixture.ConnectionString, "Development", new StorageProbe());
+        using var renderScope = factory.Services.CreateScope();
+        var renderer = renderScope.ServiceProvider.GetRequiredService<ICertificatePdfRenderer>();
+
+        var pdf = await renderer.RenderSampleAsync(cancellationToken);
+        var normalizedText = NormalizePdfText(await ExtractPdfTextAsync(pdf, cancellationToken));
+
         Assert.Contains("developmentsample", normalizedText, StringComparison.Ordinal);
         Assert.Contains("notanofficialcertificate", normalizedText, StringComparison.Ordinal);
-        Assert.Matches(new Regex(@"(?im)^.*Cinzel.*\byes\s+yes\s+yes\b"), fonts);
-        Assert.Contains("/Subtype /Image", Encoding.Latin1.GetString(pdf), StringComparison.Ordinal);
+        Assert.DoesNotContain("christiankyleducay", normalizedText, StringComparison.Ordinal);
+        AssertOneLandscapeA4Page(await ReadPdfInfoAsync(pdf, cancellationToken));
+    }
+
+    [Fact]
+    public async Task OfficialRendererRejectsUnapprovedSignatoryConfiguration()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        using var factory = CreateFactory(
+            fixture.ConnectionString,
+            "Development",
+            new StorageProbe(),
+            configureSignatoryOptions: options => options.Name = "Unapproved Name");
+        using var renderScope = factory.Services.CreateScope();
+        var renderer = renderScope.ServiceProvider.GetRequiredService<ICertificatePdfRenderer>();
+        var snapshot = new CertificatePdfSnapshot(
+            "Jamie Cruz",
+            "Campus Leadership Summit",
+            new DateTime(2026, 1, 1, 18, 30, 0, DateTimeKind.Utc),
+            new DateTime(2026, 1, 2, 3, 15, 0, DateTimeKind.Utc),
+            "AT-2026-000042");
+
+        var exception = await Assert.ThrowsAsync<OptionsValidationException>(() => renderer.RenderSnapshotAsync(snapshot, cancellationToken));
+        Assert.Contains("approved certificate signatory", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task OfficialRendererFailsWhenPackagedSignatureAssetIsMissing()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        using var factory = CreateFactory(fixture.ConnectionString, "Development", new StorageProbe());
+        factory.Services.GetRequiredService<IWebHostEnvironment>().WebRootFileProvider = new NullFileProvider();
+        using var renderScope = factory.Services.CreateScope();
+        var renderer = renderScope.ServiceProvider.GetRequiredService<ICertificatePdfRenderer>();
+        var snapshot = new CertificatePdfSnapshot(
+            "Jamie Cruz",
+            "Campus Leadership Summit",
+            new DateTime(2026, 1, 1, 18, 30, 0, DateTimeKind.Utc),
+            new DateTime(2026, 1, 2, 3, 15, 0, DateTimeKind.Utc),
+            "AT-2026-000042");
+
+        var exception = await Assert.ThrowsAsync<FileNotFoundException>(() => renderer.RenderSnapshotAsync(snapshot, cancellationToken));
+        Assert.Contains("signatory signature image is missing", exception.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -350,7 +414,8 @@ public sealed class CertificateTracerFlowTests(SqlServerDatabaseFixture fixture)
         string environmentName,
         StorageProbe probe,
         ICertificatePdfRenderer? renderer = null,
-        TracerLogProbe? logProbe = null)
+        TracerLogProbe? logProbe = null,
+        Action<CertificateSignatoryOptions>? configureSignatoryOptions = null)
     {
         var factory = new AttendTaWebApplicationFactory(connectionString, environmentName: environmentName)
         {
@@ -371,6 +436,11 @@ public sealed class CertificateTracerFlowTests(SqlServerDatabaseFixture fixture)
                 if (logProbe is not null)
                 {
                     services.AddLogging(builder => builder.AddProvider(logProbe));
+                }
+
+                if (configureSignatoryOptions is not null)
+                {
+                    services.PostConfigure(configureSignatoryOptions);
                 }
             }
         };

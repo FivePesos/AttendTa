@@ -6,6 +6,7 @@ using ASI.Basecode.Services.Security;
 using ASI.Basecode.Services.Services;
 using ASI.Basecode.WebApp.Certificates;
 using ASI.Basecode.WebApp.Authentication;
+using ASI.Basecode.WebApp.Rendering;
 using ASI.Basecode.WebApp.Storage;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
@@ -36,6 +37,7 @@ namespace ASI.Basecode.WebApp
             this._services.AddScoped<IAccountRequestQueueService, AccountRequestQueueService>();
             this._services.AddScoped<IActivityLogReaderService, ActivityLogReaderService>();
             this._services.AddScoped<IAccountRequestService, AccountRequestService>();
+            this._services.AddScoped<IAccountAdministrationService, AccountAdministrationService>();
             this._services.AddScoped<IMemberService, MemberService>();
             this._services.AddScoped<IEventTypeService, EventTypeService>();
             this._services.AddScoped<IVenueService, VenueService>();
@@ -45,6 +47,7 @@ namespace ASI.Basecode.WebApp
             this._services.AddScoped<IUserRepository, UserRepository>();
             this._services.AddScoped<IAccountRequestRepository, AccountRequestRepository>();
             this._services.AddScoped<IActivityLogReaderRepository, ActivityLogReaderRepository>();
+            this._services.AddScoped<IAccountAdministrationRepository, AccountAdministrationRepository>();
             this._services.AddScoped<IMemberRepository, MemberRepository>();
             this._services.AddScoped<IEventTypeRepository, EventTypeRepository>();
             this._services.AddScoped<IVenueRepository, VenueRepository>();
@@ -53,6 +56,18 @@ namespace ASI.Basecode.WebApp
             // Shared server-local storage for private images, certificates and renderer files.
             this._services.AddScoped<IPrivateFileStore, PrivateFileStore>();
             this._services.AddScoped<ICertificatePdfRenderer, PlaywrightCertificatePdfRenderer>();
+
+            this._services.AddOptions<CertificateSignatoryOptions>()
+                .Bind(this.Configuration.GetSection(CertificateSignatoryOptions.SectionName))
+                .Validate(
+                    options => string.Equals(options.Name, CertificateSignatoryOptions.ApprovedName, StringComparison.Ordinal),
+                    $"{CertificateSignatoryOptions.SectionName}:Name must match the approved certificate signatory.")
+                .Validate(
+                    options => string.Equals(options.Title, CertificateSignatoryOptions.ApprovedTitle, StringComparison.Ordinal),
+                    $"{CertificateSignatoryOptions.SectionName}:Title must match the approved certificate signatory title.")
+                .Validate(
+                    options => string.Equals(options.PackagedSignatureAsset, CertificateSignatoryOptions.SignatureAssetPath, StringComparison.Ordinal),
+                    $"{CertificateSignatoryOptions.SectionName}:PackagedSignatureAsset must name the packaged approved signature asset.");
 
             // Current request actor for service-layer authorization and audit.
             this._services.AddScoped<ICurrentActor, HttpCurrentActor>();

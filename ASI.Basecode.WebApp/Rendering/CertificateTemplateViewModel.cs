@@ -12,4 +12,8 @@ public sealed record CertificateTemplateViewModel(
     string CinzelSemiboldDataUri,
     string RecipientSizeClass,
     string EventSizeClass,
-    string NumberSizeClass);
+    string NumberSizeClass,
+    bool IsDevelopmentSample,
+    string SignatoryName,
+    string SignatoryTitle,
+    string SignatureDataUri);
