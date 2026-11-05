@@ -1,16 +1,15 @@
 # AGENTS.md — AttendTa
 
 Student Organization Event Registration & Attendance System (Group 7).
-ASP.NET Core MVC (.NET 9) web app for org events, member registration,
+ASP.NET Core MVC (.NET 10) web app for org events, member registration,
 attendance check-in, certificate eligibility, and participation reports.
 
 ## Stack
-- .NET 9 / ASP.NET Core MVC, EF Core 9 (SQL Server), AutoMapper, LinqKit, Serilog
+- .NET 10 / ASP.NET Core MVC, EF Core 10 (SQL Server), AutoMapper, LinqKit, Serilog
 - Razor views + Bootstrap + jQuery (toastr for notifications)
 
 ## Build & Run
-- .NET 9 target, but only the .NET 10 SDK/runtime is installed on this machine:
-  set `$env:DOTNET_ROLL_FORWARD = "LatestMajor"` before running.
+- Install the .NET 10 SDK before building or running the solution.
 - `dotnet build` — build the full solution.
 - `dotnet run --project "ASI.Basecode.WebApp\ASI.Basecode.WebApp.csproj"` — start the app.
   (Pass the full path: two `ASI - Backup.*.csproj` files make `dotnet run --project ASI.Basecode.WebApp` ambiguous.)
@@ -99,7 +98,10 @@ Reference by path only. The SPEC is the source of truth for planned features not
   It is idempotent and uses that admin's `user_id` for `created_by`.
 
 ## Test Conventions
-No test project exists yet — add conventions here once tests are introduced.
+- Run `dotnet test tests/ASI.Basecode.Services.Tests/ASI.Basecode.Services.Tests.csproj`.
+- Run `dotnet test tests/ASI.Basecode.IntegrationTests/ASI.Basecode.IntegrationTests.csproj`
+  with `ConnectionStrings__DefaultConnection` configured for a local SQL Server instance.
+  The SQL smoke test creates `AttendTaMVP_Test` if it does not already exist.
 
 ## Documentation
 - `spec/AttendTa-SPEC.md` — Master Data spec (submodule).

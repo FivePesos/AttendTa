@@ -8,21 +8,6 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
-    services:
-      sqlserver:
-        image: mcr.microsoft.com/mssql/server:2025-latest
-        env:
-          ACCEPT_EULA: Y
-          MSSQL_PID: Developer
-          # Configure this repository Actions secret with a strong SQL Server password.
-          MSSQL_SA_PASSWORD: ${{ secrets.MSSQL_SA_PASSWORD }}
-        ports:
-          - 1433:1433
-        options: >-
-          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P \"$MSSQL_SA_PASSWORD\" -b -l 2 -Q 'SELECT 1' || exit 1"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 12
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -31,6 +16,26 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
+
+      - name: Start SQL Server
+        shell: bash
+        run: |
+          password="Aa1!$(openssl rand -hex 24)"
+          echo "::add-mask::$password"
+          echo "MSSQL_SA_PASSWORD=$password" >> "$GITHUB_ENV"
+          docker run --detach --name attendta-sql --publish 1433:1433 \
+            --env ACCEPT_EULA=Y --env MSSQL_PID=Developer \
+            --env "MSSQL_SA_PASSWORD=$password" \
+            mcr.microsoft.com/mssql/server:2025-latest
+          for attempt in {1..30}; do
+            if docker exec attendta-sql /opt/mssql-tools18/bin/sqlcmd \
+              -C -S localhost -U sa -P "$password" -b -l 2 -Q 'SELECT 1'; then
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "SQL Server failed its readiness check" >&2
+          exit 1
 
       - name: Restore solution
         run: dotnet restore ASI.Basecode.sln
@@ -45,4 +50,3 @@ jobs:
         run: dotnet test tests/ASI.Basecode.IntegrationTests/ASI.Basecode.IntegrationTests.csproj --no-build --no-restore --configuration Release
         env:
           ConnectionStrings__DefaultConnection: "Server=localhost,1433;Database=master;User ID=sa;Encrypt=True;TrustServerCertificate=True"
-          MSSQL_SA_PASSWORD: ${{ secrets.MSSQL_SA_PASSWORD }}

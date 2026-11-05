@@ -71,6 +71,8 @@ The current checkout has four main projects targeting `net9.0`, no `tests/` dire
 
 2026-11-05: Implemented the .NET 10 retarget and smoke-test projects. A temporary SDK 10.0.403 was installed under the user's temporary directory for verification because the installed SDK was 9.0.200. Restore passed after resolving a Newtonsoft.Json downgrade and vulnerable transitive dependencies; the solution build passed with zero warnings/errors. The Services smoke test passed 1/1, and the SQL smoke test passed 1/1 against the disposable LocalDB database. The CI workflow requires the repository Actions secret `MSSQL_SA_PASSWORD`. Its GitHub-hosted PR run has not been verified; Docker and actionlint were not available locally.
 
+2026-11-05 follow-up (starting revision 11f87ac312bcc62084d3db443e4ca66cbfb09089): Replace the repository-secret dependency with a masked per-job password and a readiness-checked SQL Server container started in a workflow step. Update AGENTS.md and remove outdated backup WebApp package conflicts. The solution builds with zero warnings; each smoke test passes locally (the integration test uses LocalDB). GitHub Actions and the SQL Server 2025 image remain unverified until an approved push and PR run. The retained backup Services project is outside the solution and has pre-existing standalone build errors and vulnerable dependencies; it is not required to build by this story.
+
 ## Plan Change Log
 
 ## Review Triage Log
@@ -88,4 +90,3 @@ This story establishes the shared baseline only. Authentication, schema mapping,
 
 **Manual checks:**
 - Inspect the pull-request workflow run for a healthy SQL Server service and successful build/test jobs.
-
