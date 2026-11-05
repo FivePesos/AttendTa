@@ -95,6 +95,17 @@ public sealed class SqlServerDatabaseFixture : IAsyncLifetime
         }
     }
 
+    /// <summary>
+    /// Applies the sqlcmd variables the admin seed script expects.
+    /// </summary>
+    public static string ApplyAdminSeedVariables(string script, string name, string email, string passwordHash)
+    {
+        return script
+            .Replace("$(AdminName)", name, StringComparison.Ordinal)
+            .Replace("$(AdminEmail)", email, StringComparison.Ordinal)
+            .Replace("$(AdminPasswordHash)", passwordHash, StringComparison.Ordinal);
+    }
+
     private async Task DropDatabaseAsync()
     {
         var cancellationToken = TestContext.Current.CancellationToken;

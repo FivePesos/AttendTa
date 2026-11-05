@@ -1,4 +1,4 @@
-﻿@using Microsoft.AspNetCore.Http
+﻿@using System.Security.Claims
 @inject IHttpContextAccessor HttpContextAccessor
 <header class="@((ViewBag.LoginView == true) ? "hide-navbar" : "")">
     <div class="logosec hover-pointer">
@@ -12,7 +12,7 @@
         <a href="@Url.Action("Index", "Venue")" style="color:#fff;">Venues</a>
     </nav>
     <div class="logosec">
-        @HttpContextAccessor.HttpContext.Session.GetString("UserName")
+        @(HttpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.Name)?.Value)
         <div class="mr-20 hover-pointer" style="position: relative">
             <div class="dp">
                 <img src="~/img/profile-logo.png"
@@ -27,7 +27,9 @@
                     </li>
                     <li>
                         <i class="fa-solid fa-right-from-bracket"></i>
-                        <a asp-action="SignOutUser" asp-controller="Account">Logout</a>
+                        <form asp-controller="Account" asp-action="Logout" method="post" class="d-inline">
+                            <button type="submit" class="btn btn-link p-0 align-baseline">Logout</button>
+                        </form>
                     </li>
                 </ul>
             </div>

@@ -1,3 +1,4 @@
+using ASI.Basecode.Resources.Constants;
 using ASI.Basecode.Services.Interfaces;
 using ASI.Basecode.Services.ServiceModels;
 using ASI.Basecode.WebApp.Mvc;
@@ -13,7 +14,7 @@ using System.Threading.Tasks;
 
 namespace ASI.Basecode.WebApp.Controllers
 {
-    [Authorize(Roles = "admin,officer")]
+    [Authorize(Policy = Policies.Management)]
     [AutoValidateAntiforgeryToken]
     public class VenueController : ControllerBase<VenueController>
     {

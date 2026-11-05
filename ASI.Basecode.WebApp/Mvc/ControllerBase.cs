@@ -26,9 +26,6 @@ namespace ASI.Basecode.WebApp.Mvc
         /// <summary>Logger</summary>
         protected ILogger _logger;
 
-        /// <summary>Session</summary>
-        protected ISession _session => _httpContextAccessor.HttpContext.Session;
-
         /// <summary>
         /// Initializes a new instance of the ControllerBase{TController} class.
         /// </summary>
@@ -63,7 +60,7 @@ namespace ASI.Basecode.WebApp.Mvc
 
         /// <summary>
         /// Gets the authenticated database user ID for audit fields.
-        /// Returns zero for the repository's placeholder login so services can
+        /// Returns zero when the request has no valid user claim so services can
         /// reject writes that cannot satisfy the MVP user foreign keys.
         /// </summary>
         protected int GetActorUserId()
