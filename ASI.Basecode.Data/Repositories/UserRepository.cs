@@ -1,17 +1,17 @@
 ﻿using ASI.Basecode.Data.Interfaces;
 using ASI.Basecode.Data.Models;
+using ASI.Basecode.Data.Models.Lookups;
 using Basecode.Data.Repositories;
-using System;
-using System.Collections.Generic;
+using Microsoft.EntityFrameworkCore;
 using System.Linq;
-using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace ASI.Basecode.Data.Repositories
 {
     public class UserRepository : BaseRepository, IUserRepository
     {
-        public UserRepository(IUnitOfWork unitOfWork) : base(unitOfWork) 
+        public UserRepository(IUnitOfWork unitOfWork) : base(unitOfWork)
         {
 
         }
@@ -21,16 +21,37 @@ namespace ASI.Basecode.Data.Repositories
             return this.GetDbSet<User>();
         }
 
-        public bool UserExists(string userId)
+        public Task<User> GetByEmailAsync(string email, CancellationToken cancellationToken = default)
         {
-            return this.GetDbSet<User>().Any(x => x.UserId == userId);
+            if (string.IsNullOrWhiteSpace(email))
+            {
+                return Task.FromResult<User>(null);
+            }
+
+            return this.GetDbSet<User>()
+                .AsNoTracking()
+                .SingleOrDefaultAsync(user => user.UserId == email, cancellationToken);
         }
 
-        public void AddUser(User user)
+        public Task<User> GetByIdAsync(int userId, CancellationToken cancellationToken = default)
         {
-            this.GetDbSet<User>().Add(user);
-            UnitOfWork.SaveChanges();
+            if (userId <= 0)
+            {
+                return Task.FromResult<User>(null);
+            }
+
+            return this.GetDbSet<User>()
+                .AsNoTracking()
+                .SingleOrDefaultAsync(user => user.Id == userId, cancellationToken);
         }
 
+        public async Task<string> GetRoleCodeAsync(RoleCode roleId, CancellationToken cancellationToken = default)
+        {
+            var role = await this.GetDbSet<RoleLookup>()
+                .AsNoTracking()
+                .SingleOrDefaultAsync(item => item.RoleId == roleId, cancellationToken);
+
+            return role?.Code;
+        }
     }
 }

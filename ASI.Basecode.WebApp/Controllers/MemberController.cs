@@ -1,3 +1,4 @@
+using ASI.Basecode.Resources.Constants;
 using ASI.Basecode.Services.Interfaces;
 using ASI.Basecode.Services.ServiceModels;
 using ASI.Basecode.WebApp.Mvc;
@@ -11,7 +12,7 @@ using System.IO;
 
 namespace ASI.Basecode.WebApp.Controllers
 {
-    [Authorize(Roles = "admin,officer")]
+    [Authorize(Policy = Policies.Management)]
     [AutoValidateAntiforgeryToken]
     public class MemberController : ControllerBase<MemberController>
     {
@@ -26,6 +27,9 @@ namespace ASI.Basecode.WebApp.Controllers
             _memberService = memberService;
         }
 
+        [HttpGet]
+        [Route("Member")]
+        [Route("Member/Index")]
         public IActionResult Index(string search)
         {
             var members = _memberService.GetMembers(search);

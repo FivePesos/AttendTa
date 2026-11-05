@@ -1,11 +1,10 @@
 /*
    Seeds the MVP's six starter event classifications.
    Run only in AttendTaMVP_Test, AttendTa_IT_<guid>, or AttendTa_Demo, after the
-   local admin seed has created admin@gmail.com as an active admin.
-   Auth must create a local test admin before this seed is run. Obtain any
-   test credentials securely from the Auth owner; this file never stores them.
+   local admin seed has created the initial active administrator.
+   The active administrator is selected by role, not by a hard-coded email, and its
+   user_id fills the required created_by field. This file never stores credentials.
    Never use local test credentials outside a disposable local database.
-   Uses that active admin's user_id for the required created_by field.
 */
 SET NOCOUNT ON;
 SET XACT_ABORT ON;
@@ -18,11 +17,11 @@ GO
 
 DECLARE @CreatedByUserId int;
 
-SELECT @CreatedByUserId = [user_id]
+SELECT TOP (1) @CreatedByUserId = [user_id]
 FROM dbo.users
-WHERE [email] = N'admin@gmail.com'
-  AND [role_id] = 1
-  AND [is_active] = 1;
+WHERE [role_id] = 1
+  AND [is_active] = 1
+ORDER BY [user_id];
 
 IF @CreatedByUserId IS NULL
     THROW 51021, 'Run the local admin seed before seeding event types.', 1;

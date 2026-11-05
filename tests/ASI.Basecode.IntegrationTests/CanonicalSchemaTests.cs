@@ -1,5 +1,6 @@
 using ASI.Basecode.Data;
 using ASI.Basecode.Data.Models.Lookups;
+using ASI.Basecode.Services.Security;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
@@ -143,11 +144,11 @@ public class CanonicalSchemaTests : IClassFixture<SqlServerDatabaseFixture>
         await connection.OpenAsync(TestContext.Current.CancellationToken);
 
         var adminSeedPath = Path.Combine(AppContext.BaseDirectory, "database", "seed-local-admin.sql");
-        var adminSeed = (await File.ReadAllTextAsync(adminSeedPath, TestContext.Current.CancellationToken))
-            .Replace(
-                "DECLARE @AdminPasswordHash varchar(255) = '$(AdminPasswordHash)';",
-                "DECLARE @AdminPasswordHash varchar(255) = 'test-hash';",
-                StringComparison.Ordinal);
+        var adminSeed = SqlServerDatabaseFixture.ApplyAdminSeedVariables(
+            await File.ReadAllTextAsync(adminSeedPath, TestContext.Current.CancellationToken),
+            "AttendTa Schema Test Admin",
+            "schema-test-admin@attendta.test",
+            new Argon2PasswordHasher().Hash("SchemaTest#1"));
         await SqlServerDatabaseFixture.ExecuteScriptAsync(connection, adminSeed, TestContext.Current.CancellationToken);
 
         var seedPath = Path.Combine(AppContext.BaseDirectory, "database", "seed-event-types.sql");

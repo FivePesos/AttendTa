@@ -2,13 +2,11 @@
 using ASI.Basecode.Data.Interfaces;
 using ASI.Basecode.Data.Repositories;
 using ASI.Basecode.Services.Interfaces;
-using ASI.Basecode.Services.ServiceModels;
+using ASI.Basecode.Services.Security;
 using ASI.Basecode.Services.Services;
 using ASI.Basecode.WebApp.Authentication;
-using ASI.Basecode.WebApp.Models;
 using ASI.Basecode.WebApp.Storage;
 using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -26,14 +24,11 @@ namespace ASI.Basecode.WebApp
             this._services.TryAddSingleton<IHttpContextAccessor, HttpContextAccessor>();
 
             // Common
-            this._services.AddScoped<TokenProvider>();
-            this._services.TryAddSingleton<TokenProviderOptionsFactory>();
-            this._services.TryAddSingleton<TokenValidationParametersFactory>();
             this._services.AddScoped<IUnitOfWork, UnitOfWork>();
 
             // Services
-            this._services.TryAddSingleton<TokenValidationParametersFactory>();
-            this._services.AddScoped<IUserService, UserService>();
+            this._services.AddSingleton<IPasswordHasher, Argon2PasswordHasher>();
+            this._services.AddScoped<IAccountService, AccountService>();
             this._services.AddScoped<IMemberService, MemberService>();
             this._services.AddScoped<IEventTypeService, EventTypeService>();
             this._services.AddScoped<IVenueService, VenueService>();
@@ -47,8 +42,8 @@ namespace ASI.Basecode.WebApp
             // Local, private venue-photo storage.
             this._services.AddScoped<IVenueImageStorage, VenueImageStorage>();
 
-            // Manager Class
-            this._services.AddScoped<SignInManager>();
+            // Current request actor for service-layer authorization and audit.
+            this._services.AddScoped<ICurrentActor, HttpCurrentActor>();
 
             this._services.AddHttpClient();
         }
