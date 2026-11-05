@@ -1,5 +1,6 @@
 using ASI.Basecode.Data.Interfaces;
 using ASI.Basecode.Services.Interfaces;
+using ASI.Basecode.Services.ServiceModels;
 using ASI.Basecode.Services.Services;
 using Microsoft.Extensions.Logging.Abstractions;
 using System.Text;
@@ -137,6 +138,9 @@ public sealed class CertificateTracerServiceTests
 
             return Task.FromResult(SamplePdf);
         }
+
+        public Task<byte[]> RenderSnapshotAsync(CertificatePdfSnapshot snapshot, CancellationToken cancellationToken = default) =>
+            RenderSampleAsync(cancellationToken);
     }
 
     private sealed class FakePrivateFileStore : IPrivateFileStore
