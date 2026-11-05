@@ -77,6 +77,10 @@ public class MemberRepositoryTests : IClassFixture<SqlServerDatabaseFixture>
 
         public DbContext Database { get; }
 
+        public System.Threading.Tasks.Task<int> SaveChangesAsync(System.Threading.CancellationToken cancellationToken = default) => Database.SaveChangesAsync(cancellationToken);
+        public System.Threading.Tasks.Task ExecuteInTransactionAsync(System.Func<System.Threading.CancellationToken, System.Threading.Tasks.Task> work, System.Threading.CancellationToken cancellationToken = default) => throw new System.NotSupportedException();
+        public System.Threading.Tasks.Task<T> ExecuteInTransactionAsync<T>(System.Func<System.Threading.CancellationToken, System.Threading.Tasks.Task<T>> work, System.Threading.CancellationToken cancellationToken = default) => throw new System.NotSupportedException();
+
         public void SaveChanges()
         {
             Database.SaveChanges();

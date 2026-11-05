@@ -20,5 +20,8 @@
 		<PackageReference Include="NUlid" Version="1.7.3" />
 		<PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.14" />
 	</ItemGroup>
+	<ItemGroup>
+		<ProjectReference Include="..\ASI.Basecode.Resources\ASI.Basecode.Resources.csproj" />
+	</ItemGroup>
 
 </Project>

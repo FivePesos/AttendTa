@@ -13,6 +13,8 @@ using Microsoft.Extensions.Options;
 using System;
 using System.IO;
 using System.Text;
+using Serilog.Context;
+using Microsoft.Extensions.Logging;
 
 namespace ASI.Basecode.WebApp
 {
@@ -47,7 +49,6 @@ namespace ASI.Basecode.WebApp
         {
             this.Configuration = configuration;
 
-            PathManager.Setup(this.Configuration.GetSetupRootDirectoryPath());
             Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
         }
 
@@ -121,6 +122,21 @@ namespace ASI.Basecode.WebApp
             }
 
             this.ConfigureLogger();
+
+            this._app.Use(async (context, next) =>
+            {
+                var correlationId = Guid.NewGuid().ToString("N");
+                context.Response.Headers["X-Correlation-ID"] = correlationId;
+                using (LogContext.PushProperty("CorrelationId", correlationId))
+                {
+                    try { await next(); }
+                    finally
+                    {
+                        var logger = context.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("AttendTa.Request");
+                        logger.LogInformation("Request completed with status {StatusCode}", context.Response.StatusCode);
+                    }
+                }
+            });
 
             this._app.UseHttpsRedirection();
             this._app.UseStaticFiles();

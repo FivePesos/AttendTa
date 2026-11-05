@@ -19,6 +19,7 @@ namespace ASI.Basecode.Data.Interfaces
         /// Finds a user by <c>users.user_id</c>.
         /// </summary>
         Task<User> GetByIdAsync(int userId, CancellationToken cancellationToken = default);
+        Task<User> LockUserAsync(int userId, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Reads the lowercase lookup code for a role id.
