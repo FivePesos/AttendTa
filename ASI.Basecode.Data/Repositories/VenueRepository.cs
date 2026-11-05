@@ -3,6 +3,8 @@ using ASI.Basecode.Data.Models;
 using Basecode.Data.Repositories;
 using Microsoft.EntityFrameworkCore;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace ASI.Basecode.Data.Repositories
 {
@@ -22,16 +24,16 @@ namespace ASI.Basecode.Data.Repositories
             return this.GetDbSet<Venue>().FirstOrDefault(v => v.VenueId == venueId);
         }
 
-        public void AddVenue(Venue venue)
+        public Task AddVenueAsync(Venue venue, CancellationToken cancellationToken = default)
         {
             this.GetDbSet<Venue>().Add(venue);
-            UnitOfWork.SaveChanges();
+            return Task.CompletedTask;
         }
 
-        public void UpdateVenue(Venue venue)
+        public Task UpdateVenueAsync(Venue venue, CancellationToken cancellationToken = default)
         {
             this.SetEntityState(venue, EntityState.Modified);
-            UnitOfWork.SaveChanges();
+            return Task.CompletedTask;
         }
 
         public bool VenueExists(int venueId)

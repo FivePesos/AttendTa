@@ -1,3 +1,4 @@
+using ASI.Basecode.Resources;
 using ASI.Basecode.WebApp.Extensions.Configuration;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -35,18 +36,18 @@ namespace ASI.Basecode.WebApp.Storage
         {
             if (image == null || image.Length == 0)
             {
-                throw new InvalidDataException("A venue photo is required.");
+                throw new DomainException(OutcomeCode.FileFailure, "A venue photo is required.");
             }
 
             if (image.Length > MaxImageSizeBytes)
             {
-                throw new InvalidDataException("Venue photos must be 5 MB or smaller.");
+                throw new DomainException(OutcomeCode.FileFailure, "Venue photos must be 5 MB or smaller.");
             }
 
             var extension = Path.GetExtension(image.FileName)?.ToLowerInvariant();
             if (extension != ".jpg" && extension != ".jpeg" && extension != ".png")
             {
-                throw new InvalidDataException("Venue photos must be JPEG or PNG images.");
+                throw new DomainException(OutcomeCode.FileFailure, "Venue photos must be JPEG or PNG images.");
             }
 
             await using var input = image.OpenReadStream();
@@ -59,7 +60,7 @@ namespace ASI.Basecode.WebApp.Storage
 
             if ((extension == ".png" && !isPng) || ((extension == ".jpg" || extension == ".jpeg") && !isJpeg))
             {
-                throw new InvalidDataException("The uploaded file content does not match a supported image format.");
+                throw new DomainException(OutcomeCode.FileFailure, "The uploaded file content does not match a supported image format.");
             }
 
             input.Position = 0;
@@ -93,7 +94,7 @@ namespace ASI.Basecode.WebApp.Storage
         {
             if (Path.IsPathRooted(relativePath))
             {
-                throw new InvalidDataException("Stored image paths must be relative.");
+                throw new DomainException(OutcomeCode.FileFailure, "Stored image paths must be relative.");
             }
 
             var fullPath = Path.GetFullPath(Path.Combine(_storageRoot, relativePath.Replace('/', Path.DirectorySeparatorChar)));
@@ -101,7 +102,7 @@ namespace ASI.Basecode.WebApp.Storage
                 + Path.DirectorySeparatorChar;
             if (!fullPath.StartsWith(rootPrefix, StringComparison.OrdinalIgnoreCase))
             {
-                throw new InvalidDataException("The image path is outside the configured storage directory.");
+                throw new DomainException(OutcomeCode.FileFailure, "The image path is outside the configured storage directory.");
             }
 
             return fullPath;

@@ -3,6 +3,8 @@ using ASI.Basecode.Data.Models;
 using Basecode.Data.Repositories;
 using Microsoft.EntityFrameworkCore;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace ASI.Basecode.Data.Repositories
 {
@@ -22,16 +24,16 @@ namespace ASI.Basecode.Data.Repositories
             return this.GetDbSet<EventType>().FirstOrDefault(t => t.TypeId == typeId);
         }
 
-        public void AddEventType(EventType eventType)
+        public Task AddEventTypeAsync(EventType eventType, CancellationToken cancellationToken = default)
         {
             this.GetDbSet<EventType>().Add(eventType);
-            UnitOfWork.SaveChanges();
+            return Task.CompletedTask;
         }
 
-        public void UpdateEventType(EventType eventType)
+        public Task UpdateEventTypeAsync(EventType eventType, CancellationToken cancellationToken = default)
         {
             this.SetEntityState(eventType, EntityState.Modified);
-            UnitOfWork.SaveChanges();
+            return Task.CompletedTask;
         }
 
         public bool EventTypeExists(int typeId)

@@ -1,3 +1,4 @@
+using ASI.Basecode.Resources;
 using ASI.Basecode.Resources.Constants;
 using ASI.Basecode.Services.Interfaces;
 using ASI.Basecode.Services.ServiceModels;
@@ -58,16 +59,16 @@ namespace ASI.Basecode.WebApp.Controllers
                 var actorUserId = GetActorUserId();
                 if (actorUserId <= 0)
                 {
-                    throw new InvalidDataException("A valid authenticated user is required to create a venue.");
+                    throw new DomainException(OutcomeCode.Forbidden, "A valid authenticated user is required to create a venue.");
                 }
 
                 savedImagePath = await _venueImageStorage.SaveAsync(photo);
                 model.ImagePath = savedImagePath;
-                _venueService.AddVenue(model, actorUserId);
+                await _venueService.AddVenueAsync(model, actorUserId, HttpContext.RequestAborted);
                 TempData["SuccessMessage"] = "Venue added successfully.";
                 return RedirectToAction("Index");
             }
-            catch (InvalidDataException ex)
+            catch (DomainException ex)
             {
                 if (!string.IsNullOrWhiteSpace(savedImagePath))
                 {
@@ -119,7 +120,7 @@ namespace ASI.Basecode.WebApp.Controllers
                 var actorUserId = GetActorUserId();
                 if (actorUserId <= 0)
                 {
-                    throw new InvalidDataException("A valid authenticated user is required to update a venue.");
+                    throw new DomainException(OutcomeCode.Forbidden, "A valid authenticated user is required to update a venue.");
                 }
 
                 model.ImagePath = existing.ImagePath;
@@ -129,7 +130,7 @@ namespace ASI.Basecode.WebApp.Controllers
                     model.ImagePath = newImagePath;
                 }
 
-                _venueService.UpdateVenue(model, actorUserId);
+                await _venueService.UpdateVenueAsync(model, actorUserId, HttpContext.RequestAborted);
                 databaseUpdateSucceeded = true;
                 if (!string.IsNullOrWhiteSpace(newImagePath)
                     && !string.Equals(existing.ImagePath, newImagePath, System.StringComparison.OrdinalIgnoreCase))
@@ -139,7 +140,7 @@ namespace ASI.Basecode.WebApp.Controllers
                 TempData["SuccessMessage"] = "Venue updated successfully.";
                 return RedirectToAction("Index");
             }
-            catch (InvalidDataException ex)
+            catch (DomainException ex)
             {
                 if (!databaseUpdateSucceeded && !string.IsNullOrWhiteSpace(newImagePath))
                 {
@@ -159,14 +160,14 @@ namespace ASI.Basecode.WebApp.Controllers
         }
 
         [HttpPost]
-        public IActionResult ToggleActive(int id)
+        public async Task<IActionResult> ToggleActive(int id)
         {
             try
             {
-                _venueService.ToggleActive(id, GetActorUserId());
+                await _venueService.ToggleActiveAsync(id, GetActorUserId(), HttpContext.RequestAborted);
                 TempData["SuccessMessage"] = "Venue status updated.";
             }
-            catch (InvalidDataException ex)
+            catch (DomainException ex)
             {
                 TempData["ErrorMessage"] = ex.Message;
             }
@@ -182,7 +183,7 @@ namespace ASI.Basecode.WebApp.Controllers
             }
             catch (System.Exception ex) when (ex is IOException
                                                || ex is System.UnauthorizedAccessException
-                                               || ex is InvalidDataException)
+                                               || ex is DomainException)
             {
                 _logger.LogWarning(ex, "Could not clean up venue image {ImagePath}.", relativePath);
             }

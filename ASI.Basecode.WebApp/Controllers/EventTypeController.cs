@@ -1,3 +1,4 @@
+using ASI.Basecode.Resources;
 using ASI.Basecode.Resources.Constants;
 using ASI.Basecode.Services.Interfaces;
 using ASI.Basecode.Services.ServiceModels;
@@ -8,7 +9,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using System.IO;
+using System.Threading.Tasks;
 
 namespace ASI.Basecode.WebApp.Controllers
 {
@@ -40,7 +41,7 @@ namespace ASI.Basecode.WebApp.Controllers
         }
 
         [HttpPost]
-        public IActionResult Create(EventTypeViewModel model)
+        public async Task<IActionResult> Create(EventTypeViewModel model)
         {
             if (!ModelState.IsValid)
             {
@@ -49,11 +50,11 @@ namespace ASI.Basecode.WebApp.Controllers
 
             try
             {
-                _eventTypeService.AddEventType(model, GetActorUserId());
+                await _eventTypeService.AddEventTypeAsync(model, GetActorUserId(), HttpContext.RequestAborted);
                 TempData["SuccessMessage"] = "Event type added successfully.";
                 return RedirectToAction("Index");
             }
-            catch (InvalidDataException ex)
+            catch (DomainException ex)
             {
                 TempData["ErrorMessage"] = ex.Message;
                 return View(model);
@@ -73,7 +74,7 @@ namespace ASI.Basecode.WebApp.Controllers
         }
 
         [HttpPost]
-        public IActionResult Edit(EventTypeViewModel model)
+        public async Task<IActionResult> Edit(EventTypeViewModel model)
         {
             if (!ModelState.IsValid)
             {
@@ -82,11 +83,11 @@ namespace ASI.Basecode.WebApp.Controllers
 
             try
             {
-                _eventTypeService.UpdateEventType(model, GetActorUserId());
+                await _eventTypeService.UpdateEventTypeAsync(model, GetActorUserId(), HttpContext.RequestAborted);
                 TempData["SuccessMessage"] = "Event type updated successfully.";
                 return RedirectToAction("Index");
             }
-            catch (InvalidDataException ex)
+            catch (DomainException ex)
             {
                 TempData["ErrorMessage"] = ex.Message;
                 return View(model);
@@ -94,14 +95,14 @@ namespace ASI.Basecode.WebApp.Controllers
         }
 
         [HttpPost]
-        public IActionResult ToggleActive(int id)
+        public async Task<IActionResult> ToggleActive(int id)
         {
             try
             {
-                _eventTypeService.ToggleActive(id, GetActorUserId());
+                await _eventTypeService.ToggleActiveAsync(id, GetActorUserId(), HttpContext.RequestAborted);
                 TempData["SuccessMessage"] = "Event type status updated.";
             }
-            catch (InvalidDataException ex)
+            catch (DomainException ex)
             {
                 TempData["ErrorMessage"] = ex.Message;
             }
