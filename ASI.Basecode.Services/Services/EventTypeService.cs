@@ -16,12 +16,14 @@ namespace ASI.Basecode.Services.Services
     {
         private readonly IEventTypeRepository _repository;
         private readonly IUnitOfWork _unitOfWork;
+        private readonly TimeProvider _timeProvider;
         private readonly IMapper _mapper;
 
-        public EventTypeService(IEventTypeRepository repository, IUnitOfWork unitOfWork, IMapper mapper)
+        public EventTypeService(IEventTypeRepository repository, IUnitOfWork unitOfWork, IMapper mapper, TimeProvider timeProvider)
         {
             _repository = repository;
             _unitOfWork = unitOfWork;
+            _timeProvider = timeProvider;
             _mapper = mapper;
         }
 
@@ -67,7 +69,7 @@ namespace ASI.Basecode.Services.Services
                 eventType.Description = model.Description;
                 eventType.IsActive = true;
                 eventType.CreatedBy = actorUserId;
-                eventType.CreatedAt = DateTime.UtcNow;
+                eventType.CreatedAt = _timeProvider.GetUtcNow().UtcDateTime;
                 await _repository.AddEventTypeAsync(eventType, ct);
                 await _unitOfWork.SaveChangesAsync(ct);
             }, cancellationToken);
@@ -107,7 +109,7 @@ namespace ASI.Basecode.Services.Services
                 eventType.TypeName = normalizedTypeName;
                 eventType.Description = model.Description;
                 eventType.UpdatedBy = actorUserId;
-                eventType.UpdatedAt = DateTime.UtcNow;
+                eventType.UpdatedAt = _timeProvider.GetUtcNow().UtcDateTime;
                 await _repository.UpdateEventTypeAsync(eventType, ct);
                 await _unitOfWork.SaveChangesAsync(ct);
             }, cancellationToken);
@@ -130,7 +132,7 @@ namespace ASI.Basecode.Services.Services
 
                 eventType.IsActive = !eventType.IsActive;
                 eventType.UpdatedBy = actorUserId;
-                eventType.UpdatedAt = DateTime.UtcNow;
+                eventType.UpdatedAt = _timeProvider.GetUtcNow().UtcDateTime;
                 await _repository.UpdateEventTypeAsync(eventType, ct);
                 await _unitOfWork.SaveChangesAsync(ct);
             }, cancellationToken);
