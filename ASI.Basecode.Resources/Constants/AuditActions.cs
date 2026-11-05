@@ -7,6 +7,7 @@ public static class AuditActions
     public const string EventTypeCreated = "event_type.created";
     public const string EventTypeEdited = "event_type.edited";
     public const string EventTypeStatusChanged = "event_type.status_changed";
+    public const string UserRoleAssigned = "user.role_assigned";
     public const string VenueCreated = "venue.created";
     public const string VenueEdited = "venue.edited";
     public const string VenueStatusChanged = "venue.status_changed";

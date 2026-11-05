@@ -35,7 +35,7 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
 
     private AsiBasecodeDBContext Context() => new(new DbContextOptionsBuilder<AsiBasecodeDBContext>().UseSqlServer(fixture.ConnectionString).Options);
 
-    private static VenueService VenueWriter(IVenueRepository repository, UnitOfWork work, int actorId, RecordingVenueImageStorage storage = null)
+    private static VenueService VenueWriter(IVenueRepository repository, UnitOfWork work, int actorId, RecordingVenueImageStorage? storage = null)
     {
         var actor = new TestActor(actorId);
         return new VenueService(repository, work, Mapper, TimeProvider.System, storage ?? new RecordingVenueImageStorage("uploads/venues/test.jpg"),
