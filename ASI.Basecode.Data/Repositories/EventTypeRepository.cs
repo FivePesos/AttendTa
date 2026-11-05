@@ -16,6 +16,16 @@ namespace ASI.Basecode.Data.Repositories
         {
         }
 
+        public async Task<IReadOnlyList<EventType>> GetActiveEventTypesAsync(CancellationToken cancellationToken = default)
+        {
+            return await this.GetDbSet<EventType>()
+                .AsNoTracking()
+                .Where(eventType => eventType.IsActive)
+                .OrderBy(eventType => eventType.TypeName)
+                .ThenBy(eventType => eventType.TypeId)
+                .ToListAsync(cancellationToken);
+        }
+
         public Task<int> CountEventTypesAsync(CancellationToken cancellationToken = default)
         {
             return this.GetDbSet<EventType>().AsNoTracking().CountAsync(cancellationToken);
