@@ -304,13 +304,12 @@ public class AccountRequestServiceTests
         Assert.Null(request.ReviewNotes);
         Assert.Equal(2, harness.UnitOfWork.SaveCount);
         Assert.Equal(user.Id, harness.MemberService.CreatedUserId);
-        Assert.Equal(harness.Actor.UserId, harness.MemberService.ActorUserId);
         Assert.Equal(request.StudentNumber, harness.MemberService.Model!.StudentNumber);
         Assert.Equal(request.Course, harness.MemberService.Model.Course);
         Assert.Equal(request.YearLevel, harness.MemberService.Model.YearLevel);
         Assert.Equal(request.Section, harness.MemberService.Model.Section);
         Assert.Equal(request.MobileNumber, harness.MemberService.Model.MobileNumber);
-        Assert.Equal("active", harness.MemberService.Model.Status);
+        Assert.Equal(request.FullName, harness.MemberService.Model.FullName);
         var audit = Assert.Single(harness.Audit.Entries);
         Assert.Equal(AuditActions.AccountRequestApproved, audit.Action);
         Assert.Equal("account_requests", audit.EntityType);
@@ -502,20 +501,17 @@ public class AccountRequestServiceTests
 
     private sealed class FakeMemberService : IMemberService
     {
-        public List<(int UserId, MemberViewModel Model, int ActorUserId)> Calls { get; } = new();
+        public List<(int UserId, MemberViewModel Model)> Calls { get; } = new();
         public int CreatedUserId => Calls.Single().UserId;
-        public int ActorUserId => Calls.Single().ActorUserId;
         public MemberViewModel? Model => Calls.SingleOrDefault().Model;
 
         public List<MemberViewModel> GetMembers(string search = null!) => throw new NotSupportedException();
         public MemberViewModel GetMember(int id) => throw new NotSupportedException();
         public Task<MemberViewModel> GetSelfProfileAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task UpdateMemberAsync(MemberViewModel model, int actorUserId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Task ToggleStatusAsync(int id, int actorUserId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-
-        public Task CreateMemberFromApprovedAccountRequestAsync(int userId, MemberViewModel model, int actorUserId, CancellationToken cancellationToken = default)
+        public Task CreateMemberFromApprovedAccountRequestAsync(int userId, MemberViewModel model, CancellationToken cancellationToken = default)
         {
-            Calls.Add((userId, model, actorUserId));
+            Calls.Add((userId, model));
             return Task.CompletedTask;
         }
     }

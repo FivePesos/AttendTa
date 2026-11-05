@@ -12,4 +12,7 @@ public static class AuditActions
     public const string VenueCreated = "venue.created";
     public const string VenueEdited = "venue.edited";
     public const string VenueStatusChanged = "venue.status_changed";
+    public const string MemberCreated = "member.created";
+    public const string MemberEdited = "member.edited";
+    public const string MemberStudentNumberCorrected = "member.student_number_corrected";
 }

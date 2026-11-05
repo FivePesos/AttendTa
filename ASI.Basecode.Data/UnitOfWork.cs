@@ -1,8 +1,10 @@
 using System;
+using System.Linq;
 using System.Runtime.ExceptionServices;
 using System.Threading;
 using System.Threading.Tasks;
 using ASI.Basecode.Data.Interfaces;
+using ASI.Basecode.Data.Models;
 using ASI.Basecode.Resources;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
@@ -17,11 +19,17 @@ public class UnitOfWork : IUnitOfWork, IDisposable
 
     public UnitOfWork(AsiBasecodeDBContext serviceContext) => Database = serviceContext;
 
-    private static Exception Translate(Exception exception)
+    private Exception Translate(Exception exception)
     {
         for (var e = exception; e != null; e = e.InnerException)
             if (e is SqlException sql && (sql.Number == 2601 || sql.Number == 2627))
-                return new DomainException(OutcomeCode.Duplicate, "A record with these values already exists.");
+            {
+                var studentNumberUpdate = Database.ChangeTracker.Entries<Member>().Any(entry =>
+                    entry.State == EntityState.Modified && entry.Property(member => member.StudentNumber).IsModified);
+                return studentNumberUpdate
+                    ? new DomainException(OutcomeCode.Duplicate, "Student number already exists.", nameof(Member.StudentNumber))
+                    : new DomainException(OutcomeCode.Duplicate, "A record with these values already exists.");
+            }
         return exception;
     }
 

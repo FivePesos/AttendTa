@@ -14,4 +14,7 @@
   <data name="VenueCreated" xml:space="preserve"><value>Venue created.</value></data>
   <data name="VenueEdited" xml:space="preserve"><value>Venue edited.</value></data>
   <data name="VenueStatusChanged" xml:space="preserve"><value>Venue status changed.</value></data>
+  <data name="MemberCreated" xml:space="preserve"><value>Member profile created.</value></data>
+  <data name="MemberEdited" xml:space="preserve"><value>Member profile edited.</value></data>
+  <data name="MemberStudentNumberCorrected" xml:space="preserve"><value>Member student number corrected.</value></data>
 </root>

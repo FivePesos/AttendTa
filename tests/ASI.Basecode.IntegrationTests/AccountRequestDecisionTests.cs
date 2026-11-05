@@ -49,6 +49,8 @@ public sealed class AccountRequestDecisionTests(SqlServerDatabaseFixture fixture
             var member = await observer.Members.AsNoTracking().SingleAsync(item => item.UserId == user.Id, ct);
             var audit = await observer.ActivityLogs.AsNoTracking()
                 .SingleAsync(item => item.EntityType == "account_requests" && item.EntityId == requestId, ct);
+            var memberAudit = await observer.ActivityLogs.AsNoTracking()
+                .SingleAsync(item => item.EntityType == "members" && item.EntityId == member.MemberId, ct);
 
             Assert.Equal(AccountRequestStatusCode.Approved, request.AccountRequestStatusId);
             Assert.Null(request.PasswordHash);
@@ -66,9 +68,13 @@ public sealed class AccountRequestDecisionTests(SqlServerDatabaseFixture fixture
             Assert.Equal("A", member.Section);
             Assert.Equal("09171234567", member.MobileNumber);
             Assert.Equal(MembershipStatusCode.Active, member.MembershipStatusId);
+            Assert.Equal(actor.Id, member.CreatedBy);
             Assert.Equal(AuditActions.AccountRequestApproved, audit.Action);
             Assert.DoesNotContain(originalHash, audit.OldValues ?? string.Empty, StringComparison.Ordinal);
             Assert.DoesNotContain(originalHash, audit.NewValues ?? string.Empty, StringComparison.Ordinal);
+            Assert.Equal(AuditActions.MemberCreated, memberAudit.Action);
+            Assert.Contains($"\"StudentNumber\":\"{studentNumber}\"", memberAudit.NewValues, StringComparison.Ordinal);
+            Assert.DoesNotContain(originalHash, memberAudit.NewValues, StringComparison.Ordinal);
             Assert.Equal(1, await observer.ActivityLogs.CountAsync(item => item.EntityType == "account_requests" && item.EntityId == requestId, ct));
         }
 
@@ -332,8 +338,8 @@ public sealed class AccountRequestDecisionTests(SqlServerDatabaseFixture fixture
         var work = unitOfWork ?? new UnitOfWork(context);
         var userRepository = users ?? new UserRepository(work);
         var memberRepository = members ?? new MemberRepository(work);
-        var memberService = new MemberService(memberRepository, work, TimeProvider.System, actor);
         var auditWriter = new ActivityLogWriter(context, actor, TimeProvider.System);
+        var memberService = new MemberService(memberRepository, userRepository, work, TimeProvider.System, actor, auditWriter);
         return new AccountRequestService(
             new AccountRequestRepository(work),
             userRepository,

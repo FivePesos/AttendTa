@@ -10,8 +10,8 @@
     <div asp-validation-summary="ModelOnly" class="validation-summary" role="alert"></div>
     <input type="hidden" asp-for="MemberId" />
     <div class="field">
-        <label class="field-label" for="linked-account">Linked account</label>
-        <input id="linked-account" class="field-control" value="@Model.FullName (@Model.Email)" readonly />
+        <label asp-for="Email" class="field-label">Email</label>
+        <input asp-for="Email" class="field-control" readonly aria-readonly="true" />
     </div>
     <partial name="_Form" model="Model" />
     <button type="submit" class="button button-primary">Save</button>

@@ -49,11 +49,22 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
             new ActivityLogWriter((AsiBasecodeDBContext)work.Database, actor, TimeProvider.System), actor);
     }
 
-    private sealed class TestActor(int id) : ICurrentActor
+    private static MemberService MemberWriter(IMemberRepository repository, UnitOfWork work, int actorId)
     {
-        public bool IsAuthenticated => true;
+        return MemberWriter(repository, work, new TestActor(actorId));
+    }
+
+    private static MemberService MemberWriter(IMemberRepository repository, UnitOfWork work, ICurrentActor actor)
+    {
+        return new MemberService(repository, new UserRepository(work), work, TimeProvider.System, actor,
+            new ActivityLogWriter((AsiBasecodeDBContext)work.Database, actor, TimeProvider.System));
+    }
+
+    private sealed class TestActor(int id, bool authenticated = true, string role = "admin") : ICurrentActor
+    {
+        public bool IsAuthenticated => authenticated;
         public int UserId => id;
-        public string Role => "admin";
+        public string Role => role;
     }
 
     private static string UniqueName(string prefix) => $"{prefix}-{Guid.NewGuid():N}";
@@ -79,6 +90,7 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
 
     private static MemberViewModel MemberModel(string studentNumber) => new()
     {
+        FullName = "Linked Member",
         StudentNumber = studentNumber,
         Course = "Computing",
         YearLevel = 1,
@@ -260,10 +272,10 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
         await using var observer = Context();
         var unitOfWork = new UnitOfWork(writer);
         var (actorId, linkedUserId) = await SeedUsersAsync(ct);
-        var service = new MemberService(new MemberRepositoryThatSavesThenFails(new MemberRepository(unitOfWork), unitOfWork), unitOfWork, TimeProvider.System, new TestCurrentActor(actorId));
+        var service = MemberWriter(new MemberRepositoryThatSavesThenFails(new MemberRepository(unitOfWork), unitOfWork), unitOfWork, actorId);
         var studentNumber = UniqueName("SN");
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => service.CreateMemberFromApprovedAccountRequestAsync(linkedUserId, MemberModel(studentNumber), actorId, ct));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.CreateMemberFromApprovedAccountRequestAsync(linkedUserId, MemberModel(studentNumber), ct));
 
         Assert.Empty(writer.ChangeTracker.Entries());
         Assert.False(await observer.Members.AnyAsync(m => m.StudentNumber == studentNumber, ct));
@@ -277,10 +289,10 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
         await using var observer = Context();
         var unitOfWork = new UnitOfWork(writer);
         var (actorId, linkedUserId) = await SeedUsersAsync(ct);
-        var service = new MemberService(new MemberRepository(unitOfWork), unitOfWork, TimeProvider.System, new TestCurrentActor(actorId));
+        var service = MemberWriter(new MemberRepository(unitOfWork), unitOfWork, actorId);
         var studentNumber = UniqueName("SN");
 
-        await service.CreateMemberFromApprovedAccountRequestAsync(linkedUserId, MemberModel(studentNumber), actorId, ct);
+        await service.CreateMemberFromApprovedAccountRequestAsync(linkedUserId, MemberModel(studentNumber), ct);
 
         Assert.True(await observer.Members.AnyAsync(m => m.StudentNumber == studentNumber, ct));
     }
@@ -293,12 +305,12 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
         await using var observer = Context();
         var unitOfWork = new UnitOfWork(writer);
         var (actorId, linkedUserId) = await SeedUsersAsync(ct);
-        var service = new MemberService(new MemberRepository(unitOfWork), unitOfWork, TimeProvider.System, new TestCurrentActor(actorId));
+        var service = MemberWriter(new MemberRepository(unitOfWork), unitOfWork, actorId);
         var studentNumber = UniqueName("SN");
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => unitOfWork.ExecuteInTransactionAsync(async inner =>
         {
-            await service.CreateMemberFromApprovedAccountRequestAsync(linkedUserId, MemberModel(studentNumber), actorId, inner);
+            await service.CreateMemberFromApprovedAccountRequestAsync(linkedUserId, MemberModel(studentNumber), inner);
             throw new InvalidOperationException("The outer work failed.");
         }, ct));
 
@@ -358,21 +370,21 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
         await using var observer = Context();
         var unitOfWork = new UnitOfWork(writer);
         var (actorId, linkedUserId) = await SeedUsersAsync(ct);
-        var service = new MemberService(new MemberRepository(unitOfWork), unitOfWork, TimeProvider.System, new TestCurrentActor(actorId));
+        var service = MemberWriter(new MemberRepository(unitOfWork), unitOfWork, actorId);
         var studentNumber = UniqueName("SN");
 
-        Assert.Equal(OutcomeCode.Forbidden, (await Assert.ThrowsAsync<DomainException>(() => service.CreateMemberFromApprovedAccountRequestAsync(linkedUserId, MemberModel(studentNumber), 0, ct))).Outcome);
-        Assert.Equal(OutcomeCode.Invalid, (await Assert.ThrowsAsync<DomainException>(() => service.CreateMemberFromApprovedAccountRequestAsync(0, MemberModel(studentNumber), actorId, ct))).Outcome);
+        var unauthenticated = MemberWriter(new MemberRepository(unitOfWork), unitOfWork, new TestActor(actorId, authenticated: false));
+        Assert.Equal(OutcomeCode.Forbidden, (await Assert.ThrowsAsync<DomainException>(() => unauthenticated.CreateMemberFromApprovedAccountRequestAsync(linkedUserId, MemberModel(studentNumber), ct))).Outcome);
+        Assert.Equal(OutcomeCode.Invalid, (await Assert.ThrowsAsync<DomainException>(() => service.CreateMemberFromApprovedAccountRequestAsync(0, MemberModel(studentNumber), ct))).Outcome);
         Assert.Equal(OutcomeCode.NotFound, (await Assert.ThrowsAsync<DomainException>(() => service.UpdateMemberAsync(new MemberViewModel { MemberId = int.MaxValue, StudentNumber = studentNumber, Course = "Computing", YearLevel = 1, Section = "A", Status = "active" }, actorId, ct))).Outcome);
-        Assert.Equal(OutcomeCode.NotFound, (await Assert.ThrowsAsync<DomainException>(() => service.ToggleStatusAsync(int.MaxValue, actorId, ct))).Outcome);
         Assert.False(await observer.Members.AnyAsync(m => m.StudentNumber == studentNumber, ct));
 
-        await service.CreateMemberFromApprovedAccountRequestAsync(linkedUserId, MemberModel(studentNumber), actorId, ct);
-        var duplicateProfile = await Assert.ThrowsAsync<DomainException>(() => service.CreateMemberFromApprovedAccountRequestAsync(linkedUserId, MemberModel(UniqueName("SN")), actorId, ct));
+        await service.CreateMemberFromApprovedAccountRequestAsync(linkedUserId, MemberModel(studentNumber), ct);
+        var duplicateProfile = await Assert.ThrowsAsync<DomainException>(() => service.CreateMemberFromApprovedAccountRequestAsync(linkedUserId, MemberModel(UniqueName("SN")), ct));
         Assert.Equal(OutcomeCode.Duplicate, duplicateProfile.Outcome);
 
         var otherUserId = await SeedUserAsync(ct);
-        var duplicateStudentNumber = await Assert.ThrowsAsync<DomainException>(() => service.CreateMemberFromApprovedAccountRequestAsync(otherUserId, MemberModel(studentNumber), actorId, ct));
+        var duplicateStudentNumber = await Assert.ThrowsAsync<DomainException>(() => service.CreateMemberFromApprovedAccountRequestAsync(otherUserId, MemberModel(studentNumber), ct));
         Assert.Equal(OutcomeCode.Duplicate, duplicateStudentNumber.Outcome);
         Assert.Equal(1, await observer.Members.CountAsync(m => m.StudentNumber == studentNumber, ct));
     }
