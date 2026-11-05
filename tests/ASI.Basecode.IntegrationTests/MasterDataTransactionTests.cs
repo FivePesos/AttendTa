@@ -253,7 +253,7 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
         await using var observer = Context();
         var unitOfWork = new UnitOfWork(writer);
         var (actorId, linkedUserId) = await SeedUsersAsync(ct);
-        var service = new MemberService(new MemberRepositoryThatSavesThenFails(new MemberRepository(unitOfWork), unitOfWork), unitOfWork, TimeProvider.System);
+        var service = new MemberService(new MemberRepositoryThatSavesThenFails(new MemberRepository(unitOfWork), unitOfWork), unitOfWork, TimeProvider.System, new TestCurrentActor(actorId));
         var studentNumber = UniqueName("SN");
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => service.CreateMemberFromApprovedAccountRequestAsync(linkedUserId, MemberModel(studentNumber), actorId, ct));
@@ -270,7 +270,7 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
         await using var observer = Context();
         var unitOfWork = new UnitOfWork(writer);
         var (actorId, linkedUserId) = await SeedUsersAsync(ct);
-        var service = new MemberService(new MemberRepository(unitOfWork), unitOfWork, TimeProvider.System);
+        var service = new MemberService(new MemberRepository(unitOfWork), unitOfWork, TimeProvider.System, new TestCurrentActor(actorId));
         var studentNumber = UniqueName("SN");
 
         await service.CreateMemberFromApprovedAccountRequestAsync(linkedUserId, MemberModel(studentNumber), actorId, ct);
@@ -286,7 +286,7 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
         await using var observer = Context();
         var unitOfWork = new UnitOfWork(writer);
         var (actorId, linkedUserId) = await SeedUsersAsync(ct);
-        var service = new MemberService(new MemberRepository(unitOfWork), unitOfWork, TimeProvider.System);
+        var service = new MemberService(new MemberRepository(unitOfWork), unitOfWork, TimeProvider.System, new TestCurrentActor(actorId));
         var studentNumber = UniqueName("SN");
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => unitOfWork.ExecuteInTransactionAsync(async inner =>
@@ -350,7 +350,7 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
         await using var observer = Context();
         var unitOfWork = new UnitOfWork(writer);
         var (actorId, linkedUserId) = await SeedUsersAsync(ct);
-        var service = new MemberService(new MemberRepository(unitOfWork), unitOfWork, TimeProvider.System);
+        var service = new MemberService(new MemberRepository(unitOfWork), unitOfWork, TimeProvider.System, new TestCurrentActor(actorId));
         var studentNumber = UniqueName("SN");
 
         Assert.Equal(OutcomeCode.Forbidden, (await Assert.ThrowsAsync<DomainException>(() => service.CreateMemberFromApprovedAccountRequestAsync(linkedUserId, MemberModel(studentNumber), 0, ct))).Outcome);
@@ -440,6 +440,12 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
         }
     }
 
+    private sealed class TestCurrentActor(int userId) : ICurrentActor
+    {
+        public bool IsAuthenticated => true;
+        public int UserId => userId;
+        public string Role => "admin";
+    }
     private sealed class EventTypeRepositoryThatSavesThenFails(IEventTypeRepository inner, IUnitOfWork unitOfWork) : IEventTypeRepository
     {
         public IQueryable<EventType> GetEventTypes() => inner.GetEventTypes();
@@ -477,6 +483,7 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
     {
         public IQueryable<MemberRecord> GetMemberRecords() => inner.GetMemberRecords();
         public MemberRecord GetMemberRecord(int memberId) => inner.GetMemberRecord(memberId);
+        public Task<MemberRecord> GetMemberRecordByUserIdAsync(int userId, CancellationToken cancellationToken = default) => inner.GetMemberRecordByUserIdAsync(userId, cancellationToken);
         public Member GetMember(int memberId) => inner.GetMember(memberId);
         public bool UserHasMemberProfile(int userId) => inner.UserHasMemberProfile(userId);
         public bool StudentNumberExists(string studentNumber, int? excludeId = null) => inner.StudentNumberExists(studentNumber, excludeId);

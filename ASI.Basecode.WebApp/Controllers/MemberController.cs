@@ -39,6 +39,7 @@ namespace ASI.Basecode.WebApp.Controllers
         }
 
         [HttpGet]
+        [Route("Member/Edit/{id:int}")]
         public IActionResult Edit(int id)
         {
             var model = _memberService.GetMember(id);

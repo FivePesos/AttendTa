@@ -23,6 +23,8 @@ public class AuthenticationFlowTests : IClassFixture<SqlServerDatabaseFixture>, 
     private const string AdminEmail = "flow-admin@attendta.test";
     private const string OfficerEmail = "flow-officer@attendta.test";
     private const string MemberEmail = "flow-member@attendta.test";
+    private const string SecondMemberEmail = "flow-member-two@attendta.test";
+    private const string MissingProfileEmail = "flow-member-no-profile@attendta.test";
     private const string InactiveEmail = "flow-inactive@attendta.test";
     private const string Password = "FlowPassword#2026";
     private const string CookieName = "AttendTa.Auth";
@@ -99,14 +101,106 @@ public class AuthenticationFlowTests : IClassFixture<SqlServerDatabaseFixture>, 
         var login = await SignInAsync(MemberEmail, Password);
         Assert.Equal(HttpStatusCode.Redirect, login.StatusCode);
 
-        var member = await client.GetAsync("/Member", TestContext.Current.CancellationToken);
+        await EnsureMemberProfilesAsync();
+        var anotherMemberId = await GetMemberIdAsync(SecondMemberEmail);
+        try
+        {
+            foreach (var path in new[] { "/Member", $"/Member/Edit/{anotherMemberId}" })
+            {
+                var member = await client.GetAsync(path, TestContext.Current.CancellationToken);
 
-        Assert.Equal(HttpStatusCode.Redirect, member.StatusCode);
-        Assert.StartsWith("/Account/AccessDenied", GetLocationPath(member), StringComparison.Ordinal);
+                Assert.True(member.StatusCode == HttpStatusCode.Redirect, $"Expected {path} to redirect, received {member.StatusCode}.");
+                Assert.StartsWith("/Account/AccessDenied", GetLocationPath(member), StringComparison.Ordinal);
+            }
 
-        var accessDenied = await client.GetAsync("/Account/AccessDenied", TestContext.Current.CancellationToken);
-        Assert.Equal(HttpStatusCode.OK, accessDenied.StatusCode);
-        Assert.Contains("Access denied", await accessDenied.Content.ReadAsStringAsync(TestContext.Current.CancellationToken), StringComparison.Ordinal);
+            var accessDenied = await client.GetAsync("/Account/AccessDenied", TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.OK, accessDenied.StatusCode);
+            Assert.Contains("Access denied", await accessDenied.Content.ReadAsStringAsync(TestContext.Current.CancellationToken), StringComparison.Ordinal);
+        }
+        finally
+        {
+            await RemoveMemberProfilesAsync();
+        }
+    }
+
+    [Fact]
+    public async Task AnonymousProfileRequestRedirectsToLoginWithReturnUrl()
+    {
+        var response = await client.GetAsync("/Profile", TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        var location = GetLocationPath(response);
+        Assert.NotNull(location);
+        Assert.StartsWith("/Account/Login", location, StringComparison.Ordinal);
+        Assert.Contains("ReturnUrl=%2FProfile", location, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task MemberProfileShowsOnlyTheAuthenticatedOwnersReadOnlyDetails()
+    {
+        await EnsureMemberProfilesAsync();
+        try
+        {
+            var firstLogin = await SignInAsync(MemberEmail, Password);
+            Assert.Equal(HttpStatusCode.Redirect, firstLogin.StatusCode);
+
+            var firstProfile = await client.GetAsync("/Profile", TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.OK, firstProfile.StatusCode);
+            var firstHtml = await firstProfile.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+            Assert.Contains("Flow Member", firstHtml, StringComparison.Ordinal);
+            Assert.Contains(MemberEmail, firstHtml, StringComparison.Ordinal);
+            Assert.Contains("FLOW-IT-1001", firstHtml, StringComparison.Ordinal);
+            Assert.Contains("Computer Science", firstHtml, StringComparison.Ordinal);
+            Assert.Contains("CS-A", firstHtml, StringComparison.Ordinal);
+            Assert.Contains("555-0101", firstHtml, StringComparison.Ordinal);
+            Assert.Contains("Regular", firstHtml, StringComparison.Ordinal);
+            Assert.Contains("Membership status", firstHtml, StringComparison.Ordinal);
+            Assert.DoesNotContain("Flow Second Member", firstHtml, StringComparison.Ordinal);
+            Assert.DoesNotContain("FLOW-IT-2002", firstHtml, StringComparison.Ordinal);
+            AssertReadOnlyProfile(firstHtml);
+
+            using var secondClient = factory.CreateClient(new WebApplicationFactoryClientOptions
+            {
+                AllowAutoRedirect = false,
+                HandleCookies = true
+            });
+            var secondLogin = await SignInAsync(secondClient, SecondMemberEmail, Password);
+            Assert.Equal(HttpStatusCode.Redirect, secondLogin.StatusCode);
+
+            var secondProfile = await secondClient.GetAsync("/Profile", TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.OK, secondProfile.StatusCode);
+            var secondHtml = await secondProfile.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+            Assert.Contains("Flow Second Member", secondHtml, StringComparison.Ordinal);
+            Assert.Contains(SecondMemberEmail, secondHtml, StringComparison.Ordinal);
+            Assert.Contains("FLOW-IT-2002", secondHtml, StringComparison.Ordinal);
+            Assert.Contains("Information Systems", secondHtml, StringComparison.Ordinal);
+            Assert.Contains("IS-B", secondHtml, StringComparison.Ordinal);
+            Assert.Contains("555-0202", secondHtml, StringComparison.Ordinal);
+            Assert.Contains("Associate", secondHtml, StringComparison.Ordinal);
+            Assert.DoesNotContain("Flow Member", secondHtml, StringComparison.Ordinal);
+            Assert.DoesNotContain("FLOW-IT-1001", secondHtml, StringComparison.Ordinal);
+            AssertReadOnlyProfile(secondHtml);
+        }
+        finally
+        {
+            await RemoveMemberProfilesAsync();
+        }
+    }
+
+    [Fact]
+    public async Task MemberWithoutLinkedProfileGetsNotFoundWithoutOtherMemberData()
+    {
+        var login = await SignInAsync(MissingProfileEmail, Password);
+        Assert.Equal(HttpStatusCode.Redirect, login.StatusCode);
+
+        var response = await client.GetAsync("/Profile", TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        var body = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+        Assert.DoesNotContain("Flow Member", body, StringComparison.Ordinal);
+        Assert.DoesNotContain("Flow Second Member", body, StringComparison.Ordinal);
+        Assert.DoesNotContain("FLOW-IT-1001", body, StringComparison.Ordinal);
+        Assert.DoesNotContain("FLOW-IT-2002", body, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -272,8 +366,8 @@ public class AuthenticationFlowTests : IClassFixture<SqlServerDatabaseFixture>, 
         Assert.Contains("/css/app.css", html, StringComparison.Ordinal);
         Assert.DoesNotContain("https://", html, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("bootstrap", html, StringComparison.OrdinalIgnoreCase);
-        if (management) { Assert.Contains("class=\"management-topbar\"", html, StringComparison.Ordinal); Assert.Contains("/Member", html, StringComparison.Ordinal); Assert.Contains("/EventType", html, StringComparison.Ordinal); Assert.Contains("/Venue", html, StringComparison.Ordinal); }
-        else { Assert.DoesNotContain("class=\"management-topbar\"", html, StringComparison.Ordinal); Assert.DoesNotContain("/Member", html, StringComparison.Ordinal); Assert.DoesNotContain("/EventType", html, StringComparison.Ordinal); Assert.DoesNotContain("/Venue", html, StringComparison.Ordinal); }
+        if (management) { Assert.Contains("class=\"management-topbar\"", html, StringComparison.Ordinal); Assert.Contains("/Member", html, StringComparison.Ordinal); Assert.Contains("/EventType", html, StringComparison.Ordinal); Assert.Contains("/Venue", html, StringComparison.Ordinal); Assert.DoesNotContain("/Profile", html, StringComparison.Ordinal); }
+        else { Assert.DoesNotContain("class=\"management-topbar\"", html, StringComparison.Ordinal); Assert.DoesNotContain("/Member", html, StringComparison.Ordinal); Assert.DoesNotContain("/EventType", html, StringComparison.Ordinal); Assert.DoesNotContain("/Venue", html, StringComparison.Ordinal); Assert.Contains("/Profile", html, StringComparison.Ordinal); }
     }
 
     [Fact]
@@ -421,8 +515,13 @@ public class AuthenticationFlowTests : IClassFixture<SqlServerDatabaseFixture>, 
 
     private async Task<HttpResponseMessage> SignInAsync(string email, string password)
     {
-        var token = await GetAntiforgeryTokenAsync("/Account/Login");
-        return await client.PostAsync(
+        return await SignInAsync(client, email, password);
+    }
+
+    private async Task<HttpResponseMessage> SignInAsync(HttpClient targetClient, string email, string password)
+    {
+        var token = await GetAntiforgeryTokenAsync(targetClient, "/Account/Login");
+        return await targetClient.PostAsync(
             "/Account/Login",
             new FormUrlEncodedContent(new Dictionary<string, string>
             {
@@ -435,12 +534,94 @@ public class AuthenticationFlowTests : IClassFixture<SqlServerDatabaseFixture>, 
 
     private async Task<string> GetAntiforgeryTokenAsync(string path)
     {
-        var response = await client.GetAsync(path, TestContext.Current.CancellationToken);
+        return await GetAntiforgeryTokenAsync(client, path);
+    }
+
+    private async Task<string> GetAntiforgeryTokenAsync(HttpClient targetClient, string path)
+    {
+        var response = await targetClient.GetAsync(path, TestContext.Current.CancellationToken);
         response.EnsureSuccessStatusCode();
         var html = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
         var match = Regex.Match(html, "__RequestVerificationToken[^>]*value=\"([^\"]+)\"", RegexOptions.IgnoreCase);
         Assert.True(match.Success, $"No antiforgery token was rendered on {path}.");
         return match.Groups[1].Value;
+    }
+
+    private async Task<int> GetMemberIdAsync(string email)
+    {
+        var options = new DbContextOptionsBuilder<AsiBasecodeDBContext>()
+            .UseSqlServer(fixture.ConnectionString)
+            .Options;
+        await using var context = new AsiBasecodeDBContext(options);
+        var userId = await context.Users
+            .Where(user => user.UserId == email)
+            .Select(user => user.Id)
+            .SingleAsync(TestContext.Current.CancellationToken);
+        return await context.Members
+            .Where(member => member.UserId == userId)
+            .Select(member => member.MemberId)
+            .SingleAsync(TestContext.Current.CancellationToken);
+    }
+
+    private async Task EnsureMemberProfilesAsync()
+    {
+        var options = new DbContextOptionsBuilder<AsiBasecodeDBContext>()
+            .UseSqlServer(fixture.ConnectionString)
+            .Options;
+        await using var context = new AsiBasecodeDBContext(options);
+        var profileSeeds = new[]
+        {
+            (Email: MemberEmail, StudentNumber: "FLOW-IT-1001", Course: "Computer Science", YearLevel: 2, Section: "CS-A", Mobile: "555-0101", MembershipType: "Regular"),
+            (Email: SecondMemberEmail, StudentNumber: "FLOW-IT-2002", Course: "Information Systems", YearLevel: 3, Section: "IS-B", Mobile: "555-0202", MembershipType: "Associate")
+        };
+
+        foreach (var profile in profileSeeds)
+        {
+            var user = await context.Users.SingleAsync(item => item.UserId == profile.Email, TestContext.Current.CancellationToken);
+            if (!await context.Members.AnyAsync(item => item.UserId == user.Id, TestContext.Current.CancellationToken))
+            {
+                context.Members.Add(new Member
+                {
+                    UserId = user.Id,
+                    StudentNumber = profile.StudentNumber,
+                    Course = profile.Course,
+                    YearLevel = profile.YearLevel,
+                    Section = profile.Section,
+                    MobileNumber = profile.Mobile,
+                    MembershipType = profile.MembershipType,
+                    Status = "active",
+                    CreatedBy = user.Id
+                });
+            }
+        }
+
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+    }
+
+    private async Task RemoveMemberProfilesAsync()
+    {
+        var options = new DbContextOptionsBuilder<AsiBasecodeDBContext>()
+            .UseSqlServer(fixture.ConnectionString)
+            .Options;
+        await using var context = new AsiBasecodeDBContext(options);
+        var studentNumbers = new[] { "FLOW-IT-1001", "FLOW-IT-2002" };
+        var profiles = await context.Members
+            .Where(member => studentNumbers.Contains(member.StudentNumber))
+            .ToListAsync(TestContext.Current.CancellationToken);
+        context.Members.RemoveRange(profiles);
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+    }
+
+    private static void AssertReadOnlyProfile(string html)
+    {
+        Assert.Contains("<dl class=\"profile-details\">", html, StringComparison.Ordinal);
+        var profileMarkupStart = html.IndexOf("<section class=\"panel\"", StringComparison.Ordinal);
+        var profileMarkupEnd = html.IndexOf("</section>", profileMarkupStart, StringComparison.Ordinal);
+        Assert.True(profileMarkupStart >= 0 && profileMarkupEnd > profileMarkupStart, "Profile details section was not rendered.");
+        var profileMarkup = html[profileMarkupStart..(profileMarkupEnd + "</section>".Length)];
+        Assert.False(Regex.IsMatch(profileMarkup, "<(input|select|textarea)\\b", RegexOptions.IgnoreCase));
+        Assert.DoesNotContain("Save", profileMarkup, StringComparison.Ordinal);
+        Assert.DoesNotContain("Edit profile", profileMarkup, StringComparison.Ordinal);
     }
 
     private static string? GetLocationPath(HttpResponseMessage response)
@@ -483,11 +664,12 @@ public class AuthenticationFlowTests : IClassFixture<SqlServerDatabaseFixture>, 
             CreateUser(AdminEmail, "Flow Admin", RoleCode.Admin, isActive: true),
             CreateUser(OfficerEmail, "Flow Officer", RoleCode.Officer, isActive: true),
             CreateUser(MemberEmail, "Flow Member", RoleCode.Member, isActive: true),
+            CreateUser(SecondMemberEmail, "Flow Second Member", RoleCode.Member, isActive: true),
+            CreateUser(MissingProfileEmail, "Flow Member Without Profile", RoleCode.Member, isActive: true),
             CreateUser(InactiveEmail, "Flow Inactive", RoleCode.Admin, isActive: false)
         };
 
         context.Users.AddRange(users.Where(user => !existingEmails.Contains(user.UserId)));
-
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
     }
 

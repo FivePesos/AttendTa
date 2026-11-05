@@ -9,6 +9,12 @@
     var isError = !string.IsNullOrWhiteSpace(error);
     var authenticated = User.Identity?.IsAuthenticated == true;
     var management = authenticated && (User.IsInRole(RoleCodes.Admin) || User.IsInRole(RoleCodes.Officer));
+    var shellWidth = authenticated ? null : ViewData["ShellWidth"] as string;
+    var shellClass = authenticated ? "authenticated" : "public-shell";
+    if (!string.IsNullOrWhiteSpace(shellWidth))
+    {
+        shellClass += " " + shellWidth;
+    }
 }
 <!DOCTYPE html>
 <html lang="en">
@@ -22,7 +28,7 @@
 </head>
 <body>
     <a class="skip-link" href="#main-content">Skip to main content</a>
-    <div class="app-shell @(authenticated ? "authenticated" : "public-shell")">
+    <div class="app-shell @shellClass">
         @await Html.PartialAsync("_Header")
         @if (management)
         {

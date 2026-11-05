@@ -4,6 +4,7 @@ using ASI.Basecode.Data.Repositories;
 using ASI.Basecode.Services.Interfaces;
 using ASI.Basecode.Services.Security;
 using ASI.Basecode.Services.Services;
+using ASI.Basecode.WebApp.Certificates;
 using ASI.Basecode.WebApp.Authentication;
 using ASI.Basecode.WebApp.Storage;
 using Microsoft.AspNetCore.Http;
@@ -33,9 +34,11 @@ namespace ASI.Basecode.WebApp
             this._services.AddSingleton<IPasswordHasher, Argon2PasswordHasher>();
             this._services.AddScoped<IAccountService, AccountService>();
             this._services.AddScoped<IAccountRequestQueueService, AccountRequestQueueService>();
+            this._services.AddScoped<IAccountRequestService, AccountRequestService>();
             this._services.AddScoped<IMemberService, MemberService>();
             this._services.AddScoped<IEventTypeService, EventTypeService>();
             this._services.AddScoped<IVenueService, VenueService>();
+            this._services.AddScoped<ICertificateTracerService, CertificateTracerService>();
 
             // Repositories
             this._services.AddScoped<IUserRepository, UserRepository>();
@@ -43,9 +46,11 @@ namespace ASI.Basecode.WebApp
             this._services.AddScoped<IMemberRepository, MemberRepository>();
             this._services.AddScoped<IEventTypeRepository, EventTypeRepository>();
             this._services.AddScoped<IVenueRepository, VenueRepository>();
+            this._services.AddScoped<IRegistrationRepository, RegistrationRepository>();
 
             // Shared server-local storage for private images, certificates and renderer files.
             this._services.AddScoped<IPrivateFileStore, PrivateFileStore>();
+            this._services.AddScoped<ICertificatePdfRenderer, PlaywrightCertificatePdfRenderer>();
 
             // Current request actor for service-layer authorization and audit.
             this._services.AddScoped<ICurrentActor, HttpCurrentActor>();

@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace ASI.Basecode.IntegrationTests;
 
@@ -11,26 +13,30 @@ public sealed class AttendTaWebApplicationFactory : WebApplicationFactory<Progra
     private readonly string connectionString;
     private readonly string setupRoot;
     private readonly string logLevel;
+    private readonly string environmentName;
 
-    public AttendTaWebApplicationFactory(string connectionString, string logLevel = "Warning")
+    public AttendTaWebApplicationFactory(string connectionString, string logLevel = "Warning", string environmentName = "Development")
     {
         this.connectionString = connectionString;
         this.logLevel = logLevel;
+        this.environmentName = environmentName;
         setupRoot = Path.Combine(Path.GetTempPath(), "attendta-integration", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(setupRoot);
     }
 
     public string SetupRoot => setupRoot;
+    public Action<IServiceCollection>? ConfigureServicesForTesting { get; set; }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        builder.UseEnvironment("Development");
+        builder.UseEnvironment(environmentName);
         builder.UseContentRoot(FindWebAppProjectDirectory());
         builder.UseSetting("ConnectionStrings:DefaultConnection", connectionString);
         builder.UseSetting("Common:SetupRoot", setupRoot);
         builder.UseSetting("Logging:LogLevel:Default", logLevel);
         builder.UseSetting("Logging:LogLevel:Microsoft", "Warning");
         builder.UseSetting("Logging:LogLevel:Microsoft.EntityFrameworkCore", "Warning");
+        builder.ConfigureTestServices(services => ConfigureServicesForTesting?.Invoke(services));
     }
 
     protected override void Dispose(bool disposing)

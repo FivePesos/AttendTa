@@ -66,6 +66,10 @@ public class MemberRepositoryTests : IClassFixture<SqlServerDatabaseFixture>
         Assert.Equal(member.MembershipType, record.MembershipType);
         Assert.Equal("active", record.Status);
         Assert.Equal(user.Id, record.CreatedBy);
+
+        var ownerRecord = await repository.GetMemberRecordByUserIdAsync(user.Id, cancellationToken);
+        Assert.Equal(member.MemberId, ownerRecord.MemberId);
+        Assert.Null(await repository.GetMemberRecordByUserIdAsync(int.MaxValue, cancellationToken));
     }
 
     private sealed class TestUnitOfWork : IUnitOfWork

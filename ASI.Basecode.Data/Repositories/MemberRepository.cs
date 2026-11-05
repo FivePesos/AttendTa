@@ -52,6 +52,12 @@ namespace ASI.Basecode.Data.Repositories
             return this.GetMemberRecords().FirstOrDefault(member => member.MemberId == memberId);
         }
 
+        public Task<MemberRecord> GetMemberRecordByUserIdAsync(int userId, CancellationToken cancellationToken = default)
+        {
+            return this.GetMemberRecords()
+                .FirstOrDefaultAsync(member => member.UserId == userId, cancellationToken);
+        }
+
         public Member GetMember(int memberId)
         {
             return this.GetDbSet<Member>().FirstOrDefault(m => m.MemberId == memberId);
