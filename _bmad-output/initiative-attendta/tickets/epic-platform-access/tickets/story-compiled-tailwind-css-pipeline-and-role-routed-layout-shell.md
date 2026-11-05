@@ -8,7 +8,8 @@ hitl: false
 risk: medium
 tracker_id: "12"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/12"
-tracker_status: backlog
+tracker_status: done
+assignee: "Wynnwrath"
 ---
 
 # Compiled Tailwind CSS pipeline and role-routed layout shell replacing Bootstrap

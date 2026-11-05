@@ -9,7 +9,8 @@ hitl: false
 risk: high
 tracker_id: "13"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/13"
-tracker_status: backlog
+tracker_status: done
+assignee: "wigglebop25"
 ---
 
 # Caller-owned transaction unit of work and append-only Activity Log writer

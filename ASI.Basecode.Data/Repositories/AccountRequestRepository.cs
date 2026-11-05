@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using ASI.Basecode.Data.Interfaces;
 using ASI.Basecode.Data.Models;
+using ASI.Basecode.Data.Models.Lookups;
 using Basecode.Data.Repositories;
 using Microsoft.EntityFrameworkCore;
 
@@ -23,5 +24,41 @@ public sealed class AccountRequestRepository(IUnitOfWork unitOfWork) : BaseRepos
         Context.Entry(tracked).OriginalValues.SetValues(row);
         Context.Entry(tracked).State = EntityState.Unchanged;
         return tracked;
+    }
+
+    public Task AddAsync(AccountRequest request, CancellationToken cancellationToken = default)
+    {
+        GetDbSet<AccountRequest>().Add(request);
+        return Task.CompletedTask;
+    }
+
+    public Task<bool> PendingEmailExistsAsync(string email, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            return Task.FromResult(false);
+        }
+
+        return GetDbSet<AccountRequest>()
+            .AsNoTracking()
+            .AnyAsync(
+                request => request.AccountRequestStatusId == AccountRequestStatusCode.Pending
+                    && request.Email == email,
+                cancellationToken);
+    }
+
+    public Task<bool> PendingStudentNumberExistsAsync(string studentNumber, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(studentNumber))
+        {
+            return Task.FromResult(false);
+        }
+
+        return GetDbSet<AccountRequest>()
+            .AsNoTracking()
+            .AnyAsync(
+                request => request.AccountRequestStatusId == AccountRequestStatusCode.Pending
+                    && request.StudentNumber == studentNumber,
+                cancellationToken);
     }
 }

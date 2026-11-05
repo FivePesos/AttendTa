@@ -8,7 +8,8 @@ hitl: true
 risk: high
 tracker_id: "9"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/9"
-tracker_status: backlog
+tracker_status: done
+assignee: "LucielCienAmir,wigglebop25"
 ---
 
 # Retarget solution to net10.0 LTS, remove legacy packages, stand up xUnit v3 test projects and CI container baseline
