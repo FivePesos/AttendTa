@@ -2,6 +2,7 @@
 @{
     var authenticated = User.Identity?.IsAuthenticated == true;
     var management = User.IsInRole(RoleCodes.Admin) || User.IsInRole(RoleCodes.Officer);
+    var administrator = User.IsInRole(RoleCodes.Admin);
     var member = User.IsInRole(RoleCodes.Member);
     var role = User.IsInRole(RoleCodes.Admin) ? "Administrator" : User.IsInRole(RoleCodes.Officer) ? "Officer" : "Member";
     var controller = ViewContext.RouteData.Values["controller"]?.ToString();
@@ -26,6 +27,10 @@
                     {
                         <a asp-controller="Member" asp-action="Index" aria-current="@(controller == "Member" ? "page" : null)">Members</a>
                         <a asp-controller="AccountRequest" asp-action="Index" aria-current="@(controller == "AccountRequest" ? "page" : null)">Account requests</a>
+                        @if (administrator)
+                        {
+                            <a asp-controller="AdminAccounts" asp-action="Index" aria-current="@(controller == "AdminAccounts" ? "page" : null)">Accounts</a>
+                        }
                         <a asp-controller="EventType" asp-action="Index" aria-current="@(controller == "EventType" ? "page" : null)">Event types</a>
                         <a asp-controller="Venue" asp-action="Index" aria-current="@(controller == "Venue" ? "page" : null)">Venues</a>
                     }
@@ -47,6 +52,10 @@
             {
                 <a asp-controller="Member" asp-action="Index" aria-current="@(controller == "Member" ? "page" : null)">Members</a>
                 <a asp-controller="AccountRequest" asp-action="Index" aria-current="@(controller == "AccountRequest" ? "page" : null)">Account requests</a>
+                @if (administrator)
+                {
+                    <a asp-controller="AdminAccounts" asp-action="Index" aria-current="@(controller == "AdminAccounts" ? "page" : null)">Accounts</a>
+                }
                 <a asp-controller="EventType" asp-action="Index" aria-current="@(controller == "EventType" ? "page" : null)">Event types</a>
                 <a asp-controller="Venue" asp-action="Index" aria-current="@(controller == "Venue" ? "page" : null)">Venues</a>
             }
