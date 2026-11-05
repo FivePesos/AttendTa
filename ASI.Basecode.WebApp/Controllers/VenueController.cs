@@ -20,6 +20,8 @@ namespace ASI.Basecode.WebApp.Controllers
     [AutoValidateAntiforgeryToken]
     public class VenueController : ControllerBase<VenueController>
     {
+        private const string VenueIndexRoute = "VenueIndex";
+
         private readonly IVenueService _venueService;
         private readonly IPrivateFileStore _privateFileStore;
 
@@ -31,7 +33,11 @@ namespace ASI.Basecode.WebApp.Controllers
             _privateFileStore = privateFileStore;
         }
 
-        public IActionResult Index() => View(_venueService.GetVenues());
+        [HttpGet]
+        [Route("Venue", Name = VenueIndexRoute)]
+        [Route("Venue/Index")]
+        public async Task<IActionResult> Index(int? page, CancellationToken cancellationToken) =>
+            View(await _venueService.GetPageAsync(page, cancellationToken));
 
         [HttpGet]
         public async Task<IActionResult> Photo(int id, CancellationToken cancellationToken)
@@ -90,7 +96,7 @@ namespace ASI.Basecode.WebApp.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> ToggleActive(int id)
+        public async Task<IActionResult> ToggleActive(int id, int? page)
         {
             try
             {
@@ -98,7 +104,7 @@ namespace ASI.Basecode.WebApp.Controllers
                 TempData["SuccessMessage"] = "Venue status updated.";
             }
             catch (DomainException ex) { TempData["ErrorMessage"] = ex.Message; }
-            return RedirectToAction("Index");
+            return page is > 0 ? RedirectToRoute(VenueIndexRoute, new { page }) : RedirectToRoute(VenueIndexRoute);
         }
 
         private void ReportError(DomainException ex)

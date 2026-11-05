@@ -4,6 +4,7 @@ using ASI.Basecode.Data.Models.Lookups;
 using Basecode.Data.Repositories;
 using Microsoft.EntityFrameworkCore;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -19,6 +20,23 @@ namespace ASI.Basecode.Data.Repositories
         public IQueryable<Venue> GetVenues()
         {
             return this.GetDbSet<Venue>();
+        }
+
+        public Task<int> CountAsync(CancellationToken cancellationToken = default) =>
+            GetDbSet<Venue>().AsNoTracking().CountAsync(cancellationToken);
+
+        public async Task<IReadOnlyList<Venue>> GetPageAsync(int skip, int take, CancellationToken cancellationToken = default)
+        {
+            if (skip < 0) throw new ArgumentOutOfRangeException(nameof(skip));
+            if (take <= 0) throw new ArgumentOutOfRangeException(nameof(take));
+
+            return await GetDbSet<Venue>()
+                .AsNoTracking()
+                .OrderBy(venue => venue.RoomName)
+                .ThenBy(venue => venue.VenueId)
+                .Skip(skip)
+                .Take(take)
+                .ToListAsync(cancellationToken);
         }
 
         public Venue GetVenue(int venueId)
@@ -44,6 +62,10 @@ namespace ASI.Basecode.Data.Repositories
         public Task<bool> HasEventAboveCapacityAsync(int venueId, int capacity, CancellationToken cancellationToken = default) =>
             GetDbSet<Event>().AnyAsync(e => e.VenueId == venueId && e.ParticipantLimit > capacity &&
                 (e.EventStatusId == EventStatusCode.Draft || e.EventStatusId == EventStatusCode.Published), cancellationToken);
+
+        // Deactivation keeps every existing reference, so the audit counts all linked events.
+        public Task<int> CountLinkedEventsAsync(int venueId, CancellationToken cancellationToken = default) =>
+            GetDbSet<Event>().AsNoTracking().CountAsync(e => e.VenueId == venueId, cancellationToken);
 
         public Task AddVenueAsync(Venue venue, CancellationToken cancellationToken = default)
         {

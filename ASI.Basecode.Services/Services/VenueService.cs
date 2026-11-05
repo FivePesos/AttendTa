@@ -7,7 +7,6 @@ using ASI.Basecode.Services.ServiceModels;
 using AutoMapper;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -38,10 +37,17 @@ namespace ASI.Basecode.Services.Services
             _logger = logger;
         }
 
-        public List<VenueViewModel> GetVenues()
+        public async Task<PagedResult<VenueViewModel>> GetPageAsync(int? pageNumber, CancellationToken cancellationToken = default)
         {
-            var venues = _repository.GetVenues().OrderBy(v => v.RoomName).ToList();
-            return _mapper.Map<List<VenueViewModel>>(venues);
+            var totalCount = await _repository.CountAsync(cancellationToken);
+            var pageRequest = new PageRequest(pageNumber);
+            var normalizedPage = pageRequest.NormalizePageNumber(totalCount);
+            var venues = await _repository.GetPageAsync(
+                pageRequest.GetOffset(normalizedPage),
+                PageRequest.FixedPageSize,
+                cancellationToken);
+            var items = _mapper.Map<List<VenueViewModel>>(venues);
+            return new PagedResult<VenueViewModel>(items, normalizedPage, totalCount);
         }
 
         public VenueViewModel GetVenue(int id)
@@ -51,6 +57,8 @@ namespace ASI.Basecode.Services.Services
         }
 
         private sealed record VenueAuditValues(string RoomName, int Capacity, string Location, string AvailabilityNotes, string ContactPerson, bool PhotoChanged) : IAuditValues;
+
+        private sealed record VenueStatusAuditValues(bool IsActive, int LinkedEventCount) : IAuditValues;
 
         private static VenueAuditValues Snapshot(Venue venue, bool photoChanged) =>
             new(venue.RoomName, venue.Capacity, venue.Location, venue.AvailabilityNotes, venue.ContactPerson, photoChanged);
@@ -136,7 +144,7 @@ namespace ASI.Basecode.Services.Services
 
         public async Task ToggleActiveAsync(int id, int actorUserId, CancellationToken cancellationToken = default)
         {
-            if (actorUserId <= 0)
+            if (!_actor.IsAuthenticated || actorUserId <= 0 || _actor.UserId != actorUserId)
             {
                 throw new DomainException(OutcomeCode.Forbidden, "A valid authenticated user is required to update a venue.");
             }
@@ -149,10 +157,14 @@ namespace ASI.Basecode.Services.Services
                     throw new DomainException(OutcomeCode.NotFound, "Venue not found.");
                 }
 
+                var linkedEventCount = await _repository.CountLinkedEventsAsync(venue.VenueId, ct);
+                var oldValues = new VenueStatusAuditValues(venue.IsActive, linkedEventCount);
                 venue.IsActive = !venue.IsActive;
                 venue.UpdatedBy = actorUserId;
                 venue.UpdatedAt = _timeProvider.GetUtcNow().UtcDateTime;
                 await _repository.UpdateVenueAsync(venue, ct);
+                _audit.Append(new AuditEntry(AuditActions.VenueStatusChanged, "venues", venue.VenueId,
+                    OldValues: oldValues, NewValues: new VenueStatusAuditValues(venue.IsActive, linkedEventCount)));
                 await _unitOfWork.SaveChangesAsync(ct);
             }, cancellationToken);
         }

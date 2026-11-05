@@ -1,4 +1,5 @@
 using ASI.Basecode.Data.Models;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -8,8 +9,11 @@ namespace ASI.Basecode.Data.Interfaces
     public interface IVenueRepository
     {
         IQueryable<Venue> GetVenues();
+        Task<int> CountAsync(CancellationToken cancellationToken = default);
+        Task<IReadOnlyList<Venue>> GetPageAsync(int skip, int take, CancellationToken cancellationToken = default);
         Venue GetVenue(int venueId);
         Task<Venue> LockVenueAsync(int venueId, CancellationToken cancellationToken = default);
+        Task<int> CountLinkedEventsAsync(int venueId, CancellationToken cancellationToken = default);
         Task<bool> HasEventAboveCapacityAsync(int venueId, int capacity, CancellationToken cancellationToken = default);
         Task AddVenueAsync(Venue venue, CancellationToken cancellationToken = default);
         Task UpdateVenueAsync(Venue venue, CancellationToken cancellationToken = default);
