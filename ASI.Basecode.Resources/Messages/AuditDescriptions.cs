@@ -1,0 +1,15 @@
+using ASI.Basecode.Resources.Constants;
+using System;
+using System.Resources;
+
+namespace ASI.Basecode.Resources.Messages;
+
+public static class AuditDescriptions
+{
+    private static readonly ResourceManager Templates = new("ASI.Basecode.Resources.Messages.Audit", typeof(AuditActions).Assembly);
+    public static string ForAction(string action) => action switch
+    {
+        AuditActions.AccountRequestApproved => Templates.GetString("AccountRequestApproved") ?? throw new InvalidOperationException("Missing audit template."),
+        _ => throw new ArgumentException("Unsupported audit action.", nameof(action))
+    };
+}

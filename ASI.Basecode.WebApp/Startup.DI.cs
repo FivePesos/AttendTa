@@ -9,6 +9,7 @@ using ASI.Basecode.WebApp.Storage;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using System;
 
 namespace ASI.Basecode.WebApp
 {
@@ -25,6 +26,8 @@ namespace ASI.Basecode.WebApp
 
             // Common
             this._services.AddScoped<IUnitOfWork, UnitOfWork>();
+            this._services.TryAddSingleton(TimeProvider.System);
+            this._services.AddScoped<IActivityLogWriter, ActivityLogWriter>();
 
             // Services
             this._services.AddSingleton<IPasswordHasher, Argon2PasswordHasher>();
@@ -35,6 +38,7 @@ namespace ASI.Basecode.WebApp
 
             // Repositories
             this._services.AddScoped<IUserRepository, UserRepository>();
+            this._services.AddScoped<IAccountRequestRepository, AccountRequestRepository>();
             this._services.AddScoped<IMemberRepository, MemberRepository>();
             this._services.AddScoped<IEventTypeRepository, EventTypeRepository>();
             this._services.AddScoped<IVenueRepository, VenueRepository>();

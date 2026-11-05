@@ -10,10 +10,12 @@ public sealed class AttendTaWebApplicationFactory : WebApplicationFactory<Progra
 {
     private readonly string connectionString;
     private readonly string setupRoot;
+    private readonly string logLevel;
 
-    public AttendTaWebApplicationFactory(string connectionString)
+    public AttendTaWebApplicationFactory(string connectionString, string logLevel = "Warning")
     {
         this.connectionString = connectionString;
+        this.logLevel = logLevel;
         setupRoot = Path.Combine(Path.GetTempPath(), "attendta-integration", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(setupRoot);
     }
@@ -26,7 +28,7 @@ public sealed class AttendTaWebApplicationFactory : WebApplicationFactory<Progra
         builder.UseContentRoot(FindWebAppProjectDirectory());
         builder.UseSetting("ConnectionStrings:DefaultConnection", connectionString);
         builder.UseSetting("Common:SetupRoot", setupRoot);
-        builder.UseSetting("Logging:LogLevel:Default", "Warning");
+        builder.UseSetting("Logging:LogLevel:Default", logLevel);
         builder.UseSetting("Logging:LogLevel:Microsoft", "Warning");
         builder.UseSetting("Logging:LogLevel:Microsoft.EntityFrameworkCore", "Warning");
     }
