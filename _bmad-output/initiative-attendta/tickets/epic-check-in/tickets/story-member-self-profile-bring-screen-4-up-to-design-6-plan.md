@@ -36,6 +36,7 @@ context:
 - Changed `ASI.Basecode.WebApp/Views/Profile/Index.cshtml` — added the `.profile-action` row after the membership panel with a secondary link to `Passes/Index`.
 - Changed `ASI.Basecode.WebApp/Styles/app.css` and regenerated `ASI.Basecode.WebApp/wwwroot/css/app.css`; the compiled file contains `.profile-action`.
 - Verification (2026-11-07): `dotnet build ASI.Basecode.sln` 0 warnings/0 errors; `css:build` completed; `AuthenticationFlowTests` 33/33 passed.
+- Rendered smoke (2026-11-07, `DemoData__Enabled=true` against `AttendTaMVP_Test`): signed in as `member.smoke@example.com`; `/Profile` returned 200 with the identity strip, amber notice and "View my passes"; the action resolved to `/Passes/Index`; `/Passes` returned 200 with the "Door Passes" heading.
 - Review: the separate quick lens was skipped because story 4.13 explicitly waives the per-ticket code-review pass; CI and one peer approval cover the pull request.
 
 ## Verification
