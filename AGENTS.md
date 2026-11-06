@@ -136,6 +136,9 @@ Reference by path only. The SPEC is the source of truth for planned features not
 - `bruno/` — Bruno API collection for manual CRUD testing (no browser needed).
 - `docs/database-setup.md` — MVP LocalDB setup/reset, schema, admin provisioning, and event-type seed instructions.
 
+## UI review
+The impeccable design skill is installed at `.opencode/skills/impeccable`, with `/impeccable` in `.opencode/commands`. For any UI-facing ticket — a new screen, form, table, dialog, navigation change, or a refactor sweep that touches Razor or CSS — run `/impeccable critique` on the changed surface and `/impeccable polish` before review. Keep `PRODUCT.md` current; `docs/DESIGN.md` remains the visual authority.
+
 ## Current assignment scope
 Master Data only — Member Management, Event Type Management, Venue Management (Admin & Officer).
 Auth, Transactions, Reports, Administration are owned by other members.

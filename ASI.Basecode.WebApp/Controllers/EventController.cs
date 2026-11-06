@@ -187,6 +187,67 @@ namespace ASI.Basecode.WebApp.Controllers
             return RedirectToRoute(EventIndexRoute);
         }
 
+        [HttpGet]
+        public async Task<IActionResult> Cancel(int id, CancellationToken cancellationToken)
+        {
+            var model = await _eventService.GetEventAsync(id, cancellationToken);
+            if (model == null)
+            {
+                TempData["ErrorMessage"] = "Event not found.";
+                return RedirectToRoute(EventIndexRoute);
+            }
+
+            if (model.EventStatusId is not (EventStatusCode.Draft or EventStatusCode.Published))
+            {
+                TempData["ErrorMessage"] = "Only draft or published events can be cancelled.";
+                return RedirectToRoute(EventIndexRoute);
+            }
+
+            return View(new EventCancelViewModel
+            {
+                EventId = model.EventId,
+                Title = model.Title,
+                EventStatusId = model.EventStatusId,
+                StartsAt = model.StartsAt
+            });
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> Cancel(EventCancelViewModel model, CancellationToken cancellationToken)
+        {
+            if (!ModelState.IsValid)
+            {
+                return await CancelViewAsync(model, cancellationToken);
+            }
+
+            try
+            {
+                await _eventService.CancelAsync(model.EventId, model.Reason, cancellationToken);
+                TempData["SuccessMessage"] = "Event cancelled.";
+            }
+            catch (DomainException exception)
+            {
+                TempData["ErrorMessage"] = exception.Message;
+            }
+
+            return RedirectToRoute(EventIndexRoute);
+        }
+
+        private async Task<IActionResult> CancelViewAsync(EventCancelViewModel model, CancellationToken cancellationToken)
+        {
+            var current = await _eventService.GetEventAsync(model.EventId, cancellationToken);
+            if (current == null)
+            {
+                TempData["ErrorMessage"] = "Event not found.";
+                return RedirectToRoute(EventIndexRoute);
+            }
+
+            model.Title = current.Title;
+            model.EventStatusId = current.EventStatusId;
+            model.StartsAt = current.StartsAt;
+            return View(model);
+        }
+
         private async Task<EventViewModel> WithOptionsAsync(EventViewModel model, CancellationToken cancellationToken)
         {
             model.FormOptions = await _eventService.GetFormOptionsAsync(cancellationToken);

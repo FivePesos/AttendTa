@@ -355,8 +355,11 @@ public sealed class RegistrationCancellationTests(SqlServerDatabaseFixture fixtu
     private sealed class ReverseDiscoveryRepository(IRegistrationRepository inner) : IRegistrationRepository
     {
         public Task<RegistrationReviewIdentity> DiscoverReviewAsync(int id, CancellationToken ct = default) => inner.DiscoverReviewAsync(id, ct);
+        public Task<RegistrationPromotionCandidate> DiscoverPromotionCandidateAsync(int eventId, CancellationToken ct = default) => inner.DiscoverPromotionCandidateAsync(eventId, ct);
         public Task<bool> HasEligibleWaitlistAsync(int id, CancellationToken ct = default) => inner.HasEligibleWaitlistAsync(id, ct);
         public Task<bool> HasValidAttendanceAsync(int id, CancellationToken ct = default) => inner.HasValidAttendanceAsync(id, ct);
+        public Task<bool> HasValidAttendanceForEventAsync(int eventId, CancellationToken ct = default) => inner.HasValidAttendanceForEventAsync(eventId, ct);
+        public Task<bool> HasIssuedCertificateForEventAsync(int eventId, CancellationToken ct = default) => inner.HasIssuedCertificateForEventAsync(eventId, ct);
         public Task<int> CountReviewQueueAsync(RegistrationStatusCode status, int? eventId, CancellationToken ct = default) => inner.CountReviewQueueAsync(status, eventId, ct);
         public Task<IReadOnlyList<RegistrationReviewRow>> GetReviewQueueAsync(RegistrationStatusCode status, int? eventId, int offset, int limit, CancellationToken ct = default) => inner.GetReviewQueueAsync(status, eventId, offset, limit, ct);
         public IReadOnlyList<int> Discovered { get; private set; } = [];
@@ -367,6 +370,7 @@ public sealed class RegistrationCancellationTests(SqlServerDatabaseFixture fixtu
         }
         public Task<bool> IsConfirmedAsync(int id, CancellationToken ct = default) => inner.IsConfirmedAsync(id, ct);
         public Task<bool> ExistsAsync(int eventId, int memberId, CancellationToken ct = default) => inner.ExistsAsync(eventId, memberId, ct);
+        public Task<MemberRegistrationRow> GetMemberRegistrationAsync(int eventId, int userId, CancellationToken ct = default) => inner.GetMemberRegistrationAsync(eventId, userId, ct);
         public Task<int> CountConfirmedAsync(int id, CancellationToken ct = default) => inner.CountConfirmedAsync(id, ct);
         public Task AddAsync(Registration row, CancellationToken ct = default) => inner.AddAsync(row, ct);
         public Task<Registration> GetForCancellationAsync(int id, CancellationToken ct = default) => inner.GetForCancellationAsync(id, ct);

@@ -1,6 +1,27 @@
+@using ASI.Basecode.Data.Models.Lookups
 @model MemberEventDetailViewModel
 @{
     ViewData["Title"] = Model.Title;
+    var registrationStatus = Model.RegistrationStatus;
+    var registrationLabel = registrationStatus switch
+    {
+        RegistrationStatusCode.Pending => "Pending review",
+        RegistrationStatusCode.Confirmed => "Confirmed",
+        RegistrationStatusCode.Waitlisted => "Waitlisted",
+        RegistrationStatusCode.Cancelled => "Cancelled",
+        _ => null
+    };
+    var registrationBadge = registrationStatus switch
+    {
+        RegistrationStatusCode.Pending => "badge-full",
+        RegistrationStatusCode.Confirmed => "badge-open",
+        RegistrationStatusCode.Waitlisted => "badge-member",
+        RegistrationStatusCode.Cancelled => "badge-inactive",
+        _ => "badge-member"
+    };
+    var registrationNotice = registrationStatus == RegistrationStatusCode.Cancelled
+        ? "notice"
+        : "notice notice-success";
 }
 
 <div class="page-heading">
@@ -58,13 +79,34 @@
 <section class="event-registration" aria-labelledby="event-registration-heading">
     <h2 id="event-registration-heading">Registration</h2>
 
-    @if (!Model.IsSignupOpen)
+    @if (Model.HasRegistration)
+    {
+        <p class="@registrationNotice" role="status">
+            You already have a registration for this event. Your registration is <span class="badge @registrationBadge">@registrationLabel</span>.
+        </p>
+
+        @if (registrationStatus == RegistrationStatusCode.Cancelled)
+        {
+            <p class="muted">This registration was cancelled. You cannot register again for this event.</p>
+        }
+        else if (Model.CanCancel)
+        {
+            <button type="button" class="button button-danger" data-cancel-open>Cancel my registration</button>
+            <p class="muted">Cancelling releases your seat and cannot be undone.</p>
+
+            <dialog id="cancel-registration-dialog" class="confirm-dialog" aria-labelledby="cancel-registration-heading">
+                <h2 id="cancel-registration-heading">Cancel this registration?</h2>
+                <p>Cancellation is final. Your seat is released and you cannot register for this event again.</p>
+                <form asp-action="Cancel" asp-route-id="@Model.EventId" method="post" class="confirm-dialog-actions">
+                    <button type="submit" class="button button-danger">Yes, cancel my registration</button>
+                    <button type="button" class="button button-secondary" data-cancel-close>Keep my registration</button>
+                </form>
+            </dialog>
+        }
+    }
+    else if (!Model.IsSignupOpen)
     {
         <p class="notice" role="status">Signup closed on @ManilaTimeFormatter.Format(Model.RegistrationDeadline).</p>
-    }
-    else if (Model.HasRegistration)
-    {
-        <p class="notice notice-success" role="status">You already have a registration for this event.</p>
     }
     else if (!Model.CanRegister)
     {
@@ -83,3 +125,17 @@
         <p class="muted">Submitting creates a pending request. An officer reviews it before a seat is confirmed.</p>
     }
 </section>
+
+@section Scripts {
+    <script>
+        (function () {
+            var dialog = document.getElementById('cancel-registration-dialog');
+            if (!dialog) return;
+
+            var open = document.querySelector('[data-cancel-open]');
+            var close = dialog.querySelector('[data-cancel-close]');
+            if (open) open.addEventListener('click', function () { dialog.showModal(); });
+            if (close) close.addEventListener('click', function () { dialog.close(); });
+        })();
+    </script>
+}
