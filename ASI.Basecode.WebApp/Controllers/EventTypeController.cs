@@ -33,9 +33,10 @@ namespace ASI.Basecode.WebApp.Controllers
         [HttpGet]
         [Route("EventType", Name = EventTypeIndexRoute)]
         [Route("EventType/Index")]
-        public async Task<IActionResult> Index(int? page = null)
+        public async Task<IActionResult> Index(string status, int? page = null)
         {
-            var eventTypes = await _eventTypeService.GetPageAsync(page, HttpContext.RequestAborted);
+            var eventTypes = await _eventTypeService.GetPageAsync(status, page, HttpContext.RequestAborted);
+            ViewBag.Status = status;
             return View(eventTypes);
         }
 

@@ -365,8 +365,8 @@ public sealed class EventCoverServiceTests
     private sealed class MemoryEventTypes(Harness harness) : IEventTypeRepository
     {
         public Task<IReadOnlyList<EventType>> GetActiveEventTypesAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Task<int> CountEventTypesAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Task<IReadOnlyList<EventType>> GetEventTypesPageAsync(int offset, int pageSize, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<int> CountEventTypesAsync(string status, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<IReadOnlyList<EventType>> GetEventTypesPageAsync(string status, int offset, int pageSize, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public EventType GetEventType(int typeId) => harness.EventType;
         public Task<EventType> LockEventTypeAsync(int typeId, CancellationToken cancellationToken = default)
         {
@@ -384,8 +384,8 @@ public sealed class EventCoverServiceTests
     {
         public IQueryable<Venue> GetVenues() => new[] { harness.Venue }.AsQueryable();
         public Task<IReadOnlyList<Venue>> GetActiveVenuesAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Task<int> CountAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Task<IReadOnlyList<Venue>> GetPageAsync(int skip, int take, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<int> CountAsync(string status, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<IReadOnlyList<Venue>> GetPageAsync(string status, int skip, int take, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Venue GetVenue(int venueId) => harness.Venue;
         public Task<Venue> LockVenueAsync(int venueId, CancellationToken cancellationToken = default)
         {

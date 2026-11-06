@@ -31,12 +31,13 @@ namespace ASI.Basecode.Services.Services
             _actor = actor;
         }
 
-        public async Task<PagedResult<EventTypeViewModel>> GetPageAsync(int? page, CancellationToken cancellationToken = default)
+        public async Task<PagedResult<EventTypeViewModel>> GetPageAsync(string status, int? page, CancellationToken cancellationToken = default)
         {
-            var totalCount = await _repository.CountEventTypesAsync(cancellationToken);
+            var totalCount = await _repository.CountEventTypesAsync(status, cancellationToken);
             var pageRequest = new PageRequest(page);
             var normalizedPage = pageRequest.NormalizePageNumber(totalCount);
             var eventTypes = await _repository.GetEventTypesPageAsync(
+                status,
                 pageRequest.GetOffset(normalizedPage),
                 PageRequest.FixedPageSize,
                 cancellationToken);

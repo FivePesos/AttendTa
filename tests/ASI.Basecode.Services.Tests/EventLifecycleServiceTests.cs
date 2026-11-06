@@ -1151,9 +1151,9 @@ public class EventLifecycleServiceTests
         public Task<IReadOnlyList<EventType>> GetActiveEventTypesAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyList<EventType>>(Items.Where(item => item.IsActive).OrderBy(item => item.TypeName).ThenBy(item => item.TypeId).ToList());
 
-        public Task<int> CountEventTypesAsync(CancellationToken cancellationToken = default) => Task.FromResult(Items.Count);
+        public Task<int> CountEventTypesAsync(string status, CancellationToken cancellationToken = default) => Task.FromResult(Items.Count);
 
-        public Task<IReadOnlyList<EventType>> GetEventTypesPageAsync(int offset, int pageSize, CancellationToken cancellationToken = default) =>
+        public Task<IReadOnlyList<EventType>> GetEventTypesPageAsync(string status, int offset, int pageSize, CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyList<EventType>>(Items.Skip(offset).Take(pageSize).ToList());
 
         public EventType GetEventType(int typeId) => Find(typeId)!;
@@ -1190,9 +1190,9 @@ public class EventLifecycleServiceTests
         public Task<IReadOnlyList<Venue>> GetActiveVenuesAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyList<Venue>>(Items.Where(item => item.IsActive).OrderBy(item => item.RoomName).ThenBy(item => item.VenueId).ToList());
 
-        public Task<int> CountAsync(CancellationToken cancellationToken = default) => Task.FromResult(Items.Count);
+        public Task<int> CountAsync(string status, CancellationToken cancellationToken = default) => Task.FromResult(Items.Count);
 
-        public Task<IReadOnlyList<Venue>> GetPageAsync(int skip, int take, CancellationToken cancellationToken = default) =>
+        public Task<IReadOnlyList<Venue>> GetPageAsync(string status, int skip, int take, CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyList<Venue>>(Items.Skip(skip).Take(take).ToList());
 
         public Venue GetVenue(int venueId) => Find(venueId)!;

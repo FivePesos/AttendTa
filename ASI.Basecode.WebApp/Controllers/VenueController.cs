@@ -37,8 +37,8 @@ namespace ASI.Basecode.WebApp.Controllers
         [HttpGet]
         [Route("Venue", Name = VenueIndexRoute)]
         [Route("Venue/Index")]
-        public async Task<IActionResult> Index(int? page, CancellationToken cancellationToken) =>
-            View(await _venueService.GetPageAsync(page, cancellationToken));
+        public async Task<IActionResult> Index(string status, int? page, CancellationToken cancellationToken) =>
+            View(await _venueService.GetPageAsync(status, page, cancellationToken));
 
         [HttpGet]
         public async Task<IActionResult> Photo(int id, CancellationToken cancellationToken)

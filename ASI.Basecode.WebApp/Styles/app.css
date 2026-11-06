@@ -51,6 +51,13 @@
   .public-shell.public-wide .main-content { max-width: 576px; }
   .login-card, .panel { background: white; border: 1px solid #e2e8f0; border-radius: 10px; padding: 1.5rem; box-shadow: 0 4px 12px -2px #0f172a0d; }
   .panel + .panel { margin-top: 1rem; }
+  .identity-strip { display: flex; align-items: center; gap: 1rem; padding: 1.25rem 1.5rem; margin-bottom: 1rem; border-radius: 10px; background: #0b1120; color: #ffffff; }
+  .identity-avatar { display: inline-flex; align-items: center; justify-content: center; width: 3rem; height: 3rem; border-radius: 999px; background: #1e293b; color: #fef3c7; font-weight: 700; font-size: 1.1rem; }
+  .identity-text { min-width: 0; flex: 1 1 auto; }
+  .identity-name { margin: 0; font-weight: 700; font-size: 1.05rem; color: #ffffff; }
+  .identity-meta { margin: .15rem 0 0; color: #cbd5e1; font-size: .9rem; overflow-wrap: anywhere; }
+  .notice { margin: 0 0 1rem; padding: .75rem 1rem; border-radius: 10px; border: 1px solid #fcd34d; background: #fef3c7; color: #92400e; }
+  .notice-amber { border-color: #fcd34d; background: #fef3c7; color: #92400e; }
   .login-card { margin-top: 2rem; } .muted { color: #64748b; } .login-card .muted { margin-bottom: 1.5rem; }
   .page-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
   .field { margin-bottom: 1rem; } .field label, .field-label { display: block; margin-bottom: .35rem; font-weight: 600; }
