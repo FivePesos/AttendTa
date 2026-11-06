@@ -4,3 +4,6 @@
 - source_plan: none
   summary: Improve the public account-request form with course choices, password guidance, field hints, and validation feedback.
   evidence: Split from management account-request review so approval and rejection can be delivered independently first.
+- source_plan: `_bmad-output/initiative-attendta/plan-gh-34-signup-deadline.md`
+  summary: Show precise Manila signup deadlines when stored values include seconds or milliseconds.
+  evidence: Existing ManilaTimeFormatter truncates to minutes while EventLifecycleService accepts more precise timestamps, potentially displaying a deadline earlier than the actual cutoff.

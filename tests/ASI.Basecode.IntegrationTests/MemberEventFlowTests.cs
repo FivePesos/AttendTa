@@ -16,9 +16,11 @@ using ASI.Basecode.Services.ServiceModels;
 using ASI.Basecode.Services.Services;
 using AutoMapper;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace ASI.Basecode.IntegrationTests;
@@ -460,6 +462,91 @@ public sealed class MemberEventRegistrationFlowTests(SqlServerDatabaseFixture fi
     }
 }
 
+public sealed class MemberEventDeadlineFlowTests(SqlServerDatabaseFixture fixture) : IClassFixture<SqlServerDatabaseFixture>
+{
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    public async Task StaleFormIsRefusedAtOrAfterDeadlineWithoutChangingEarlierRegistration(int offsetTicks)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var suffix = Guid.NewGuid().ToString("N");
+        var password = MemberEventTestSupport.NewPassword();
+        var earlyEmail = $"early-{suffix}@attendta.test";
+        var staleEmail = $"stale-deadline-{suffix}@attendta.test";
+        var earlyUser = await MemberEventTestSupport.SeedUserAsync(fixture.ConnectionString, earlyEmail, password, RoleCode.Member, ct);
+        var earlyMember = await MemberEventTestSupport.SeedMemberAsync(fixture.ConnectionString, earlyUser.Id, MembershipStatusCode.Active, ct);
+        var staleUser = await MemberEventTestSupport.SeedUserAsync(fixture.ConnectionString, staleEmail, password, RoleCode.Member, ct);
+        var staleMember = await MemberEventTestSupport.SeedMemberAsync(fixture.ConnectionString, staleUser.Id, MembershipStatusCode.Active, ct);
+        var (typeId, venueId) = await MemberEventTestSupport.SeedReferencesAsync(fixture.ConnectionString, earlyUser.Id, ct);
+        // datetime2(3) can represent this deadline exactly; only the injected clock varies by ticks.
+        var deadline = new DateTime(2026, 11, 6, 12, 0, 0, DateTimeKind.Utc);
+        var eventItem = await MemberEventTestSupport.SeedEventAsync(fixture.ConnectionString, earlyUser.Id, typeId, venueId,
+            EventStatusCode.Published, deadline.AddDays(1), deadline, 10, null, $"Deadline event {suffix}", ct);
+        var clock = new MutableClock { Now = deadline.AddTicks(-1) };
+
+        await using var factory = new AttendTaWebApplicationFactory(fixture.ConnectionString);
+        await using var clockFactory = factory.WithWebHostBuilder(builder =>
+            builder.ConfigureTestServices(services => services.AddSingleton<TimeProvider>(clock)));
+        using var earlyClient = clockFactory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
+        using var staleClient = clockFactory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
+        await MemberEventTestSupport.SignInAsync(earlyClient, earlyEmail, password, ct);
+        await MemberEventTestSupport.SignInAsync(staleClient, staleEmail, password, ct);
+
+        var detailUrl = $"/MemberEvents/Details?id={eventItem.EventId}";
+        var detail = await staleClient.GetStringAsync(detailUrl, ct);
+        Assert.Contains("Submit registration", detail, StringComparison.Ordinal);
+        Assert.Contains("2026-11-06 20:00 Asia/Manila", detail, StringComparison.Ordinal);
+        var staleToken = await MemberEventTestSupport.AntiforgeryTokenAsync(staleClient, detailUrl, ct);
+        var earlyToken = await MemberEventTestSupport.AntiforgeryTokenAsync(earlyClient, detailUrl, ct);
+        var earlyResponse = await earlyClient.PostAsync($"/MemberEvents/Register?id={eventItem.EventId}",
+            MemberEventTestSupport.Form(new() { ["__RequestVerificationToken"] = earlyToken }), ct);
+        Assert.Equal(HttpStatusCode.Redirect, earlyResponse.StatusCode);
+        Assert.Equal(detailUrl, MemberEventTestSupport.LocationPath(earlyResponse));
+
+        int earlierId;
+        await using (var observer = MemberEventTestSupport.Context(fixture.ConnectionString))
+        {
+            Assert.Equal(deadline, (await observer.Events.AsNoTracking().SingleAsync(row => row.EventId == eventItem.EventId, ct)).RegistrationDeadline);
+            var earlier = await observer.Registrations.AsNoTracking().SingleAsync(row => row.EventId == eventItem.EventId, ct);
+            Assert.Equal(earlyMember.MemberId, earlier.MemberId);
+            Assert.Equal(RegistrationStatusCode.Pending, earlier.RegistrationStatusId);
+            earlierId = earlier.RegistrationId;
+        }
+
+        clock.Now = deadline.AddTicks(offsetTicks);
+        var response = await staleClient.PostAsync($"/MemberEvents/Register?id={eventItem.EventId}",
+            MemberEventTestSupport.Form(new() { ["__RequestVerificationToken"] = staleToken }), ct);
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Equal("/Events", MemberEventTestSupport.LocationPath(response));
+        var feed = await staleClient.GetStringAsync("/Events", ct);
+        Assert.Contains("Signup for this event is closed.", feed, StringComparison.Ordinal);
+        var card = Regex.Match(feed, $"<article[^>]*data-event-id=\"{eventItem.EventId}\"[^>]*>.*?</article>", RegexOptions.Singleline);
+        Assert.True(card.Success, "The published event must remain in the feed.");
+        Assert.Contains("Signup closed", card.Value, StringComparison.Ordinal);
+        Assert.Contains("Signup deadline", card.Value, StringComparison.Ordinal);
+        Assert.Contains("2026-11-06 20:00 Asia/Manila", card.Value, StringComparison.Ordinal);
+        var closedDetail = await staleClient.GetStringAsync(detailUrl, ct);
+        Assert.Contains("Signup closed on 2026-11-06 20:00 Asia/Manila", closedDetail, StringComparison.Ordinal);
+        Assert.DoesNotContain("Submit registration", closedDetail, StringComparison.Ordinal);
+
+        await using var context = MemberEventTestSupport.Context(fixture.ConnectionString);
+        var registrations = await context.Registrations.AsNoTracking().Where(row => row.EventId == eventItem.EventId).ToListAsync(ct);
+        var preserved = Assert.Single(registrations);
+        Assert.Equal(earlierId, preserved.RegistrationId);
+        Assert.Equal(earlyMember.MemberId, preserved.MemberId);
+        Assert.NotEqual(staleMember.MemberId, preserved.MemberId);
+        Assert.Equal(RegistrationStatusCode.Pending, preserved.RegistrationStatusId);
+        Assert.Equal(EventStatusCode.Published, (await context.Events.AsNoTracking().SingleAsync(row => row.EventId == eventItem.EventId, ct)).EventStatusId);
+    }
+
+    private sealed class MutableClock : TimeProvider
+    {
+        public DateTime Now { get; set; }
+        public override DateTimeOffset GetUtcNow() => new(DateTime.SpecifyKind(Now, DateTimeKind.Utc));
+    }
+}
+
 public sealed class MemberEventRegistrationPersistenceTests(SqlServerDatabaseFixture fixture) : IClassFixture<SqlServerDatabaseFixture>
 {
     [Fact]
@@ -497,7 +584,7 @@ public sealed class MemberEventRegistrationPersistenceTests(SqlServerDatabaseFix
     }
 
     [Fact]
-    public async Task ExactDeadlineIsClosedAndOneTickBeforeIsAccepted()
+    public async Task ExactDeadlineIsClosedAndOneMillisecondBeforeIsAccepted()
     {
         var ct = TestContext.Current.CancellationToken;
         var suffix = Guid.NewGuid().ToString("N");
