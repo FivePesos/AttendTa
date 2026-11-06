@@ -92,6 +92,7 @@ namespace ASI.Basecode.Services.Services
             var model = _mapper.Map<MemberEventDetailViewModel>(row);
             model.IsSignupOpen = SignupOpen(row.EventStatusId, row.RegistrationDeadline, ParticipationFacts.SignupOpen(now).Compile());
             model.IsFull = row.ConfirmedCount >= row.ParticipantLimit;
+            model.IsStartCutoffPassed = StartCutoffPassed(row.StartsAt, now);
 
             var member = await _members.GetMemberByUserIdAsync(actorUserId, cancellationToken);
             var user = await _users.GetByIdAsync(actorUserId, cancellationToken);
@@ -109,7 +110,7 @@ namespace ASI.Basecode.Services.Services
                                   or RegistrationStatusCode.Confirmed
                                   or RegistrationStatusCode.Waitlisted)
                               && row.EventStatusId == EventStatusCode.Published
-                              && !StartCutoffPassed(row.StartsAt, now)
+                              && !model.IsStartCutoffPassed
                               && !await _registrations.HasValidAttendanceAsync(registration.RegistrationId, cancellationToken);
             model.CanRegister = eligible && model.IsSignupOpen && !model.HasRegistration;
             return model;

@@ -88,6 +88,25 @@ public sealed class ParticipationFactsTests
         Assert.Equal(new decimal?[] { 1m / 3m, 1m, null }, ParticipationFacts.AttendanceRates(events, registrations, attendance).ToArray());
     }
 
+    [Fact]
+    public void NoShowsReturnOnlyConfirmedRowsOfCompletedEvents()
+    {
+        var registrations = new[]
+        {
+            new Registration { RegistrationId = 1, EventId = 1, RegistrationStatusId = RegistrationStatusCode.Pending },
+            new Registration { RegistrationId = 2, EventId = 1, RegistrationStatusId = RegistrationStatusCode.Waitlisted },
+            new Registration { RegistrationId = 3, EventId = 1, RegistrationStatusId = RegistrationStatusCode.Cancelled },
+            new Registration { RegistrationId = 4, EventId = 1, RegistrationStatusId = RegistrationStatusCode.Confirmed },
+            new Registration { RegistrationId = 5, EventId = 1, RegistrationStatusId = RegistrationStatusCode.Confirmed }
+        }.AsQueryable();
+        var events = new[] { Event(DateTime.UtcNow, EventStatusCode.Completed, 1) }.AsQueryable();
+        var attendance = new[] { new Attendance { RegistrationId = 5 } }.AsQueryable();
+
+        var noShows = ParticipationFacts.NoShows(registrations, events, attendance).Select(row => row.RegistrationId);
+
+        Assert.Equal(new[] { 4 }, noShows);
+    }
+
     private static Event Event(DateTime now, EventStatusCode status, int id = 1) => new()
     {
         EventId = id,
