@@ -297,6 +297,34 @@ state.
 `GetAttendanceAsync` — returning an empty page — so the attendance read survives until 4.7 lands;
 4.7 then replaces that method with the real owner-scoped query instead of deleting a class.
 
+## M-10a, M-10b, M-11a and M-11b — certificate ledger (6.12)
+
+**Contract and registration.** `ASI.Basecode.Services/Interfaces/ICertificateLedgerService.cs`
+defines `GetPageAsync`, `DecideAsync`, `IssueAsync`, `GetViewerAsync` and `GetPdfAsync`.
+`DemoData/DemoCertificatesRegistration.cs` registers `DemoCertificateLedgerService` only when
+the central switch is enabled and no real provider is already registered. With the switch off,
+`UnavailableCertificateLedgerService` supplies empty tabs and explicit command/document refusals.
+All three classes live under `ASI.Basecode.WebApp/DemoData/`.
+
+| Row | Implementation and handoff |
+|---|---|
+| M-10a / removed by 6.4 | `DemoStore.MarkCompleted` creates pending reviews for every valid stored check-in through `EnsureCertificateReviews`; the query also ensures reviews for seeded or real completed events. Existing decisions are never overwritten. Replace the creation call/adapter with the completion hook and real attendance facts. |
+| M-10b / removed by 6.6 | `DemoCertificateLedgerService.GetPageAsync` composes existing event and confirmed-registration repository reads with shared review state; `DecideAsync` reloads participation/event state and calls guarded `DemoStore.DecideCertificate`. Pending/valid attendance is required; decline needs a trimmed reason of 1–1,000 characters. Actor and time come from the authenticated request and server clock. |
+| M-11a / removed by 6.7 | `IssueAsync` requires completion, confirmation, valid attendance and approval, creates a unique `AT-<year>-<registrationId:D6>` number and snapshot, calls the real `RenderSnapshotAsync`, rechecks real participation, then atomically publishes via `DemoStore.PublishCertificate`. Invalidation and duplicate issues are rechecked inside the store gate. Render failure publishes nothing. No SQL, private storage or audit write occurs. |
+| M-11b / removed by 6.8 | `GetViewerAsync`/`GetPdfAsync` require Management and issued state; the controller streams `application/pdf` with no-store caching and an optional attachment name. A seeded issue renders its captured snapshot on first download, then reuses those bytes. No caller-supplied path is accepted. Replace with authorized retained-file retrieval, not current-data regeneration. |
+
+**Seed and shared state.** The original seed's issued attendee now carries a snapshot of recipient,
+event title/start, number and issue time. All other valid check-ins receive pending reviews before
+the existing declined/pending scenarios are applied. Issued snapshots and PDF bytes stay in the
+same `DemoStore` issue record used by 6.13; nothing is retained across restarts. Existing invalidated
+reviews remain visible as not eligible with their reason. Later SQL edits do not rewrite issued
+snapshot values or rendered bytes.
+
+**Presentation ownership.** `Controllers/CertificateLedgerController.cs`,
+`Views/CertificateLedger/Index.cshtml`, `Views/CertificateLedger/Viewer.cshtml`,
+`Styles/features/certificate-ledger.css` and `wwwroot/js/features/certificate-ledger.js`.
+The selector, pager, shared shell and member-history slot remain unchanged. There is no bulk action.
+
 ## Known limits of the demo
 
 - Deactivating an account in the demo does not end that person's real session or block their
