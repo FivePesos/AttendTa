@@ -13,6 +13,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using System.IO;
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -31,6 +32,8 @@ namespace ASI.Basecode.WebApp.Controllers
         private readonly IEventLifecycleService _eventService;
         private readonly IEventStateCommands _eventStateCommands;
         private readonly IEventStateOverlay _eventStateOverlay;
+        private readonly IRegistrationReviewService _review;
+        private readonly TimeProvider _timeProvider;
 
         public EventController(IHttpContextAccessor httpContextAccessor,
                                ILoggerFactory loggerFactory,
@@ -38,11 +41,15 @@ namespace ASI.Basecode.WebApp.Controllers
                                IMapper mapper,
                                IEventLifecycleService eventService,
                                IEventStateCommands eventStateCommands,
-                               IEventStateOverlay eventStateOverlay) : base(httpContextAccessor, loggerFactory, configuration, mapper)
+                                IEventStateOverlay eventStateOverlay,
+                                IRegistrationReviewService review,
+                                TimeProvider timeProvider) : base(httpContextAccessor, loggerFactory, configuration, mapper)
         {
             _eventService = eventService;
             _eventStateCommands = eventStateCommands;
             _eventStateOverlay = eventStateOverlay;
+            _review = review;
+            _timeProvider = timeProvider;
         }
 
         [HttpGet]
@@ -50,6 +57,29 @@ namespace ASI.Basecode.WebApp.Controllers
         [Route("Event/Index")]
         public async Task<IActionResult> Index(int? page, CancellationToken cancellationToken) =>
             View(_eventStateOverlay.Apply(await _eventService.GetPageAsync(page, cancellationToken)));
+
+        [HttpGet]
+        public async Task<IActionResult> Details(int id, string status = "pending", int? page = null, CancellationToken cancellationToken = default)
+        {
+            var item = await _eventService.GetEventAsync(id, cancellationToken);
+            if (item == null) return NotFound();
+            status = status?.ToLowerInvariant();
+            if (status is not ("pending" or "confirmed" or "waitlisted" or "cancelled")) status = "pending";
+            var roster = await _review.GetPageAsync(status, id, page, cancellationToken);
+            async Task<int> Count(string value) => value == status ? roster.TotalCount :
+                (await _review.GetPageAsync(value, id, 1, cancellationToken)).TotalCount;
+            var model = new EventDossierViewModel
+            {
+                Event = _eventStateOverlay.Apply(item), Status = status, Roster = roster,
+                PendingCount = await Count("pending"), ConfirmedCount = await Count("confirmed"),
+                WaitlistedCount = await Count("waitlisted"),
+                HasStarted = item.StartsAt <= _timeProvider.GetUtcNow().UtcDateTime
+            };
+            return View(model);
+        }
+
+        private IActionResult StateReturn(int id, bool dossier) => dossier
+            ? RedirectToAction(nameof(Details), new { id }) : RedirectToRoute(EventIndexRoute);
 
         [HttpGet]
         public async Task<IActionResult> Cover(int id, CancellationToken cancellationToken)
@@ -195,7 +225,7 @@ namespace ASI.Basecode.WebApp.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> OpenCheckIn(int id, CancellationToken cancellationToken)
+        public async Task<IActionResult> OpenCheckIn(int id, CancellationToken cancellationToken, bool dossier = false)
         {
             try
             {
@@ -207,11 +237,11 @@ namespace ASI.Basecode.WebApp.Controllers
                 TempData["ErrorMessage"] = exception.Message;
             }
 
-            return RedirectToRoute(EventIndexRoute);
+            return StateReturn(id, dossier);
         }
 
         [HttpPost]
-        public async Task<IActionResult> CloseCheckIn(int id, CancellationToken cancellationToken)
+        public async Task<IActionResult> CloseCheckIn(int id, CancellationToken cancellationToken, bool dossier = false)
         {
             try
             {
@@ -223,11 +253,11 @@ namespace ASI.Basecode.WebApp.Controllers
                 TempData["ErrorMessage"] = exception.Message;
             }
 
-            return RedirectToRoute(EventIndexRoute);
+            return StateReturn(id, dossier);
         }
 
         [HttpPost]
-        public async Task<IActionResult> Complete(int id, CancellationToken cancellationToken)
+        public async Task<IActionResult> Complete(int id, CancellationToken cancellationToken, bool dossier = false)
         {
             try
             {
@@ -239,7 +269,25 @@ namespace ASI.Basecode.WebApp.Controllers
                 TempData["ErrorMessage"] = exception.Message;
             }
 
-            return RedirectToRoute(EventIndexRoute);
+            return StateReturn(id, dossier);
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> CancelFromDossier(int id, string reason, CancellationToken cancellationToken)
+        {
+            try
+            {
+                await _eventService.CancelAsync(id, reason, cancellationToken);
+                TempData["SuccessMessage"] = "Event cancelled.";
+            }
+            catch (DomainException exception)
+            {
+                TempData["DossierError"] = exception.Message;
+                TempData["DossierDialog"] = "event-cancel";
+                TempData["DossierReason"] = reason;
+                TempData["DossierId"] = id;
+            }
+            return RedirectToAction(nameof(Details), new { id });
         }
 
         [HttpGet]
