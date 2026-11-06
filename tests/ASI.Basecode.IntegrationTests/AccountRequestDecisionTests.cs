@@ -455,6 +455,8 @@ public sealed class AccountRequestDecisionTests(SqlServerDatabaseFixture fixture
     {
         private int inserted;
         public IQueryable<MemberRecord> GetMemberRecords() => inner.GetMemberRecords();
+        public Task<int> CountAsync(string search, CancellationToken cancellationToken = default) => inner.CountAsync(search, cancellationToken);
+        public Task<IReadOnlyList<MemberRecord>> GetPageAsync(string search, int skip, int take, CancellationToken cancellationToken = default) => inner.GetPageAsync(search, skip, take, cancellationToken);
         public MemberRecord? GetMemberRecord(int memberId) => inner.GetMemberRecord(memberId);
         public Task<MemberRecord?> GetMemberRecordByUserIdAsync(int userId, CancellationToken cancellationToken = default) => inner.GetMemberRecordByUserIdAsync(userId, cancellationToken);
         public Member? GetMember(int memberId) => inner.GetMember(memberId);
