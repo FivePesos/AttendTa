@@ -33,6 +33,7 @@ Used by a University of Cebu student organization on a laptop at the door and on
 - Participation reports are per event and include attendance rate, no-shows, and course/year distribution.
 - No hard deletes. Activity logs are append-only. Passwords are stored only as Argon2id hashes.
 - The MVP is a light-theme web application; there is no dark mode, native app, or offline mode.
+- The officer certificate ledger supports completed-event review, final decline reasons, individual issuance, and PDF viewing/download with the approved template and signatory. In the guarded demonstration configuration, reviews and issued documents live only in shared process memory; retained issuance and audit integration remain scheduled backend work.
 
 ## Brand Commitments
 

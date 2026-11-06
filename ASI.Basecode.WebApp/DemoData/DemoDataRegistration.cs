@@ -14,6 +14,7 @@ internal static class DemoDataRegistration
 {
     public static void AddDemoData(this IServiceCollection services, IConfiguration configuration)
     {
+        DemoCertificatesRegistration.AddCertificates(services, configuration.GetValue<bool>(DemoDataOptions.SectionName + ":Enabled"));
         if (!configuration.GetValue<bool>(DemoDataOptions.SectionName + ":Enabled"))
         {
             services.AddSingleton<IEventStateOverlay, NoOpEventStateOverlay>();
