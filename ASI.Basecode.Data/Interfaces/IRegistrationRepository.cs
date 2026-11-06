@@ -46,4 +46,4 @@ public sealed record UpcomingRegistrationRow(int RegistrationId, int EventId, st
 public sealed record MemberRegistrationRow(int RegistrationId, int MemberId, int EventId, ASI.Basecode.Data.Models.Lookups.RegistrationStatusCode Status);
 public sealed record RegistrationReviewIdentity(int UserId, int MemberId, int EventId);
 public sealed record RegistrationPromotionCandidate(int RegistrationId, int UserId, int MemberId, int EventId, DateTime? ReviewedAt);
-public sealed record RegistrationReviewRow(int RegistrationId, int EventId, string EventTitle, string MemberName, string StudentNumber, DateTime SubmittedAt, ASI.Basecode.Data.Models.Lookups.RegistrationStatusCode Status);
+public sealed record RegistrationReviewRow(int RegistrationId, int EventId, string EventTitle, string MemberName, string StudentNumber, string Course, int YearLevel, DateTime SubmittedAt, ASI.Basecode.Data.Models.Lookups.RegistrationStatusCode Status);

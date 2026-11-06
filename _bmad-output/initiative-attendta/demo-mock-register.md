@@ -181,6 +181,59 @@ ids the store marks. Real reads run first; a failing real read is never replaced
 Refusal rules: open/close check-in only on a Published event that is not demo-completed; complete
 only on a Published event that is not demo-completed and whose start time has passed.
 
+## M-13a, M-13b and M-13c — participation report detail (7.4)
+
+**Contract and classes.** All demo code is in `ASI.Basecode.WebApp/DemoData/`; the contract is in
+`ASI.Basecode.Services`.
+
+| Piece | File |
+|---|---|
+| Read contract `IParticipationReportService.GetReportAsync(eventId, page, ct)` | `ASI.Basecode.Services/Interfaces/IParticipationReportService.cs` |
+| View model, row model, breakdown model and paging metadata | `ASI.Basecode.Services/ServiceModels/ParticipationReportViewModel.cs` |
+| Demo provider | `ASI.Basecode.WebApp/DemoData/DemoParticipationReportService.cs` |
+| Switch-off empty provider | `ASI.Basecode.WebApp/DemoData/EmptyParticipationReportService.cs` |
+| Reports surface registration file | `ASI.Basecode.WebApp/DemoData/DemoReportsRegistration.cs` |
+| Screen and styles | `Views/Reports/Participation.cshtml`, `Styles/features/reports.css` |
+
+**Real reads.** The provider composes `IEventRepository.CountAsync`, `GetPageAsync` (selector
+options) and `GetEventAsync` (selected event), plus `IRegistrationRepository.GetReviewQueueAsync`
+once per registration status (Pending, Confirmed, Waitlisted, Cancelled) so no status row is
+dropped. `RegistrationReviewRow` now also projects `course_snapshot` and `year_level_snapshot`, so
+the breakdowns read the signup snapshot rather than the member's current course. Nothing is
+written. Because 7.3's paged query does not exist yet, the demo provider reads the whole event and
+slices the detail page in memory; the real read pages in SQL.
+
+**Demo source.** `DemoStore.IsCompleted(eventId)` supplies the effective Completed status (the row
+is still Published in SQL) and `DemoStore.TryGetAttendance` supplies check-ins and invalidations.
+
+- *M-13a summary* — status counts come from the four real status reads; Confirmed is the Confirmed
+  count; Valid attendees are Confirmed registrations with a demo attendance record that is not
+  invalidated; the rate is Valid/Confirmed, N/A at zero Confirmed, "Not final" until the event is
+  demo-completed, and N/A for a cancelled event.
+- *M-13b no-shows and breakdowns* — a No-show is a Confirmed registration without valid attendance,
+  counted only for a demo-completed, non-cancelled event; a cancelled event shows no figure. Course
+  and year breakdowns group valid attendees by their registration signup snapshot and show each
+  group's share of the valid attendees.
+- *M-13c detail rows* — every registration of the event, ordered by member name then registration
+  id, 25 per page; totals and breakdowns are computed before the slice. Each row carries the
+  registration status label/badge, the attendance label/badge (Checked in, Invalidated, No-show,
+  Not checked in) and the Manila check-in time.
+
+**Seeded starting state.** The completed event seeded by M-01 (up to eight check-ins, the last one
+invalidated) drives the populated report: counts, rate, no-shows, breakdowns and rows agree with
+those check-ins. The ready-to-complete and check-in-open events show the not-final markers, and a
+cancelled event in the connected database shows counts and rows with no no-show figure. Fewer rows
+degrade gracefully; nothing is written.
+
+**Removal.** 7.1 replaces the summary computation (M-13a), 7.2 replaces the no-show and breakdown
+computation (M-13b) and 7.3 replaces the paged detail read (M-13c) behind the same contract, so the
+screen does not change visibly. Each ticket sets its row to `removed` with the commit.
+
+**Hand-over (rule 12).** From the 4.3 commit (real check-in) and the 4.6 commit (real invalidation),
+the still-open M-13 rows read the real attendance and invalidation source instead of
+`DemoStore.TryGetAttendance`, so the report keeps matching recorded attendance until 7.1–7.3 remove
+the rows.
+
 ## Known limits of the demo
 
 - Deactivating an account in the demo does not end that person's real session or block their
