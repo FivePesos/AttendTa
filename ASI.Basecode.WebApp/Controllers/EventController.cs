@@ -215,7 +215,7 @@ namespace ASI.Basecode.WebApp.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> OpenCheckIn(int id, CancellationToken cancellationToken)
+        public async Task<IActionResult> OpenCheckIn(int id, string returnUrl, CancellationToken cancellationToken)
         {
             try
             {
@@ -227,11 +227,11 @@ namespace ASI.Basecode.WebApp.Controllers
                 TempData["ErrorMessage"] = exception.Message;
             }
 
-            return RedirectToRoute(EventIndexRoute);
+            return RedirectAfterCommand(returnUrl);
         }
 
         [HttpPost]
-        public async Task<IActionResult> CloseCheckIn(int id, CancellationToken cancellationToken)
+        public async Task<IActionResult> CloseCheckIn(int id, string returnUrl, CancellationToken cancellationToken)
         {
             try
             {
@@ -243,7 +243,7 @@ namespace ASI.Basecode.WebApp.Controllers
                 TempData["ErrorMessage"] = exception.Message;
             }
 
-            return RedirectToRoute(EventIndexRoute);
+            return RedirectAfterCommand(returnUrl);
         }
 
         [HttpPost]
@@ -328,6 +328,13 @@ namespace ASI.Basecode.WebApp.Controllers
             model.FormOptions = await _eventService.GetFormOptionsAsync(cancellationToken);
             return model;
         }
+
+        /// <summary>
+        /// Returns to the surface that posted the check-in command when it supplied a local path;
+        /// otherwise falls back to the event list. A non-local value is never followed.
+        /// </summary>
+        private IActionResult RedirectAfterCommand(string returnUrl) =>
+            Url.IsLocalUrl(returnUrl) ? LocalRedirect(returnUrl) : RedirectToRoute(EventIndexRoute);
 
         private async Task<IActionResult> CoverViewAsync(int id, CancellationToken cancellationToken)
         {

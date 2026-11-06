@@ -230,6 +230,40 @@ PNG. Nothing rendered names the data as demo data, including the download file n
 **Removal (4.1).** Replace the demo provider behind the same `IPassService` contract, and replace
 `QrToken` with the server-rendered `QrImageUrl` and the authorized `DownloadUrl`.
 
+## M-05, M-06 and M-07 — door scanner detail (4.11)
+
+**Contracts and classes.** The contracts are in `ASI.Basecode.Services`; all demo code is in
+`ASI.Basecode.WebApp/DemoData/`.
+
+| Piece | File |
+|---|---|
+| Scan contract `ICheckInService` (`GetScreenAsync`, `ScanAsync`) | `ASI.Basecode.Services/Interfaces/ICheckInService.cs` |
+| Lookup contract `ICheckInLookupService` (`SearchAsync`, `CheckInAsync`) | `ASI.Basecode.Services/Interfaces/ICheckInLookupService.cs` |
+| Invalidation contract `IAttendanceInvalidationService` | `ASI.Basecode.Services/Interfaces/IAttendanceInvalidationService.cs` |
+| Screen, outcome, lookup and log models | `ASI.Basecode.Services/ServiceModels/CheckInScreenViewModel.cs` |
+| Demo scan provider | `ASI.Basecode.WebApp/DemoData/DemoCheckInService.cs` |
+| Demo lookup and manual check-in provider | `ASI.Basecode.WebApp/DemoData/DemoCheckInLookupService.cs` |
+| Demo invalidation provider | `ASI.Basecode.WebApp/DemoData/DemoAttendanceInvalidationService.cs` |
+| Switch-off providers | `UnavailableCheckInService.cs`, `UnavailableCheckInLookupService.cs`, `UnavailableAttendanceInvalidationService.cs` |
+| Check-in surface registration file | `ASI.Basecode.WebApp/DemoData/DemoCheckInRegistration.cs` |
+| Store additions | `DemoStore.GetAttendanceForEvent`, `DemoAttendance.MemberName`/`StudentNumber` |
+| Screen, adapters and decoder | `Controllers/CheckInController.cs`, `Views/CheckIn/Index.cshtml`, `wwwroot/js/features/scanner.js`, `scanner-camera.js`, `scanner-manual.js`, `wwwroot/lib/jsqr/jsQR.js` (Apache-2.0, 1.4.0) |
+
+**What it composes.** The screen reads the published event page, selects the first event with an
+open window, and reads the store's attendance for the log. A scan matches the rule-10 token of a
+confirmed registration of the event, reloads `IsConfirmedAsync`, and returns `success`, `repeat`
+(the original time), `invalid` (unknown, wrong-event, cancelled or invalidated) or `closed` (not
+published, completed or window closed). The manual lookup reads the event's confirmed rows (bounded
+at 500), filters by name or student number in memory, and pages at 25; the explicit Check in records
+`student_number` when the query equals the student number, otherwise `manual_search`. Invalidation
+requires a reason, checks that the registration belongs to the event, refuses an issued certificate,
+and leaves a pending or approved review not eligible with that reason. Searching or viewing never
+records. Nothing writes SQL, a stored file or the Activity Log.
+
+**Removal (4.3, 4.5, 4.6).** 4.3 replaces `ICheckInService`, 4.5 replaces
+`ICheckInLookupService`, and 4.6 replaces `IAttendanceInvalidationService`; each deletes its
+provider and its line in `DemoCheckInRegistration.cs`, and the screen keeps its shape.
+
 ## Known limits of the demo
 
 - Deactivating an account in the demo does not end that person's real session or block their
