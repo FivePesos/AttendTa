@@ -8,6 +8,9 @@ Five interchangeable builders self-claim the next unblocked ticket; no fixed per
 Its ordered description, phase/area labels and native blocker links carry the current tracker view.
 The eight capability epics stay local; do not create duplicate epic issues.
 
+For the sequential five-builder batches and the shared tickets that unlock several consumers,
+use [delivery-waves.md](delivery-waves.md). It is a derived guide, not a change to issue blockers.
+
 **First handoff:** [#135 — frontend walkthrough](https://github.com/rainyDayssss/AttendTa/issues/135),
 then [#136 — shared shell/routes/contracts](https://github.com/rainyDayssss/AttendTa/issues/136).
 After #136, [#137](https://github.com/rainyDayssss/AttendTa/issues/137),

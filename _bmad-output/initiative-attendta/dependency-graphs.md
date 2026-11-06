@@ -6,6 +6,9 @@ The approved live plan is [delivery-queue.md](delivery-queue.md), backed by curr
 values and `tickets.toml`. Epics retain capability ids; they are not fixed person lanes or whole-
 backend gates for the new frontend slices. Already merged work is reused, including #133/#134.
 
+For the current sequential/parallel five-builder batches and shared-provider handoffs, use
+[delivery-waves.md](delivery-waves.md), not the archived original waves below.
+
 ```mermaid
 flowchart TD
   A["1.12 Early frontend walkthrough"] --> B["1.13 Shell / routes / typed fixture contracts"]
