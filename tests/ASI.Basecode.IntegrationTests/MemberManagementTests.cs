@@ -528,6 +528,7 @@ public sealed class MemberManagementTests(SqlServerDatabaseFixture fixture) : IC
         public Task<IReadOnlyList<MemberRecord>> GetPageAsync(string search, int skip, int take, CancellationToken cancellationToken = default) => inner.GetPageAsync(search, skip, take, cancellationToken);
         public MemberRecord GetMemberRecord(int memberId) => inner.GetMemberRecord(memberId);
         public Task<MemberRecord> GetMemberRecordByUserIdAsync(int userId, CancellationToken cancellationToken = default) => inner.GetMemberRecordByUserIdAsync(userId, cancellationToken);
+        public Task<Member> GetMemberByUserIdAsync(int userId, CancellationToken cancellationToken = default) => inner.GetMemberByUserIdAsync(userId, cancellationToken);
         public Member GetMember(int memberId) => inner.GetMember(memberId);
         public bool UserHasMemberProfile(int userId) => inner.UserHasMemberProfile(userId);
         public bool StudentNumberExists(string studentNumber, int? excludeId = null) => inner.StudentNumberExists(studentNumber, excludeId);

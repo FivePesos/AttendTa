@@ -32,6 +32,8 @@ namespace ASI.Basecode.WebApp
                 CreateMap<EventViewModel, Event>();
                 CreateMap<Event, EventViewModel>();
                 CreateMap<EventListItem, EventViewModel>();
+                CreateMap<PublishedEventListItem, MemberEventListItemViewModel>();
+                CreateMap<PublishedEventDetail, MemberEventDetailViewModel>();
             }
         }
     }

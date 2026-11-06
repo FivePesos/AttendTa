@@ -1,0 +1,72 @@
+using ASI.Basecode.Resources;
+using ASI.Basecode.Services.Interfaces;
+using ASI.Basecode.WebApp.Mvc;
+using AutoMapper;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace ASI.Basecode.WebApp.Controllers;
+
+/// <summary>
+/// Participant-facing published event feed and registration submission. Every action is
+/// authenticated; registration additionally requires an eligible member profile in the service.
+/// </summary>
+[Authorize]
+[AutoValidateAntiforgeryToken]
+public sealed class MemberEventsController : ControllerBase<MemberEventsController>
+{
+    private const string FeedRoute = "MemberEventFeed";
+
+    private readonly IMemberEventService _memberEvents;
+
+    public MemberEventsController(
+        IHttpContextAccessor httpContextAccessor,
+        ILoggerFactory loggerFactory,
+        IConfiguration configuration,
+        IMapper mapper,
+        IMemberEventService memberEvents)
+        : base(httpContextAccessor, loggerFactory, configuration, mapper)
+    {
+        _memberEvents = memberEvents;
+    }
+
+    [HttpGet]
+    [Route("Events", Name = FeedRoute)]
+    [Route("MemberEvents")]
+    public async Task<IActionResult> Index(int? page, CancellationToken cancellationToken) =>
+        View(await _memberEvents.GetFeedAsync(page, cancellationToken));
+
+    [HttpGet]
+    public async Task<IActionResult> Details(int id, CancellationToken cancellationToken)
+    {
+        var model = await _memberEvents.GetDetailAsync(id, cancellationToken);
+        return model == null ? NotFound() : View(model);
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> Register(int id, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await _memberEvents.RegisterAsync(id, cancellationToken);
+            TempData["SuccessMessage"] = result.SeatNotGuaranteed
+                ? "Registration submitted. This event is full, so a seat is not guaranteed."
+                : "Registration submitted. Your request is pending review.";
+            return RedirectToAction(nameof(Details), new { id });
+        }
+        catch (DomainException exception)
+        {
+            TempData["ErrorMessage"] = exception.Message;
+
+            // A duplicate implies the event is published and still open, so the detail page is safe.
+            return exception.Outcome == OutcomeCode.Duplicate
+                ? RedirectToAction(nameof(Details), new { id })
+                : RedirectToRoute(FeedRoute);
+        }
+    }
+}

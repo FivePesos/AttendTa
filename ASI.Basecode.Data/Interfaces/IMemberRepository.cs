@@ -13,6 +13,7 @@ namespace ASI.Basecode.Data.Interfaces
         Task<IReadOnlyList<MemberRecord>> GetPageAsync(string search, int skip, int take, CancellationToken cancellationToken = default);
         MemberRecord GetMemberRecord(int memberId);
         Task<MemberRecord> GetMemberRecordByUserIdAsync(int userId, CancellationToken cancellationToken = default);
+        Task<Member> GetMemberByUserIdAsync(int userId, CancellationToken cancellationToken = default);
         Member GetMember(int memberId);
         Task AddMemberAsync(Member member, CancellationToken cancellationToken = default);
         Task UpdateMemberAsync(Member member, CancellationToken cancellationToken = default);

@@ -1,0 +1,85 @@
+@model MemberEventDetailViewModel
+@{
+    ViewData["Title"] = Model.Title;
+}
+
+<div class="page-heading">
+    <div>
+        <h1>@Model.Title</h1>
+        <p class="muted">@Model.TypeName · @Model.VenueName</p>
+    </div>
+    <a asp-action="Index" class="button button-secondary">Back to events</a>
+</div>
+
+<section class="panel" aria-labelledby="event-details-heading">
+    <h2 id="event-details-heading">Event details</h2>
+
+    @if (Model.HasCover)
+    {
+        <img class="event-detail-cover" src="@Url.Action("Image", "EventCover", new { id = Model.EventId })" alt="Cover for @Model.Title" />
+    }
+
+    <dl class="profile-details event-details">
+        <div>
+            <dt>Starts</dt>
+            <dd>@ManilaTimeFormatter.Format(Model.StartsAt)</dd>
+        </div>
+        <div>
+            <dt>Signup deadline</dt>
+            <dd>@ManilaTimeFormatter.Format(Model.RegistrationDeadline)</dd>
+        </div>
+        <div>
+            <dt>Venue</dt>
+            <dd>@Model.VenueName</dd>
+        </div>
+        <div>
+            <dt>Event type</dt>
+            <dd>@Model.TypeName</dd>
+        </div>
+        <div>
+            <dt>Confirmed participants</dt>
+            <dd>@Model.ConfirmedCount of @Model.ParticipantLimit</dd>
+        </div>
+        <div>
+            <dt>Signup status</dt>
+            <dd>@(Model.IsSignupOpen ? "Open" : "Closed")</dd>
+        </div>
+    </dl>
+
+    @if (!string.IsNullOrWhiteSpace(Model.Description))
+    {
+        <section aria-labelledby="event-description-heading">
+            <h2 id="event-description-heading">About this event</h2>
+            <p>@Model.Description</p>
+        </section>
+    }
+</section>
+
+<section class="event-registration" aria-labelledby="event-registration-heading">
+    <h2 id="event-registration-heading">Registration</h2>
+
+    @if (!Model.IsSignupOpen)
+    {
+        <p class="notice" role="status">Signup closed on @ManilaTimeFormatter.Format(Model.RegistrationDeadline).</p>
+    }
+    else if (Model.HasRegistration)
+    {
+        <p class="notice notice-success" role="status">You already have a registration for this event.</p>
+    }
+    else if (!Model.CanRegister)
+    {
+        <p class="notice" role="status">Only active members can register for events.</p>
+    }
+    else
+    {
+        @if (Model.IsFull)
+        {
+            <p class="notice" role="status">This event is full. You can still submit a registration, but a seat is not guaranteed.</p>
+        }
+
+        <form asp-action="Register" asp-route-id="@Model.EventId" method="post">
+            <button type="submit" class="button button-primary">Submit registration</button>
+        </form>
+        <p class="muted">Submitting creates a pending request. An officer reviews it before a seat is confirmed.</p>
+    }
+</section>

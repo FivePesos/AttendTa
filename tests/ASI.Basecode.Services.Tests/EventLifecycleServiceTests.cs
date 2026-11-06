@@ -590,6 +590,53 @@ public class EventLifecycleServiceTests
         }
 
         public Task UpdateEventAsync(Event eventItem, CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        public Task<int> CountPublishedAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(Items.Count(item => item.EventStatusId == EventStatusCode.Published));
+
+        public Task<IReadOnlyList<PublishedEventListItem>> GetPublishedPageAsync(int skip, int take, CancellationToken cancellationToken = default)
+        {
+            IReadOnlyList<PublishedEventListItem> page = Items
+                .Where(item => item.EventStatusId == EventStatusCode.Published)
+                .OrderBy(item => item.StartsAt)
+                .ThenBy(item => item.EventId)
+                .Skip(skip)
+                .Take(take)
+                .Select(item => new PublishedEventListItem
+                {
+                    EventId = item.EventId,
+                    Title = item.Title,
+                    TypeName = TypeNames.GetValueOrDefault(item.TypeId),
+                    VenueName = VenueNames.GetValueOrDefault(item.VenueId),
+                    StartsAt = item.StartsAt,
+                    RegistrationDeadline = item.RegistrationDeadline,
+                    ParticipantLimit = item.ParticipantLimit,
+                    ConfirmedCount = 0,
+                    HasCover = item.ImagePath != null && item.ImagePath.StartsWith("uploads/events/"),
+                    EventStatusId = item.EventStatusId
+                })
+                .ToList();
+            return Task.FromResult(page);
+        }
+
+        public Task<PublishedEventDetail> GetPublishedEventAsync(int eventId, CancellationToken cancellationToken = default)
+        {
+            var item = Items.FirstOrDefault(row => row.EventId == eventId && row.EventStatusId == EventStatusCode.Published);
+            return Task.FromResult(item == null ? null! : new PublishedEventDetail
+            {
+                EventId = item.EventId,
+                Title = item.Title,
+                Description = item.Description,
+                TypeName = TypeNames.GetValueOrDefault(item.TypeId),
+                VenueName = VenueNames.GetValueOrDefault(item.VenueId),
+                StartsAt = item.StartsAt,
+                RegistrationDeadline = item.RegistrationDeadline,
+                ParticipantLimit = item.ParticipantLimit,
+                ConfirmedCount = 0,
+                HasCover = item.ImagePath != null && item.ImagePath.StartsWith("uploads/events/"),
+                EventStatusId = item.EventStatusId
+            });
+        }
     }
 
     private sealed class MemoryEventTypes(Harness harness) : IEventTypeRepository
