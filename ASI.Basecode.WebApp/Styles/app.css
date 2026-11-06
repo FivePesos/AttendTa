@@ -2,6 +2,7 @@
 /* Per-surface feature styles, imported once. Tailwind's resolver does not expand globs, so each
    surface file is listed here; a surface ticket edits only its own file. */
 @import "./features/my-events.css";
+@import "./features/browse-events.css";
 @import "./features/passes.css";
 @import "./features/attendance-history.css";
 @import "./features/certificate-history.css";
@@ -15,7 +16,7 @@
 @source "../Views/**/*.cshtml";
 @source "../wwwroot/js/**/*.js";
 /* Dynamic status and shell classes are enumerated so they survive source scanning. */
-@source inline("authenticated public-shell public-wide management-header notice-error notice-success badge-closed badge-open badge-inactive badge-completed badge-member badge-checkin-open badge-checkin-closed");
+@source inline("authenticated public-shell public-wide management-header notice-error notice-success badge-closed badge-open badge-inactive badge-completed badge-member badge-full badge-checkin-open badge-checkin-closed");
 @theme {
   --color-ink-primary: #090d16;
   --color-ink-secondary: #334155;
