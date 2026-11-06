@@ -601,6 +601,10 @@ public sealed class MemberEventServiceTests
 
     private sealed class FakeRegistrations : IRegistrationRepository
     {
+        public Task<Registration> GetForCancellationAsync(int id, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<IReadOnlyList<Registration>> GetOpenForEventAsync(int id, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<IReadOnlyList<int>> DiscoverOpenEventIdsForUserAsync(int id, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<IReadOnlyList<UpcomingRegistrationRow>> GetUpcomingForUserAsync(int id, DateTime now, int? eventId = null, CancellationToken ct = default) => throw new NotSupportedException();
         public List<Registration> Items { get; } = [];
 
         public Task<bool> IsConfirmedAsync(int registrationId, CancellationToken cancellationToken = default) =>

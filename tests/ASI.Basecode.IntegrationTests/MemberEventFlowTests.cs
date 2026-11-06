@@ -763,6 +763,10 @@ public sealed class MemberEventRegistrationPersistenceTests(SqlServerDatabaseFix
     /// </summary>
     private sealed class StaleExistenceRegistrationRepository(IRegistrationRepository inner) : IRegistrationRepository
     {
+        public Task<Registration> GetForCancellationAsync(int id, CancellationToken ct = default) => inner.GetForCancellationAsync(id, ct);
+        public Task<IReadOnlyList<Registration>> GetOpenForEventAsync(int id, CancellationToken ct = default) => inner.GetOpenForEventAsync(id, ct);
+        public Task<IReadOnlyList<int>> DiscoverOpenEventIdsForUserAsync(int id, CancellationToken ct = default) => inner.DiscoverOpenEventIdsForUserAsync(id, ct);
+        public Task<IReadOnlyList<UpcomingRegistrationRow>> GetUpcomingForUserAsync(int id, DateTime now, int? eventId = null, CancellationToken ct = default) => inner.GetUpcomingForUserAsync(id, now, eventId, ct);
         public Task<bool> IsConfirmedAsync(int registrationId, CancellationToken cancellationToken = default) =>
             inner.IsConfirmedAsync(registrationId, cancellationToken);
 
