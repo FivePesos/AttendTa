@@ -3,6 +3,7 @@ using ASI.Basecode.Resources;
 using ASI.Basecode.Resources.Constants;
 using ASI.Basecode.Services.Interfaces;
 using ASI.Basecode.Services.ServiceModels;
+using ASI.Basecode.WebApp.DemoData;
 using ASI.Basecode.WebApp.Formatting;
 using ASI.Basecode.WebApp.Mvc;
 using AutoMapper;
@@ -28,21 +29,27 @@ namespace ASI.Basecode.WebApp.Controllers
         private const string EventIndexRoute = "EventIndex";
 
         private readonly IEventLifecycleService _eventService;
+        private readonly IEventStateCommands _eventStateCommands;
+        private readonly IEventStateOverlay _eventStateOverlay;
 
         public EventController(IHttpContextAccessor httpContextAccessor,
                                ILoggerFactory loggerFactory,
                                IConfiguration configuration,
                                IMapper mapper,
-                               IEventLifecycleService eventService) : base(httpContextAccessor, loggerFactory, configuration, mapper)
+                               IEventLifecycleService eventService,
+                               IEventStateCommands eventStateCommands,
+                               IEventStateOverlay eventStateOverlay) : base(httpContextAccessor, loggerFactory, configuration, mapper)
         {
             _eventService = eventService;
+            _eventStateCommands = eventStateCommands;
+            _eventStateOverlay = eventStateOverlay;
         }
 
         [HttpGet]
         [Route("Event", Name = EventIndexRoute)]
         [Route("Event/Index")]
         public async Task<IActionResult> Index(int? page, CancellationToken cancellationToken) =>
-            View(await _eventService.GetPageAsync(page, cancellationToken));
+            View(_eventStateOverlay.Apply(await _eventService.GetPageAsync(page, cancellationToken)));
 
         /// <summary>
         /// Officer event dossier. The real event header is loaded now; the roster slot stays empty
@@ -61,7 +68,7 @@ namespace ASI.Basecode.WebApp.Controllers
                     redirectAction: nameof(Index));
             }
 
-            return View(EventDossierViewModel.FromEvent(model));
+            return View(EventDossierViewModel.FromEvent(_eventStateOverlay.Apply(model)));
         }
 
         [HttpGet]
@@ -198,6 +205,54 @@ namespace ASI.Basecode.WebApp.Controllers
             {
                 await _eventService.PublishAsync(id, cancellationToken);
                 TempData["SuccessMessage"] = "Event published.";
+            }
+            catch (DomainException exception)
+            {
+                TempData["ErrorMessage"] = exception.Message;
+            }
+
+            return RedirectToRoute(EventIndexRoute);
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> OpenCheckIn(int id, CancellationToken cancellationToken)
+        {
+            try
+            {
+                await _eventStateCommands.OpenCheckInAsync(id, cancellationToken);
+                TempData["SuccessMessage"] = "Check-in opened.";
+            }
+            catch (DomainException exception)
+            {
+                TempData["ErrorMessage"] = exception.Message;
+            }
+
+            return RedirectToRoute(EventIndexRoute);
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> CloseCheckIn(int id, CancellationToken cancellationToken)
+        {
+            try
+            {
+                await _eventStateCommands.CloseCheckInAsync(id, cancellationToken);
+                TempData["SuccessMessage"] = "Check-in closed.";
+            }
+            catch (DomainException exception)
+            {
+                TempData["ErrorMessage"] = exception.Message;
+            }
+
+            return RedirectToRoute(EventIndexRoute);
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> Complete(int id, CancellationToken cancellationToken)
+        {
+            try
+            {
+                await _eventStateCommands.CompleteAsync(id, cancellationToken);
+                TempData["SuccessMessage"] = "Event completed.";
             }
             catch (DomainException exception)
             {

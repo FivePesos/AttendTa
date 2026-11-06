@@ -117,6 +117,70 @@ A demo-phase ticket that finds another missing contract adds the next id (M-16, 
 removing ticket. When no ticket owns the real work, the builder names that gap in the pull
 request and the row's "Removed by" says `8.13`.
 
+## M-01, M-04 and M-09 — demo seam detail (1.14)
+
+**Switch and guard.** `DemoData:Enabled` is `false` in the committed `appsettings.json` and is
+read in every environment. `DemoDataStartupGuard.Validate` runs from `Startup.ConfigureServices`
+immediately after the connection-string check, before any demo provider is registered. When the
+switch is on it refuses to start unless `DemoData:TokenKey` is set and the connected database's
+`DB_NAME()` is `AttendTa_Demo` or exactly equals `DemoData:AllowDatabase`; the reason goes to
+stderr and the exception message names the database. Nothing about the guard is rendered.
+
+**Contracts and classes.** All demo code is in `ASI.Basecode.WebApp/DemoData/`; the contracts are
+in `ASI.Basecode.Services`.
+
+| Piece | File |
+|---|---|
+| Command contract `IEventStateCommands` (`OpenCheckInAsync`, `CloseCheckInAsync`, `CompleteAsync`) | `ASI.Basecode.Services/Interfaces/IEventStateCommands.cs` |
+| Overlay contract `IEventStateOverlay` | `ASI.Basecode.WebApp/DemoData/IEventStateOverlay.cs` |
+| Options (`Enabled`, `AllowDatabase`, `TokenKey`) | `ASI.Basecode.WebApp/DemoData/DemoDataOptions.cs` |
+| Startup guard | `ASI.Basecode.WebApp/DemoData/DemoDataStartupGuard.cs` |
+| In-memory store and its records | `ASI.Basecode.WebApp/DemoData/DemoStore.cs` |
+| Start-up seed (`IHostedService`) | `ASI.Basecode.WebApp/DemoData/DemoSeedService.cs` |
+| Demo commands | `ASI.Basecode.WebApp/DemoData/DemoEventStateCommands.cs` |
+| Switch-off commands (standard refusal) | `ASI.Basecode.WebApp/DemoData/UnavailableEventStateCommands.cs` |
+| Demo overlay | `ASI.Basecode.WebApp/DemoData/DemoEventStateOverlay.cs` |
+| Switch-off overlay | `ASI.Basecode.WebApp/DemoData/NoOpEventStateOverlay.cs` |
+| One registration method | `ASI.Basecode.WebApp/DemoData/DemoDataRegistration.cs` |
+| Events surface registration file | `ASI.Basecode.WebApp/DemoData/DemoEventsRegistration.cs` |
+| Shared check-in control and its model | `Views/Shared/_CheckInControl.cshtml`, `ASI.Basecode.Services/ServiceModels/CheckInControlViewModel.cs` |
+| Operator pass-token switch | `ASI.Basecode.WebApp/Program.cs` (`--demo-pass-token <registrationId>`) |
+
+**Store.** One singleton keyed by real ids: check-in-open event ids, completed event ids,
+attendance by registration id, certificate review and issue state, and account and membership
+status for 5.11. `InvalidateAttendance` requires a reason, is refused once a certificate is
+issued, and turns a pending or approved review not eligible with that reason. `GetPassToken` is
+the lowercase hex HMAC-SHA256 of the invariant registration id under `DemoData:TokenKey`; the
+`--demo-pass-token` switch prints the same value and writes nothing.
+
+**Seeded starting state (for `demo-script.md`).** The seed composes `IEventRepository.GetPageAsync`
+and `IRegistrationRepository.GetReviewQueueAsync(Confirmed)`; it never writes.
+
+- *Completed event* — the started published event with the most confirmed registrations (ties on
+  the lowest event id). Check-in is closed, up to eight confirmed registrations are checked in,
+  the last one is invalidated with "Pass could not be verified at the door." and its review is not
+  eligible with that reason, the first remaining valid check-in has an issued certificate
+  (`AT-<year>-<registrationId:D6>`), the second is pending review, and the third is declined (not
+  eligible with a review reason). Fewer registrations degrade in that order.
+- *Ready to complete* — the next started published event, unchanged in SQL.
+- *Check-in open* — the next published event not used above, with the store's check-in window open.
+- Fewer rows degrade gracefully: missing scenarios are skipped and the active register ids are
+  logged at start-up. No SQL row, stored file or Activity Log entry is written.
+
+**Screens, real source and demo source.**
+
+| Screen | Real read / command | Demo source | Files |
+|---|---|---|---|
+| Officer event list | `IEventLifecycleService.GetPageAsync`; `OpenCheckIn`/`CloseCheckIn`/`Complete` POST | `IEventStateOverlay` after the read; `IEventStateCommands` | `Controllers/EventController.cs`, `Views/Event/Index.cshtml` |
+| Member event feed | `IMemberEventService.GetFeedAsync` | `IEventStateOverlay` after the read | `Controllers/MemberEventsController.cs`, `Views/MemberEvents/Index.cshtml` |
+| Member event detail | `IMemberEventService.GetDetailAsync` | `IEventStateOverlay` after the read | `Controllers/MemberEventsController.cs`, `Views/MemberEvents/Details.cshtml` |
+| Check-in control | — | Posts to `IEventStateCommands` | `Views/Shared/_CheckInControl.cshtml` (reused by 3.16 and 4.11) |
+
+The overlay changes only `EventStatusId` (shown as Completed) and `IsCheckInOpen`, and only for
+ids the store marks. Real reads run first; a failing real read is never replaced by demo data.
+Refusal rules: open/close check-in only on a Published event that is not demo-completed; complete
+only on a Published event that is not demo-completed and whose start time has passed.
+
 ## Known limits of the demo
 
 - Deactivating an account in the demo does not end that person's real session or block their

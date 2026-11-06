@@ -14,7 +14,7 @@
 @source "../Views/**/*.cshtml";
 @source "../wwwroot/js/**/*.js";
 /* Dynamic status and shell classes are enumerated so they survive source scanning. */
-@source inline("authenticated public-shell public-wide management-header notice-error notice-success");
+@source inline("authenticated public-shell public-wide management-header notice-error notice-success badge-closed badge-open badge-inactive badge-completed badge-member badge-checkin-open badge-checkin-closed");
 @theme {
   --color-ink-primary: #090d16;
   --color-ink-secondary: #334155;
@@ -156,6 +156,11 @@
   .event-card-title a:hover { text-decoration: underline; }
   .event-badges { display: flex; flex-wrap: wrap; gap: .4rem; }
   .badge-open { background: #ecfdf5; color: #065f46; } .badge-closed { background: #f1f5f9; color: #334155; } .badge-full { background: #fef3c7; color: #92400e; }
+  .badge-completed { background: #e2e8f0; color: #1e293b; }
+  .badge-checkin-open { background: #ecfdf5; color: #065f46; } .badge-checkin-closed { background: #f1f5f9; color: #334155; }
+  .check-in-control { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; }
+  .check-in-control .badge { min-height: 1.5rem; }
+  .check-in-control .button-small { min-height: 32px; padding: .25rem .6rem; }
   .event-meta { display: grid; gap: .3rem; margin: .75rem 0 0; padding: 0; list-style: none; color: #475569; font-size: .9rem; }
   .event-meta-label { display: inline-block; min-width: 7.5rem; color: #334155; font-weight: 600; }
   .event-card-actions { padding: 0 1rem 1rem; }

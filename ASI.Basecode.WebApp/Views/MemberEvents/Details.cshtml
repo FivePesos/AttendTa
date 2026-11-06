@@ -45,6 +45,10 @@
             <dd>@Model.TypeName</dd>
         </div>
         <div>
+            <dt>Event status</dt>
+            <dd><span class="badge @EventStatusDisplay.BadgeClass(Model.EventStatusId)">@Model.StatusLabel</span></dd>
+        </div>
+        <div>
             <dt>Confirmed participants</dt>
             <dd>@Model.ConfirmedCount of @Model.ParticipantLimit</dd>
         </div>
@@ -52,6 +56,15 @@
             <dt>Signup status</dt>
             <dd>@(Model.IsSignupOpen ? "Open" : "Closed")</dd>
         </div>
+        @if (Model.IsCheckInOpen || Model.IsStartCutoffPassed)
+        {
+            <div>
+                <dt>Check-in</dt>
+                <dd>
+                    <span class="badge @(Model.IsCheckInOpen ? "badge-checkin-open" : "badge-checkin-closed")">@(Model.IsCheckInOpen ? "Open" : "Closed")</span>
+                </dd>
+            </div>
+        }
     </dl>
 
     @if (!string.IsNullOrWhiteSpace(Model.Description))

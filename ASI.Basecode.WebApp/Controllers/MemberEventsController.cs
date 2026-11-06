@@ -1,5 +1,6 @@
 using ASI.Basecode.Resources;
 using ASI.Basecode.Services.Interfaces;
+using ASI.Basecode.WebApp.DemoData;
 using ASI.Basecode.WebApp.Mvc;
 using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
@@ -24,29 +25,32 @@ public sealed class MemberEventsController : ControllerBase<MemberEventsControll
     private const string FeedRoute = "MemberEventFeed";
 
     private readonly IMemberEventService _memberEvents;
+    private readonly IEventStateOverlay _eventStateOverlay;
 
     public MemberEventsController(
         IHttpContextAccessor httpContextAccessor,
         ILoggerFactory loggerFactory,
         IConfiguration configuration,
         IMapper mapper,
-        IMemberEventService memberEvents)
+        IMemberEventService memberEvents,
+        IEventStateOverlay eventStateOverlay)
         : base(httpContextAccessor, loggerFactory, configuration, mapper)
     {
         _memberEvents = memberEvents;
+        _eventStateOverlay = eventStateOverlay;
     }
 
     [HttpGet]
     [Route("Events", Name = FeedRoute)]
     [Route("MemberEvents")]
     public async Task<IActionResult> Index(int? page, CancellationToken cancellationToken) =>
-        View(await _memberEvents.GetFeedAsync(page, cancellationToken));
+        View(_eventStateOverlay.Apply(await _memberEvents.GetFeedAsync(page, cancellationToken)));
 
     [HttpGet]
     public async Task<IActionResult> Details(int id, CancellationToken cancellationToken)
     {
         var model = await _memberEvents.GetDetailAsync(id, cancellationToken);
-        return model == null ? NotFound() : View(model);
+        return model == null ? NotFound() : View(_eventStateOverlay.Apply(model));
     }
 
     [HttpPost]
