@@ -43,11 +43,13 @@ public sealed class MyEventsController : ControllerBase<MyEventsController>
         View("Index", MyEventsViewModel.FromRegistrations(
             await _myEvents.GetRegistrationsAsync(page, cancellationToken)));
 
-    // The attendance and certificate tabs keep their empty models until 4.12 and 6.13 fill them.
     [HttpGet]
     [Route("MyEvents/Attendance")]
-    public IActionResult Attendance(int? page) => View("Index", MyEventsViewModel.Empty(MyEventsTab.Attendance));
+    public async Task<IActionResult> Attendance(int? page, CancellationToken cancellationToken) =>
+        View("Index", MyEventsViewModel.FromAttendance(
+            await _myEvents.GetAttendanceAsync(page, cancellationToken)));
 
+    // The certificate tab keeps its empty model until 6.13 fills it.
     [HttpGet]
     [Route("MyEvents/Certificates")]
     public IActionResult Certificates(int? page) => View("Index", MyEventsViewModel.Empty(MyEventsTab.Certificates));
