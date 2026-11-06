@@ -1,4 +1,5 @@
 using ASI.Basecode.Data.Interfaces;
+using ASI.Basecode.Data.Models;
 using ASI.Basecode.Services.Interfaces;
 using ASI.Basecode.Services.ServiceModels;
 using ASI.Basecode.Services.Services;
@@ -121,6 +122,10 @@ public sealed class CertificateTracerServiceTests
             LookupCount++;
             return Task.FromResult(IsConfirmed);
         }
+
+        public Task<bool> ExistsAsync(int eventId, int memberId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<int> CountConfirmedAsync(int eventId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task AddAsync(Registration registration, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }
 
     private sealed class FakeRenderer : ICertificatePdfRenderer
