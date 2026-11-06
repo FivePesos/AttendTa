@@ -545,18 +545,30 @@ internal static class EventDraftTestSupport
         new DbContextOptionsBuilder<AsiBasecodeDBContext>().UseSqlServer(connectionString)
             .AddInterceptors(interceptors).Options);
 
-    public static EventLifecycleService Service(AsiBasecodeDBContext context, int actorId)
+    public static EventLifecycleService Service(AsiBasecodeDBContext context, int actorId, TimeProvider? clock = null,
+        Func<IActivityLogWriter, IActivityLogWriter>? wrapAudit = null)
     {
         var unitOfWork = new UnitOfWork(context);
         var actor = new Actor(actorId);
+        var timeProvider = clock ?? TimeProvider.System;
+        var events = new EventRepository(unitOfWork);
+        var registrations = new RegistrationRepository(unitOfWork);
+        IActivityLogWriter audit = new ActivityLogWriter(context, actor, timeProvider);
+        if (wrapAudit != null)
+        {
+            audit = wrapAudit(audit);
+        }
+
         return new EventLifecycleService(
-            new EventRepository(unitOfWork),
+            events,
             new EventTypeRepository(unitOfWork),
             new VenueRepository(unitOfWork),
+            registrations,
+            new RegistrationCancellationService(registrations, events, unitOfWork, actor, audit, timeProvider),
             unitOfWork,
             Mapper,
-            TimeProvider.System,
-            new ActivityLogWriter(context, actor, TimeProvider.System),
+            timeProvider,
+            audit,
             actor,
             new UnusedPrivateFileStore(),
             NullLogger<EventLifecycleService>.Instance);

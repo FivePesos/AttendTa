@@ -32,6 +32,12 @@ public interface IRegistrationRepository
     Task<RegistrationPromotionCandidate> DiscoverPromotionCandidateAsync(int eventId, CancellationToken cancellationToken = default);
     Task<bool> HasEligibleWaitlistAsync(int eventId, CancellationToken cancellationToken = default);
     Task<bool> HasValidAttendanceAsync(int registrationId, CancellationToken cancellationToken = default);
+
+    /// <summary>Reports whether any registration of the event has a non-invalidated attendance row.</summary>
+    Task<bool> HasValidAttendanceForEventAsync(int eventId, CancellationToken cancellationToken = default);
+
+    /// <summary>Reports whether any registration of the event has an issued certificate.</summary>
+    Task<bool> HasIssuedCertificateForEventAsync(int eventId, CancellationToken cancellationToken = default);
     Task<int> CountReviewQueueAsync(ASI.Basecode.Data.Models.Lookups.RegistrationStatusCode status, int? eventId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<RegistrationReviewRow>> GetReviewQueueAsync(ASI.Basecode.Data.Models.Lookups.RegistrationStatusCode status, int? eventId, int offset, int limit, CancellationToken cancellationToken = default);
 }

@@ -46,6 +46,7 @@ else
                             @if (eventItem.EventStatusId is EventStatusCode.Draft or EventStatusCode.Published)
                             {
                                 <a asp-action="Edit" asp-route-id="@eventItem.EventId" class="button button-secondary">Edit</a>
+                                <a asp-action="Cancel" asp-route-id="@eventItem.EventId" class="button button-secondary">Cancel</a>
                             }
                             @if (eventItem.EventStatusId == EventStatusCode.Draft)
                             {
