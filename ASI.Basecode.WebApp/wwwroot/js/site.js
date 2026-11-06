@@ -63,7 +63,8 @@ $(function () {
     const reopen = document.querySelector('dialog[data-reopen="true"]');
     if (reopen) {
         reopen.querySelector('[data-dialog-field="id"]').value = reopen.dataset.reopenId;
-        reopen.querySelector('textarea[name="reason"]').value = reopen.dataset.reopenReason ?? '';
+        const reason = reopen.querySelector('textarea[name="reason"]');
+        if (reason) reason.value = reopen.dataset.reopenReason ?? '';
         reopen.showModal();
         reopen.querySelector('textarea, input:not([type="hidden"])')?.focus();
     }

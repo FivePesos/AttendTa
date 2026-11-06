@@ -1,4 +1,7 @@
+using System.Threading;
+using System.Threading.Tasks;
 using ASI.Basecode.Resources.Constants;
+using ASI.Basecode.Services.Interfaces;
 using ASI.Basecode.Services.ServiceModels;
 using ASI.Basecode.WebApp.Mvc;
 using AutoMapper;
@@ -17,13 +20,17 @@ namespace ASI.Basecode.WebApp.Controllers;
 [Authorize(Policy = Policies.Member)]
 public sealed class MyEventsController : ControllerBase<MyEventsController>
 {
+    private readonly IMyEventsService _myEvents;
+
     public MyEventsController(
         IHttpContextAccessor httpContextAccessor,
         ILoggerFactory loggerFactory,
         IConfiguration configuration,
-        IMapper mapper)
+        IMapper mapper,
+        IMyEventsService myEvents)
         : base(httpContextAccessor, loggerFactory, configuration, mapper)
     {
+        _myEvents = myEvents;
     }
 
     [HttpGet]
@@ -32,13 +39,18 @@ public sealed class MyEventsController : ControllerBase<MyEventsController>
 
     [HttpGet]
     [Route("MyEvents/Registrations")]
-    public IActionResult Registrations() => View("Index", MyEventsViewModel.Empty(MyEventsTab.Registrations));
+    public async Task<IActionResult> Registrations(int? page, CancellationToken cancellationToken) =>
+        View("Index", MyEventsViewModel.FromRegistrations(
+            await _myEvents.GetRegistrationsAsync(page, cancellationToken)));
 
     [HttpGet]
     [Route("MyEvents/Attendance")]
-    public IActionResult Attendance() => View("Index", MyEventsViewModel.Empty(MyEventsTab.Attendance));
+    public async Task<IActionResult> Attendance(int? page, CancellationToken cancellationToken) =>
+        View("Index", MyEventsViewModel.FromAttendance(
+            await _myEvents.GetAttendanceAsync(page, cancellationToken)));
 
+    // The certificate tab keeps its empty model until 6.13 fills it.
     [HttpGet]
     [Route("MyEvents/Certificates")]
-    public IActionResult Certificates() => View("Index", MyEventsViewModel.Empty(MyEventsTab.Certificates));
+    public IActionResult Certificates(int? page) => View("Index", MyEventsViewModel.Empty(MyEventsTab.Certificates));
 }
