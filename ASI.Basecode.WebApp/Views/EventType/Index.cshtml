@@ -1,11 +1,11 @@
 @model PagedResult<EventTypeViewModel>
 @{
-    ViewData["Title"] = "Event Types";
+    ViewData["Title"] = "Event Classifications";
 }
 
 <div class="page-heading">
-    <h2>Event Type Management</h2>
-    <a asp-action="Create" class="button button-primary">Add Event Type</a>
+    <h1>Event Classifications</h1>
+    <a asp-action="Create" class="button button-primary">New Event Type</a>
 </div>
 
 @if (Model.Items.Count == 0)
@@ -64,3 +64,5 @@ else
 
     <partial name="_Pager" model="Model" />
 }
+
+<partial name="_ResultCount" model="Model" />

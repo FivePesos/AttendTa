@@ -51,12 +51,19 @@
   .public-shell .main-content { max-width: 448px; }
   .public-shell.public-wide .main-content { max-width: 576px; }
   .login-card, .panel { background: white; border: 1px solid #e2e8f0; border-radius: 10px; padding: 1.5rem; box-shadow: 0 4px 12px -2px #0f172a0d; }
-  .login-card { font-family: "Plus Jakarta Sans", sans-serif; margin-top: 2rem; } .muted { color: #64748b; } .login-card .muted { margin-bottom: 1.5rem; }
+  .panel + .panel { margin-top: 1rem; }
+  .login-card { margin-top: 2rem; } .muted { color: #64748b; } .login-card .muted { margin-bottom: 1.5rem; }
   .page-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
   .field { margin-bottom: 1rem; } .field label, .field-label { display: block; margin-bottom: .35rem; font-weight: 600; }
-  .field input, .field select, .field textarea, .field-control { display: block; width: 100%; padding: .65rem .75rem; border: 1px solid #94a3b8; border-radius: 10px; background: white; color: #090d16; min-height: 44px; }
+  .field input, .field select, .field textarea, .field-control { display: block; width: 100%; padding: .65rem .75rem; border: 1px solid #64748b; border-radius: 10px; background: white; color: #090d16; min-height: 44px; }
   .field input[readonly] { background: #f1f5f9; } .field-error, .validation-summary { color: #b91c1c; } .validation-summary ul { margin-bottom: 1rem; }
   .field-error { display: block; min-height: 1.5em; }
+  .required { color: #b91c1c; margin-left: .15rem; }
+  .form-panel { max-width: 40rem; }
+  .form-panel fieldset { border: 0; padding: 0; margin: 0 0 1.5rem; }
+  .form-panel legend { font-size: 1rem; font-weight: 700; color: #090d16; margin-bottom: .75rem; }
+  .form-actions { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1rem; }
+  .page-heading h1 { font-size: 1.5rem; }
   .input-validation-error { border-color: #b91c1c !important; }
   .button { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: .6rem 1rem; border: 1px solid transparent; border-radius: 10px; font-weight: 600; text-decoration: none; cursor: pointer; }
   .button-primary { background: #0b1120; color: white; } .button-secondary { background: white; border-color: #cbd5e1; color: #334155; } .button:hover { text-decoration: none; } .button-primary:hover { background: #1e293b; } .button-secondary:hover { background: #f8fafc; }

@@ -1,11 +1,11 @@
 @model PagedResult<VenueViewModel>
 @{
-    ViewData["Title"] = "Venues";
+    ViewData["Title"] = "Campus Facilities & Venues";
 }
 
 <div class="page-heading">
-    <h2>Venue Management</h2>
-    <a asp-action="Create" class="button button-primary">Add Venue</a>
+    <h1>Campus Facilities &amp; Venues</h1>
+    <a asp-action="Create" class="button button-primary">New Venue</a>
 </div>
 
 @if (Model.Items.Count == 0)
@@ -80,3 +80,5 @@ else
 
     <partial name="_Pager" model="Model" />
 }
+
+<partial name="_ResultCount" model="Model" />

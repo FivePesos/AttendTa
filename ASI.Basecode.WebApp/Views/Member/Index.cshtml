@@ -1,11 +1,13 @@
 @model PagedResult<MemberViewModel>
 @{
-    ViewData["Title"] = "Members";
+    ViewData["Title"] = "Organization Members";
 }
 
 <div class="page-heading">
-    <h2>Member Management</h2>
-    <span class="muted">Member profiles are linked to approved user accounts.</span>
+    <div>
+        <h1>Organization Members</h1>
+        <p class="muted">Member profiles are linked to approved user accounts.</p>
+    </div>
 </div>
 
 <form asp-action="Index" method="get" class="spacing-bottom">
@@ -23,18 +25,19 @@
                 <tr>
                     <th scope="col">Student Number</th>
                     <th scope="col">Full Name</th>
+                    <th scope="col">Email</th>
                     <th scope="col">Course</th>
                     <th scope="col">Year</th>
                     <th scope="col">Section</th>
                     <th scope="col">Mobile</th>
                     <th scope="col">Membership Type</th>
                     <th scope="col">Status</th>
-                    <th scope="col">Actions</th>
+                    <th scope="col" class="actions">Actions</th>
                 </tr>
             </thead>
             <tbody>
                 <tr>
-                    <td colspan="9" class="empty-state">@(string.IsNullOrWhiteSpace(ViewBag.Search as string) ? "No members yet. Members are created when an account request is approved." : "No members match your search. Try a different name or student number.")</td>
+                    <td colspan="10" class="empty-state">@(string.IsNullOrWhiteSpace(ViewBag.Search as string) ? "No members yet. Members are created when an account request is approved." : "No members match your search. Try a different name or student number.")</td>
                 </tr>
             </tbody>
         </table>
@@ -48,13 +51,14 @@ else
                 <tr>
                     <th scope="col">Student Number</th>
                     <th scope="col">Full Name</th>
+                    <th scope="col">Email</th>
                     <th scope="col">Course</th>
                     <th scope="col">Year</th>
                     <th scope="col">Section</th>
                     <th scope="col">Mobile</th>
                     <th scope="col">Membership Type</th>
                     <th scope="col">Status</th>
-                    <th scope="col">Actions</th>
+                    <th scope="col" class="actions">Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -63,6 +67,7 @@ else
                     <tr data-member-id="@member.MemberId">
                         <td class="numeric">@member.StudentNumber</td>
                         <td>@member.FullName</td>
+                        <td>@member.Email</td>
                         <td>@member.Course</td>
                         <td class="numeric">@member.YearLevel</td>
                         <td>@member.Section</td>
@@ -82,3 +87,5 @@ else
 
     <partial name="_Pager" model="Model" />
 }
+
+<partial name="_ResultCount" model="Model" />
