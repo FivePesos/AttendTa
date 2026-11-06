@@ -1,4 +1,5 @@
 using System;
+using ASI.Basecode.Data.Models.Lookups;
 
 namespace ASI.Basecode.Services.ServiceModels;
 
@@ -14,6 +15,15 @@ public sealed class MemberEventListItemViewModel
     public int ParticipantLimit { get; set; }
     public int ConfirmedCount { get; set; }
     public bool HasCover { get; set; }
+
+    /// <summary>The event lifecycle status the read reports.</summary>
+    public EventStatusCode EventStatusId { get; set; }
+
+    /// <summary>The visible lifecycle label for <see cref="EventStatusId"/>.</summary>
+    public string StatusLabel => EventStatusDisplay.Label(EventStatusId);
+
+    /// <summary>True when the event's check-in window is open.</summary>
+    public bool IsCheckInOpen { get; set; }
 
     /// <summary>True when the canonical Signup open fact holds at the time the feed was read.</summary>
     public bool IsSignupOpen { get; set; }
