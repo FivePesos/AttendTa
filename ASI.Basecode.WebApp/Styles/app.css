@@ -63,6 +63,10 @@
   .button:disabled { opacity: .6; cursor: not-allowed; text-decoration: none; }
   .button-small { min-height: 36px; padding: .35rem .75rem; font-size: .85rem; }
   .button-danger { background: #b91c1c; color: white; } .button-danger:hover { background: #991b1b; }
+  .confirm-dialog { width: min(100% - 2rem, 32rem); padding: 1.5rem; border: 1px solid #e2e8f0; border-radius: 10px; background: white; color: #090d16; box-shadow: 0 24px 48px -12px #0f172a55; }
+  .confirm-dialog::backdrop { background: #0f172a99; }
+  .confirm-dialog h2 { margin-top: 0; }
+  .confirm-dialog-actions { display: flex; flex-wrap: wrap; gap: .75rem; margin-top: 1.25rem; }
   .full-width { width: 100%; } .inline-form { display: inline-block; } .spacing-bottom { margin-bottom: 1rem; }
   .filter-tabs { display: flex; flex-wrap: wrap; gap: .25rem; width: fit-content; max-width: 100%; padding: .25rem; margin-bottom: 1rem; background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 10px; }
   .filter-tab { display: inline-flex; align-items: center; gap: .5rem; min-height: 40px; padding: .45rem .9rem; border-radius: 8px; color: #334155; font-weight: 600; text-decoration: none; }

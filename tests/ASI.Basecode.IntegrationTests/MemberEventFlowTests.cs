@@ -865,6 +865,9 @@ public sealed class MemberEventRegistrationPersistenceTests(SqlServerDatabaseFix
         public Task<bool> ExistsAsync(int eventId, int memberId, CancellationToken cancellationToken = default) =>
             Task.FromResult(false);
 
+        public Task<MemberRegistrationRow> GetMemberRegistrationAsync(int eventId, int userId, CancellationToken cancellationToken = default) =>
+            inner.GetMemberRegistrationAsync(eventId, userId, cancellationToken);
+
         public Task<int> CountConfirmedAsync(int eventId, CancellationToken cancellationToken = default) =>
             inner.CountConfirmedAsync(eventId, cancellationToken);
 
@@ -930,6 +933,13 @@ internal static class MemberEventTestSupport
             unitOfWork,
             clock,
             actor,
+            new RegistrationCancellationService(
+                registrations,
+                new EventRepository(unitOfWork),
+                unitOfWork,
+                actor,
+                new ActivityLogWriter(context, actor, clock),
+                clock),
             Mapper);
     }
 
