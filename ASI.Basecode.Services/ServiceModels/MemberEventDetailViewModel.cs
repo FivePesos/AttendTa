@@ -23,6 +23,12 @@ public sealed class MemberEventDetailViewModel
     /// <summary>True when confirmed seats have reached the participant limit. Signup stays open.</summary>
     public bool IsFull { get; set; }
 
+    /// <summary>
+    /// True when the canonical Event Start Cutoff fact held at the time the detail was read.
+    /// The view never reads the wall clock; this flag is the only source for the derived badge.
+    /// </summary>
+    public bool IsStartCutoffPassed { get; set; }
+
     /// <summary>True when the actor already has a registration of any status for this event.</summary>
     public bool HasRegistration { get; set; }
 

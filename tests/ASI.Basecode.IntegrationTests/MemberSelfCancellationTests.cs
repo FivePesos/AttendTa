@@ -144,6 +144,42 @@ public sealed class MemberSelfCancellationTests(SqlServerDatabaseFixture fixture
             .ToListAsync(ct));
     }
 
+    [Theory]
+    [InlineData(RegistrationStatusCode.Pending)]
+    [InlineData(RegistrationStatusCode.Waitlisted)]
+    public async Task DetailShowsTheDerivedCutoffBadgeWithoutChangingTheStoredStatus(RegistrationStatusCode status)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var suffix = Guid.NewGuid().ToString("N");
+        var email = $"cutoff-badge-{suffix}@attendta.test";
+        var password = MemberEventTestSupport.NewPassword();
+        var user = await MemberEventTestSupport.SeedUserAsync(fixture.ConnectionString, email, password, RoleCode.Member, ct);
+        var member = await MemberEventTestSupport.SeedMemberAsync(fixture.ConnectionString, user.Id, MembershipStatusCode.Active, ct);
+        var (typeId, venueId) = await MemberEventTestSupport.SeedReferencesAsync(fixture.ConnectionString, user.Id, ct);
+        var startsAt = new DateTime(2026, 11, 6, 12, 0, 0, DateTimeKind.Utc);
+        var eventItem = await MemberEventTestSupport.SeedEventAsync(
+            fixture.ConnectionString, user.Id, typeId, venueId, EventStatusCode.Published,
+            startsAt, startsAt.AddHours(-1), 10, null, $"Cutoff badge event {suffix}", ct);
+        var registration = await MemberEventTestSupport.SeedRegistrationAsync(
+            fixture.ConnectionString, eventItem.EventId, member.MemberId, status, user.Id, ct);
+        var clock = new MutableClock { Now = startsAt };
+
+        await using var factory = new AttendTaWebApplicationFactory(fixture.ConnectionString);
+        await using var clockFactory = factory.WithWebHostBuilder(builder =>
+            builder.ConfigureTestServices(services => services.AddSingleton<TimeProvider>(clock)));
+        using var client = clockFactory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
+        await MemberEventTestSupport.SignInAsync(client, email, password, ct);
+
+        var detail = await client.GetStringAsync($"/MemberEvents/Details?id={eventItem.EventId}", ct);
+
+        Assert.Contains("Your registration is <span class=\"badge badge-closed\">Not confirmed before cutoff</span>.", detail, StringComparison.Ordinal);
+        Assert.DoesNotContain("Cancel my registration", detail, StringComparison.Ordinal);
+
+        await using var context = MemberEventTestSupport.Context(fixture.ConnectionString);
+        var row = await context.Registrations.AsNoTracking().SingleAsync(item => item.RegistrationId == registration.RegistrationId, ct);
+        Assert.Equal(status, row.RegistrationStatusId);
+    }
+
     [Fact]
     public async Task CancellationIsRefusedWithValidAttendanceWithoutChangingTheRow()
     {

@@ -505,7 +505,7 @@ public class AccountRequestServiceTests
         public int CreatedUserId => Calls.Single().UserId;
         public MemberViewModel? Model => Calls.SingleOrDefault().Model;
 
-        public Task<PagedResult<MemberViewModel>> GetPageAsync(string search, int? pageNumber, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<PagedResult<MemberViewModel>> GetPageAsync(string search, string status, int? pageNumber, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public MemberViewModel GetMember(int id) => throw new NotSupportedException();
         public Task<MemberViewModel> GetSelfProfileAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task UpdateMemberAsync(MemberViewModel model, CancellationToken cancellationToken = default) => throw new NotSupportedException();
@@ -606,8 +606,8 @@ public class AccountRequestServiceTests
         public List<Member> Members { get; } = new();
 
         public IQueryable<MemberRecord> GetMemberRecords() => Array.Empty<MemberRecord>().AsQueryable();
-        public Task<int> CountAsync(string search, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Task<IReadOnlyList<MemberRecord>> GetPageAsync(string search, int skip, int take, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<int> CountAsync(string search, string status, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<IReadOnlyList<MemberRecord>> GetPageAsync(string search, string status, int skip, int take, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
         public MemberRecord GetMemberRecord(int memberId) => null!;
 

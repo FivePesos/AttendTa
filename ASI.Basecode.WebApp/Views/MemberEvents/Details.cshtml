@@ -3,23 +3,10 @@
 @{
     ViewData["Title"] = Model.Title;
     var registrationStatus = Model.RegistrationStatus;
-    var registrationLabel = registrationStatus switch
-    {
-        RegistrationStatusCode.Pending => "Pending review",
-        RegistrationStatusCode.Confirmed => "Confirmed",
-        RegistrationStatusCode.Waitlisted => "Waitlisted",
-        RegistrationStatusCode.Cancelled => "Cancelled",
-        _ => null
-    };
-    var registrationBadge = registrationStatus switch
-    {
-        RegistrationStatusCode.Pending => "badge-full",
-        RegistrationStatusCode.Confirmed => "badge-open",
-        RegistrationStatusCode.Waitlisted => "badge-member",
-        RegistrationStatusCode.Cancelled => "badge-inactive",
-        _ => "badge-member"
-    };
+    var registrationLabel = RegistrationStatusDisplay.Label(registrationStatus, Model.IsStartCutoffPassed);
+    var registrationBadge = RegistrationStatusDisplay.BadgeClass(registrationStatus, Model.IsStartCutoffPassed);
     var registrationNotice = registrationStatus == RegistrationStatusCode.Cancelled
+        || RegistrationStatusDisplay.IsNotConfirmedBeforeCutoff(registrationStatus, Model.IsStartCutoffPassed)
         ? "notice"
         : "notice notice-success";
 }
