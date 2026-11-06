@@ -51,8 +51,8 @@ $(function () {
         reopen.querySelector('textarea, input:not([type="hidden"])')?.focus();
     }
 
-    // Single host for the read-only deactivation preview dialog. The partial returns a
-    // complete <dialog> so the native element supplies Escape, focus trapping and restore.
+    // Single host for the fetched dialogs. Each partial returns a complete <dialog> so the
+    // native element supplies Escape, focus trapping and focus restore.
     const previewHost = document.createElement('div');
     previewHost.id = 'deactivation-preview-host';
     document.body.appendChild(previewHost);
@@ -74,39 +74,60 @@ $(function () {
 
     let previewRequestId = 0;
 
-    document.addEventListener('click', function (event) {
-        const trigger = event.target.closest('[data-deactivation-preview]');
-        if (!trigger) return;
-
-        event.preventDefault();
-        const requestId = ++previewRequestId;
-        clearError();
-        previewHost.innerHTML = '';
-
-        fetch(trigger.dataset.deactivationPreview, {
-            headers: { 'X-Requested-With': 'XMLHttpRequest' },
-            credentials: 'same-origin'
-        })
-            .then(function (response) {
-                if (requestId !== previewRequestId) return null;
-                if (!response.ok) throw new Error('Deactivation preview request failed.');
-                return response.text();
-            })
-            .then(function (html) {
-                if (html === null || requestId !== previewRequestId) return;
-                previewHost.innerHTML = html;
-                const dialog = previewHost.querySelector('dialog');
-                if (!dialog) throw new Error('Deactivation preview dialog was not returned.');
-                dialog.addEventListener('close', function () {
-                    previewHost.innerHTML = '';
-                    trigger.focus();
-                }, { once: true });
-                dialog.showModal();
-            })
-            .catch(function () {
-                if (requestId !== previewRequestId) return;
-                previewHost.innerHTML = '';
-                showError('Unable to load the deactivation preview. Please try again.');
+    // One delegated handler serves the read-only deactivation preview and the account/membership
+    // access dialogs. Each source names its trigger attribute, the dataset key holding the URL and
+    // the message shown when the fetch fails.
+    function wireFetchedDialog(sources) {
+        document.addEventListener('click', function (event) {
+            const source = sources.find(function (entry) {
+                return event.target.closest(entry.selector);
             });
-    });
+            if (!source) return;
+
+            const trigger = event.target.closest(source.selector);
+            event.preventDefault();
+            const requestId = ++previewRequestId;
+            clearError();
+            previewHost.innerHTML = '';
+
+            fetch(trigger.dataset[source.url], {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                credentials: 'same-origin'
+            })
+                .then(function (response) {
+                    if (requestId !== previewRequestId) return null;
+                    if (!response.ok) throw new Error(source.error);
+                    return response.text();
+                })
+                .then(function (html) {
+                    if (html === null || requestId !== previewRequestId) return;
+                    previewHost.innerHTML = html;
+                    const dialog = previewHost.querySelector('dialog');
+                    if (!dialog) throw new Error(source.error);
+                    dialog.addEventListener('close', function () {
+                        previewHost.innerHTML = '';
+                        trigger.focus();
+                    }, { once: true });
+                    dialog.showModal();
+                })
+                .catch(function () {
+                    if (requestId !== previewRequestId) return;
+                    previewHost.innerHTML = '';
+                    showError(source.error);
+                });
+        });
+    }
+
+    wireFetchedDialog([
+        {
+            selector: '[data-deactivation-preview]',
+            url: 'deactivationPreview',
+            error: 'Unable to load the deactivation preview. Please try again.'
+        },
+        {
+            selector: '[data-access-dialog]',
+            url: 'accessDialog',
+            error: 'Unable to load the access options. Please try again.'
+        }
+    ]);
 });
