@@ -78,7 +78,7 @@ public sealed class EventCancellationServiceTests(SqlServerDatabaseFixture fixtu
         Assert.DoesNotContain("token", eventLog.NewValues!, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("path", eventLog.NewValues!, StringComparison.OrdinalIgnoreCase);
         Assert.Equal(3, logs.Count(log => log.Action == AuditActions.RegistrationCancelled));
-        Assert.DoesNotContain(logs, log => log.EntityId == seeded.PreviouslyCancelledId);
+        Assert.DoesNotContain(logs, log => log.EntityType == "registrations" && log.EntityId == seeded.PreviouslyCancelledId);
     }
 
     [Fact]

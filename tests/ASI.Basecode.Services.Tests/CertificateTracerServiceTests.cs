@@ -136,6 +136,7 @@ public sealed class CertificateTracerServiceTests
         }
 
         public Task<bool> ExistsAsync(int eventId, int memberId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<MemberRegistrationRow> GetMemberRegistrationAsync(int eventId, int userId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<int> CountConfirmedAsync(int eventId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task AddAsync(Registration registration, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }

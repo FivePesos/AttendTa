@@ -13,8 +13,9 @@ using System.Threading.Tasks;
 namespace ASI.Basecode.WebApp.Controllers;
 
 /// <summary>
-/// Participant-facing published event feed and registration submission. Every action is
-/// authenticated; registration additionally requires an eligible member profile in the service.
+/// Participant-facing published event feed, registration submission and member self-cancellation.
+/// Every action is authenticated; registration additionally requires an eligible member profile in
+/// the service, and cancellation only ever touches the actor's own registration.
 /// </summary>
 [Authorize]
 [AutoValidateAntiforgeryToken]
@@ -67,6 +68,26 @@ public sealed class MemberEventsController : ControllerBase<MemberEventsControll
             return exception.Outcome == OutcomeCode.Duplicate
                 ? RedirectToAction(nameof(Details), new { id })
                 : RedirectToRoute(FeedRoute);
+        }
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> Cancel(int id, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _memberEvents.CancelRegistrationAsync(id, cancellationToken);
+            TempData["SuccessMessage"] = "Your registration was cancelled. This cannot be undone.";
+            return RedirectToAction(nameof(Details), new { id });
+        }
+        catch (DomainException exception)
+        {
+            TempData["ErrorMessage"] = exception.Message;
+
+            // A missing or stale registration has no safe detail page to return to.
+            return exception.Outcome is OutcomeCode.NotFound or OutcomeCode.Stale
+                ? RedirectToRoute(FeedRoute)
+                : RedirectToAction(nameof(Details), new { id });
         }
     }
 }
