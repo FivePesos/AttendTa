@@ -200,6 +200,36 @@ link appears only for a published event. Nothing is written. Cancelled registrat
 because `DiscoverOpenEventIdsForUserAsync` excludes them; 3.13's real query replaces this provider
 and its per-event reads.
 
+## M-03 — pass card QR image and PNG download detail (4.10)
+
+**Contract and classes.** The contract is in `ASI.Basecode.Services`; all demo code is in
+`ASI.Basecode.WebApp/DemoData/`.
+
+| Piece | File |
+|---|---|
+| Pass contract `IPassService` (`GetMyPassesAsync`) | `ASI.Basecode.Services/Interfaces/IPassService.cs` |
+| Screen model `PassesViewModel` (`Active`, `Past`, `Empty()`) | `ASI.Basecode.Services/ServiceModels/PassesViewModel.cs` |
+| Card model `PassViewModel` (event metadata, holder, rule-10 token, download name) | `ASI.Basecode.Services/ServiceModels/MyEventsViewModels.cs` |
+| Demo passes | `ASI.Basecode.WebApp/DemoData/DemoPassService.cs` |
+| Switch-off passes (empty state) | `ASI.Basecode.WebApp/DemoData/UnavailablePassService.cs` |
+| Passes surface registration file | `ASI.Basecode.WebApp/DemoData/DemoPassesRegistration.cs` |
+| Screen and card | `Controllers/PassesController.cs`, `Views/Passes/Index.cshtml`, `Views/MyEvents/_PassPartial.cshtml` |
+| QR library and browser drawing | `wwwroot/lib/qrcode/qrcode.js` (MIT, 1.4.4) with `LICENSE`, `wwwroot/js/features/passes.js` |
+
+**Source and composition.** `DemoPassService` composes
+`IRegistrationRepository.DiscoverOpenEventIdsForUserAsync` for the actor's non-cancelled event ids,
+`IRegistrationRepository.GetMemberRegistrationAsync` for the actor's own row per event,
+`IEventRepository.GetPublishedEventAsync` for the title, type, venue and start, and
+`IMemberRepository.GetMemberRecordByUserIdAsync` for the holder name and student number. It keeps
+only Confirmed registrations whose event is published, splits them on `TimeProvider` (event start
+passed means Past), takes the rule-10 token from `DemoStore.GetPassToken`, and never writes. Pending,
+waitlisted and cancelled registrations, and cancelled or unpublished events, produce no card. The QR
+encodes only the 64-character token; the browser draws it with a 4-module quiet zone and saves it as
+PNG. Nothing rendered names the data as demo data, including the download file name.
+
+**Removal (4.1).** Replace the demo provider behind the same `IPassService` contract, and replace
+`QrToken` with the server-rendered `QrImageUrl` and the authorized `DownloadUrl`.
+
 ## Known limits of the demo
 
 - Deactivating an account in the demo does not end that person's real session or block their
