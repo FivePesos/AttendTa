@@ -20,4 +20,6 @@ public sealed class CheckInControlViewModel
     /// command when it is a local URL, so the scanner and the event dossier keep their context.
     /// </summary>
     public string ReturnUrl { get; set; }
+
+    public bool Dossier { get; set; }
 }

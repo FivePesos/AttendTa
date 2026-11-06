@@ -10,3 +10,6 @@
 - source_plan: `_bmad-output/initiative-attendta/handoffs/story-refactor-sweep-follow-up.md`
   summary: Add reviewer, reviewed-at, and reason metadata to decided account-request rows and keep the table shell on empty tabs.
   evidence: Impeccable critique on 2026-11-06 scored the queue 17/40; decided rows show only "Reviewed" and empty tabs drop the toolbar and column context.
+- source_plan: `_bmad-output/initiative-attendta/tickets/epic-check-in/tickets/story-frontend-member-attendance-history-partial-plan.md`
+  summary: Give one demo member enough attendance rows for the Attendance tab's pager to be demonstrable.
+  evidence: `DemoSeedService` checks in at most eight confirmed registrations of the single completed event (`MaxSeededCheckIns = 8`) and a member has one registration per event, so a member's attendance history holds one row and `_Pager` never renders on `/MyEvents/Attendance`. The tab pages correctly for 26+ rows (verified by a temporary integration check), but the demo cannot reach that volume until 4.11's scanner and 4.7's real query supply more records.
