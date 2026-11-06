@@ -269,6 +269,40 @@ PNG. Nothing rendered names the data as demo data, including the download file n
 **Removal (4.1).** Replace the demo provider behind the same `IPassService` contract, and replace
 `QrToken` with the server-rendered `QrImageUrl` and the authorized `DownloadUrl`.
 
+## M-05, M-06 and M-07 — door scanner detail (4.11)
+
+**Contracts and classes.** The contracts are in `ASI.Basecode.Services`; all demo code is in
+`ASI.Basecode.WebApp/DemoData/`.
+
+| Piece | File |
+|---|---|
+| Scan contract `ICheckInService` (`GetScreenAsync`, `ScanAsync`) | `ASI.Basecode.Services/Interfaces/ICheckInService.cs` |
+| Lookup contract `ICheckInLookupService` (`SearchAsync`, `CheckInAsync`) | `ASI.Basecode.Services/Interfaces/ICheckInLookupService.cs` |
+| Invalidation contract `IAttendanceInvalidationService` | `ASI.Basecode.Services/Interfaces/IAttendanceInvalidationService.cs` |
+| Screen, outcome, lookup and log models | `ASI.Basecode.Services/ServiceModels/CheckInScreenViewModel.cs` |
+| Demo scan provider | `ASI.Basecode.WebApp/DemoData/DemoCheckInService.cs` |
+| Demo lookup and manual check-in provider | `ASI.Basecode.WebApp/DemoData/DemoCheckInLookupService.cs` |
+| Demo invalidation provider | `ASI.Basecode.WebApp/DemoData/DemoAttendanceInvalidationService.cs` |
+| Switch-off providers | `UnavailableCheckInService.cs`, `UnavailableCheckInLookupService.cs`, `UnavailableAttendanceInvalidationService.cs` |
+| Check-in surface registration file | `ASI.Basecode.WebApp/DemoData/DemoCheckInRegistration.cs` |
+| Store additions | `DemoStore.GetAttendanceForEvent`, `DemoAttendance.MemberName`/`StudentNumber` |
+| Screen, adapters and decoder | `Controllers/CheckInController.cs`, `Views/CheckIn/Index.cshtml`, `wwwroot/js/features/scanner.js`, `scanner-camera.js`, `scanner-manual.js`, `wwwroot/lib/jsqr/jsQR.js` (Apache-2.0, 1.4.0) |
+
+**What it composes.** The screen reads the published event page, selects the first event with an
+open window, and reads the store's attendance for the log. A scan matches the rule-10 token of a
+confirmed registration of the event, reloads `IsConfirmedAsync`, and returns `success`, `repeat`
+(the original time), `invalid` (unknown, wrong-event, cancelled or invalidated) or `closed` (not
+published, completed or window closed). The manual lookup reads the event's confirmed rows (bounded
+at 500), filters by name or student number in memory, and pages at 25; the explicit Check in records
+`student_number` when the query equals the student number, otherwise `manual_search`. Invalidation
+requires a reason, checks that the registration belongs to the event, refuses an issued certificate,
+and leaves a pending or approved review not eligible with that reason. Searching or viewing never
+records. Nothing writes SQL, a stored file or the Activity Log.
+
+**Removal (4.3, 4.5, 4.6).** 4.3 replaces `ICheckInService`, 4.5 replaces
+`ICheckInLookupService`, and 4.6 replaces `IAttendanceInvalidationService`; each deletes its
+provider and its line in `DemoCheckInRegistration.cs`, and the screen keeps its shape.
+
 ## M-08 — demo seam detail (4.12)
 
 **Contract and classes.** The contract stays in `ASI.Basecode.Services`; the providers are in
@@ -296,6 +330,34 @@ state.
 `EmptyMyEventsService` with M-02. When 3.13 removes M-02's provider classes it must keep
 `GetAttendanceAsync` — returning an empty page — so the attendance read survives until 4.7 lands;
 4.7 then replaces that method with the real owner-scoped query instead of deleting a class.
+
+## M-10a, M-10b, M-11a and M-11b — certificate ledger (6.12)
+
+**Contract and registration.** `ASI.Basecode.Services/Interfaces/ICertificateLedgerService.cs`
+defines `GetPageAsync`, `DecideAsync`, `IssueAsync`, `GetViewerAsync` and `GetPdfAsync`.
+`DemoData/DemoCertificatesRegistration.cs` registers `DemoCertificateLedgerService` only when
+the central switch is enabled and no real provider is already registered. With the switch off,
+`UnavailableCertificateLedgerService` supplies empty tabs and explicit command/document refusals.
+All three classes live under `ASI.Basecode.WebApp/DemoData/`.
+
+| Row | Implementation and handoff |
+|---|---|
+| M-10a / removed by 6.4 | `DemoStore.MarkCompleted` creates pending reviews for every valid stored check-in through `EnsureCertificateReviews`; the query also ensures reviews for seeded or real completed events. Existing decisions are never overwritten. Replace the creation call/adapter with the completion hook and real attendance facts. |
+| M-10b / removed by 6.6 | `DemoCertificateLedgerService.GetPageAsync` composes existing event and confirmed-registration repository reads with shared review state; `DecideAsync` reloads participation/event state and calls guarded `DemoStore.DecideCertificate`. Pending/valid attendance is required; decline needs a trimmed reason of 1–1,000 characters. Actor and time come from the authenticated request and server clock. |
+| M-11a / removed by 6.7 | `IssueAsync` requires completion, confirmation, valid attendance and approval, creates a unique `AT-<year>-<registrationId:D6>` number and snapshot, calls the real `RenderSnapshotAsync`, rechecks real participation, then atomically publishes via `DemoStore.PublishCertificate`. Invalidation and duplicate issues are rechecked inside the store gate. Render failure publishes nothing. No SQL, private storage or audit write occurs. |
+| M-11b / removed by 6.8 | `GetViewerAsync`/`GetPdfAsync` require Management and issued state; the controller streams `application/pdf` with no-store caching and an optional attachment name. A seeded issue renders its captured snapshot on first download, then reuses those bytes. No caller-supplied path is accepted. Replace with authorized retained-file retrieval, not current-data regeneration. |
+
+**Seed and shared state.** The original seed's issued attendee now carries a snapshot of recipient,
+event title/start, number and issue time. All other valid check-ins receive pending reviews before
+the existing declined/pending scenarios are applied. Issued snapshots and PDF bytes stay in the
+same `DemoStore` issue record used by 6.13; nothing is retained across restarts. Existing invalidated
+reviews remain visible as not eligible with their reason. Later SQL edits do not rewrite issued
+snapshot values or rendered bytes.
+
+**Presentation ownership.** `Controllers/CertificateLedgerController.cs`,
+`Views/CertificateLedger/Index.cshtml`, `Views/CertificateLedger/Viewer.cshtml`,
+`Styles/features/certificate-ledger.css` and `wwwroot/js/features/certificate-ledger.js`.
+The selector, pager, shared shell and member-history slot remain unchanged. There is no bulk action.
 
 ## Known limits of the demo
 

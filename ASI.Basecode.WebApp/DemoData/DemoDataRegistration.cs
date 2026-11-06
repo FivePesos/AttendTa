@@ -14,6 +14,7 @@ internal static class DemoDataRegistration
 {
     public static void AddDemoData(this IServiceCollection services, IConfiguration configuration)
     {
+        DemoCertificatesRegistration.AddCertificates(services, configuration.GetValue<bool>(DemoDataOptions.SectionName + ":Enabled"));
         if (!configuration.GetValue<bool>(DemoDataOptions.SectionName + ":Enabled"))
         {
             services.AddSingleton<IEventStateOverlay, NoOpEventStateOverlay>();
@@ -23,6 +24,9 @@ internal static class DemoDataRegistration
             services.AddScoped<IMembershipAccessCommands, UnavailableAccessCommands>();
             services.AddScoped<IPassService, UnavailablePassService>();
             services.AddScoped<IMyEventsService, EmptyMyEventsService>();
+            services.AddScoped<ICheckInService, UnavailableCheckInService>();
+            services.AddScoped<ICheckInLookupService, UnavailableCheckInLookupService>();
+            services.AddScoped<IAttendanceInvalidationService, UnavailableAttendanceInvalidationService>();
             return;
         }
 
@@ -34,5 +38,6 @@ internal static class DemoDataRegistration
         DemoAccessRegistration.AddDemoAccess(services);
         DemoPassesRegistration.AddDemoPasses(services);
         DemoMyEventsRegistration.AddDemoMyEvents(services);
+        DemoCheckInRegistration.AddDemoCheckIn(services);
     }
 }
