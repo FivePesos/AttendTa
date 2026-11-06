@@ -151,6 +151,11 @@ with no pinned variant. The orchestrator chooses the reasoning effort for each t
 Start at the cheapest effort that will reliably finish the task and escalate only when the result
 is insufficient; do not default to `#max`.
 
+The same model is also pinned in the global `~/.config/opencode/opencode.json` as a machine-wide
+fallback. Project config outranks global config, so any repository can override it, while sessions
+that fall outside this tree — notably the worktrees under `~/.local/share/opencode/worktree/` — still
+get the intended subagent model instead of inheriting the parent session's.
+
 ## Current assignment scope
 Master Data only — Member Management, Event Type Management, Venue Management (Admin & Officer).
 Auth, Transactions, Reports, Administration are owned by other members.
