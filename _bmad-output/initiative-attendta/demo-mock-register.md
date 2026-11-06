@@ -181,6 +181,25 @@ ids the store marks. Real reads run first; a failing real read is never replaced
 Refusal rules: open/close check-in only on a Published event that is not demo-completed; complete
 only on a Published event that is not demo-completed and whose start time has passed.
 
+## M-02 — demo seam detail (3.17)
+
+**Contract and classes.** The contract is in `ASI.Basecode.Services`; the providers are in
+`ASI.Basecode.WebApp/DemoData/`.
+
+| Piece | File |
+|---|---|
+| Read contract `IMyEventsService.GetRegistrationsAsync` | `ASI.Basecode.Services/Interfaces/IMyEventsService.cs` |
+| Demo provider (composes `IRegistrationRepository.DiscoverOpenEventIdsForUserAsync`, `GetMemberRegistrationAsync`, `IEventRepository.CountAsync` and `GetPageAsync`) | `ASI.Basecode.WebApp/DemoData/DemoMyEventsService.cs` |
+| Switch-off provider (empty page) | `ASI.Basecode.WebApp/DemoData/EmptyMyEventsService.cs` |
+| My Events surface registration file | `ASI.Basecode.WebApp/DemoData/DemoMyEventsRegistration.cs` |
+
+**What it composes.** The actor's open event ids, each event's own registration row, and one event
+page for title, type, venue, start and status. Cards are ordered newest start first and paged at 25
+in memory; the status label and badge come from `RegistrationStatusDisplay`, and the "View event"
+link appears only for a published event. Nothing is written. Cancelled registrations are absent
+because `DiscoverOpenEventIdsForUserAsync` excludes them; 3.13's real query replaces this provider
+and its per-event reads.
+
 ## Known limits of the demo
 
 - Deactivating an account in the demo does not end that person's real session or block their
