@@ -21,6 +21,20 @@ namespace ASI.Basecode.WebApp.Controllers
 
         private readonly IEventTypeService _eventTypeService;
 
+        private bool IsRecordDialog => Request.Headers["X-Record-Dialog"] == "true";
+
+        private IActionResult Editor(EventTypeViewModel model)
+        {
+            return IsRecordDialog ? PartialView("_Editor", model) : View(model);
+        }
+
+        private IActionResult EditorError(DomainException exception, EventTypeViewModel model)
+        {
+            if (!IsRecordDialog) return HandleDomainException(exception, model);
+            ModelState.AddModelError(exception.Field ?? string.Empty, exception.Message);
+            return Editor(model);
+        }
+
         public EventTypeController(IHttpContextAccessor httpContextAccessor,
                                    ILoggerFactory loggerFactory,
                                    IConfiguration configuration,
@@ -43,7 +57,7 @@ namespace ASI.Basecode.WebApp.Controllers
         [HttpGet]
         public IActionResult Create()
         {
-            return View(new EventTypeViewModel());
+            return Editor(new EventTypeViewModel());
         }
 
         [HttpPost]
@@ -51,18 +65,19 @@ namespace ASI.Basecode.WebApp.Controllers
         {
             if (!ModelState.IsValid)
             {
-                return View(model);
+                return Editor(model);
             }
 
             try
             {
                 await _eventTypeService.AddEventTypeAsync(model, HttpContext.RequestAborted);
                 TempData["SuccessMessage"] = "Event type added successfully.";
+                if (IsRecordDialog) return Json(new { saved = true });
                 return RedirectToAction("Index");
             }
             catch (DomainException ex)
             {
-                return HandleDomainException(ex, model);
+                return EditorError(ex, model);
             }
         }
 
@@ -72,10 +87,11 @@ namespace ASI.Basecode.WebApp.Controllers
             var model = _eventTypeService.GetEventType(id);
             if (model == null)
             {
+                if (IsRecordDialog) return NotFound();
                 return RedirectToAction("Index");
             }
 
-            return View(model);
+            return Editor(model);
         }
 
         [HttpPost]
@@ -83,18 +99,19 @@ namespace ASI.Basecode.WebApp.Controllers
         {
             if (!ModelState.IsValid)
             {
-                return View(model);
+                return Editor(model);
             }
 
             try
             {
                 await _eventTypeService.UpdateEventTypeAsync(model, HttpContext.RequestAborted);
                 TempData["SuccessMessage"] = "Event type updated successfully.";
+                if (IsRecordDialog) return Json(new { saved = true });
                 return RedirectToAction("Index");
             }
             catch (DomainException ex)
             {
-                return HandleDomainException(ex, model);
+                return EditorError(ex, model);
             }
         }
 

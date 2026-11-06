@@ -27,6 +27,7 @@ Used by a University of Cebu student organization on a laptop at the door and on
 - Authentication by email and password with role-based access for administrator, officer, and member.
 - Membership requests are reviewed and approved or declined with a reason; decisions are audited.
 - Master data covers members, event types, and venues; records are deactivated rather than hard-deleted.
+- Event Type create/edit uses a centered keyboard-operable record dialog with retained server validation; standalone form routes remain available.
 - Events move through draft, published, completed, and cancelled states with capacity, deadline, and venue checks.
 - Registrations are pending, confirmed, waitlisted, or cancelled; seat allocation is transactional.
 - Attendance is recorded by QR or manual lookup; certificates are issued one at a time from an eligibility review.
