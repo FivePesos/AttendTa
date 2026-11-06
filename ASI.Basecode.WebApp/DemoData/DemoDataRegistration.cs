@@ -18,6 +18,7 @@ internal static class DemoDataRegistration
         {
             services.AddSingleton<IEventStateOverlay, NoOpEventStateOverlay>();
             services.AddScoped<IEventStateCommands, UnavailableEventStateCommands>();
+            services.AddScoped<IMyEventsService, EmptyMyEventsService>();
             return;
         }
 
@@ -26,5 +27,6 @@ internal static class DemoDataRegistration
         services.AddHostedService<DemoSeedService>();
 
         DemoEventsRegistration.AddDemoEvents(services);
+        DemoMyEventsRegistration.AddDemoMyEvents(services);
     }
 }
