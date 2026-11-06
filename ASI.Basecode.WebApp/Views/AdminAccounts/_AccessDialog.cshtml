@@ -7,14 +7,14 @@
     var submittingText = Model.IsActive ? "Deactivating…" : "Reactivating…";
     var rows = Model.AffectedRegistrations ?? Array.Empty<UpcomingRegistrationPreview>();
 }
-<dialog class="task-dialog access-dialog" aria-labelledby="account-access-title">
+<dialog class="task-dialog access-dialog" aria-labelledby="account-access-title" aria-describedby="@(isBlocked ? "account-access-blocked" : "account-access-consequence")">
     @if (isBlocked)
     {
         <div class="dialog-header">
             <h2 id="account-access-title">@title</h2>
             <button type="button" class="dialog-close" data-dialog-close aria-label="Close dialog">&times;</button>
         </div>
-        <p class="access-dialog-blocked" role="alert">
+        <p class="access-dialog-blocked" id="account-access-blocked" role="alert">
             This is the only active Administrator. Deactivating it would leave the console without an
             Administrator, so the action is blocked. Assign the Administrator role to another account first.
         </p>
@@ -36,7 +36,7 @@
             </p>
             @if (Model.IsActive)
             {
-                <p class="access-dialog-consequence">
+                <p class="access-dialog-consequence" id="account-access-consequence">
                     Deactivating this account ends its access. The linked member's membership status is not changed.
                 </p>
                 @if (rows.Count == 0)
@@ -59,7 +59,7 @@
             }
             else
             {
-                <p class="access-dialog-consequence">
+                <p class="access-dialog-consequence" id="account-access-consequence">
                     Reactivating this account restores sign-in access only. The linked member's membership
                     status is unchanged.
                 </p>

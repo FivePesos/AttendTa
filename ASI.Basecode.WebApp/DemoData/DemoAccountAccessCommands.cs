@@ -32,6 +32,7 @@ public sealed class DemoAccountAccessCommands : IAccountAccessCommands
 
     public async Task DeactivateAsync(int accountId, string reason, CancellationToken cancellationToken = default)
     {
+        RequireReason(reason);
         var account = await RequireAccountAsync(accountId, cancellationToken);
         if (!IsActive(account))
         {
@@ -49,6 +50,7 @@ public sealed class DemoAccountAccessCommands : IAccountAccessCommands
 
     public async Task ReactivateAsync(int accountId, string reason, CancellationToken cancellationToken = default)
     {
+        RequireReason(reason);
         var account = await RequireAccountAsync(accountId, cancellationToken);
         if (IsActive(account))
         {
@@ -56,6 +58,18 @@ public sealed class DemoAccountAccessCommands : IAccountAccessCommands
         }
 
         _store.SetAccountActive(account.AccountId, true, reason, _timeProvider.GetUtcNow().UtcDateTime);
+    }
+
+    /// <summary>
+    /// Refuses a blank reason before any state check, so the reason refusal wins over the
+    /// already-inactive and last-administrator refusals.
+    /// </summary>
+    private static void RequireReason(string reason)
+    {
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            throw new DomainException(OutcomeCode.Invalid, "A reason is required.", "reason");
+        }
     }
 
     /// <summary>

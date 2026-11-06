@@ -228,6 +228,10 @@ the member's status, and deactivating a membership never changes the linked acco
   Administrators, demo-deactivating one does not reduce that count, so the other can also be
   demo-deactivated. The block is reliable for the single-Administrator demo scenario; the real
   rule arrives with 5.4.
+- The access dialog's last-administrator flag is computed from the real row, so a demo-reactivated
+  Administrator whose real row is inactive can open a form the POST then refuses.
+- The Members status filter is applied in SQL before the demo overlay, so a membership a demo
+  command changed can still appear under the tab that matches its real status.
 - Check-ins, review decisions and issued certificates last only until the app restarts; passes
   keep scanning.
 - A pass scanned in the demo is matched against rule 10 tokens, not `registrations.qr_token`.

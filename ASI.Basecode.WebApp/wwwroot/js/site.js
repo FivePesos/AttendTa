@@ -36,11 +36,28 @@ $(function () {
     });
 
     document.addEventListener('submit', function (event) {
+        // A whitespace-only reason passes the native `required` check, so refuse it here before
+        // the POST loses the dialog and the typed text.
+        const reason = event.target.querySelector('textarea[name="reason"]');
+        if (reason && !reason.value.trim()) {
+            reason.setCustomValidity('A reason is required.');
+            reason.reportValidity();
+            event.preventDefault();
+            return;
+        }
+
         const submit = event.target.querySelector('button[type="submit"]');
         if (!submit) return;
         const label = submit.dataset.submittingLabel;
         submit.disabled = true;
         if (label) submit.textContent = label;
+    });
+
+    // Clear the custom reason message as soon as the user corrects the field.
+    document.addEventListener('input', function (event) {
+        if (event.target instanceof HTMLTextAreaElement && event.target.name === 'reason') {
+            event.target.setCustomValidity('');
+        }
     });
 
     const reopen = document.querySelector('dialog[data-reopen="true"]');

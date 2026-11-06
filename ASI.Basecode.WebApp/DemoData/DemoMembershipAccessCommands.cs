@@ -40,6 +40,13 @@ public sealed class DemoMembershipAccessCommands : IMembershipAccessCommands
     {
         cancellationToken.ThrowIfCancellationRequested();
 
+        // Refuse a blank reason before the state check, so the reason refusal wins over the
+        // already-active and already-inactive refusals.
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            throw new DomainException(OutcomeCode.Invalid, "A reason is required.", "reason");
+        }
+
         var member = _members.GetMemberRecord(memberId);
         if (member is null)
         {

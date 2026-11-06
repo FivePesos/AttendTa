@@ -6,7 +6,7 @@
     var submittingText = Model.IsActive ? "Deactivating…" : "Reactivating…";
     var rows = Model.AffectedRegistrations ?? Array.Empty<UpcomingRegistrationPreview>();
 }
-<dialog class="task-dialog access-dialog" aria-labelledby="membership-access-title">
+<dialog class="task-dialog access-dialog" aria-labelledby="membership-access-title" aria-describedby="membership-access-consequence">
     <form asp-controller="Member" asp-action="@action" asp-route-id="@Model.MemberId" method="post">
         <div class="dialog-header">
             <h2 id="membership-access-title">@title</h2>
@@ -18,7 +18,7 @@
         </p>
         @if (Model.IsActive)
         {
-            <p class="access-dialog-consequence">
+            <p class="access-dialog-consequence" id="membership-access-consequence">
                 Deactivating this membership removes event participation and certificate eligibility.
                 The linked account can still sign in.
             </p>
@@ -42,7 +42,7 @@
         }
         else
         {
-            <p class="access-dialog-consequence">
+            <p class="access-dialog-consequence" id="membership-access-consequence">
                 Reactivating this membership restores event participation and certificate eligibility.
                 The linked account's access is unchanged.
             </p>
