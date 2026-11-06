@@ -28,6 +28,17 @@ public sealed class RegistrationReviewTests
         Assert.Equal(OutcomeCode.Forbidden, error.Outcome);
     }
 
+    [Theory]
+    [InlineData(false, "admin")]
+    [InlineData(true, "member")]
+    public async Task PromotionRejectsNonManagementBeforeAccessingData(bool authenticated, string role)
+    {
+        var actor = new Actor(authenticated, role);
+        var service = new RegistrationReviewService(null!, null!, null!, null!, null!, actor, null!, null!, TimeProvider.System);
+        var error = await Assert.ThrowsAsync<DomainException>(() => service.PromoteNextAsync(1, TestContext.Current.CancellationToken));
+        Assert.Equal(OutcomeCode.Forbidden, error.Outcome);
+    }
+
     private sealed record Actor(bool IsAuthenticated, string Role) : ICurrentActor
     {
         public int UserId => 1;

@@ -11,4 +11,7 @@ public interface IRegistrationReviewService
     Task ApproveAsync(int id, CancellationToken ct = default);
     Task DeclineAsync(int id, string reason, CancellationToken ct = default);
     Task CancelAsync(int id, string reason, CancellationToken ct = default);
+
+    /// <summary>Confirms the earliest eligible waitlisted registration for the event, in queue order.</summary>
+    Task PromoteNextAsync(int eventId, CancellationToken ct = default);
 }

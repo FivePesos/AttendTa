@@ -31,6 +31,44 @@ public sealed class RegistrationReviewService(IRegistrationRepository registrati
     public Task DeclineAsync(int id, string reason, CancellationToken ct = default) => ExecuteAsync(id, reason, 1, ct);
     public Task CancelAsync(int id, string reason, CancellationToken ct = default) => ExecuteAsync(id, reason, 2, ct);
 
+    public async Task PromoteNextAsync(int eventId, CancellationToken ct = default)
+    {
+        var actorId = RequireManagement();
+        var candidate = await registrations.DiscoverPromotionCandidateAsync(eventId, ct);
+        if (candidate == null) throw new DomainException(OutcomeCode.Invalid, "No eligible waitlisted registration to promote.");
+        await unitOfWork.ExecuteInTransactionAsync(async token =>
+        {
+            var user = await users.LockUserAsync(candidate.UserId, token);
+            var member = await members.GetMemberByUserIdAsync(candidate.UserId, token);
+            var eventItem = await events.LockEventAsync(candidate.EventId, token);
+            var now = clock.GetUtcNow().UtcDateTime;
+            var current = await registrations.DiscoverPromotionCandidateAsync(candidate.EventId, token);
+            var row = await registrations.GetForCancellationAsync(candidate.RegistrationId, token);
+            if (current != candidate || row == null || row.MemberId != candidate.MemberId || row.EventId != candidate.EventId
+                || user == null || member == null || member.MemberId != candidate.MemberId || eventItem == null)
+                throw new DomainException(OutcomeCode.Stale, "The waitlist changed. Refresh and try again.");
+            if (row.RegistrationStatusId != RegistrationStatusCode.Waitlisted)
+                throw new DomainException(OutcomeCode.Stale, "Registration status changed. Refresh and try again.");
+            if (eventItem.EventStatusId != EventStatusCode.Published)
+                throw new DomainException(OutcomeCode.Stale, "Event status changed. Refresh and try again.");
+            if (ParticipationFacts.StartCutoffPassed(now).Compile()(eventItem))
+                throw new DomainException(OutcomeCode.CutoffPassed, "This event has already started.");
+            if (!ParticipationFacts.EligibleParticipant.Compile()(user, member))
+                throw new DomainException(OutcomeCode.Stale, "Member eligibility changed. Refresh and try again.");
+            if (await registrations.CountConfirmedAsync(candidate.EventId, token) >= eventItem.ParticipantLimit)
+                throw new DomainException(OutcomeCode.CapacityUnavailable, "No seat is available to promote.");
+            row.RegistrationStatusId = RegistrationStatusCode.Confirmed;
+            row.ConfirmedBy = actorId;
+            row.ConfirmedAt = now;
+            row.QrToken = NewQrToken();
+            row.UpdatedBy = actorId;
+            row.UpdatedAt = now;
+            audit.Append(new AuditEntry(AuditActions.RegistrationPromoted, "registrations", candidate.RegistrationId, null,
+                new StatusValues(RegistrationStatusCode.Waitlisted.ToString()), new StatusValues(RegistrationStatusCode.Confirmed.ToString())));
+            await unitOfWork.SaveChangesAsync(token);
+        }, ct);
+    }
+
     private async Task ExecuteAsync(int id, string reason, int operation, CancellationToken ct)
     {
         var actorId = RequireManagement();
@@ -69,7 +107,7 @@ public sealed class RegistrationReviewService(IRegistrationRepository registrati
                 {
                     row.ConfirmedBy = actorId;
                     row.ConfirmedAt = now;
-                    row.QrToken = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
+                    row.QrToken = NewQrToken();
                 }
                 audit.Append(new AuditEntry(AuditActions.RegistrationApproved, "registrations", id, null,
                     new StatusValues(RegistrationStatusCode.Pending.ToString()), new StatusValues(row.RegistrationStatusId.ToString())));
@@ -94,6 +132,9 @@ public sealed class RegistrationReviewService(IRegistrationRepository registrati
             throw new DomainException(OutcomeCode.Forbidden, "Management access is required.");
         return actor.UserId;
     }
+
+    /// <summary>32 random bytes as 64 lowercase hex characters (AD-4 data shape).</summary>
+    private static string NewQrToken() => Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
 
     public static RegistrationStatusCode ParseStatus(string status) => status?.Trim().ToLowerInvariant() switch
     {
