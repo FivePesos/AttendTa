@@ -616,13 +616,15 @@ public class AuthenticationFlowTests : IClassFixture<SqlServerDatabaseFixture>, 
     private static void AssertReadOnlyProfile(string html)
     {
         Assert.Contains("<dl class=\"profile-details\">", html, StringComparison.Ordinal);
-        var profileMarkupStart = html.IndexOf("<section class=\"panel\"", StringComparison.Ordinal);
-        var profileMarkupEnd = html.IndexOf("</section>", profileMarkupStart, StringComparison.Ordinal);
-        Assert.True(profileMarkupStart >= 0 && profileMarkupEnd > profileMarkupStart, "Profile details section was not rendered.");
-        var profileMarkup = html[profileMarkupStart..(profileMarkupEnd + "</section>".Length)];
-        Assert.False(Regex.IsMatch(profileMarkup, "<(input|select|textarea)\\b", RegexOptions.IgnoreCase));
-        Assert.DoesNotContain("Save", profileMarkup, StringComparison.Ordinal);
-        Assert.DoesNotContain("Edit profile", profileMarkup, StringComparison.Ordinal);
+        var sections = Regex.Matches(html, "<section class=\"panel\".*?</section>", RegexOptions.Singleline);
+        Assert.True(sections.Count > 0, "Profile details section was not rendered.");
+        foreach (Match section in sections)
+        {
+            var profileMarkup = section.Value;
+            Assert.False(Regex.IsMatch(profileMarkup, "<(input|select|textarea)\\b", RegexOptions.IgnoreCase));
+            Assert.DoesNotContain("Save", profileMarkup, StringComparison.Ordinal);
+            Assert.DoesNotContain("Edit profile", profileMarkup, StringComparison.Ordinal);
+        }
     }
 
     private static string? GetLocationPath(HttpResponseMessage response)

@@ -21,7 +21,6 @@ public sealed class StaticAssetTests(SqlServerDatabaseFixture fixture) : IClassF
         "/lib/jquery-validation-unobtrusive/jquery.validate.unobtrusive.min.js",
         "/img/attendta-logo.jpg",
         "/fonts/outfit-latin.woff2",
-        "/fonts/plus-jakarta-sans-latin.woff2",
         "/favicon.ico"
     ];
 

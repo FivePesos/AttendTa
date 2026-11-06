@@ -21,20 +21,20 @@ context: []
 
 **Problem:** The Master Data module (Member, Event Type, Venue) passed its feature tickets but still carries dead code, duplicated controller error handling, and Razor markup that drifted from the house pattern. The ticket's verify clause also names `actorUserId` as forbidden, and `EventTypeService` still uses that identifier.
 
-**Approach:** Remove verified-dead code and duplication, align the three view sets to the existing `AccountRequest`/`AdminAccounts` house pattern using classes that already exist in `Styles/app.css`, and rename the remaining `actorUserId` identifiers. No new features, routes, columns, or CSS classes.
+**Approach:** Remove verified-dead code and duplication, align the three view sets and the member profile to `docs/DESIGN.md` §5–§6 using the existing house patterns, rename the remaining `actorUserId` identifiers, and close the rendered-critique findings the human approved: required markers, input contrast, form width and grouping, result counts, the Member email column, Profile grouping, the canonical screen names, and the login typeface. No search filters, sorting, page-number paging, or dialog conversion.
 
 ## Boundaries & Constraints
 
-**Always:** Behavior stays identical for every existing endpoint and test. Only classes and helpers already present in `ASI.Basecode.WebApp/Styles/app.css` are used. Every mutation stays POST + antiforgery. `ICurrentActor` remains the only service-layer actor source. `Data` repositories and non-Master-Data modules are untouched.
+**Always:** Behavior stays identical for every existing endpoint. Shared CSS changes are limited to the rules the approved findings require. Every mutation stays POST + antiforgery. `ICurrentActor` remains the only service-layer actor source. `Data` repositories are untouched.
 
-**Never:** Do not add search, status filters, sortable headers, page-number paging, result counts, required markers, form panels, or an `<h1>` promotion — those are new scope or app-wide decisions. Do not remove `InvalidDataException` or `GetActorUserId` outside Master Data. Do not hard-delete records. Do not change the shared `_Pager.cshtml` or `app.css`.
+**Never:** Do not add search, status filters, sortable headers, page-number paging, or convert the editors to dialogs — those remain new scope. Do not remove `InvalidDataException` or `GetActorUserId` outside Master Data. Do not hard-delete records. Do not change the shared `_Pager.cshtml`.
 
 ## I/O & Edge-Case Matrix
 
 | Scenario | Input / State | Expected Output / Behavior | Error Handling |
 |----------|--------------|---------------------------|----------------|
-| List renders | Officer opens `/Member`, `/EventType`, `/Venue` | Same rows, order, pager, and actions as before; status is a `.badge`, numeric cells use `.numeric` | No error expected |
-| Empty list | 0 rows, or a search with no match | Empty-state message only; no table, no pager | No error expected |
+| List renders | Officer opens `/Member`, `/EventType`, `/Venue` | Same rows and order; status is a `.badge`, numeric cells use `.numeric`, the canonical `h1` and a result count render, and Member shows Email | No error expected |
+| Empty list | 0 rows, or a search with no match | The table and headers are retained; a full-width message row explains no-records versus no-match; no pager | No error expected |
 | Toggle on a later page | `POST /EventType/ToggleActive` with `page=4` | Redirect returns to `/EventType?page=4` | No error expected |
 | Venue save fails | Capacity below a linked event's limit | Field error redisplayed through the shared `HandleDomainException` | Field error, no redirect |
 | Dead code removed | Build plus Master Data tests | Zero warnings, all tests green | n/a |
@@ -55,6 +55,11 @@ context: []
 - `ASI.Basecode.WebApp/Views/Venue/Edit.cshtml` — line 12 claims a photo is stored but renders none; `Photo` action and `.venue-thumb` already exist.
 - House pattern to copy: `Views/AccountRequest/Index.cshtml` (badges 126, `.row-actions` 130, `button-small` 132, `.numeric` 118–125).
 - Tests that pin current markup: `MemberPagedListTests` (`data-member-id`, "No members match your search.", "inactive"), `EventTypeManagementFlowTests` (`data-table`), `VenuePagedListTests` (pager labels).
+- `ASI.Basecode.Services/ServiceModels/IPagedResult.cs` and `PagedResult.cs` — gained `FirstItemNumber`/`LastItemNumber` so the shared result count and pager read one contract.
+- `ASI.Basecode.WebApp/Views/Shared/_ResultCount.cshtml` — new shared partial rendering "Showing X–Y of N records"; renders nothing at zero because the empty row explains it.
+- `ASI.Basecode.WebApp/Views/Profile/Index.cshtml` — split into Account / Academic details / Membership panels with a status badge.
+- `ASI.Basecode.WebApp/Views/{Member,EventType,Venue}/_Form.cshtml` — fieldsets, legends, and required markers.
+- `ASI.Basecode.WebApp/Styles/app.css` — `.required`, `.form-panel`, `.form-actions`, `.panel + .panel`, input border `#64748b`, and the login card returned to Outfit.
 
 ## Tasks & Acceptance
 
@@ -85,10 +90,12 @@ context: []
 - Coverage added for the matrix rows that had none: `EventTypeManagementFlowTests` now asserts the paged toggle Location, and `MemberPagedListTests` asserts the `.numeric` and `.badge` markup.
 - `VenueToggleAuditTests` pinned the old `<td>Active</td>` markup. Its two assertions now check `class="badge badge-active">Active</span>` and the inactive counterpart, matching the frozen matrix's badge requirement and the `AdminAccountsListTests` style. The status text is still asserted.
 - `Member/Index.cshtml` renders `Active`/`Inactive` rather than the raw lowercase lookup code, matching the Event Type and Venue badges. `MemberPagedListTests` asserts the text case-insensitively, so it still passes.
-- No CSS classes were added, so `wwwroot/css/app.css` is unchanged.
+- `Styles/app.css` and the rebuilt `wwwroot/css/app.css` changed: `.required`, `.form-panel`, `.form-actions`, `.panel + .panel`, the input border moved to `#64748b`, and the login card returned to Outfit. The earlier note claiming no CSS change was wrong and is corrected here.
 - Follow-up after the rendered review: all three lists now keep the table and its headers when empty, with the message in a full-width row, per `docs/DESIGN.md:224`. Member distinguishes "no members yet" from "no match"; Event Type and Venue say what to do next. `AuthenticationFlowTests` and `VenuePagedListTests` were updated to the new copy and now also assert `data-table` is retained.
 
 ## Plan Change Log
+
+- 2026-11-06 — **Scope renegotiated by the human after the rendered critique.** The original "Never" clause forbade result counts, required markers, form panels, an `h1` promotion, and `app.css` edits. The human approved the markup/CSS-only critique set, the DESIGN §6 screen names, and restoring Outfit on the login card. Amended: the Approach, Always, Never and I/O matrix rows; the Code Map and Verification lists; and the false "no CSS classes were added" note. Known-bad state avoided: a reviewer reading the plan would have believed the shipped changes were out of scope. KEEP: the dead-code removals, the `ReportError` dedupe, the actor rename, and the page-preserving toggle — none of those were renegotiated.
 
 ## Review Triage Log
 
@@ -102,15 +109,58 @@ context: []
 
 The three lists currently disagree on empty-state shape, action-cell class, and status treatment. `AccountRequest/Index.cshtml` is the newest and most complete Operate screen, so it is the reference, not a new design.
 
-Deliberately out of scope and worth a follow-up ticket: `.data-table th:nth-child(3)` in `Styles/app.css:81` pins the third column, which is Course on Member, Status on Event Type, and Location on Venue — the identity column scrolls away. Fixing it changes shared CSS and another module's table, so it is not part of this sweep.
+Deliberately out of scope and worth a follow-up ticket: `.data-table th:nth-child(3)` in `Styles/app.css:81` pins the third column, which is now Email on Member, Status on Event Type, and Location on Venue — the identity column still scrolls away. Fixing it changes shared CSS and another module's table, so it is not part of this sweep.
 
 ## Verification
 
 **Commands:**
 - `dotnet build ASI.Basecode.sln --no-restore -warnaserror` — expected: 0 warnings, 0 errors.
-- `dotnet test --project tests/ASI.Basecode.Services.Tests/ASI.Basecode.Services.Tests.csproj` — expected: all pass.
-- With `ATTENDTA_TEST_SQL` set to a local SQL Server `master` connection: `dotnet test --project tests/ASI.Basecode.IntegrationTests/ASI.Basecode.IntegrationTests.csproj` — expected: all pass, including `MemberPagedListTests`, `EventTypeManagementFlowTests`, `VenuePagedListTests`, and `MasterDataTransactionTests`.
-- `npm --prefix ASI.Basecode.WebApp run css:build` then `git diff --exit-code -- ASI.Basecode.WebApp/wwwroot/css/app.css` — expected: no diff, since no new classes are introduced.
+- `dotnet test --project tests/ASI.Basecode.Services.Tests/ASI.Basecode.Services.Tests.csproj` — expected: all pass, including `PagingTests` for the new `FirstItemNumber`/`LastItemNumber` members.
+- With `ATTENDTA_TEST_SQL` set to a local SQL Server `master` connection: `dotnet test --project tests/ASI.Basecode.IntegrationTests/ASI.Basecode.IntegrationTests.csproj` — expected: all pass, including `MemberPagedListTests`, `EventTypeManagementFlowTests`, `VenuePagedListTests`, `VenueToggleAuditTests`, `VenuePhotoFlowTests`, `AuthenticationFlowTests`, `StaticAssetTests`, and `MasterDataTransactionTests`.
+- `npm --prefix ASI.Basecode.WebApp run css:build` then `git diff --exit-code -- ASI.Basecode.WebApp/wwwroot/css/app.css` — expected: no diff once the rebuilt sheet is committed.
 
 **Manual checks:**
 - Sign in as an Officer and open `/Member`, `/EventType`, `/Venue`; confirm badges, numeric alignment, small row actions, and that the Event Type toggle keeps its page.
+
+## Code Review
+
+### 2026-11-06
+
+**Code review complete.** 0 decision-needed, 15 patch, 0 defer, 18 rejected.
+
+- [x] [Review][Patch] The plan is stale and self-contradictory — frozen "Never" clause forbids the shipped result counts, required markers, form panels, `h1` promotion and `app.css` edits; Implementation Notes claim "no CSS classes were added"; I/O matrix rows are inverted; Code Map omits half the diff; Verification omits the edited test files. [story-refactor-sweep-plan.md]
+- [x] [Review][Patch] Empty-state copy names buttons that no longer exist — "Add Event Type" / "Add Venue" vs the "New Event Type" / "New Venue" buttons. [ASI.Basecode.WebApp/Views/EventType/Index.cshtml:25, ASI.Basecode.WebApp/Views/Venue/Index.cshtml:29]
+- [x] [Review][Patch] `.page-heading h1` shrinks `h1` on non-Master-Data pages — AccountRequest, MemberEvents/Index and MemberEvents/Details drop from 1.8rem to 1.5rem. [ASI.Basecode.WebApp/Styles/app.css:66]
+- [x] [Review][Patch] `AssertReadOnlyProfile` now checks only the first profile panel, so a control added to Academic or Membership would pass. [tests/ASI.Basecode.IntegrationTests/AuthenticationFlowTests.cs:616]
+- [x] [Review][Patch] Result-count arithmetic untested — no assertion for `FirstItemNumber`/`LastItemNumber` on first, last, or empty pages. [tests/ASI.Basecode.Services.Tests/PagingTests.cs]
+- [x] [Review][Patch] Event Type empty state unpinned while the Member and Venue equivalents are pinned. [tests/ASI.Basecode.IntegrationTests/EventTypeManagementFlowTests.cs]
+- [x] [Review][Patch] Venue Edit current-photo block unpinned. [tests/ASI.Basecode.IntegrationTests/VenuePhotoFlowTests.cs:165]
+- [x] [Review][Patch] Event Type status badge unpinned while the Member and Venue badges are pinned. [tests/ASI.Basecode.IntegrationTests/EventTypeManagementFlowTests.cs]
+- [x] [Review][Patch] Venue Edit renders a broken image when the stored photo is missing — the `<img>` is unconditional. [ASI.Basecode.WebApp/Views/Venue/Edit.cshtml:11]
+- [x] [Review][Patch] Orphaned Plus Jakarta `@font-face` and asset remain after the login card stopped using them. [ASI.Basecode.WebApp/Styles/app.css:22]
+- [x] [Review][Patch] `.required` reuses the error red, conflating "required" with "invalid". [ASI.Basecode.WebApp/Styles/app.css:60]
+- [x] [Review][Patch] `aria-live` on a static result count announces nothing and repeats the `_Pager` defect. [ASI.Basecode.WebApp/Views/Shared/_ResultCount.cshtml:5]
+- [x] [Review][Patch] Create/Edit headings still say "Add Event Type" / "Add Venue" while the lists say "New ...". [ASI.Basecode.WebApp/Views/EventType/Create.cshtml:6, ASI.Basecode.WebApp/Views/Venue/Create.cshtml:6]
+- [x] [Review][Patch] The two critique snapshots contradict each other with no supersession note. [.impeccable/critique/2026-11-06T07-54-11Z__asi-basecode-webapp-views.md]
+- [x] [Review][Patch] No coverage for `_ResultCount`, Profile panels, or required markers beyond the gaps above. [tests/ASI.Basecode.IntegrationTests]
+
+#### Rejected
+
+- R6 — false — the empty-state row already states the zero case and distinguishes no-records from no-match; a "Showing 0 of 0" line would duplicate it.
+- R7 — false — `PagedResult` clamps `PageNumber` to `[1, TotalPages]` at construction, so the inverted range is unreachable; `PageSize` is the constant 25.
+- R8 — false — the only other implementer, `AccountRequestQueueViewModel`, already declares both members.
+- R9 — false — the page-preserving return sits after the `try/catch` and runs on both paths.
+- R10 — false — `ToggleActive` catches `DomainException`, not bare `Exception`.
+- R11 — false — `HandleDomainException` sets `TempData` and returns `View(model)` for the field-less case, identical to the deleted `ReportError`.
+- R13 — low — table duplication is real but extracting a partial is larger than a direct correction.
+- R17 — false — every marked field has `[Required]` or `[Range]`; optional fields are unmarked.
+- R18 — low — pre-existing, and changing it alters error display app-wide.
+- R19 — false — the assertions were tightened to the cell form and the hidden `page` input is asserted.
+- R20 — low — the double toggle is self-contained and deterministic.
+- R23 — low — the duplicated tail is a reviewer artifact; the committed files are correct.
+- R26 — false — the DB link and `MemberRecord.UserId` remain; only an unused view-model property was removed.
+- R28 — low — cosmetic field grouping.
+- R29 — low — debatable taxonomy.
+- R32 — low — the lookup code is stable; a shared constant would need exposing.
+- R40 — low — the narrow reading of "Master Data" holds.
+- R41 — low — intended behavior, verified in the browser.

@@ -19,7 +19,6 @@
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 @font-face { font-family: Outfit; src: url("../fonts/outfit-latin.woff2") format("woff2"); font-style: normal; font-weight: 100 900; font-display: swap; }
-@font-face { font-family: "Plus Jakarta Sans"; src: url("../fonts/plus-jakarta-sans-latin.woff2") format("woff2"); font-style: normal; font-weight: 200 800; font-display: swap; }
 @font-face { font-family: "JetBrains Mono"; src: url("../fonts/jetbrains-mono-latin-400-normal.woff2") format("woff2"); font-style: normal; font-weight: 400; font-display: swap; }
 @font-face { font-family: "JetBrains Mono"; src: url("../fonts/jetbrains-mono-latin-600-normal.woff2") format("woff2"); font-style: normal; font-weight: 600; font-display: swap; }
 @layer base {
@@ -58,12 +57,11 @@
   .field input, .field select, .field textarea, .field-control { display: block; width: 100%; padding: .65rem .75rem; border: 1px solid #64748b; border-radius: 10px; background: white; color: #090d16; min-height: 44px; }
   .field input[readonly] { background: #f1f5f9; } .field-error, .validation-summary { color: #b91c1c; } .validation-summary ul { margin-bottom: 1rem; }
   .field-error { display: block; min-height: 1.5em; }
-  .required { color: #b91c1c; margin-left: .15rem; }
+  .required { color: #475569; margin-left: .15rem; }
   .form-panel { max-width: 40rem; }
   .form-panel fieldset { border: 0; padding: 0; margin: 0 0 1.5rem; }
   .form-panel legend { font-size: 1rem; font-weight: 700; color: #090d16; margin-bottom: .75rem; }
   .form-actions { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1rem; }
-  .page-heading h1 { font-size: 1.5rem; }
   .input-validation-error { border-color: #b91c1c !important; }
   .button { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: .6rem 1rem; border: 1px solid transparent; border-radius: 10px; font-weight: 600; text-decoration: none; cursor: pointer; }
   .button-primary { background: #0b1120; color: white; } .button-secondary { background: white; border-color: #cbd5e1; color: #334155; } .button:hover { text-decoration: none; } .button-primary:hover { background: #1e293b; } .button-secondary:hover { background: #f8fafc; }

@@ -1,10 +1,10 @@
 @model VenueViewModel
 @{
-    ViewData["Title"] = "Add Venue";
+    ViewData["Title"] = "New Venue";
     ViewData["PhotoRequired"] = true;
 }
 
-<h1>Add Venue</h1>
+<h1>New Venue</h1>
 
 <form asp-action="Create" method="post" enctype="multipart/form-data" class="form-panel">
     <div asp-validation-summary="ModelOnly" class="validation-summary" role="alert"></div>

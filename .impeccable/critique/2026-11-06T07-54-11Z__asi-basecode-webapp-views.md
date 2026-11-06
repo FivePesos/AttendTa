@@ -6,6 +6,7 @@ na_heuristics:
 p0_count: 0
 p1_count: 3
 target_identity: "file:F:\\AttendTaBMAD\\ASI.Basecode.WebApp\\Views"
+superseded_by: "2026-11-06T08-25-22Z__asi-basecode-webapp-views.md"
 timestamp: 2026-11-06T07-54-11Z
 slug: asi-basecode-webapp-views
 ---
