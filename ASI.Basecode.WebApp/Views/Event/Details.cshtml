@@ -1,5 +1,6 @@
 @model EventDossierViewModel
 @using ASI.Basecode.Data.Models.Lookups
+@using System.Linq
 @{
     var item = Model.Event;
     ViewData["Title"] = item.Title;
@@ -9,6 +10,11 @@
     var reopen = TempData["DossierDialog"] as string;
     var failedId = TempData["DossierId"];
     var reason = TempData["DossierReason"] as string;
+    int.TryParse(failedId?.ToString(), out var failedRegistrationId);
+    var failedRegistration = Model.Roster.Items.FirstOrDefault(row => row.RegistrationId == failedRegistrationId);
+    var retrySummary = failedRegistration == null
+        ? $"Registration #{failedRegistrationId} · {item.Title}"
+        : $"{failedRegistration.MemberName} ({failedRegistration.StudentNumber}) · Registration #{failedRegistrationId}";
     var tabs = new[] { ("pending", "Pending Review", Model.PendingCount), ("confirmed", "Confirmed", Model.ConfirmedCount), ("waitlisted", "Waitlisted", Model.WaitlistedCount) };
 }
 
@@ -93,12 +99,12 @@
 {
     var eventCommand = decision.Item1 is "event-cancel" or "complete";
     var retry = reopen == decision.Item1;
-    <dialog id="@decision.Item1" class="task-dialog" aria-labelledby="@decision.Item1-title" data-reopen="@(retry ? "true" : null)" data-reopen-id="@failedId" data-reopen-reason="@reason">
+    <dialog id="@decision.Item1" class="task-dialog" aria-labelledby="@decision.Item1-title" aria-describedby="@decision.Item1-summary" data-reopen="@(retry ? "true" : null)" data-reopen-id="@failedId" data-reopen-reason="@reason">
         <form asp-controller="@(eventCommand ? "Event" : "RegistrationReview")" asp-action="@decision.Item3" method="post">
             <input type="hidden" name="id" value="@item.EventId" data-dialog-field="id" />
             <input type="hidden" name="eventId" value="@item.EventId" /><input type="hidden" name="status" value="@Model.Status" /><input type="hidden" name="page" value="@Model.Roster.PageNumber" /><input type="hidden" name="dossier" value="true" />
             <div class="dialog-header"><h2 id="@decision.Item1-title">@decision.Item2</h2><button type="button" class="dialog-close" data-dialog-close aria-label="Close dialog">&times;</button></div>
-            <p class="muted" data-dialog-field="summary">@item.Title</p>
+            <p id="@decision.Item1-summary" class="muted" data-dialog-field="summary">@(retry && !eventCommand && decision.Item1 != "promote" ? retrySummary : item.Title)</p>
             @if (decision.Item1 == "approve") { <p class="dialog-consequence">Approval confirms a participant only when a seat is available and no earlier eligible waitlisted participant has priority. Otherwise, the registration joins the waitlist.</p> }
             @if (decision.Item1 == "promote") { <p class="dialog-consequence">This confirms the earliest eligible waitlisted participant if a seat is available. No other registrations are promoted automatically.</p> }
             @if (decision.Item1 == "event-cancel") { <p class="dialog-consequence">Pending, confirmed and waitlisted registrations will be cancelled, passes invalidated and check-in closed. This cannot be undone.</p> }
