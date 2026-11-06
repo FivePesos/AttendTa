@@ -114,6 +114,10 @@ public sealed class CertificateTracerServiceTests
 
     private sealed class FakeRegistrationRepository : IRegistrationRepository
     {
+        public Task<Registration> GetForCancellationAsync(int id, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<IReadOnlyList<Registration>> GetOpenForEventAsync(int id, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<IReadOnlyList<int>> DiscoverOpenEventIdsForUserAsync(int id, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<IReadOnlyList<UpcomingRegistrationRow>> GetUpcomingForUserAsync(int id, DateTime now, int? eventId = null, CancellationToken ct = default) => throw new NotSupportedException();
         public bool IsConfirmed { get; init; }
         public int LookupCount { get; private set; }
 
