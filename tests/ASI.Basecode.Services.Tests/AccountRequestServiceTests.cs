@@ -532,10 +532,13 @@ public class AccountRequestServiceTests
     {
         public List<AccountRequest> Requests { get; } = new();
 
-        public Task<int> CountByStatusAsync(AccountRequestStatusCode status, CancellationToken cancellationToken = default)
+        public Task<int> CountByStatusAsync(AccountRequestStatusCode? status, string search, CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
 
-        public Task<IReadOnlyList<AccountRequestQueueItem>> GetPageByStatusAsync(AccountRequestStatusCode status, int skip, int take, CancellationToken cancellationToken = default)
+        public Task<IReadOnlyList<AccountRequestQueueItem>> GetPageByStatusAsync(AccountRequestStatusCode? status, string search, bool oldestFirst, int skip, int take, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task<AccountRequestStatusCounts> GetStatusCountsAsync(string search, CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
 
         public Task<AccountRequest> LockAccountRequestAsync(int requestId, CancellationToken cancellationToken = default)
