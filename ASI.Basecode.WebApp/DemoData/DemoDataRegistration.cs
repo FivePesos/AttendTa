@@ -14,13 +14,20 @@ internal static class DemoDataRegistration
 {
     public static void AddDemoData(this IServiceCollection services, IConfiguration configuration)
     {
+        DemoCertificatesRegistration.AddCertificates(services, configuration.GetValue<bool>(DemoDataOptions.SectionName + ":Enabled"));
         if (!configuration.GetValue<bool>(DemoDataOptions.SectionName + ":Enabled"))
         {
             services.AddSingleton<IEventStateOverlay, NoOpEventStateOverlay>();
             services.AddScoped<IEventStateCommands, UnavailableEventStateCommands>();
             services.AddScoped<IParticipationReportService, EmptyParticipationReportService>();
+            services.AddSingleton<IAccessStateOverlay, NoOpAccessStateOverlay>();
+            services.AddScoped<IAccountAccessCommands, UnavailableAccessCommands>();
+            services.AddScoped<IMembershipAccessCommands, UnavailableAccessCommands>();
             services.AddScoped<IPassService, UnavailablePassService>();
             services.AddScoped<IMyEventsService, EmptyMyEventsService>();
+            services.AddScoped<ICheckInService, UnavailableCheckInService>();
+            services.AddScoped<ICheckInLookupService, UnavailableCheckInLookupService>();
+            services.AddScoped<IAttendanceInvalidationService, UnavailableAttendanceInvalidationService>();
             return;
         }
 
@@ -30,7 +37,9 @@ internal static class DemoDataRegistration
 
         DemoEventsRegistration.AddDemoEvents(services);
         DemoReportsRegistration.AddDemoReports(services);
+        DemoAccessRegistration.AddDemoAccess(services);
         DemoPassesRegistration.AddDemoPasses(services);
         DemoMyEventsRegistration.AddDemoMyEvents(services);
+        DemoCheckInRegistration.AddDemoCheckIn(services);
     }
 }
