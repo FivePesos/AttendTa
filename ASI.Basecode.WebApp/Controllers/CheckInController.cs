@@ -1,5 +1,6 @@
 using System.Threading;
 using System.Threading.Tasks;
+using System.Text.Json;
 using ASI.Basecode.Resources;
 using ASI.Basecode.Resources.Constants;
 using ASI.Basecode.Services.Interfaces;
@@ -50,6 +51,12 @@ public sealed class CheckInController : ControllerBase<CheckInController>
     public async Task<IActionResult> Index(int? eventId, string q, int? page, CancellationToken cancellationToken)
     {
         var screen = await _checkIn.GetScreenAsync(eventId, cancellationToken);
+        var outcomeJson = TempData["CheckInOutcome"] as string;
+        var outcomeEventId = TempData["CheckInOutcomeEventId"] as int?;
+        if (outcomeJson != null && outcomeEventId == screen.EventId)
+        {
+            ViewData["CheckInOutcome"] = JsonSerializer.Deserialize<CheckInOutcomeViewModel>(outcomeJson);
+        }
         if (screen.EventId is int selectedEventId && !string.IsNullOrWhiteSpace(q))
         {
             screen.Lookup = await _lookup.SearchAsync(selectedEventId, q, page, cancellationToken);
@@ -69,7 +76,7 @@ public sealed class CheckInController : ControllerBase<CheckInController>
                 return Json(outcome);
             }
 
-            SetOutcomeMessage(outcome);
+            SetOutcomeMessage(eventId, outcome);
         }
         catch (DomainException exception)
         {
@@ -80,7 +87,7 @@ public sealed class CheckInController : ControllerBase<CheckInController>
                     new { outcome = CheckInOutcomeViewModel.Invalid, message = exception.Message });
             }
 
-            TempData["ErrorMessage"] = exception.Message;
+            SetOutcomeMessage(eventId, CheckInOutcomeViewModel.InvalidResult(exception.Message));
         }
 
         return RedirectToAction(nameof(Index), new { eventId });
@@ -97,11 +104,11 @@ public sealed class CheckInController : ControllerBase<CheckInController>
         try
         {
             var outcome = await _lookup.CheckInAsync(eventId, registrationId, q, cancellationToken);
-            SetOutcomeMessage(outcome);
+            SetOutcomeMessage(eventId, outcome);
         }
         catch (DomainException exception)
         {
-            TempData["ErrorMessage"] = exception.Message;
+            SetOutcomeMessage(eventId, CheckInOutcomeViewModel.InvalidResult(exception.Message));
         }
 
         return RedirectToAction(nameof(Index), new { eventId, q, page });
@@ -127,8 +134,12 @@ public sealed class CheckInController : ControllerBase<CheckInController>
         return RedirectToAction(nameof(Index), new { eventId });
     }
 
-    private void SetOutcomeMessage(CheckInOutcomeViewModel outcome)
+    private void SetOutcomeMessage(int eventId, CheckInOutcomeViewModel outcome)
     {
+        // Carry the full result across POST/redirect/GET, so manual and no-JS operators get the
+        // same persistent identity/time/outcome panel as camera and pass-code AJAX callers.
+        TempData["CheckInOutcome"] = JsonSerializer.Serialize(outcome);
+        TempData["CheckInOutcomeEventId"] = eventId;
         var message = outcome.Outcome switch
         {
             CheckInOutcomeViewModel.Success => $"{outcome.MemberName} checked in.",

@@ -23,6 +23,8 @@
     var frame = null;
     var scanning = false;
     var busy = false;
+    var starting = false;
+    var generation = 0;
 
     var unavailableMessage = 'The camera is not available. Use the pass code or manual lookup instead.';
     var deniedMessage = 'The camera could not be started. Allow camera access or use the pass code or manual lookup instead.';
@@ -32,6 +34,10 @@
     }
 
     function stop() {
+        // Permission prompts can resolve after switching modes or leaving the page. Invalidate
+        // their continuations so a late stream cannot restart a hidden camera or leak tracks.
+        generation += 1;
+        starting = false;
         scanning = false;
         if (frame) {
             cancelAnimationFrame(frame);
@@ -43,6 +49,7 @@
         }
         if (video) video.srcObject = null;
         if (startButton) startButton.hidden = false;
+        if (startButton) startButton.disabled = false;
         if (stopButton) stopButton.hidden = true;
     }
 
@@ -80,13 +87,25 @@
     }
 
     function start() {
+        if (starting || scanning || busy) return;
         if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== 'function') {
             unavailable(unavailableMessage);
             return;
         }
 
+        var requestGeneration = ++generation;
+        starting = true;
+        if (startButton) startButton.disabled = true;
+        if (nextButton) nextButton.hidden = true;
+        setNote('Waiting for camera access. You can use manual lookup at any time.');
         navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false })
             .then(function (mediaStream) {
+                if (requestGeneration !== generation) {
+                    mediaStream.getTracks().forEach(function (track) { track.stop(); });
+                    return;
+                }
+                starting = false;
+                if (startButton) startButton.disabled = false;
                 stream = mediaStream;
                 if (video) {
                     video.srcObject = mediaStream;
@@ -102,6 +121,7 @@
                 frame = requestAnimationFrame(tick);
             })
             .catch(function () {
+                if (requestGeneration !== generation) return;
                 unavailable(deniedMessage);
             });
     }
