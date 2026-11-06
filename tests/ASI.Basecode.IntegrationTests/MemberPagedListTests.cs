@@ -87,6 +87,8 @@ public sealed class MemberPagedListTests(SqlServerDatabaseFixture fixture) : ICl
 
         var unfiltered = await officerClient.GetStringAsync("/Member", ct);
         Assert.Equal(ids[..25], MemberIds(unfiltered));
+        Assert.Contains("<td class=\"numeric\">", unfiltered, StringComparison.Ordinal);
+        Assert.Contains("<td><span class=\"badge badge-", unfiltered, StringComparison.Ordinal);
         Assert.Contains("Page 1 of 3", unfiltered, StringComparison.Ordinal);
         var nameSearch = $"{key}%20Member";
         var first = await officerClient.GetStringAsync($"/Member?search={nameSearch}", ct);

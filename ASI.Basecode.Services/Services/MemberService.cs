@@ -272,7 +272,6 @@ namespace ASI.Basecode.Services.Services
             return new MemberViewModel
             {
                 MemberId = member.MemberId,
-                UserId = member.UserId,
                 FullName = member.FullName,
                 Email = member.Email,
                 StudentNumber = member.StudentNumber,

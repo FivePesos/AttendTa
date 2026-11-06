@@ -1,17 +1,17 @@
 @model MemberViewModel
 @{
-    ViewData["Title"] = "Profile";
+    ViewData["Title"] = "My Member Profile";
 }
 
 <div class="page-heading">
     <div>
-        <h1>Your profile</h1>
+        <h1>My Member Profile</h1>
         <p class="muted">Review the account, academic and membership details linked to your account.</p>
     </div>
 </div>
 
-<section class="panel" aria-labelledby="profile-details-heading">
-    <h2 id="profile-details-heading">Profile details</h2>
+<section class="panel" aria-labelledby="profile-account-heading">
+    <h2 id="profile-account-heading">Account</h2>
     <dl class="profile-details">
         <div>
             <dt>Full name</dt>
@@ -21,6 +21,12 @@
             <dt>Email</dt>
             <dd>@Model.Email</dd>
         </div>
+    </dl>
+</section>
+
+<section class="panel" aria-labelledby="profile-academic-heading">
+    <h2 id="profile-academic-heading">Academic details</h2>
+    <dl class="profile-details">
         <div>
             <dt>Student number</dt>
             <dd>@Model.StudentNumber</dd>
@@ -37,6 +43,12 @@
             <dt>Section</dt>
             <dd>@Model.Section</dd>
         </div>
+    </dl>
+</section>
+
+<section class="panel" aria-labelledby="profile-membership-heading">
+    <h2 id="profile-membership-heading">Membership</h2>
+    <dl class="profile-details">
         <div>
             <dt>Mobile number</dt>
             <dd>@Model.MobileNumber</dd>
@@ -47,7 +59,7 @@
         </div>
         <div>
             <dt>Membership status</dt>
-            <dd>@Model.Status</dd>
+            <dd><span class="badge @(Model.Status == "active" ? "badge-active" : "badge-inactive")">@(Model.Status == "active" ? "Active" : "Inactive")</span></dd>
         </div>
     </dl>
 </section>
