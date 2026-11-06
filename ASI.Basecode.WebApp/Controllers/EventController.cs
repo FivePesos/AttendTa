@@ -129,9 +129,9 @@ namespace ASI.Basecode.WebApp.Controllers
                 return RedirectToRoute(EventIndexRoute);
             }
 
-            if (model.EventStatusId != EventStatusCode.Draft)
+            if (model.EventStatusId is not (EventStatusCode.Draft or EventStatusCode.Published))
             {
-                TempData["ErrorMessage"] = "Only draft events can be edited.";
+                TempData["ErrorMessage"] = "Only draft or published events can be edited.";
                 return RedirectToRoute(EventIndexRoute);
             }
 
@@ -142,6 +142,16 @@ namespace ASI.Basecode.WebApp.Controllers
         [HttpPost]
         public async Task<IActionResult> Edit(EventViewModel model, CancellationToken cancellationToken)
         {
+            var current = await _eventService.GetEventAsync(model.EventId, cancellationToken);
+            if (current == null || current.EventStatusId is not (EventStatusCode.Draft or EventStatusCode.Published))
+            {
+                TempData["ErrorMessage"] = "This event can no longer be edited.";
+                return RedirectToRoute(EventIndexRoute);
+            }
+            model.EventStatusId = current.EventStatusId;
+            model.TypeName = current.TypeName;
+            model.VenueName = current.VenueName;
+            ModelState.Remove(nameof(model.EventStatusId));
             if (!ModelState.IsValid)
             {
                 return View(await WithOptionsAsync(model, cancellationToken));
@@ -151,7 +161,7 @@ namespace ASI.Basecode.WebApp.Controllers
             try
             {
                 await _eventService.UpdateDraftAsync(model, cancellationToken);
-                TempData["SuccessMessage"] = "Draft event updated.";
+                TempData["SuccessMessage"] = "Event updated.";
                 return RedirectToRoute(EventIndexRoute);
             }
             catch (DomainException ex)

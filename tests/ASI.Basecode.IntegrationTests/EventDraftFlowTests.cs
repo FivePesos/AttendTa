@@ -302,13 +302,13 @@ public sealed class EventDraftValidationFlowTests(SqlServerDatabaseFixture fixtu
         }
 
         var publishedEditPage = await officerClient.GetAsync($"/Event/Edit?id={eventId}", ct);
-        Assert.Equal(HttpStatusCode.Redirect, publishedEditPage.StatusCode);
-        Assert.Equal("/Event", EventDraftTestSupport.LocationPath(publishedEditPage));
+        Assert.Equal(HttpStatusCode.OK, publishedEditPage.StatusCode);
 
         var publishedResponse = await PostEditAsync(officerClient, new Dictionary<string, string>
         {
             ["EventId"] = eventId.ToString(CultureInfo.InvariantCulture),
-            ["Title"] = "Should not apply",
+            ["Title"] = "Published edit",
+            ["Description"] = "Updated description",
             ["TypeId"] = typeId.ToString(CultureInfo.InvariantCulture),
             ["VenueId"] = venueId.ToString(CultureInfo.InvariantCulture),
             ["StartsAt"] = "2026-12-10T09:00",
@@ -321,9 +321,37 @@ public sealed class EventDraftValidationFlowTests(SqlServerDatabaseFixture fixtu
         await using (var context = EventDraftTestSupport.Context(fixture.ConnectionString))
         {
             var unchanged = await context.Events.AsNoTracking().SingleAsync(item => item.EventId == eventId, ct);
-            Assert.Equal("Published later", unchanged.Title);
+            Assert.Equal("Published edit", unchanged.Title);
+            Assert.Equal("Updated description", unchanged.Description);
             Assert.Equal(EventStatusCode.Published, unchanged.EventStatusId);
-            Assert.Equal(0, await context.ActivityLogs.CountAsync(log => log.EntityType == "events" && log.EntityId == eventId, ct));
+            Assert.Equal(1, await context.ActivityLogs.CountAsync(log => log.EntityType == "events" && log.EntityId == eventId, ct));
+        }
+
+        foreach (var (field, value) in new[]
+        {
+            ("TypeId", inactiveTypeId.ToString(CultureInfo.InvariantCulture)),
+            ("VenueId", inactiveVenueId.ToString(CultureInfo.InvariantCulture)),
+            ("StartsAt", "2026-12-10T09:01"),
+            ("RegistrationDeadline", "2026-12-09T17:29"),
+            ("ParticipantLimit", "11")
+        })
+        {
+            var values = new Dictionary<string, string>
+            {
+                ["EventId"] = eventId.ToString(CultureInfo.InvariantCulture),
+                ["EventStatusId"] = ((int)EventStatusCode.Draft).ToString(CultureInfo.InvariantCulture),
+                ["Title"] = "Tampered", ["TypeId"] = typeId.ToString(CultureInfo.InvariantCulture),
+                ["VenueId"] = venueId.ToString(CultureInfo.InvariantCulture),
+                ["StartsAt"] = "2026-12-10T09:00", ["RegistrationDeadline"] = "2026-12-09T17:30",
+                ["ParticipantLimit"] = "10"
+            };
+            values[field] = value;
+            await PostEditAsync(officerClient, values, ct);
+        }
+        await using (var context = EventDraftTestSupport.Context(fixture.ConnectionString))
+        {
+            Assert.Equal("Published edit", (await context.Events.AsNoTracking().SingleAsync(item => item.EventId == eventId, ct)).Title);
+            Assert.Equal(1, await context.ActivityLogs.CountAsync(log => log.EntityType == "events" && log.EntityId == eventId, ct));
         }
     }
 
@@ -474,6 +502,7 @@ public sealed class EventDraftEditPersistenceTests(SqlServerDatabaseFixture fixt
         {
             EventId = eventId,
             Title = "After",
+            EventStatusId = EventStatusCode.Draft,
             TypeId = typeId,
             VenueId = venueId,
             StartsAt = new DateTime(2026, 12, 10, 2, 0, 0, DateTimeKind.Utc),

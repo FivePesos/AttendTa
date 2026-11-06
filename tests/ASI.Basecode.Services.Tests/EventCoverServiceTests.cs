@@ -135,6 +135,26 @@ public sealed class EventCoverServiceTests
         Assert.Equal(0, cleanup.CommitCount);
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task StaleCoverStatusOrReferenceCleansStagedFileWithoutAudit(bool statusChange)
+    {
+        var harness = new Harness(EventStatusCode.Published, OldCover);
+        harness.Events.BeforeLock = item =>
+        {
+            if (statusChange) item.EventStatusId = EventStatusCode.Completed;
+            else item.VenueId++;
+        };
+        var error = await Assert.ThrowsAsync<DomainException>(() =>
+            harness.Service.UploadCoverAsync(15, new MemoryStream(ImageBytes()), ".jpg", TestContext.Current.CancellationToken));
+        Assert.Equal(OutcomeCode.Stale, error.Outcome);
+        Assert.Equal(OldCover, harness.Events.Item.ImagePath);
+        Assert.Empty(harness.Audit.Entries);
+        Assert.Single(harness.Files.Deleted);
+        Assert.Contains(OldCover, harness.Files.StoredPaths);
+    }
+
     [Fact]
     public async Task PostCommitOldFileCleanupFailureDoesNotUndoSuccessfulReplacement()
     {
@@ -318,12 +338,18 @@ public sealed class EventCoverServiceTests
     private sealed class MemoryEvents(Harness harness) : IEventRepository
     {
         public Event Item { get; set; } = null!;
+        public Action<Event>? BeforeLock { get; set; }
         public Task<int> CountAsync(CancellationToken cancellationToken = default) => Task.FromResult(1);
         public Task<IReadOnlyList<EventListItem>> GetPageAsync(int skip, int take, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<EventListItem>>([]);
-        public Task<Event> GetEventAsync(int eventId, CancellationToken cancellationToken = default) => Task.FromResult(eventId == Item.EventId ? Item : null!);
+        public Task<Event> GetEventAsync(int eventId, CancellationToken cancellationToken = default) => Task.FromResult(eventId == Item.EventId ? new Event
+        {
+            EventId = Item.EventId, Title = Item.Title, TypeId = Item.TypeId, VenueId = Item.VenueId,
+            EventStatusId = Item.EventStatusId, ImagePath = Item.ImagePath
+        } : null!);
         public Task<Event> LockEventAsync(int eventId, CancellationToken cancellationToken = default)
         {
             harness.Locks.Add("event");
+            BeforeLock?.Invoke(Item);
             return Task.FromResult(eventId == Item.EventId ? Item : null!);
         }
         public Task AddEventAsync(Event eventItem, CancellationToken cancellationToken = default) => throw new NotSupportedException();

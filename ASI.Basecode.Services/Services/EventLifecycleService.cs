@@ -76,7 +76,11 @@ namespace ASI.Basecode.Services.Services
         public async Task<EventViewModel> GetEventAsync(int id, CancellationToken cancellationToken = default)
         {
             var eventItem = await _events.GetEventAsync(id, cancellationToken);
-            return eventItem == null ? null : _mapper.Map<EventViewModel>(eventItem);
+            if (eventItem == null) return null;
+            var model = _mapper.Map<EventViewModel>(eventItem);
+            model.TypeName = _eventTypes.GetEventType(eventItem.TypeId)?.TypeName;
+            model.VenueName = _venues.GetVenue(eventItem.VenueId)?.RoomName;
+            return model;
         }
 
         public async Task<EventFormOptions> GetFormOptionsAsync(CancellationToken cancellationToken = default)
@@ -93,7 +97,7 @@ namespace ASI.Basecode.Services.Services
         public async Task<int> CreateDraftAsync(EventViewModel model, CancellationToken cancellationToken = default)
         {
             ArgumentNullException.ThrowIfNull(model);
-            var actorUserId = ActorUserId();
+            var actorUserId = RequireManagementActor();
             var title = RequiredTitle(model);
             ValidateTimes(model);
             ValidateLimit(model);
@@ -125,7 +129,7 @@ namespace ASI.Basecode.Services.Services
         public async Task UpdateDraftAsync(EventViewModel model, CancellationToken cancellationToken = default)
         {
             ArgumentNullException.ThrowIfNull(model);
-            var actorUserId = ActorUserId();
+            var actorUserId = RequireManagementActor();
             var title = RequiredTitle(model);
             ValidateTimes(model);
             ValidateLimit(model);
@@ -138,8 +142,22 @@ namespace ASI.Basecode.Services.Services
                     throw new DomainException(OutcomeCode.NotFound, "Event not found.");
                 }
 
-                var venue = await LockActiveReferencesAsync(model.TypeId, model.VenueId, ct);
-                ValidateCapacity(model, venue);
+                // The controller replaces the posted status with its own read before invoking us.
+                if (discovered.EventStatusId != model.EventStatusId)
+                {
+                    throw new DomainException(OutcomeCode.Stale, "The event changed while it was being edited.");
+                }
+
+                Venue venue = null;
+                if (discovered.EventStatusId == EventStatusCode.Draft)
+                {
+                    venue = await LockActiveReferencesAsync(model.TypeId, model.VenueId, ct);
+                    ValidateCapacity(model, venue);
+                }
+                else
+                {
+                    await LockCoverReferencesAsync(discovered, ct);
+                }
 
                 var eventItem = await _events.LockEventAsync(model.EventId, ct);
                 if (eventItem == null)
@@ -147,9 +165,22 @@ namespace ASI.Basecode.Services.Services
                     throw new DomainException(OutcomeCode.NotFound, "Event not found.");
                 }
 
-                if (eventItem.EventStatusId != EventStatusCode.Draft)
+                if (eventItem.EventStatusId != discovered.EventStatusId || eventItem.TypeId != discovered.TypeId || eventItem.VenueId != discovered.VenueId)
                 {
-                    throw new DomainException(OutcomeCode.Invalid, "Only draft events can be edited.");
+                    throw new DomainException(OutcomeCode.Stale, "The event changed while it was being edited.");
+                }
+
+                if (eventItem.EventStatusId is not (EventStatusCode.Draft or EventStatusCode.Published))
+                {
+                    throw new DomainException(OutcomeCode.Invalid, "Only draft or published events can be edited.");
+                }
+
+                if (eventItem.EventStatusId == EventStatusCode.Published &&
+                    (model.TypeId != eventItem.TypeId || model.VenueId != eventItem.VenueId ||
+                     model.StartsAt != eventItem.StartsAt || model.RegistrationDeadline != eventItem.RegistrationDeadline ||
+                     model.ParticipantLimit != eventItem.ParticipantLimit))
+                {
+                    throw new DomainException(OutcomeCode.Invalid, "Published event schedule, type, venue and limit cannot be changed.");
                 }
 
                 var oldValues = Snapshot(eventItem);
@@ -439,7 +470,7 @@ namespace ASI.Basecode.Services.Services
 
         private static void EnsureSameCoverReferences(Event discovered, Event locked)
         {
-            if (discovered.TypeId != locked.TypeId || discovered.VenueId != locked.VenueId)
+            if (discovered.TypeId != locked.TypeId || discovered.VenueId != locked.VenueId || discovered.EventStatusId != locked.EventStatusId)
             {
                 throw new DomainException(OutcomeCode.Stale, "The event changed while its cover was being updated.");
             }
