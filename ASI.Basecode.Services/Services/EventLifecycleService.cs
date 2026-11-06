@@ -6,8 +6,10 @@ using ASI.Basecode.Resources.Constants;
 using ASI.Basecode.Services.Interfaces;
 using ASI.Basecode.Services.ServiceModels;
 using AutoMapper;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -28,6 +30,10 @@ namespace ASI.Basecode.Services.Services
         private readonly IMapper _mapper;
         private readonly IActivityLogWriter _audit;
         private readonly ICurrentActor _actor;
+        private readonly IPrivateFileStore _files;
+        private readonly ILogger<EventLifecycleService> _logger;
+
+        private const string EventCoverPrefix = "uploads/events/";
 
         public EventLifecycleService(
             IEventRepository events,
@@ -37,7 +43,9 @@ namespace ASI.Basecode.Services.Services
             IMapper mapper,
             TimeProvider timeProvider,
             IActivityLogWriter audit,
-            ICurrentActor actor)
+            ICurrentActor actor,
+            IPrivateFileStore files,
+            ILogger<EventLifecycleService> logger)
         {
             _events = events;
             _eventTypes = eventTypes;
@@ -47,6 +55,8 @@ namespace ASI.Basecode.Services.Services
             _timeProvider = timeProvider;
             _audit = audit;
             _actor = actor;
+            _files = files;
+            _logger = logger;
         }
 
         public async Task<PagedResult<EventViewModel>> GetPageAsync(int? pageNumber, CancellationToken cancellationToken = default)
@@ -156,6 +166,250 @@ namespace ASI.Basecode.Services.Services
                     OldValues: oldValues, NewValues: Snapshot(eventItem)));
                 await _unitOfWork.SaveChangesAsync(ct);
             }, cancellationToken);
+        }
+
+        public async Task<EventCoverViewModel> GetCoverManagementAsync(int eventId, CancellationToken cancellationToken = default)
+        {
+            RequireManagementActor();
+            var eventItem = await _events.GetEventAsync(eventId, cancellationToken);
+            if (eventItem == null)
+            {
+                throw new DomainException(OutcomeCode.NotFound, "Event not found.");
+            }
+
+            return new EventCoverViewModel
+            {
+                EventId = eventItem.EventId,
+                Title = eventItem.Title,
+                EventStatusId = eventItem.EventStatusId,
+                HasCover = IsEventCover(eventItem.ImagePath)
+            };
+        }
+
+        public async Task<EventCoverStream> OpenCoverAsync(int eventId, CancellationToken cancellationToken = default)
+        {
+            var role = AuthenticatedRole();
+            var isManagement = role is RoleCodes.Admin or RoleCodes.Officer;
+            if (!isManagement && role != RoleCodes.Member)
+            {
+                throw new DomainException(OutcomeCode.Forbidden, "You are not allowed to view this event cover.");
+            }
+
+            var eventItem = await _events.GetEventAsync(eventId, cancellationToken);
+            if (eventItem == null || (!isManagement && eventItem.EventStatusId != EventStatusCode.Published))
+            {
+                throw new DomainException(OutcomeCode.NotFound, "Event cover not found.");
+            }
+
+            if (!IsEventCover(eventItem.ImagePath))
+            {
+                throw new DomainException(OutcomeCode.NotFound, "Event cover not found.");
+            }
+
+            try
+            {
+                var stream = await _files.OpenReadAsync(eventItem.ImagePath, cancellationToken);
+                var contentType = Path.GetExtension(eventItem.ImagePath).ToLowerInvariant() switch
+                {
+                    ".jpg" or ".jpeg" => "image/jpeg",
+                    ".png" => "image/png",
+                    _ => throw new DomainException(OutcomeCode.NotFound, "Event cover not found.")
+                };
+                return new EventCoverStream(stream, contentType);
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidDataException)
+            {
+                throw new DomainException(OutcomeCode.NotFound, "Event cover not found.");
+            }
+        }
+
+        public async Task UploadCoverAsync(int eventId, Stream image, string extension, CancellationToken cancellationToken = default)
+        {
+            var actorUserId = RequireManagementActor();
+            if (image == null)
+            {
+                throw new DomainException(OutcomeCode.Invalid, "Choose a JPEG or PNG cover image.", "cover");
+            }
+
+            var discovered = await _events.GetEventAsync(eventId, cancellationToken);
+            if (discovered == null)
+            {
+                throw new DomainException(OutcomeCode.NotFound, "Event not found.");
+            }
+
+            string newPath = null;
+            string oldPath = null;
+            try
+            {
+                // File I/O happens before taking any SQL row locks.
+                newPath = await _files.SaveAsync(PrivateFileArea.EventImages, image, extension, cancellationToken);
+                await _unitOfWork.ExecuteInTransactionAsync(async ct =>
+                {
+                    await LockCoverReferencesAsync(discovered, ct);
+                    var eventItem = await _events.LockEventAsync(eventId, ct);
+                    if (eventItem == null)
+                    {
+                        throw new DomainException(OutcomeCode.NotFound, "Event not found.");
+                    }
+
+                    EnsureSameCoverReferences(discovered, eventItem);
+                    if (eventItem.EventStatusId is not (EventStatusCode.Draft or EventStatusCode.Published))
+                    {
+                        throw new DomainException(OutcomeCode.Invalid, "Event covers can only be changed for draft or published events.", "cover");
+                    }
+
+                    oldPath = eventItem.ImagePath;
+                    var oldValues = CoverAuditValues(oldPath);
+                    eventItem.ImagePath = newPath;
+                    eventItem.UpdatedBy = actorUserId;
+                    eventItem.UpdatedAt = _timeProvider.GetUtcNow().UtcDateTime;
+                    await _events.UpdateEventAsync(eventItem, ct);
+                    _audit.Append(new AuditEntry(AuditActions.EventUpdated, "events", eventItem.EventId,
+                        OldValues: oldValues, NewValues: CoverAuditValues(newPath)));
+                    await _unitOfWork.SaveChangesAsync(ct);
+                }, cancellationToken);
+            }
+            catch
+            {
+                DeleteBestEffort(newPath);
+                throw;
+            }
+
+            if (IsEventCover(oldPath) && !string.Equals(oldPath, newPath, StringComparison.Ordinal))
+            {
+                DeleteBestEffort(oldPath);
+            }
+        }
+
+        public async Task RemoveDraftCoverAsync(int eventId, CancellationToken cancellationToken = default)
+        {
+            var actorUserId = RequireManagementActor();
+            var discovered = await _events.GetEventAsync(eventId, cancellationToken);
+            if (discovered == null)
+            {
+                throw new DomainException(OutcomeCode.NotFound, "Event not found.");
+            }
+
+            string oldPath = null;
+            await _unitOfWork.ExecuteInTransactionAsync(async ct =>
+            {
+                await LockCoverReferencesAsync(discovered, ct);
+                var eventItem = await _events.LockEventAsync(eventId, ct);
+                if (eventItem == null)
+                {
+                    throw new DomainException(OutcomeCode.NotFound, "Event not found.");
+                }
+
+                EnsureSameCoverReferences(discovered, eventItem);
+                if (eventItem.EventStatusId != EventStatusCode.Draft)
+                {
+                    throw new DomainException(OutcomeCode.Invalid, "Only draft event covers can be removed.", "cover");
+                }
+
+                oldPath = eventItem.ImagePath;
+                if (!IsEventCover(oldPath))
+                {
+                    throw new DomainException(OutcomeCode.Invalid, "This draft does not have a removable cover.", "cover");
+                }
+
+                var oldValues = CoverAuditValues(oldPath);
+                eventItem.ImagePath = null;
+                eventItem.UpdatedBy = actorUserId;
+                eventItem.UpdatedAt = _timeProvider.GetUtcNow().UtcDateTime;
+                await _events.UpdateEventAsync(eventItem, ct);
+                _audit.Append(new AuditEntry(AuditActions.EventUpdated, "events", eventItem.EventId,
+                    OldValues: oldValues, NewValues: CoverAuditValues(null)));
+                await _unitOfWork.SaveChangesAsync(ct);
+            }, cancellationToken);
+
+            DeleteBestEffort(oldPath);
+        }
+
+        private sealed record EventCoverAuditValues(bool HasCover, bool CoverChanged) : IAuditValues;
+
+        private static EventCoverAuditValues CoverAuditValues(string path) => new(IsEventCover(path), true);
+
+        private static bool IsEventCover(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path) || !path.StartsWith(EventCoverPrefix, StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            var fileName = path[EventCoverPrefix.Length..];
+            if (fileName.IndexOfAny(new[] { '/', '\\' }) >= 0)
+            {
+                return false;
+            }
+
+            var extension = Path.GetExtension(fileName).ToLowerInvariant();
+            var fileId = Path.GetFileNameWithoutExtension(fileName);
+            return extension is ".jpg" or ".jpeg" or ".png" && Guid.TryParseExact(fileId, "N", out _);
+        }
+
+        private string AuthenticatedRole()
+        {
+            if (!_actor.IsAuthenticated)
+            {
+                throw new DomainException(OutcomeCode.Forbidden, "Authentication is required to view an event cover.");
+            }
+
+            try
+            {
+                return _actor.Role;
+            }
+            catch (InvalidOperationException)
+            {
+                throw new DomainException(OutcomeCode.Forbidden, "Authentication is required to view an event cover.");
+            }
+        }
+
+        private int RequireManagementActor()
+        {
+            var role = AuthenticatedRole();
+            if (role is not (RoleCodes.Admin or RoleCodes.Officer))
+            {
+                throw new DomainException(OutcomeCode.Forbidden, "Management access is required to change an event cover.");
+            }
+
+            return ActorUserId();
+        }
+
+        private async Task LockCoverReferencesAsync(Event discovered, CancellationToken cancellationToken)
+        {
+            // Cover-only commands preserve the global type -> venue -> event lock order without
+            // requiring references to remain active after an event has been created.
+            if (await _eventTypes.LockEventTypeAsync(discovered.TypeId, cancellationToken) == null
+                || await _venues.LockVenueAsync(discovered.VenueId, cancellationToken) == null)
+            {
+                throw new DomainException(OutcomeCode.Stale, "The event changed while its cover was being updated.");
+            }
+        }
+
+        private static void EnsureSameCoverReferences(Event discovered, Event locked)
+        {
+            if (discovered.TypeId != locked.TypeId || discovered.VenueId != locked.VenueId)
+            {
+                throw new DomainException(OutcomeCode.Stale, "The event changed while its cover was being updated.");
+            }
+        }
+
+        private void DeleteBestEffort(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return;
+            }
+
+            try
+            {
+                _files.Delete(path);
+            }
+            catch (Exception)
+            {
+                // Do not include private storage keys in diagnostics; a committed row remains authoritative.
+                _logger.LogWarning("Could not clean up an event cover file.");
+            }
         }
 
         private sealed record EventAuditValues(

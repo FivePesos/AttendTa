@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.IO;
 using System.Text.Json;
 using ASI.Basecode.Data.Interfaces;
 using ASI.Basecode.Data.Models;
@@ -10,6 +11,7 @@ using ASI.Basecode.Services.ServiceModels;
 using ASI.Basecode.Services.Services;
 using AutoMapper;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
 namespace ASI.Basecode.Services.Tests;
@@ -367,7 +369,9 @@ public class EventLifecycleServiceTests
                 Mapper,
                 clock ?? TimeProvider.System,
                 Audit,
-                actor ?? new FixedActor(7));
+                actor ?? new FixedActor(7),
+                new UnusedPrivateFileStore(),
+                NullLogger<EventLifecycleService>.Instance);
         }
 
         public MemoryEvents Events { get; }
@@ -553,5 +557,14 @@ public class EventLifecycleServiceTests
         public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) => Task.FromResult(1);
         public Task ExecuteInTransactionAsync(Func<CancellationToken, Task> work, CancellationToken cancellationToken = default) => work(cancellationToken);
         public Task<T> ExecuteInTransactionAsync<T>(Func<CancellationToken, Task<T>> work, CancellationToken cancellationToken = default) => work(cancellationToken);
+    }
+
+    private sealed class UnusedPrivateFileStore : IPrivateFileStore
+    {
+        public Task<string> SaveAsync(PrivateFileArea area, Stream content, string extension, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public string CreateTemporaryPath(string extension) => throw new NotSupportedException();
+        public Task<string> PromoteAsync(string temporaryPath, PrivateFileArea area, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<Stream> OpenReadAsync(string relativePath, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public void Delete(string relativePath) => throw new NotSupportedException();
     }
 }

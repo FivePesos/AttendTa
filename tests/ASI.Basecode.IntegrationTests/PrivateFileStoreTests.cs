@@ -24,6 +24,11 @@ public sealed class PrivateFileStoreTests
             Assert.EndsWith(".jpg", relativePath, StringComparison.Ordinal);
             Assert.Equal(bytes.Length, new FileInfo(Resolve(setupRoot, relativePath)).Length);
 
+            var eventBytes = JpegBytes(2 * 1024 * 1024);
+            var eventPath = await store.SaveAsync(PrivateFileArea.EventImages, new MemoryStream(eventBytes), ".jpg", cancellationToken);
+            Assert.StartsWith("uploads/events/", eventPath, StringComparison.Ordinal);
+            Assert.Equal(eventBytes.Length, new FileInfo(Resolve(setupRoot, eventPath)).Length);
+
             await Assert.ThrowsAsync<InvalidDataException>(() => store.SaveAsync(
                 PrivateFileArea.VenueImages,
                 new MemoryStream(JpegBytes(2 * 1024 * 1024 + 1)),
@@ -35,13 +40,18 @@ public sealed class PrivateFileStoreTests
                 ".png",
                 cancellationToken));
             await Assert.ThrowsAsync<InvalidDataException>(() => store.SaveAsync(
+                PrivateFileArea.EventImages,
+                new MemoryStream(JpegBytes(2 * 1024 * 1024 + 1)),
+                ".jpg",
+                cancellationToken));
+            await Assert.ThrowsAsync<InvalidDataException>(() => store.SaveAsync(
                 PrivateFileArea.VenueImages,
                 new MemoryStream(Encoding.UTF8.GetBytes("not an image")),
                 ".jpg",
                 cancellationToken));
 
             Assert.Single(Directory.GetFiles(Path.Combine(setupRoot, "uploads", "venues")));
-            Assert.Empty(Directory.GetFiles(Path.Combine(setupRoot, "uploads", "events")));
+            Assert.Single(Directory.GetFiles(Path.Combine(setupRoot, "uploads", "events")));
         }
         finally
         {
