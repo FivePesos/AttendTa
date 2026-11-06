@@ -17,11 +17,6 @@ namespace ASI.Basecode.Data.Repositories
         {
         }
 
-        public IQueryable<Venue> GetVenues()
-        {
-            return this.GetDbSet<Venue>();
-        }
-
         public async Task<IReadOnlyList<Venue>> GetActiveVenuesAsync(CancellationToken cancellationToken = default)
         {
             return await GetDbSet<Venue>()

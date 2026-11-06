@@ -508,7 +508,7 @@ public class AccountRequestServiceTests
         public Task<PagedResult<MemberViewModel>> GetPageAsync(string search, int? pageNumber, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public MemberViewModel GetMember(int id) => throw new NotSupportedException();
         public Task<MemberViewModel> GetSelfProfileAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Task UpdateMemberAsync(MemberViewModel model, int actorUserId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task UpdateMemberAsync(MemberViewModel model, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task CreateMemberFromApprovedAccountRequestAsync(int userId, MemberViewModel model, CancellationToken cancellationToken = default)
         {
             Calls.Add((userId, model));

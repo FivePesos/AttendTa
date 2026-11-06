@@ -139,13 +139,22 @@ public sealed class VenueTransactionPhotoTests(SqlServerDatabaseFixture fixture)
         await using var transaction = await owner.Database.BeginTransactionAsync(ct);
         var locked = await new VenueRepository(ownerUnit).LockVenueAsync(venueId, ct);
         locked.ImagePath = currentPhoto;
-        owner.Set<Event>().Add(new Event { Title = "Concurrent draft", TypeId = typeId, VenueId = venueId,
-            StartsAt = DateTime.UtcNow.AddDays(2), RegistrationDeadline = DateTime.UtcNow.AddDays(1),
-            ParticipantLimit = 30, EventStatusId = EventStatusCode.Draft, CreatedBy = actorId, CreatedAt = DateTime.UtcNow });
+        owner.Set<Event>().Add(new Event
+        {
+            Title = "Concurrent draft",
+            TypeId = typeId,
+            VenueId = venueId,
+            StartsAt = DateTime.UtcNow.AddDays(2),
+            RegistrationDeadline = DateTime.UtcNow.AddDays(1),
+            ParticipantLimit = 30,
+            EventStatusId = EventStatusCode.Draft,
+            CreatedBy = actorId,
+            CreatedAt = DateTime.UtcNow
+        });
         await owner.SaveChangesAsync(ct);
 
         using var replacement = new MemoryStream(image);
-        var pending = service.UpdateVenueAsync(Model(venueId, 29), actorId, replacement, ".jpg", ct);
+        var pending = service.UpdateVenueAsync(Model(venueId, 29), replacement, ".jpg", ct);
         var committed = false;
         try
         {
@@ -166,7 +175,7 @@ public sealed class VenueTransactionPhotoTests(SqlServerDatabaseFixture fixture)
 
             // A successful retry must delete the newly committed current photo, not the stale tracked one.
             using var retryPhoto = new MemoryStream(image);
-            await service.UpdateVenueAsync(Model(venueId), actorId, retryPhoto, ".jpg", ct);
+            await service.UpdateVenueAsync(Model(venueId), retryPhoto, ".jpg", ct);
             var updated = await observer.Venues.AsNoTracking().SingleAsync(v => v.VenueId == venueId, ct);
             Assert.Equal(30, updated.Capacity);
             Assert.NotEqual(currentPhoto, updated.ImagePath);
@@ -196,7 +205,7 @@ public sealed class VenueTransactionPhotoTests(SqlServerDatabaseFixture fixture)
         var failure = new FailCommit(venueId);
         await using var writer = Context(failure);
         using var replacement = new MemoryStream(image);
-        var thrown = await Assert.ThrowsAsync<InvalidOperationException>(() => Service(writer, files, actorId).UpdateVenueAsync(Model(venueId), actorId, replacement, ".jpg", ct));
+        var thrown = await Assert.ThrowsAsync<InvalidOperationException>(() => Service(writer, files, actorId).UpdateVenueAsync(Model(venueId), replacement, ".jpg", ct));
         Assert.Equal("Injected commit failure", thrown.Message);
         Assert.True(failure.Reached);
         Assert.Equal(2, failure.VisibleChanges);
@@ -232,7 +241,7 @@ public sealed class VenueTransactionPhotoTests(SqlServerDatabaseFixture fixture)
         row.ImagePath = current;
         await owner.SaveChangesAsync(ct);
         using var photo = new MemoryStream(image);
-        var pending = service.UpdateVenueAsync(Model(venueId), actorId, photo, ".jpg", ct);
+        var pending = service.UpdateVenueAsync(Model(venueId), photo, ".jpg", ct);
         var committed = false;
         try
         {
@@ -272,7 +281,7 @@ public sealed class VenueTransactionPhotoTests(SqlServerDatabaseFixture fixture)
         row.ImagePath = "uploads/venues/new.jpg";
         row.Capacity = 75;
         await owner.SaveChangesAsync(ct);
-        var pending = service.ToggleActiveAsync(venueId, actorId, ct);
+        var pending = service.ToggleActiveAsync(venueId, ct);
         var committed = false;
         try
         {
@@ -321,7 +330,7 @@ public sealed class VenueTransactionPhotoTests(SqlServerDatabaseFixture fixture)
         await using var writer = Context(signal);
         using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(ct);
         using var photo = new MemoryStream(image);
-        var pending = Service(writer, files, actorId).UpdateVenueAsync(Model(venueId), actorId, photo, ".jpg", cancellation.Token);
+        var pending = Service(writer, files, actorId).UpdateVenueAsync(Model(venueId), photo, ".jpg", cancellation.Token);
         try
         {
             await signal.Started.Task.WaitAsync(TimeSpan.FromSeconds(10), ct);
@@ -356,8 +365,10 @@ public sealed class VenueTransactionPhotoTests(SqlServerDatabaseFixture fixture)
         await using var writer = Context();
         var uniqueName = $"Invalid image {Guid.NewGuid():N}";
         using var invalid = new MemoryStream([1, 2, 3, 4]);
-        await Assert.ThrowsAsync<InvalidDataException>(() => Service(writer, files, actorId).AddVenueAsync(
-            new VenueViewModel { RoomName = uniqueName, Capacity = 20 }, actorId, invalid, ".jpg", ct));
+        var error = await Assert.ThrowsAsync<DomainException>(() => Service(writer, files, actorId).AddVenueAsync(
+            new VenueViewModel { RoomName = uniqueName, Capacity = 20 }, invalid, ".jpg", ct));
+        Assert.Equal(OutcomeCode.Invalid, error.Outcome);
+        Assert.Equal("photo", error.Field);
         await using var observer = Context();
         Assert.False(await observer.Venues.AnyAsync(v => v.RoomName == uniqueName, ct));
         Assert.False(await observer.ActivityLogs.AnyAsync(a => a.EntityType == "venues" && a.ActorUserId == actorId, ct));
@@ -381,8 +392,8 @@ public sealed class VenueTransactionPhotoTests(SqlServerDatabaseFixture fixture)
         using var createPhoto = new MemoryStream(image);
         using var editPhoto = new MemoryStream(image);
         await Assert.ThrowsAsync<InvalidOperationException>(() => service.AddVenueAsync(
-            new VenueViewModel { RoomName = "Must not be created", Capacity = 10 }, actorId, createPhoto, ".jpg", ct));
-        await Assert.ThrowsAsync<InvalidOperationException>(() => service.UpdateVenueAsync(Model(venueId), actorId, editPhoto, ".jpg", ct));
+            new VenueViewModel { RoomName = "Must not be created", Capacity = 10 }, createPhoto, ".jpg", ct));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.UpdateVenueAsync(Model(venueId), editPhoto, ".jpg", ct));
         Assert.Equal(0, createPhoto.Position);
         Assert.Equal(0, editPhoto.Position);
         Assert.Single(Directory.GetFiles(Path.Combine(factory.SetupRoot, "uploads", "venues")));
@@ -426,7 +437,7 @@ public sealed class VenueTransactionPhotoTests(SqlServerDatabaseFixture fixture)
         await using var writer = Context();
         using var photo = new MemoryStream(image);
         var logger = new RecordingLogger();
-        await Service(writer, new DeleteFails(files), actorId, logger).UpdateVenueAsync(Model(venueId), actorId, photo, ".jpg", ct);
+        await Service(writer, new DeleteFails(files), actorId, logger).UpdateVenueAsync(Model(venueId), photo, ".jpg", ct);
         var entry = Assert.Single(logger.Entries);
         Assert.Equal(LogLevel.Warning, entry.Level);
         Assert.DoesNotContain(oldPhoto, entry.Message);

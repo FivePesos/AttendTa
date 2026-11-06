@@ -52,6 +52,9 @@ namespace ASI.Basecode.WebApp
 
                 options.AddPolicy(Policies.Administrator, policy =>
                     policy.RequireRole(RoleCodes.Admin));
+
+                options.AddPolicy(Policies.Member, policy =>
+                    policy.RequireRole(RoleCodes.Member));
             });
         }
 

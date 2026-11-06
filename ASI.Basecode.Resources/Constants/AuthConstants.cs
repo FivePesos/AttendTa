@@ -10,6 +10,9 @@ namespace ASI.Basecode.Resources.Constants
 
         /// <summary>Administrator only.</summary>
         public const string Administrator = "Administrator";
+
+        /// <summary>Member only.</summary>
+        public const string Member = "Member";
     }
 
     /// <summary>

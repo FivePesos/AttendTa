@@ -17,11 +17,6 @@ namespace ASI.Basecode.Data.Repositories
         {
         }
 
-        public IQueryable<Member> GetMembers()
-        {
-            return this.GetDbSet<Member>();
-        }
-
         public IQueryable<MemberRecord> GetMemberRecords()
         {
             var members = this.GetDbSet<Member>().AsNoTracking();

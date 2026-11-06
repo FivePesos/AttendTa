@@ -2,6 +2,7 @@ using ASI.Basecode.Resources;
 using ASI.Basecode.Resources.Constants;
 using ASI.Basecode.Services.Interfaces;
 using ASI.Basecode.Services.ServiceModels;
+using ASI.Basecode.Services.Services;
 using ASI.Basecode.WebApp.Mvc;
 using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
@@ -43,7 +44,7 @@ namespace ASI.Basecode.WebApp.Controllers
         public async Task<IActionResult> Photo(int id, CancellationToken cancellationToken)
         {
             var venue = _venueService.GetVenue(id);
-            if (venue == null) return NotFound();
+            if (venue?.ImagePath == null || venue.ImagePath.Contains('\0') || !venue.ImagePath.StartsWith("uploads/venues/", StringComparison.Ordinal)) return NotFound();
             var contentType = Path.GetExtension(venue.ImagePath ?? string.Empty).ToLowerInvariant() switch
             {
                 ".jpg" or ".jpeg" => "image/jpeg",
@@ -51,8 +52,8 @@ namespace ASI.Basecode.WebApp.Controllers
                 _ => null
             };
             if (contentType == null) return NotFound();
-            try { return File(await _privateFileStore.OpenReadAsync(venue.ImagePath, cancellationToken), contentType); }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException) { return NotFound(); }
+            try { return File(await _privateFileStore.OpenSafelyAsync(venue.ImagePath, cancellationToken), contentType); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or DomainException { Outcome: OutcomeCode.NotFound }) { return NotFound(); }
         }
 
         [HttpGet]
@@ -65,11 +66,10 @@ namespace ASI.Basecode.WebApp.Controllers
             try
             {
                 await using var content = photo?.OpenReadStream();
-                await _venueService.AddVenueAsync(model, GetActorUserId(), content, Path.GetExtension(photo?.FileName), HttpContext.RequestAborted);
+                await _venueService.AddVenueAsync(model, content, Path.GetExtension(photo?.FileName), HttpContext.RequestAborted);
                 TempData["SuccessMessage"] = "Venue added successfully.";
                 return RedirectToAction("Index");
             }
-            catch (InvalidDataException ex) { ModelState.AddModelError("photo", ex.Message); return View(model); }
             catch (DomainException ex) { ReportError(ex); return View(model); }
         }
 
@@ -87,11 +87,10 @@ namespace ASI.Basecode.WebApp.Controllers
             try
             {
                 await using var content = photo?.OpenReadStream();
-                await _venueService.UpdateVenueAsync(model, GetActorUserId(), content, Path.GetExtension(photo?.FileName), HttpContext.RequestAborted);
+                await _venueService.UpdateVenueAsync(model, content, Path.GetExtension(photo?.FileName), HttpContext.RequestAborted);
                 TempData["SuccessMessage"] = "Venue updated successfully.";
                 return RedirectToAction("Index");
             }
-            catch (InvalidDataException ex) { ModelState.AddModelError("photo", ex.Message); return View(model); }
             catch (DomainException ex) { ReportError(ex); return View(model); }
         }
 
@@ -100,7 +99,7 @@ namespace ASI.Basecode.WebApp.Controllers
         {
             try
             {
-                await _venueService.ToggleActiveAsync(id, GetActorUserId(), HttpContext.RequestAborted);
+                await _venueService.ToggleActiveAsync(id, HttpContext.RequestAborted);
                 TempData["SuccessMessage"] = "Venue status updated.";
             }
             catch (DomainException ex) { TempData["ErrorMessage"] = ex.Message; }

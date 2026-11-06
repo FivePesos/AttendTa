@@ -30,9 +30,19 @@ public sealed class ActivityLogWriter(AsiBasecodeDBContext context, ICurrentActo
         if (string.IsNullOrWhiteSpace(entry.EntityType) || entry.EntityId <= 0) throw new ArgumentException("Audit entity is required.");
         var oldValues = Serialize(entry.OldValues);
         var newValues = Serialize(entry.NewValues);
-        context.ActivityLogs.Add(new ActivityLog { ActorTypeId = ActorTypeCode.User, ActorUserId = actor.UserId,
-            Action = entry.Action, EntityType = entry.EntityType, EntityId = entry.EntityId, Description = description,
-            Reason = entry.Reason, OldValues = oldValues, NewValues = newValues, OccurredAt = clock.GetUtcNow().UtcDateTime });
+        context.ActivityLogs.Add(new ActivityLog
+        {
+            ActorTypeId = ActorTypeCode.User,
+            ActorUserId = actor.UserId,
+            Action = entry.Action,
+            EntityType = entry.EntityType,
+            EntityId = entry.EntityId,
+            Description = description,
+            Reason = entry.Reason,
+            OldValues = oldValues,
+            NewValues = newValues,
+            OccurredAt = clock.GetUtcNow().UtcDateTime
+        });
     }
 
     private string Serialize(object value)

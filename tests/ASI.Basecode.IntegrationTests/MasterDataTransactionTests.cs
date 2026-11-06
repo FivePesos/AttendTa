@@ -183,7 +183,7 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
         var service = VenueWriter(new VenueRepositoryThatSavesThenFails(new VenueRepository(unitOfWork), unitOfWork), unitOfWork, actorId);
         var roomName = UniqueName("Room");
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => service.AddVenueAsync(VenueModel(roomName), actorId, new MemoryStream(), ".jpg", ct));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.AddVenueAsync(VenueModel(roomName), new MemoryStream(), ".jpg", ct));
 
         Assert.Empty(writer.ChangeTracker.Entries());
         Assert.False(await observer.Venues.AnyAsync(v => v.RoomName == roomName, ct));
@@ -200,10 +200,11 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
         var service = VenueWriter(new VenueRepository(unitOfWork), unitOfWork, actorId);
         var roomName = UniqueName("Room");
 
-        await service.AddVenueAsync(VenueModel(roomName), actorId, new MemoryStream(), ".jpg", ct);
+        await service.AddVenueAsync(VenueModel(roomName), new MemoryStream(), ".jpg", ct);
 
         Assert.True(await observer.Venues.AnyAsync(v => v.RoomName == roomName, ct));
         var venue = await observer.Venues.SingleAsync(v => v.RoomName == roomName, ct);
+        Assert.Equal(actorId, venue.CreatedBy);
         var audit = await observer.ActivityLogs.SingleAsync(a => a.EntityType == "venues" && a.EntityId == venue.VenueId, ct);
         Assert.DoesNotContain("uploads/", audit.NewValues, StringComparison.OrdinalIgnoreCase);
     }
@@ -226,14 +227,14 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
         writer.Set<Event>().Add(new Event { Title = "Completed", TypeId = type.TypeId, VenueId = venue.VenueId, StartsAt = DateTime.UtcNow.AddDays(2), RegistrationDeadline = DateTime.UtcNow.AddDays(1), ParticipantLimit = 60, EventStatusId = EventStatusCode.Completed, CreatedBy = actorId, CreatedAt = DateTime.UtcNow });
         await writer.SaveChangesAsync(ct);
         var model = new VenueViewModel { VenueId = venue.VenueId, RoomName = venue.RoomName, Capacity = 29 };
-        var error = await Assert.ThrowsAsync<DomainException>(() => service.UpdateVenueAsync(model, actorId, null, null, ct));
+        var error = await Assert.ThrowsAsync<DomainException>(() => service.UpdateVenueAsync(model, null, null, ct));
         Assert.Equal(OutcomeCode.Invalid, error.Outcome);
         Assert.Equal(nameof(VenueViewModel.Capacity), error.Field);
         await using var observer = Context();
         Assert.Equal(40, (await observer.Venues.AsNoTracking().SingleAsync(v => v.VenueId == venue.VenueId, ct)).Capacity);
         Assert.False(await observer.ActivityLogs.AnyAsync(a => a.EntityType == "venues" && a.EntityId == venue.VenueId, ct));
         model.Capacity = 30;
-        await service.UpdateVenueAsync(model, actorId, null, null, ct);
+        await service.UpdateVenueAsync(model, null, null, ct);
         var updated = await observer.Venues.AsNoTracking().SingleAsync(v => v.VenueId == venue.VenueId, ct);
         Assert.Equal(30, updated.Capacity);
         Assert.Equal("uploads/venues/old.jpg", updated.ImagePath);
@@ -256,7 +257,7 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => unitOfWork.ExecuteInTransactionAsync(async inner =>
         {
-            await service.AddVenueAsync(VenueModel(roomName), actorId, new MemoryStream(), ".jpg", inner);
+            await service.AddVenueAsync(VenueModel(roomName), new MemoryStream(), ".jpg", inner);
             throw new InvalidOperationException("The outer work failed.");
         }, ct));
 
@@ -353,12 +354,13 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
         var service = VenueWriter(new VenueRepository(unitOfWork), unitOfWork, actorId);
         var roomName = UniqueName("Room");
 
-        Assert.Equal(OutcomeCode.Forbidden, (await Assert.ThrowsAsync<DomainException>(() => service.AddVenueAsync(VenueModel(roomName), 0, null, null, ct))).Outcome);
-        var missingPhoto = await Assert.ThrowsAsync<DomainException>(() => service.AddVenueAsync(VenueModel(roomName, "  "), actorId, null, null, ct));
+        var invalidActorService = VenueWriter(new VenueRepository(unitOfWork), unitOfWork, 0);
+        Assert.Equal(OutcomeCode.Forbidden, (await Assert.ThrowsAsync<DomainException>(() => invalidActorService.AddVenueAsync(VenueModel(roomName), null, null, ct))).Outcome);
+        var missingPhoto = await Assert.ThrowsAsync<DomainException>(() => service.AddVenueAsync(VenueModel(roomName, "  "), null, null, ct));
         Assert.Equal(OutcomeCode.Invalid, missingPhoto.Outcome);
         Assert.Equal("photo", missingPhoto.Field);
-        Assert.Equal(OutcomeCode.NotFound, (await Assert.ThrowsAsync<DomainException>(() => service.UpdateVenueAsync(new VenueViewModel { VenueId = int.MaxValue, RoomName = roomName, Capacity = 20, ImagePath = "venues/test.jpg" }, actorId, null, null, ct))).Outcome);
-        Assert.Equal(OutcomeCode.NotFound, (await Assert.ThrowsAsync<DomainException>(() => service.ToggleActiveAsync(int.MaxValue, actorId, ct))).Outcome);
+        Assert.Equal(OutcomeCode.NotFound, (await Assert.ThrowsAsync<DomainException>(() => service.UpdateVenueAsync(new VenueViewModel { VenueId = int.MaxValue, RoomName = roomName, Capacity = 20, ImagePath = "venues/test.jpg" }, null, null, ct))).Outcome);
+        Assert.Equal(OutcomeCode.NotFound, (await Assert.ThrowsAsync<DomainException>(() => service.ToggleActiveAsync(int.MaxValue, ct))).Outcome);
         Assert.False(await observer.Venues.AnyAsync(v => v.RoomName == roomName, ct));
     }
 
@@ -376,7 +378,7 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
         var unauthenticated = MemberWriter(new MemberRepository(unitOfWork), unitOfWork, new TestActor(actorId, authenticated: false));
         Assert.Equal(OutcomeCode.Forbidden, (await Assert.ThrowsAsync<DomainException>(() => unauthenticated.CreateMemberFromApprovedAccountRequestAsync(linkedUserId, MemberModel(studentNumber), ct))).Outcome);
         Assert.Equal(OutcomeCode.Invalid, (await Assert.ThrowsAsync<DomainException>(() => service.CreateMemberFromApprovedAccountRequestAsync(0, MemberModel(studentNumber), ct))).Outcome);
-        Assert.Equal(OutcomeCode.NotFound, (await Assert.ThrowsAsync<DomainException>(() => service.UpdateMemberAsync(new MemberViewModel { MemberId = int.MaxValue, StudentNumber = studentNumber, Course = "Computing", YearLevel = 1, Section = "A", Status = "active" }, actorId, ct))).Outcome);
+        Assert.Equal(OutcomeCode.NotFound, (await Assert.ThrowsAsync<DomainException>(() => service.UpdateMemberAsync(new MemberViewModel { MemberId = int.MaxValue, StudentNumber = studentNumber, Course = "Computing", YearLevel = 1, Section = "A", Status = "active" }, ct))).Outcome);
         Assert.False(await observer.Members.AnyAsync(m => m.StudentNumber == studentNumber, ct));
 
         await service.CreateMemberFromApprovedAccountRequestAsync(linkedUserId, MemberModel(studentNumber), ct);
@@ -442,13 +444,13 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
 
         public VenueViewModel GetVenue(int id) => null!;
 
-        public Task AddVenueAsync(VenueViewModel model, int actorUserId, Stream photo, string extension, CancellationToken cancellationToken = default) =>
+        public Task AddVenueAsync(VenueViewModel model, Stream photo, string extension, CancellationToken cancellationToken = default) =>
             throw new DomainException(OutcomeCode.Invalid, "Refused.");
 
-        public Task UpdateVenueAsync(VenueViewModel model, int actorUserId, Stream photo, string extension, CancellationToken cancellationToken = default) =>
+        public Task UpdateVenueAsync(VenueViewModel model, Stream photo, string extension, CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
 
-        public Task ToggleActiveAsync(int id, int actorUserId, CancellationToken cancellationToken = default) =>
+        public Task ToggleActiveAsync(int id, CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
     }
 
@@ -489,7 +491,6 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
 
     private sealed class VenueRepositoryThatSavesThenFails(IVenueRepository inner, IUnitOfWork unitOfWork) : IVenueRepository
     {
-        public IQueryable<Venue> GetVenues() => inner.GetVenues();
         public Task<IReadOnlyList<Venue>> GetActiveVenuesAsync(CancellationToken cancellationToken = default) => inner.GetActiveVenuesAsync(cancellationToken);
         public Task<int> CountAsync(CancellationToken cancellationToken = default) => inner.CountAsync(cancellationToken);
         public Task<IReadOnlyList<Venue>> GetPageAsync(int skip, int take, CancellationToken cancellationToken = default) => inner.GetPageAsync(skip, take, cancellationToken);

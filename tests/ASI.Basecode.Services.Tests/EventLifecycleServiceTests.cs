@@ -341,15 +341,15 @@ public class EventLifecycleServiceTests
         int venueId,
         int limit = 10,
         string description = "Description") => new()
-    {
-        Title = title,
-        Description = description,
-        TypeId = typeId,
-        VenueId = venueId,
-        StartsAt = Start,
-        RegistrationDeadline = Deadline,
-        ParticipantLimit = limit
-    };
+        {
+            Title = title,
+            Description = description,
+            TypeId = typeId,
+            VenueId = venueId,
+            StartsAt = Start,
+            RegistrationDeadline = Deadline,
+            ParticipantLimit = limit
+        };
 
     private static string Json(IAuditValues values) => JsonSerializer.Serialize(values, values.GetType());
 
@@ -521,7 +521,6 @@ public class EventLifecycleServiceTests
 
         private Venue? Find(int venueId) => Items.FirstOrDefault(item => item.VenueId == venueId);
 
-        public IQueryable<Venue> GetVenues() => Items.AsQueryable();
 
         public Task<IReadOnlyList<Venue>> GetActiveVenuesAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyList<Venue>>(Items.Where(item => item.IsActive).OrderBy(item => item.RoomName).ThenBy(item => item.VenueId).ToList());

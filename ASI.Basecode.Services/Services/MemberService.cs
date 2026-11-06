@@ -126,10 +126,10 @@ namespace ASI.Basecode.Services.Services
             }, cancellationToken);
         }
 
-        public async Task UpdateMemberAsync(MemberViewModel model, int actorUserId, CancellationToken cancellationToken = default)
+        public async Task UpdateMemberAsync(MemberViewModel model, CancellationToken cancellationToken = default)
         {
             ArgumentNullException.ThrowIfNull(model);
-            var verifiedActorId = RequireManagementActor(actorUserId);
+            var verifiedActorId = RequireManagementActor();
             Normalize(model);
 
             await _unitOfWork.ExecuteInTransactionAsync(async ct =>
@@ -194,7 +194,7 @@ namespace ASI.Basecode.Services.Services
             }, cancellationToken);
         }
 
-        private int RequireManagementActor(int? requestedActorId = null)
+        private int RequireManagementActor()
         {
             if (!_currentActor.IsAuthenticated)
             {
@@ -211,7 +211,7 @@ namespace ASI.Basecode.Services.Services
                 throw new DomainException(OutcomeCode.Forbidden, "A valid authenticated user is required to change a member.");
             }
 
-            if (actorId <= 0 || (requestedActorId.HasValue && actorId != requestedActorId.Value)
+            if (actorId <= 0
                 || (!string.Equals(_currentActor.Role, RoleCodes.Admin, StringComparison.Ordinal)
                     && !string.Equals(_currentActor.Role, RoleCodes.Officer, StringComparison.Ordinal)))
             {

@@ -124,7 +124,7 @@ public sealed class MemberManagementTests(SqlServerDatabaseFixture fixture) : IC
                 Section = "NEW-B",
                 MobileNumber = "555-0111",
                 MembershipType = "Honors"
-            }, seeded.ActorId, ct);
+            }, ct);
         }
 
         await using var observer = Context();
@@ -179,7 +179,7 @@ public sealed class MemberManagementTests(SqlServerDatabaseFixture fixture) : IC
                 YearLevel = 2,
                 Section = "A",
                 MembershipType = "Regular"
-            }, seeded.ActorId, ct);
+            }, ct);
         }
 
         await using var observer = Context();
@@ -214,7 +214,7 @@ public sealed class MemberManagementTests(SqlServerDatabaseFixture fixture) : IC
             Course = "Computing",
             YearLevel = 2,
             Section = "A"
-        }, seeded.ActorId, ct));
+        }, ct));
 
         Assert.Equal(OutcomeCode.Duplicate, exception.Outcome);
         Assert.Equal(nameof(MemberViewModel.StudentNumber), exception.Field);
@@ -244,7 +244,7 @@ public sealed class MemberManagementTests(SqlServerDatabaseFixture fixture) : IC
             Course = "Must not change",
             YearLevel = 2,
             Section = "A"
-        }, seeded.ActorId, ct));
+        }, ct));
 
         Assert.Equal(OutcomeCode.Duplicate, exception.Outcome);
         Assert.Equal(nameof(MemberViewModel.StudentNumber), exception.Field);
@@ -273,7 +273,7 @@ public sealed class MemberManagementTests(SqlServerDatabaseFixture fixture) : IC
             Course = "Changed course",
             YearLevel = 4,
             Section = "ROLLBACK"
-        }, seeded.ActorId, ct));
+        }, ct));
 
         await using var observer = Context();
         var member = await observer.Members.AsNoTracking().SingleAsync(item => item.MemberId == seeded.MemberId, ct);
@@ -305,7 +305,7 @@ public sealed class MemberManagementTests(SqlServerDatabaseFixture fixture) : IC
             Course = "Original course",
             YearLevel = 2,
             Section = "A"
-        }, seeded.ActorId, ct);
+        }, ct);
         var committed = false;
         try
         {
@@ -394,7 +394,7 @@ public sealed class MemberManagementTests(SqlServerDatabaseFixture fixture) : IC
         {
             var member = await observer.Members.AsNoTracking().SingleAsync(item => item.MemberId == seeded.MemberId, ct);
             var user = await observer.Users.AsNoTracking().SingleAsync(item => item.Id == seeded.UserId, ct);
-        Assert.Equal(seeded.StudentNumber, member.StudentNumber);
+            Assert.Equal(seeded.StudentNumber, member.StudentNumber);
             Assert.Equal(MembershipStatusCode.Inactive, member.MembershipStatusId);
             Assert.Equal("Original Member Name", user.Name);
             Assert.Equal(seeded.MemberEmail, user.UserId);
