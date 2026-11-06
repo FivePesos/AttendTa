@@ -21,9 +21,12 @@
                     </ul>
                 </div>
                 <partial name="_PassPartial" model="card.Pass" />
-                <div class="event-card-actions">
-                    <a asp-controller="MemberEvents" asp-action="Details" asp-route-id="@card.EventId" class="button button-secondary">View event</a>
-                </div>
+                @if (card.CanViewEvent)
+                {
+                    <div class="event-card-actions">
+                        <a asp-controller="MemberEvents" asp-action="Details" asp-route-id="@card.EventId" class="button button-secondary">View event</a>
+                    </div>
+                }
             </article>
         }
     </div>
