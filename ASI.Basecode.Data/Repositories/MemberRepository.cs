@@ -3,6 +3,8 @@ using ASI.Basecode.Data.Models;
 using ASI.Basecode.Data.Models.Lookups;
 using Basecode.Data.Repositories;
 using Microsoft.EntityFrameworkCore;
+using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -50,6 +52,30 @@ namespace ASI.Basecode.Data.Repositories
         public MemberRecord GetMemberRecord(int memberId)
         {
             return this.GetMemberRecords().FirstOrDefault(member => member.MemberId == memberId);
+        }
+
+        public Task<int> CountAsync(string search, CancellationToken cancellationToken = default) =>
+            FilterMembers(search).CountAsync(cancellationToken);
+
+        public async Task<IReadOnlyList<MemberRecord>> GetPageAsync(string search, int skip, int take, CancellationToken cancellationToken = default)
+        {
+            if (skip < 0) throw new ArgumentOutOfRangeException(nameof(skip));
+            if (take <= 0) throw new ArgumentOutOfRangeException(nameof(take));
+
+            return await FilterMembers(search)
+                .OrderBy(member => member.FullName)
+                .ThenBy(member => member.MemberId)
+                .Skip(skip)
+                .Take(take)
+                .ToListAsync(cancellationToken);
+        }
+
+        private IQueryable<MemberRecord> FilterMembers(string search)
+        {
+            var query = GetMemberRecords();
+            return string.IsNullOrWhiteSpace(search)
+                ? query
+                : query.Where(member => member.FullName.Contains(search) || member.Email.Contains(search) || member.StudentNumber.Contains(search));
         }
 
         public Task<MemberRecord> GetMemberRecordByUserIdAsync(int userId, CancellationToken cancellationToken = default)
