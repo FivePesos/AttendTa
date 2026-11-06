@@ -30,10 +30,13 @@ public sealed class RegistrationReviewController(IHttpContextAccessor accessor, 
     public Task<IActionResult> Decline(int id, string reason, string status, int? eventId, int? page) => Decide(() => review.DeclineAsync(id, reason, HttpContext.RequestAborted), status, eventId, page);
     [HttpPost, ValidateAntiForgeryToken]
     public Task<IActionResult> Cancel(int id, string reason, string status, int? eventId, int? page) => Decide(() => review.CancelAsync(id, reason, HttpContext.RequestAborted), status, eventId, page);
+    [HttpPost, ValidateAntiForgeryToken]
+    public Task<IActionResult> Promote(int eventId, int? page) =>
+        Decide(() => review.PromoteNextAsync(eventId, HttpContext.RequestAborted), "waitlisted", eventId, page, "Next eligible participant promoted.");
 
-    private async Task<IActionResult> Decide(System.Func<Task> command, string status, int? eventId, int? page)
+    private async Task<IActionResult> Decide(System.Func<Task> command, string status, int? eventId, int? page, string successMessage = "Registration updated.")
     {
-        try { await command(); TempData["SuccessMessage"] = "Registration updated."; }
+        try { await command(); TempData["SuccessMessage"] = successMessage; }
         catch (DomainException ex) { TempData["ErrorMessage"] = ex.Message; }
         return RedirectToAction(nameof(Index), new { status, eventId, page });
     }

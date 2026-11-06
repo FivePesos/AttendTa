@@ -1,3 +1,4 @@
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using ASI.Basecode.Resources;
@@ -46,23 +47,25 @@ namespace ASI.Basecode.WebApp.Controllers
         [Authorize(Policy = Policies.Management)]
         [Route("AccountRequest")]
         [Route("AccountRequest/Index")]
-        public async Task<IActionResult> Index(string status = "pending", int? page = null)
+        public async Task<IActionResult> Index(string status = "pending", string search = null, string sort = "newest", int? page = null)
         {
             var normalizedStatus = status?.Trim().ToLowerInvariant() switch
             {
                 "approved" => "approved",
                 "rejected" => "rejected",
+                "all" => "all",
                 _ => "pending"
             };
+            var normalizedSort = string.Equals(sort, "oldest", StringComparison.OrdinalIgnoreCase) ? "oldest" : "newest";
             ViewBag.Status = normalizedStatus;
-            var result = await _accountRequestQueueService.GetPageAsync(normalizedStatus, page, HttpContext.RequestAborted);
+            var result = await _accountRequestQueueService.GetPageAsync(normalizedStatus, page, search, normalizedSort, HttpContext.RequestAborted);
             return View(result);
         }
 
         [HttpPost]
         [Authorize(Policy = Policies.Management)]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Approve(int id, string status = "pending", int? page = null)
+        public async Task<IActionResult> Approve(int id, string status = "pending", string search = null, string sort = "newest", int? page = null)
         {
             try
             {
@@ -72,14 +75,14 @@ namespace ASI.Basecode.WebApp.Controllers
             }
             catch (DomainException exception)
             {
-                return await DecisionError(exception, id, null, false, page);
+                return await DecisionError(exception, id, null, false, page, search, sort);
             }
         }
 
         [HttpPost]
         [Authorize(Policy = Policies.Management)]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Reject(int id, string reason, string status = "pending", int? page = null)
+        public async Task<IActionResult> Reject(int id, string reason, string status = "pending", string search = null, string sort = "newest", int? page = null)
         {
             try
             {
@@ -89,19 +92,20 @@ namespace ASI.Basecode.WebApp.Controllers
             }
             catch (DomainException exception)
             {
-                return await DecisionError(exception, id, reason, true, page);
+                return await DecisionError(exception, id, reason, true, page, search, sort);
             }
         }
 
-        private async Task<IActionResult> DecisionError(DomainException exception, int id, string reason, bool isRejection, int? page)
+        private async Task<IActionResult> DecisionError(DomainException exception, int id, string reason, bool isRejection, int? page, string search, string sort)
         {
+            var normalizedSort = string.Equals(sort, "oldest", StringComparison.OrdinalIgnoreCase) ? "oldest" : "newest";
             ViewBag.Status = "pending";
             ViewBag.DecisionError = exception.Message;
             ViewBag.DecisionRequestId = id;
             ViewBag.DecisionReason = reason;
             ViewBag.IsRejection = isRejection;
             ViewData["PagerPath"] = Url.Action(nameof(Index));
-            var result = await _accountRequestQueueService.GetPageAsync("pending", page, HttpContext.RequestAborted);
+            var result = await _accountRequestQueueService.GetPageAsync("pending", page, search, normalizedSort, HttpContext.RequestAborted);
             return View("Index", result);
         }
 

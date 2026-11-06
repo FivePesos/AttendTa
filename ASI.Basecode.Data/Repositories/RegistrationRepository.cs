@@ -29,6 +29,13 @@ public sealed class RegistrationRepository : BaseRepository, IRegistrationReposi
             registration => registration.EventId == eventId && registration.MemberId == memberId,
             cancellationToken);
 
+    public Task<MemberRegistrationRow> GetMemberRegistrationAsync(int eventId, int userId, CancellationToken cancellationToken = default) =>
+        (from registration in GetDbSet<Registration>().AsNoTracking()
+         join member in GetDbSet<Member>().AsNoTracking() on registration.MemberId equals member.MemberId
+         where registration.EventId == eventId && member.UserId == userId
+         select new MemberRegistrationRow(registration.RegistrationId, member.MemberId, registration.EventId, registration.RegistrationStatusId))
+        .SingleOrDefaultAsync(cancellationToken);
+
     public Task<int> CountConfirmedAsync(int eventId, CancellationToken cancellationToken = default) =>
         ParticipationFacts.SeatHolders(GetDbSet<Registration>().AsNoTracking())
             .CountAsync(registration => registration.EventId == eventId, cancellationToken);
@@ -51,17 +58,48 @@ public sealed class RegistrationRepository : BaseRepository, IRegistrationReposi
         return ParticipationFacts.WaitlistPriority(GetDbSet<Registration>().AsNoTracking(), eventId).AnyAsync(r => eligible.Contains(r.MemberId), ct);
     }
 
+    public Task<RegistrationPromotionCandidate> DiscoverPromotionCandidateAsync(int eventId, CancellationToken ct = default)
+    {
+        var eligible = ParticipationFacts.EligibleParticipantMemberIds(GetDbSet<User>().AsNoTracking(), GetDbSet<Member>().AsNoTracking());
+        var queue = from r in ParticipationFacts.WaitlistPriority(GetDbSet<Registration>().AsNoTracking(), eventId)
+                    join m in GetDbSet<Member>().AsNoTracking() on r.MemberId equals m.MemberId
+                    where eligible.Contains(r.MemberId)
+                    select new RegistrationPromotionCandidate(r.RegistrationId, m.UserId, m.MemberId, r.EventId, r.ReviewedAt);
+        return queue.FirstOrDefaultAsync(ct);
+    }
+
     public Task<bool> HasValidAttendanceAsync(int id, CancellationToken ct = default) =>
         ParticipationFacts.ValidAttendances(GetDbSet<Attendance>().AsNoTracking()).AnyAsync(a => a.RegistrationId == id, ct);
 
-    private IQueryable<RegistrationReviewRow> ReviewQueue(RegistrationStatusCode status, int? eventId) =>
-        from r in GetDbSet<Registration>().AsNoTracking()
-        join m in GetDbSet<Member>().AsNoTracking() on r.MemberId equals m.MemberId
-        join u in GetDbSet<User>().AsNoTracking() on m.UserId equals u.Id
-        join e in GetDbSet<Event>().AsNoTracking() on r.EventId equals e.EventId
-        where r.RegistrationStatusId == status && (!eventId.HasValue || r.EventId == eventId.Value)
-        orderby r.SubmittedAt, r.RegistrationId
-        select new RegistrationReviewRow(r.RegistrationId, e.EventId, e.Title, u.Name, m.StudentNumber, r.SubmittedAt, r.RegistrationStatusId);
+    public Task<bool> HasValidAttendanceForEventAsync(int eventId, CancellationToken ct = default)
+    {
+        var validAttendance = ParticipationFacts.ValidAttendances(GetDbSet<Attendance>().AsNoTracking());
+        return (from registration in GetDbSet<Registration>().AsNoTracking()
+                join attendance in validAttendance on registration.RegistrationId equals attendance.RegistrationId
+                where registration.EventId == eventId
+                select attendance.AttendanceId).AnyAsync(ct);
+    }
+
+    public Task<bool> HasIssuedCertificateForEventAsync(int eventId, CancellationToken ct = default) =>
+        (from registration in GetDbSet<Registration>().AsNoTracking()
+         join certificate in GetDbSet<Certificate>().AsNoTracking() on registration.RegistrationId equals certificate.RegistrationId
+         where registration.EventId == eventId && certificate.CertificateStatusId == CertificateStatusCode.Issued
+         select certificate.CertificateId).AnyAsync(ct);
+
+    private IQueryable<RegistrationReviewRow> ReviewQueue(RegistrationStatusCode status, int? eventId)
+    {
+        var rows = from r in GetDbSet<Registration>().AsNoTracking()
+                   join m in GetDbSet<Member>().AsNoTracking() on r.MemberId equals m.MemberId
+                   join u in GetDbSet<User>().AsNoTracking() on m.UserId equals u.Id
+                   join e in GetDbSet<Event>().AsNoTracking() on r.EventId equals e.EventId
+                   where r.RegistrationStatusId == status && (!eventId.HasValue || r.EventId == eventId.Value)
+                   select new { r, m, u, e };
+        // The waitlist screen must show the same order the promotion command uses.
+        var ordered = status == RegistrationStatusCode.Waitlisted
+            ? rows.OrderBy(row => row.r.ReviewedAt).ThenBy(row => row.r.RegistrationId)
+            : rows.OrderBy(row => row.r.SubmittedAt).ThenBy(row => row.r.RegistrationId);
+        return ordered.Select(row => new RegistrationReviewRow(row.r.RegistrationId, row.e.EventId, row.e.Title, row.u.Name, row.m.StudentNumber, row.r.SubmittedAt, row.r.RegistrationStatusId));
+    }
 
     public Task<int> CountReviewQueueAsync(RegistrationStatusCode status, int? eventId, CancellationToken ct = default) => ReviewQueue(status, eventId).CountAsync(ct);
     public async Task<IReadOnlyList<RegistrationReviewRow>> GetReviewQueueAsync(RegistrationStatusCode status, int? eventId, int offset, int limit, CancellationToken ct = default) =>

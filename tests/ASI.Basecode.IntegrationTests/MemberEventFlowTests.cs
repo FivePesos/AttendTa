@@ -851,8 +851,11 @@ public sealed class MemberEventRegistrationPersistenceTests(SqlServerDatabaseFix
     private sealed class StaleExistenceRegistrationRepository(IRegistrationRepository inner) : IRegistrationRepository
     {
         public Task<RegistrationReviewIdentity> DiscoverReviewAsync(int id, CancellationToken ct = default) => inner.DiscoverReviewAsync(id, ct);
+        public Task<RegistrationPromotionCandidate> DiscoverPromotionCandidateAsync(int eventId, CancellationToken ct = default) => inner.DiscoverPromotionCandidateAsync(eventId, ct);
         public Task<bool> HasEligibleWaitlistAsync(int id, CancellationToken ct = default) => inner.HasEligibleWaitlistAsync(id, ct);
         public Task<bool> HasValidAttendanceAsync(int id, CancellationToken ct = default) => inner.HasValidAttendanceAsync(id, ct);
+        public Task<bool> HasValidAttendanceForEventAsync(int eventId, CancellationToken ct = default) => inner.HasValidAttendanceForEventAsync(eventId, ct);
+        public Task<bool> HasIssuedCertificateForEventAsync(int eventId, CancellationToken ct = default) => inner.HasIssuedCertificateForEventAsync(eventId, ct);
         public Task<int> CountReviewQueueAsync(RegistrationStatusCode status, int? eventId, CancellationToken ct = default) => inner.CountReviewQueueAsync(status, eventId, ct);
         public Task<IReadOnlyList<RegistrationReviewRow>> GetReviewQueueAsync(RegistrationStatusCode status, int? eventId, int offset, int limit, CancellationToken ct = default) => inner.GetReviewQueueAsync(status, eventId, offset, limit, ct);
         public Task<Registration> GetForCancellationAsync(int id, CancellationToken ct = default) => inner.GetForCancellationAsync(id, ct);
@@ -864,6 +867,9 @@ public sealed class MemberEventRegistrationPersistenceTests(SqlServerDatabaseFix
 
         public Task<bool> ExistsAsync(int eventId, int memberId, CancellationToken cancellationToken = default) =>
             Task.FromResult(false);
+
+        public Task<MemberRegistrationRow> GetMemberRegistrationAsync(int eventId, int userId, CancellationToken cancellationToken = default) =>
+            inner.GetMemberRegistrationAsync(eventId, userId, cancellationToken);
 
         public Task<int> CountConfirmedAsync(int eventId, CancellationToken cancellationToken = default) =>
             inner.CountConfirmedAsync(eventId, cancellationToken);
@@ -930,6 +936,13 @@ internal static class MemberEventTestSupport
             unitOfWork,
             clock,
             actor,
+            new RegistrationCancellationService(
+                registrations,
+                new EventRepository(unitOfWork),
+                unitOfWork,
+                actor,
+                new ActivityLogWriter(context, actor, clock),
+                clock),
             Mapper);
     }
 

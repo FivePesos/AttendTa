@@ -337,6 +337,244 @@ public sealed class MemberEventServiceTests
         Assert.Single(harness.Registrations.Items);
     }
 
+    [Theory]
+    [InlineData(RegistrationStatusCode.Pending)]
+    [InlineData(RegistrationStatusCode.Confirmed)]
+    [InlineData(RegistrationStatusCode.Waitlisted)]
+    public async Task CancelRegistrationCancelsTheOwnersOpenRowThroughTheCancellationService(RegistrationStatusCode status)
+    {
+        var harness = new Harness();
+        var actor = harness.AddUser(RoleCode.Member, isActive: true);
+        var member = harness.AddMember(actor.Id, MembershipStatusCode.Active);
+        var type = harness.AddType("Workshop");
+        var venue = harness.AddVenue("Room A");
+        var eventItem = harness.AddEvent("Cancelable", type.TypeId, venue.VenueId, EventStatusCode.Published, Now.AddDays(2), Now.AddDays(1));
+        var registration = harness.AddRegistration(eventItem.EventId, member.MemberId, status);
+        registration.QrToken = new string('a', 64);
+
+        await harness.Service.CancelRegistrationAsync(eventItem.EventId, TestContext.Current.CancellationToken);
+
+        var call = Assert.Single(harness.Cancellation.Calls);
+        Assert.Equal(registration.RegistrationId, call.RegistrationId);
+        Assert.Equal(CancellationCause.MemberRequested, call.Cause);
+        Assert.Null(call.Reason);
+        Assert.Equal(RegistrationStatusCode.Cancelled, registration.RegistrationStatusId);
+        Assert.Null(registration.QrToken);
+        Assert.Equal(new[] { "user", "event" }, harness.Locks);
+    }
+
+    [Theory]
+    [InlineData(-1, true)]
+    [InlineData(0, false)]
+    [InlineData(1, false)]
+    public async Task CancelRegistrationUsesTickPrecisionAfterBothLocks(long offsetTicks, bool succeeds)
+    {
+        var clock = new FixedClock { Now = Now.AddTicks(-1) };
+        var harness = new Harness(clock);
+        var actor = harness.AddUser(RoleCode.Member, isActive: true);
+        var member = harness.AddMember(actor.Id, MembershipStatusCode.Active);
+        var type = harness.AddType("Workshop");
+        var venue = harness.AddVenue("Room A");
+        // The event starts exactly at Now, so only the clock captured after both locks decides.
+        var eventItem = harness.AddEvent("Boundary", type.TypeId, venue.VenueId, EventStatusCode.Published, Now, Now.AddDays(-1));
+        var registration = harness.AddRegistration(eventItem.EventId, member.MemberId, RegistrationStatusCode.Confirmed);
+        harness.Events.BeforeLock = _ => clock.Now = Now.AddTicks(offsetTicks);
+
+        if (succeeds)
+        {
+            await harness.Service.CancelRegistrationAsync(eventItem.EventId, TestContext.Current.CancellationToken);
+            Assert.Single(harness.Cancellation.Calls);
+            Assert.Equal(RegistrationStatusCode.Cancelled, registration.RegistrationStatusId);
+        }
+        else
+        {
+            var error = await Assert.ThrowsAsync<DomainException>(() =>
+                harness.Service.CancelRegistrationAsync(eventItem.EventId, TestContext.Current.CancellationToken));
+            Assert.Equal(OutcomeCode.CutoffPassed, error.Outcome);
+            Assert.Empty(harness.Cancellation.Calls);
+            Assert.Equal(RegistrationStatusCode.Confirmed, registration.RegistrationStatusId);
+        }
+
+        Assert.Equal(new[] { "user", "event" }, harness.Locks);
+    }
+
+    [Fact]
+    public async Task CancelRegistrationRefusesValidAttendanceWithoutCancelling()
+    {
+        var harness = new Harness();
+        var actor = harness.AddUser(RoleCode.Member, isActive: true);
+        var member = harness.AddMember(actor.Id, MembershipStatusCode.Active);
+        var type = harness.AddType("Workshop");
+        var venue = harness.AddVenue("Room A");
+        var eventItem = harness.AddEvent("Attended", type.TypeId, venue.VenueId, EventStatusCode.Published, Now.AddDays(2), Now.AddDays(1));
+        var registration = harness.AddRegistration(eventItem.EventId, member.MemberId, RegistrationStatusCode.Confirmed);
+        harness.Registrations.ValidAttendanceRegistrationIds.Add(registration.RegistrationId);
+
+        var error = await Assert.ThrowsAsync<DomainException>(() =>
+            harness.Service.CancelRegistrationAsync(eventItem.EventId, TestContext.Current.CancellationToken));
+
+        Assert.Equal(OutcomeCode.Invalid, error.Outcome);
+        Assert.Empty(harness.Cancellation.Calls);
+        Assert.Equal(RegistrationStatusCode.Confirmed, registration.RegistrationStatusId);
+    }
+
+    [Fact]
+    public async Task CancelRegistrationRefusesAnotherMembersRegistrationAsNotFound()
+    {
+        var harness = new Harness();
+        var actor = harness.AddUser(RoleCode.Member, isActive: true);
+        harness.AddMember(actor.Id, MembershipStatusCode.Active);
+        var other = harness.AddUser(RoleCode.Member, isActive: true);
+        var otherMember = harness.AddMember(other.Id, MembershipStatusCode.Active);
+        var type = harness.AddType("Workshop");
+        var venue = harness.AddVenue("Room A");
+        var eventItem = harness.AddEvent("Someone else", type.TypeId, venue.VenueId, EventStatusCode.Published, Now.AddDays(2), Now.AddDays(1));
+        var otherRegistration = harness.AddRegistration(eventItem.EventId, otherMember.MemberId, RegistrationStatusCode.Confirmed);
+
+        var error = await Assert.ThrowsAsync<DomainException>(() =>
+            harness.Service.CancelRegistrationAsync(eventItem.EventId, TestContext.Current.CancellationToken));
+
+        Assert.Equal(OutcomeCode.NotFound, error.Outcome);
+        Assert.Empty(harness.Cancellation.Calls);
+        Assert.Equal(RegistrationStatusCode.Confirmed, otherRegistration.RegistrationStatusId);
+        Assert.Empty(harness.Locks);
+    }
+
+    [Fact]
+    public async Task CancelRegistrationRefusesMissingRegistrationWithoutLocking()
+    {
+        var harness = new Harness();
+        var actor = harness.AddUser(RoleCode.Member, isActive: true);
+        harness.AddMember(actor.Id, MembershipStatusCode.Active);
+        var type = harness.AddType("Workshop");
+        var venue = harness.AddVenue("Room A");
+        var eventItem = harness.AddEvent("No row", type.TypeId, venue.VenueId, EventStatusCode.Published, Now.AddDays(2), Now.AddDays(1));
+
+        var error = await Assert.ThrowsAsync<DomainException>(() =>
+            harness.Service.CancelRegistrationAsync(eventItem.EventId, TestContext.Current.CancellationToken));
+
+        Assert.Equal(OutcomeCode.NotFound, error.Outcome);
+        Assert.Empty(harness.Cancellation.Calls);
+        Assert.Empty(harness.Locks);
+    }
+
+    [Theory]
+    [InlineData(EventStatusCode.Draft)]
+    [InlineData(EventStatusCode.Cancelled)]
+    [InlineData(EventStatusCode.Completed)]
+    public async Task CancelRegistrationRefusesAnEventThatIsNoLongerPublishedAsStale(EventStatusCode status)
+    {
+        var harness = new Harness();
+        var actor = harness.AddUser(RoleCode.Member, isActive: true);
+        var member = harness.AddMember(actor.Id, MembershipStatusCode.Active);
+        var type = harness.AddType("Workshop");
+        var venue = harness.AddVenue("Room A");
+        var eventItem = harness.AddEvent("Not published", type.TypeId, venue.VenueId, EventStatusCode.Published, Now.AddDays(2), Now.AddDays(1));
+        var registration = harness.AddRegistration(eventItem.EventId, member.MemberId, RegistrationStatusCode.Confirmed);
+        harness.Events.BeforeLock = item => item.EventStatusId = status;
+
+        var error = await Assert.ThrowsAsync<DomainException>(() =>
+            harness.Service.CancelRegistrationAsync(eventItem.EventId, TestContext.Current.CancellationToken));
+
+        Assert.Equal(OutcomeCode.Stale, error.Outcome);
+        Assert.Empty(harness.Cancellation.Calls);
+        Assert.Equal(RegistrationStatusCode.Confirmed, registration.RegistrationStatusId);
+        Assert.Equal(new[] { "user", "event" }, harness.Locks);
+    }
+
+    [Fact]
+    public async Task CancelRegistrationRefusesAnAlreadyCancelledRowAsStale()
+    {
+        var harness = new Harness();
+        var actor = harness.AddUser(RoleCode.Member, isActive: true);
+        var member = harness.AddMember(actor.Id, MembershipStatusCode.Active);
+        var type = harness.AddType("Workshop");
+        var venue = harness.AddVenue("Room A");
+        var eventItem = harness.AddEvent("Already cancelled", type.TypeId, venue.VenueId, EventStatusCode.Published, Now.AddDays(2), Now.AddDays(1));
+        var registration = harness.AddRegistration(eventItem.EventId, member.MemberId, RegistrationStatusCode.Confirmed);
+        // The row changes between discovery and the post-lock recheck.
+        harness.Events.BeforeLock = _ => registration.RegistrationStatusId = RegistrationStatusCode.Cancelled;
+
+        var error = await Assert.ThrowsAsync<DomainException>(() =>
+            harness.Service.CancelRegistrationAsync(eventItem.EventId, TestContext.Current.CancellationToken));
+
+        Assert.Equal(OutcomeCode.Stale, error.Outcome);
+        Assert.Empty(harness.Cancellation.Calls);
+        Assert.Equal(RegistrationStatusCode.Cancelled, registration.RegistrationStatusId);
+    }
+
+    [Fact]
+    public async Task AnonymousCancellationIsForbiddenAndWritesNothing()
+    {
+        var harness = new Harness(actor: new FixedActor(0, RoleCodes.Member, isAuthenticated: false));
+
+        var error = await Assert.ThrowsAsync<DomainException>(() =>
+            harness.Service.CancelRegistrationAsync(1, TestContext.Current.CancellationToken));
+
+        Assert.Equal(OutcomeCode.Forbidden, error.Outcome);
+        Assert.Empty(harness.Cancellation.Calls);
+        Assert.Empty(harness.Locks);
+    }
+
+    [Theory]
+    [InlineData(RegistrationStatusCode.Pending, true)]
+    [InlineData(RegistrationStatusCode.Confirmed, true)]
+    [InlineData(RegistrationStatusCode.Waitlisted, true)]
+    [InlineData(RegistrationStatusCode.Cancelled, false)]
+    public async Task DetailOffersCancellationOnlyForAnOpenRegistrationBeforeStart(RegistrationStatusCode status, bool canCancel)
+    {
+        var harness = new Harness();
+        var actor = harness.AddUser(RoleCode.Member, isActive: true);
+        var member = harness.AddMember(actor.Id, MembershipStatusCode.Active);
+        var type = harness.AddType("Workshop");
+        var venue = harness.AddVenue("Room A");
+        var eventItem = harness.AddEvent("Detail cancel", type.TypeId, venue.VenueId, EventStatusCode.Published, Now.AddDays(2), Now.AddDays(1));
+        var registration = harness.AddRegistration(eventItem.EventId, member.MemberId, status);
+
+        var detail = await harness.Service.GetDetailAsync(eventItem.EventId, TestContext.Current.CancellationToken);
+
+        Assert.True(detail.HasRegistration);
+        Assert.Equal(registration.RegistrationId, detail.RegistrationId);
+        Assert.Equal(status, detail.RegistrationStatus);
+        Assert.Equal(canCancel, detail.CanCancel);
+    }
+
+    [Fact]
+    public async Task DetailHidesCancellationAfterStartOrWithValidAttendance()
+    {
+        var harness = new Harness();
+        var actor = harness.AddUser(RoleCode.Member, isActive: true);
+        var member = harness.AddMember(actor.Id, MembershipStatusCode.Active);
+        var type = harness.AddType("Workshop");
+        var venue = harness.AddVenue("Room A");
+        var atStart = harness.AddEvent("Started", type.TypeId, venue.VenueId, EventStatusCode.Published, Now, Now.AddDays(-1));
+        harness.AddRegistration(atStart.EventId, member.MemberId, RegistrationStatusCode.Confirmed);
+        var attended = harness.AddEvent("Attended", type.TypeId, venue.VenueId, EventStatusCode.Published, Now.AddDays(2), Now.AddDays(1));
+        var attendedRow = harness.AddRegistration(attended.EventId, member.MemberId, RegistrationStatusCode.Confirmed);
+        harness.Registrations.ValidAttendanceRegistrationIds.Add(attendedRow.RegistrationId);
+
+        Assert.False((await harness.Service.GetDetailAsync(atStart.EventId, TestContext.Current.CancellationToken)).CanCancel);
+        Assert.False((await harness.Service.GetDetailAsync(attended.EventId, TestContext.Current.CancellationToken)).CanCancel);
+    }
+
+    [Fact]
+    public async Task DetailStillOffersCancellationToADeactivatedMember()
+    {
+        var harness = new Harness();
+        var actor = harness.AddUser(RoleCode.Member, isActive: true);
+        var member = harness.AddMember(actor.Id, MembershipStatusCode.Inactive);
+        var type = harness.AddType("Workshop");
+        var venue = harness.AddVenue("Room A");
+        var eventItem = harness.AddEvent("Inactive member", type.TypeId, venue.VenueId, EventStatusCode.Published, Now.AddDays(2), Now.AddDays(1));
+        harness.AddRegistration(eventItem.EventId, member.MemberId, RegistrationStatusCode.Confirmed);
+
+        var detail = await harness.Service.GetDetailAsync(eventItem.EventId, TestContext.Current.CancellationToken);
+
+        Assert.True(detail.HasRegistration);
+        Assert.True(detail.CanCancel);
+        Assert.False(detail.CanRegister);
+    }
+
     [Fact]
     public async Task DetailHidesDraftsAndReportsSignupRegistrationAndFullState()
     {
@@ -358,6 +596,9 @@ public sealed class MemberEventServiceTests
         Assert.True(openDetail.CanRegister);
         Assert.False(openDetail.IsFull);
         Assert.False(openDetail.HasRegistration);
+        Assert.Null(openDetail.RegistrationId);
+        Assert.Null(openDetail.RegistrationStatus);
+        Assert.False(openDetail.CanCancel);
 
         var closedDetail = await harness.Service.GetDetailAsync(closed.EventId, TestContext.Current.CancellationToken);
         Assert.False(closedDetail.IsSignupOpen);
@@ -365,6 +606,9 @@ public sealed class MemberEventServiceTests
 
         var registeredDetail = await harness.Service.GetDetailAsync(registered.EventId, TestContext.Current.CancellationToken);
         Assert.True(registeredDetail.HasRegistration);
+        Assert.NotNull(registeredDetail.RegistrationId);
+        Assert.Equal(RegistrationStatusCode.Cancelled, registeredDetail.RegistrationStatus);
+        Assert.False(registeredDetail.CanCancel);
         Assert.False(registeredDetail.CanRegister);
 
         var other = harness.AddUser(RoleCode.Member, isActive: true);
@@ -409,9 +653,10 @@ public sealed class MemberEventServiceTests
             Clock = clock ?? new FixedClock { Now = Now };
             Actor = actor as FixedActor ?? new FixedActor(0, RoleCodes.Member);
             Events = new FakeEvents(Locks);
-            Registrations = new FakeRegistrations();
             Members = new FakeMembers();
+            Registrations = new FakeRegistrations(Members);
             Users = new FakeUsers(Locks);
+            Cancellation = new FakeCancellation(Registrations);
             Events.ConfirmedCount = eventId => Registrations.Items.Count(row =>
                 row.EventId == eventId && row.RegistrationStatusId == RegistrationStatusCode.Confirmed);
             Service = new MemberEventService(
@@ -422,6 +667,7 @@ public sealed class MemberEventServiceTests
                 new ImmediateUnitOfWork(),
                 Clock,
                 Actor,
+                Cancellation,
                 Mapper);
         }
 
@@ -431,6 +677,7 @@ public sealed class MemberEventServiceTests
         public FakeRegistrations Registrations { get; }
         public FakeMembers Members { get; }
         public FakeUsers Users { get; }
+        public FakeCancellation Cancellation { get; }
         public MemberEventService Service { get; }
         public List<string> Locks { get; } = [];
 
@@ -633,11 +880,13 @@ public sealed class MemberEventServiceTests
         }
     }
 
-    private sealed class FakeRegistrations : IRegistrationRepository
+    private sealed class FakeRegistrations(FakeMembers members) : IRegistrationRepository
     {
         public Task<RegistrationReviewIdentity> DiscoverReviewAsync(int id, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<RegistrationPromotionCandidate> DiscoverPromotionCandidateAsync(int eventId, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<bool> HasEligibleWaitlistAsync(int id, CancellationToken ct = default) => throw new NotSupportedException();
-        public Task<bool> HasValidAttendanceAsync(int id, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<bool> HasValidAttendanceForEventAsync(int eventId, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<bool> HasIssuedCertificateForEventAsync(int eventId, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<int> CountReviewQueueAsync(RegistrationStatusCode status, int? eventId, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<IReadOnlyList<RegistrationReviewRow>> GetReviewQueueAsync(RegistrationStatusCode status, int? eventId, int offset, int limit, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<Registration> GetForCancellationAsync(int id, CancellationToken ct = default) => throw new NotSupportedException();
@@ -645,12 +894,25 @@ public sealed class MemberEventServiceTests
         public Task<IReadOnlyList<int>> DiscoverOpenEventIdsForUserAsync(int id, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<IReadOnlyList<UpcomingRegistrationRow>> GetUpcomingForUserAsync(int id, DateTime now, int? eventId = null, CancellationToken ct = default) => throw new NotSupportedException();
         public List<Registration> Items { get; } = [];
+        public HashSet<int> ValidAttendanceRegistrationIds { get; } = [];
 
         public Task<bool> IsConfirmedAsync(int registrationId, CancellationToken cancellationToken = default) =>
             Task.FromResult(Items.Any(row => row.RegistrationId == registrationId && row.RegistrationStatusId == RegistrationStatusCode.Confirmed));
 
         public Task<bool> ExistsAsync(int eventId, int memberId, CancellationToken cancellationToken = default) =>
             Task.FromResult(Items.Any(row => row.EventId == eventId && row.MemberId == memberId));
+
+        public Task<MemberRegistrationRow> GetMemberRegistrationAsync(int eventId, int userId, CancellationToken cancellationToken = default)
+        {
+            var memberId = members.Items.FirstOrDefault(member => member.UserId == userId)?.MemberId;
+            var row = Items.FirstOrDefault(registration => registration.EventId == eventId && registration.MemberId == memberId);
+            return Task.FromResult(row == null
+                ? null!
+                : new MemberRegistrationRow(row.RegistrationId, row.MemberId, row.EventId, row.RegistrationStatusId));
+        }
+
+        public Task<bool> HasValidAttendanceAsync(int registrationId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(ValidAttendanceRegistrationIds.Contains(registrationId));
 
         public Task<int> CountConfirmedAsync(int eventId, CancellationToken cancellationToken = default) =>
             Task.FromResult(Items.Count(row => row.EventId == eventId && row.RegistrationStatusId == RegistrationStatusCode.Confirmed));
@@ -661,6 +923,34 @@ public sealed class MemberEventServiceTests
             Items.Add(registration);
             return Task.CompletedTask;
         }
+    }
+
+    /// <summary>
+    /// Records the delegation the service must make; the real writer is covered by the SQL-backed
+    /// cancellation tests. It mirrors the status change so later detail reads see the result.
+    /// </summary>
+    private sealed class FakeCancellation(FakeRegistrations registrations) : IRegistrationCancellationService
+    {
+        public List<(int RegistrationId, CancellationCause Cause, string? Reason)> Calls { get; } = [];
+
+        public Task CancelRegistrationAsync(int registrationId, CancellationCause cause, string reason, CancellationToken cancellationToken = default)
+        {
+            Calls.Add((registrationId, cause, reason));
+            var row = registrations.Items.Single(item => item.RegistrationId == registrationId);
+            row.RegistrationStatusId = RegistrationStatusCode.Cancelled;
+            row.QrToken = null;
+            row.CancellationReason = string.IsNullOrWhiteSpace(reason) ? "Member requested cancellation" : reason.Trim();
+            return Task.CompletedTask;
+        }
+
+        public Task CancelAllForEventAsync(int eventId, CancellationCause cause, string reason, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
+        public Task CancelUpcomingForUserAsync(int userId, CancellationCause cause, string reason, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
+        public Task<IReadOnlyList<UpcomingRegistrationPreview>> PreviewUpcomingForUserAsync(int userId, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
     }
 
     private sealed class FakeMembers : IMemberRepository
