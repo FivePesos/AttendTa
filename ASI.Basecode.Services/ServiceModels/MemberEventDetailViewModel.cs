@@ -1,4 +1,5 @@
 using System;
+using ASI.Basecode.Data.Models.Lookups;
 
 namespace ASI.Basecode.Services.ServiceModels;
 
@@ -24,6 +25,18 @@ public sealed class MemberEventDetailViewModel
 
     /// <summary>True when the actor already has a registration of any status for this event.</summary>
     public bool HasRegistration { get; set; }
+
+    /// <summary>The actor's own registration id, or <c>null</c> when they have none for this event.</summary>
+    public int? RegistrationId { get; set; }
+
+    /// <summary>The actor's own registration status, or <c>null</c> when they have none for this event.</summary>
+    public RegistrationStatusCode? RegistrationStatus { get; set; }
+
+    /// <summary>
+    /// True when the server would accept the actor's cancellation right now: an open registration
+    /// on a published event strictly before the start with no valid attendance.
+    /// </summary>
+    public bool CanCancel { get; set; }
 
     /// <summary>True when the actor is an eligible participant and signup is still open.</summary>
     public bool CanRegister { get; set; }

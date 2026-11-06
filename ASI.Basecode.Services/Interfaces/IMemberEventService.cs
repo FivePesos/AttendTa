@@ -16,5 +16,11 @@ namespace ASI.Basecode.Services.Interfaces
         Task<MemberEventDetailViewModel> GetDetailAsync(int eventId, CancellationToken cancellationToken = default);
 
         Task<MemberRegistrationResult> RegisterAsync(int eventId, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Cancels the actor's own pending, confirmed or waitlisted registration for a published
+        /// event strictly before the Event Start Cutoff. No reason is required from the member.
+        /// </summary>
+        Task CancelRegistrationAsync(int eventId, CancellationToken cancellationToken = default);
     }
 }

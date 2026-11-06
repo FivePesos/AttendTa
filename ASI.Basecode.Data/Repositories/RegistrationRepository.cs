@@ -29,6 +29,13 @@ public sealed class RegistrationRepository : BaseRepository, IRegistrationReposi
             registration => registration.EventId == eventId && registration.MemberId == memberId,
             cancellationToken);
 
+    public Task<MemberRegistrationRow> GetMemberRegistrationAsync(int eventId, int userId, CancellationToken cancellationToken = default) =>
+        (from registration in GetDbSet<Registration>().AsNoTracking()
+         join member in GetDbSet<Member>().AsNoTracking() on registration.MemberId equals member.MemberId
+         where registration.EventId == eventId && member.UserId == userId
+         select new MemberRegistrationRow(registration.RegistrationId, member.MemberId, registration.EventId, registration.RegistrationStatusId))
+        .SingleOrDefaultAsync(cancellationToken);
+
     public Task<int> CountConfirmedAsync(int eventId, CancellationToken cancellationToken = default) =>
         ParticipationFacts.SeatHolders(GetDbSet<Registration>().AsNoTracking())
             .CountAsync(registration => registration.EventId == eventId, cancellationToken);
