@@ -22,6 +22,13 @@ public interface IRegistrationRepository
     Task<IReadOnlyList<Registration>> GetOpenForEventAsync(int eventId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<int>> DiscoverOpenEventIdsForUserAsync(int userId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<UpcomingRegistrationRow>> GetUpcomingForUserAsync(int userId, DateTime nowUtc, int? eventId = null, CancellationToken cancellationToken = default);
+    Task<RegistrationReviewIdentity> DiscoverReviewAsync(int registrationId, CancellationToken cancellationToken = default);
+    Task<bool> HasEligibleWaitlistAsync(int eventId, CancellationToken cancellationToken = default);
+    Task<bool> HasValidAttendanceAsync(int registrationId, CancellationToken cancellationToken = default);
+    Task<int> CountReviewQueueAsync(ASI.Basecode.Data.Models.Lookups.RegistrationStatusCode status, int? eventId, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<RegistrationReviewRow>> GetReviewQueueAsync(ASI.Basecode.Data.Models.Lookups.RegistrationStatusCode status, int? eventId, int offset, int limit, CancellationToken cancellationToken = default);
 }
 
 public sealed record UpcomingRegistrationRow(int RegistrationId, int EventId, string EventTitle, DateTime StartsAt);
+public sealed record RegistrationReviewIdentity(int UserId, int MemberId, int EventId);
+public sealed record RegistrationReviewRow(int RegistrationId, int EventId, string EventTitle, string MemberName, string StudentNumber, DateTime SubmittedAt, ASI.Basecode.Data.Models.Lookups.RegistrationStatusCode Status);

@@ -850,6 +850,11 @@ public sealed class MemberEventRegistrationPersistenceTests(SqlServerDatabaseFix
     /// </summary>
     private sealed class StaleExistenceRegistrationRepository(IRegistrationRepository inner) : IRegistrationRepository
     {
+        public Task<RegistrationReviewIdentity> DiscoverReviewAsync(int id, CancellationToken ct = default) => inner.DiscoverReviewAsync(id, ct);
+        public Task<bool> HasEligibleWaitlistAsync(int id, CancellationToken ct = default) => inner.HasEligibleWaitlistAsync(id, ct);
+        public Task<bool> HasValidAttendanceAsync(int id, CancellationToken ct = default) => inner.HasValidAttendanceAsync(id, ct);
+        public Task<int> CountReviewQueueAsync(RegistrationStatusCode status, int? eventId, CancellationToken ct = default) => inner.CountReviewQueueAsync(status, eventId, ct);
+        public Task<IReadOnlyList<RegistrationReviewRow>> GetReviewQueueAsync(RegistrationStatusCode status, int? eventId, int offset, int limit, CancellationToken ct = default) => inner.GetReviewQueueAsync(status, eventId, offset, limit, ct);
         public Task<Registration> GetForCancellationAsync(int id, CancellationToken ct = default) => inner.GetForCancellationAsync(id, ct);
         public Task<IReadOnlyList<Registration>> GetOpenForEventAsync(int id, CancellationToken ct = default) => inner.GetOpenForEventAsync(id, ct);
         public Task<IReadOnlyList<int>> DiscoverOpenEventIdsForUserAsync(int id, CancellationToken ct = default) => inner.DiscoverOpenEventIdsForUserAsync(id, ct);
