@@ -1,6 +1,7 @@
 using ASI.Basecode.Data.Interfaces;
 using ASI.Basecode.Data.Models;
 using ASI.Basecode.Data.Models.Lookups;
+using ASI.Basecode.Data.Queries;
 using ASI.Basecode.Resources;
 using ASI.Basecode.Resources.Constants;
 using ASI.Basecode.Services.Interfaces;
@@ -164,6 +165,56 @@ namespace ASI.Basecode.Services.Services
                 await _events.UpdateEventAsync(eventItem, ct);
                 _audit.Append(new AuditEntry(AuditActions.EventUpdated, "events", eventItem.EventId,
                     OldValues: oldValues, NewValues: Snapshot(eventItem)));
+                await _unitOfWork.SaveChangesAsync(ct);
+            }, cancellationToken);
+        }
+
+        public async Task PublishAsync(int eventId, CancellationToken cancellationToken = default)
+        {
+            var actorUserId = RequireManagementActor();
+            var discovered = await _events.GetEventAsync(eventId, cancellationToken);
+            if (discovered == null)
+            {
+                throw new DomainException(OutcomeCode.NotFound, "Event not found.");
+            }
+
+            await _unitOfWork.ExecuteInTransactionAsync(async ct =>
+            {
+                var eventType = await _eventTypes.LockEventTypeAsync(discovered.TypeId, ct);
+                var venue = await _venues.LockVenueAsync(discovered.VenueId, ct);
+                var eventItem = await _events.LockEventAsync(eventId, ct);
+                if (eventItem == null)
+                {
+                    throw new DomainException(OutcomeCode.NotFound, "Event not found.");
+                }
+
+                if (eventItem.TypeId != discovered.TypeId || eventItem.VenueId != discovered.VenueId)
+                {
+                    throw new DomainException(OutcomeCode.Stale, "The event changed while it was being published.");
+                }
+
+                // Capture request time after all rows are locked so the deadline guard and persisted audit agree.
+                var now = _timeProvider.GetUtcNow().UtcDateTime;
+                if (eventType == null || venue == null)
+                {
+                    throw new DomainException(OutcomeCode.Stale, "The event changed while it was being published.");
+                }
+
+                if (!ParticipationFacts.Publishable(now).Compile()(eventItem, eventType, venue))
+                {
+                    throw new DomainException(OutcomeCode.Invalid, "This event no longer meets the publication requirements.");
+                }
+
+                var oldValues = new EventPublicationAuditValues(eventItem.EventStatusId, eventItem.PublishedBy, eventItem.PublishedAt);
+                eventItem.EventStatusId = EventStatusCode.Published;
+                eventItem.PublishedBy = actorUserId;
+                eventItem.PublishedAt = now;
+                eventItem.UpdatedBy = actorUserId;
+                eventItem.UpdatedAt = now;
+                await _events.UpdateEventAsync(eventItem, ct);
+                _audit.Append(new AuditEntry(AuditActions.EventPublished, "events", eventItem.EventId,
+                    OldValues: oldValues,
+                    NewValues: new EventPublicationAuditValues(eventItem.EventStatusId, eventItem.PublishedBy, eventItem.PublishedAt)));
                 await _unitOfWork.SaveChangesAsync(ct);
             }, cancellationToken);
         }
@@ -351,7 +402,7 @@ namespace ASI.Basecode.Services.Services
         {
             if (!_actor.IsAuthenticated)
             {
-                throw new DomainException(OutcomeCode.Forbidden, "Authentication is required to view an event cover.");
+                throw new DomainException(OutcomeCode.Forbidden, "Authentication is required to manage events.");
             }
 
             try
@@ -360,7 +411,7 @@ namespace ASI.Basecode.Services.Services
             }
             catch (InvalidOperationException)
             {
-                throw new DomainException(OutcomeCode.Forbidden, "Authentication is required to view an event cover.");
+                throw new DomainException(OutcomeCode.Forbidden, "Authentication is required to manage events.");
             }
         }
 
@@ -369,7 +420,7 @@ namespace ASI.Basecode.Services.Services
             var role = AuthenticatedRole();
             if (role is not (RoleCodes.Admin or RoleCodes.Officer))
             {
-                throw new DomainException(OutcomeCode.Forbidden, "Management access is required to change an event cover.");
+                throw new DomainException(OutcomeCode.Forbidden, "Management access is required to manage events.");
             }
 
             return ActorUserId();
@@ -436,6 +487,8 @@ namespace ASI.Basecode.Services.Services
                 eventItem.RegistrationDeadline,
                 eventItem.ParticipantLimit,
                 eventItem.EventStatusId);
+
+        private sealed record EventPublicationAuditValues(EventStatusCode Status, int? PublishedBy, DateTime? PublishedAt) : IAuditValues;
 
         private int ActorUserId()
         {

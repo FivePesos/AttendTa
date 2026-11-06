@@ -45,6 +45,10 @@ else
                             @if (eventItem.EventStatusId == EventStatusCode.Draft)
                             {
                                 <a asp-action="Edit" asp-route-id="@eventItem.EventId" class="button button-secondary">Edit</a>
+                                <form asp-action="Publish" method="post" class="inline-form">
+                                    <input type="hidden" name="id" value="@eventItem.EventId" />
+                                    <button type="submit" class="button button-primary">Publish</button>
+                                </form>
                             }
                         </td>
                     </tr>
