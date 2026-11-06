@@ -1,12 +1,19 @@
 @model PagedResult<VenueViewModel>
 @{
     ViewData["Title"] = "Campus Facilities & Venues";
+    var statusFilter = ViewBag.Status as string;
 }
 
 <div class="page-heading">
     <h1>Campus Facilities &amp; Venues</h1>
     <a asp-action="Create" class="button button-primary">New Venue</a>
 </div>
+
+<nav class="filter-tabs" aria-label="Venue status">
+    <a class="filter-tab" asp-action="Index" aria-current="@(string.IsNullOrEmpty(statusFilter) ? "page" : null)">All</a>
+    <a class="filter-tab" asp-action="Index" asp-route-status="active" aria-current="@(statusFilter == "active" ? "page" : null)">Active</a>
+    <a class="filter-tab" asp-action="Index" asp-route-status="inactive" aria-current="@(statusFilter == "inactive" ? "page" : null)">Inactive</a>
+</nav>
 
 @if (Model.Items.Count == 0)
 {
@@ -26,7 +33,16 @@
             </thead>
             <tbody>
                 <tr>
-                    <td colspan="8" class="empty-state">No venues yet. Use "New Venue" to create the first one.</td>
+                    <td colspan="8" class="empty-state">
+                        @if (string.IsNullOrEmpty(statusFilter))
+                        {
+                            <text>No venues yet. Use "New Venue" to create the first one.</text>
+                        }
+                        else
+                        {
+                            <text>No @statusFilter venues.</text>
+                        }
+                    </td>
                 </tr>
             </tbody>
         </table>

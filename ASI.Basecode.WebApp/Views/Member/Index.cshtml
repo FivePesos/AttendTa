@@ -1,6 +1,8 @@
 @model PagedResult<MemberViewModel>
 @{
     ViewData["Title"] = "Organization Members";
+    var statusFilter = ViewBag.Status as string;
+    var searchTerm = ViewBag.Search as string;
 }
 
 <div class="page-heading">
@@ -13,9 +15,16 @@
 <form asp-action="Index" method="get" class="spacing-bottom">
     <div class="search-group">
         <input type="text" name="search" aria-label="Search members" value="@ViewBag.Search" class="field-control" placeholder="Search by name or student number" />
+        <input type="hidden" name="status" value="@statusFilter" />
         <button type="submit" class="button button-secondary">Search</button>
     </div>
 </form>
+
+<nav class="filter-tabs" aria-label="Membership status">
+    <a class="filter-tab" asp-action="Index" asp-route-search="@searchTerm" aria-current="@(string.IsNullOrEmpty(statusFilter) ? "page" : null)">All</a>
+    <a class="filter-tab" asp-action="Index" asp-route-search="@searchTerm" asp-route-status="active" aria-current="@(statusFilter == "active" ? "page" : null)">Active</a>
+    <a class="filter-tab" asp-action="Index" asp-route-search="@searchTerm" asp-route-status="inactive" aria-current="@(statusFilter == "inactive" ? "page" : null)">Inactive</a>
+</nav>
 
 @if (Model.Items.Count == 0)
 {
@@ -37,7 +46,20 @@
             </thead>
             <tbody>
                 <tr>
-                    <td colspan="10" class="empty-state">@(string.IsNullOrWhiteSpace(ViewBag.Search as string) ? "No members yet. Members are created when an account request is approved." : "No members match your search. Try a different name or student number.")</td>
+                    <td colspan="10" class="empty-state">
+                        @if (!string.IsNullOrWhiteSpace(searchTerm))
+                        {
+                            <text>No members match your search. Try a different name or student number.</text>
+                        }
+                        else if (!string.IsNullOrEmpty(statusFilter))
+                        {
+                            <text>No @statusFilter members.</text>
+                        }
+                        else
+                        {
+                            <text>No members yet. Members are created when an account request is approved.</text>
+                        }
+                    </td>
                 </tr>
             </tbody>
         </table>

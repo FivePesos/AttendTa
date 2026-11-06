@@ -961,8 +961,8 @@ public sealed class MemberEventServiceTests
             Task.FromResult(Items.FirstOrDefault(member => member.UserId == userId)!);
 
         public IQueryable<MemberRecord> GetMemberRecords() => Array.Empty<MemberRecord>().AsQueryable();
-        public Task<int> CountAsync(string search, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Task<IReadOnlyList<MemberRecord>> GetPageAsync(string search, int skip, int take, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<int> CountAsync(string search, string status, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<IReadOnlyList<MemberRecord>> GetPageAsync(string search, string status, int skip, int take, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public MemberRecord GetMemberRecord(int memberId) => throw new NotSupportedException();
         public Task<MemberRecord> GetMemberRecordByUserIdAsync(int userId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Member GetMember(int memberId) => Items.Single(member => member.MemberId == memberId);
