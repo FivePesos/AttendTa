@@ -352,6 +352,18 @@ public sealed class DemoStore
         }
     }
 
+    /// <summary>
+    /// Drops a demo status entry once the real command wrote the authoritative state, so the overlay
+    /// stops masking the real row (5.4 removed M-14a; reactivation stays in the store for M-14b).
+    /// </summary>
+    public void ClearAccountStatus(int userId)
+    {
+        lock (_gate)
+        {
+            _accounts.Remove(userId);
+        }
+    }
+
     public bool TryGetMembershipStatus(int memberId, out DemoMembershipStatus status)
     {
         lock (_gate)

@@ -5,7 +5,7 @@ using ASI.Basecode.Services.ServiceModels;
 namespace ASI.Basecode.WebApp.DemoData;
 
 /// <summary>
-/// The demo access overlay (register M-14a, M-14b, M-15a and M-15b). Applied after the real read in
+/// The demo access overlay (register M-14b, M-15a and M-15b). Applied after the real read in
 /// the controller, never as a repository decorator, because demo state is not a SQL row (register
 /// rule 7). Only the account and membership status change.
 /// </summary>
