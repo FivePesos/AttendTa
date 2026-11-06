@@ -49,6 +49,7 @@ namespace ASI.Basecode.WebApp
             this._services.AddScoped<IRegistrationCancellationService, RegistrationCancellationService>();
             this._services.AddScoped<IRegistrationReviewService, RegistrationReviewService>();
             this._services.AddScoped<ICertificateTracerService, CertificateTracerService>();
+            this._services.AddScoped<IMyEventsService, MyEventsService>();
 
             // Repositories
             this._services.AddScoped<IUserRepository, UserRepository>();

@@ -24,7 +24,6 @@ internal static class DemoDataRegistration
             services.AddScoped<IAccountAccessCommands, UnavailableAccessCommands>();
             services.AddScoped<IMembershipAccessCommands, UnavailableAccessCommands>();
             services.AddScoped<IPassService, UnavailablePassService>();
-            services.AddScoped<IMyEventsService, EmptyMyEventsService>();
             services.AddScoped<ICheckInService, UnavailableCheckInService>();
             services.AddScoped<ICheckInLookupService, UnavailableCheckInLookupService>();
             services.AddScoped<IAttendanceInvalidationService, UnavailableAttendanceInvalidationService>();
@@ -39,7 +38,6 @@ internal static class DemoDataRegistration
         DemoReportsRegistration.AddDemoReports(services);
         DemoAccessRegistration.AddDemoAccess(services);
         DemoPassesRegistration.AddDemoPasses(services);
-        DemoMyEventsRegistration.AddDemoMyEvents(services);
         DemoCheckInRegistration.AddDemoCheckIn(services);
     }
 }

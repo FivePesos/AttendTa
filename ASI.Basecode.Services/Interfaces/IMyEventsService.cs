@@ -5,9 +5,9 @@ using System.Threading.Tasks;
 namespace ASI.Basecode.Services.Interfaces;
 
 /// <summary>
-/// The member Participation History reads. The demo provider composes the existing per-event reads
-/// now (register M-02 and M-08); 3.13 and 4.7 implement the real owner-scoped queries behind these
-/// same contracts, so the controller and views do not change.
+/// The member Participation History reads. Registrations use the real owner-scoped cross-event
+/// query; attendance stays an empty page until 4.7 implements its owner-scoped query behind the
+/// same contract, so the controller and views do not change.
 /// </summary>
 public interface IMyEventsService
 {
