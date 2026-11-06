@@ -4,7 +4,7 @@ type: 'feature'
 ticket: '12'
 created: '2026-11-07'
 status: 'built'
-baseline_revision: '426e92642bbb533cf302d2012111ae0f2b1a177c'
+baseline_revision: 'aaedda83a819ce44b6596d108c8904a47c47e84b'
 route: 'full'
 route_source: 'auto'
 risk: 'low'
@@ -91,6 +91,16 @@ Pass 1 (quick lens, 2026-11-07) — verdicts: high 0 / medium 0 / low 2 / false 
 |---|---|---|---|
 | `DemoSeedService.cs:22,131` with `DemoMyEventsService.cs:104-168` and `_Pager.cshtml:28` — the "More than 25 records" row and the independent-paging criterion cannot be reached with demo data, so the pager is not demonstrable | low | defer | Verified: `MaxSeededCheckIns = 8` seeds the single completed event only, and a member has one registration per event, so a member's history holds one row and `_Pager` stays hidden. The product behavior is correct and was proven for 26 rows by the temporary check; the limit is the pre-existing 1.14 seed, not this change. Recorded in `deferred-work.md` for 4.11/4.7. |
 | `DemoSeedService.cs:98` — the "Demo data active (M-01, M-02, M-04, M-09)" log line omits M-08 although the M-08 provider is now active and this service writes the attendance it reads | low | patch | Verified: register rule 3 allows the startup log to note active register ids, and 3.17 added M-02 to this same line. Patched to `(M-01, M-02, M-04, M-08, M-09)`; build and 271 service tests re-ran green. |
+
+Pass 2 (quick lens, 2026-11-07) — verdicts: high 0 / medium 1 / low 1 / false 1 / maybe-false 0.
+
+| Finding | Verdict | Route | Evidence / action |
+|---|---|---|---|
+| `MyEventsController.cs:46` — the comment "The certificate tab keeps its empty model until 6.13 fills it." sits above the Attendance action, which no longer has an empty model, while the Certificates action it describes has none | low | patch | Verified at lines 46-55: the comment is attached to `Attendance`. Moved directly above `Certificates`; build and 271 service tests re-ran green. |
+| `DemoMyEventsService.cs:104-169` with `EmptyMyEventsService.cs:23-29` and the registration file — M-08 has no provider class or registration line of its own, so 3.13's M-02 removal deletes the class that also serves M-08 before 4.7 runs, and 4.7 then has nothing to delete | medium | patch | Verified: 3.13 and 4.7 both instruct "delete the provider classes and their registration", and 4.7's `after` includes `3.13`. The code is correct for the demo phase; the smallest fix is the register hand-over note (rule 12) telling 3.13 to keep `GetAttendanceAsync` as an empty page and 4.7 to replace that method. Added to the M-08 section. |
+| `DemoSeedService.cs:22,131` with `DemoMyEventsService.cs:104-169` and `_Pager.cshtml:28` — the "More than 25 records" criterion and the independent-paging verify line cannot be reached on the delivered surface | low | defer | carried — same claim and location as the Pass 1 row; already recorded in `deferred-work.md` and not re-deferred. |
+| Plan frontmatter `status`/`baseline_revision` are uncommitted, and the baseline move has no Plan Change Log entry | false | — | The uncommitted state is the expected mid-workflow state: step-04 rewrites the frontmatter and step-05 commits it. The baseline move is content-safe (the only delta between `426e926` and `aaedda8` is the fork-only `docsss/**` and `docs/bmad-source/AGENTS.md` trees), and `## Plan Change Log` records bad_plan loopbacks, not metadata edits. |
+
 
 
 ## Design Notes

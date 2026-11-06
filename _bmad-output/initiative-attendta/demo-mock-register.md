@@ -253,6 +253,11 @@ is written, and the tab is read-only: no check-in, correction, edit or delete co
 `DemoData:Enabled` off the switch-off provider returns an empty page and the tab shows its empty
 state.
 
+**Hand-over to 3.13 (register rule 12).** M-08 shares `DemoMyEventsService` and
+`EmptyMyEventsService` with M-02. When 3.13 removes M-02's provider classes it must keep
+`GetAttendanceAsync` — returning an empty page — so the attendance read survives until 4.7 lands;
+4.7 then replaces that method with the real owner-scoped query instead of deleting a class.
+
 ## Known limits of the demo
 
 - Deactivating an account in the demo does not end that person's real session or block their
