@@ -191,7 +191,6 @@ public class EventLifecycleServiceTests
     }
 
     [Theory]
-    [InlineData(EventStatusCode.Published)]
     [InlineData(EventStatusCode.Cancelled)]
     [InlineData(EventStatusCode.Completed)]
     public async Task EditingANonDraftIsInvalidAndChangesNothing(EventStatusCode status)
@@ -206,11 +205,118 @@ public class EventLifecycleServiceTests
 
         var edited = Model("Should not apply", eventType.TypeId, venue.VenueId);
         edited.EventId = id;
+        edited.EventStatusId = status;
         var error = await Assert.ThrowsAsync<DomainException>(() => harness.Service.UpdateDraftAsync(
             edited, TestContext.Current.CancellationToken));
 
         Assert.Equal(OutcomeCode.Invalid, error.Outcome);
         Assert.Equal("Orientation", row.Title);
+        Assert.Empty(harness.Audit.Entries);
+    }
+
+    [Fact]
+    public async Task PublishedTextEditWorksWithInactiveMastersAndAuditsOldAndNewValues()
+    {
+        var harness = new Harness();
+        var type = harness.AddType("Type", true);
+        var venue = harness.AddVenue("Room", 30, true);
+        var id = await harness.Service.CreateDraftAsync(Model("Old", type.TypeId, venue.VenueId, description: "Before"), TestContext.Current.CancellationToken);
+        var row = Assert.Single(harness.Events.Items);
+        row.EventStatusId = EventStatusCode.Published;
+        type.IsActive = false;
+        venue.IsActive = false;
+        harness.Locks.Clear();
+        var edit = Model("New", type.TypeId, venue.VenueId, description: "After");
+        edit.EventId = id;
+        edit.EventStatusId = EventStatusCode.Published;
+        await harness.Service.UpdateDraftAsync(edit, TestContext.Current.CancellationToken);
+        Assert.Equal(new[] { "type", "venue", "event" }, harness.Locks);
+        Assert.Equal("New", row.Title);
+        var audit = Assert.Single(harness.Audit.Entries);
+        Assert.Contains("\"Description\":\"Before\"", Json(audit.OldValues));
+        Assert.Contains("\"Description\":\"After\"", Json(audit.NewValues));
+    }
+
+    [Theory]
+    [InlineData(0)] [InlineData(1)] [InlineData(2)] [InlineData(3)] [InlineData(4)]
+    public async Task PublishedImmutableFieldsCannotBeChanged(int field)
+    {
+        var harness = new Harness();
+        var type = harness.AddType("Type", true);
+        var venue = harness.AddVenue("Room", 30, true);
+        var id = await harness.Service.CreateDraftAsync(Model("Old", type.TypeId, venue.VenueId), TestContext.Current.CancellationToken);
+        var row = Assert.Single(harness.Events.Items);
+        row.EventStatusId = EventStatusCode.Published;
+        var edit = Model("New", type.TypeId, venue.VenueId);
+        edit.EventId = id;
+        edit.EventStatusId = EventStatusCode.Published;
+        switch (field)
+        {
+            case 0: edit.TypeId++; break;
+            case 1: edit.VenueId++; break;
+            case 2: edit.StartsAt = edit.StartsAt.AddMinutes(1); break;
+            case 3: edit.RegistrationDeadline = edit.RegistrationDeadline.AddMinutes(-1); break;
+            case 4: edit.ParticipantLimit++; break;
+        }
+        var error = await Assert.ThrowsAsync<DomainException>(() => harness.Service.UpdateDraftAsync(edit, TestContext.Current.CancellationToken));
+        Assert.Equal(OutcomeCode.Invalid, error.Outcome);
+        Assert.Equal("Old", row.Title);
+        Assert.Empty(harness.Audit.Entries);
+    }
+
+    [Theory]
+    [InlineData(false)] [InlineData(true)]
+    public async Task EditRejectsChangedStateOrReferenceDuringLock(bool changeStatus)
+    {
+        var harness = new Harness();
+        var type = harness.AddType("Type", true);
+        var venue = harness.AddVenue("Room", 30, true);
+        var id = await harness.Service.CreateDraftAsync(Model("Old", type.TypeId, venue.VenueId), TestContext.Current.CancellationToken);
+        var row = Assert.Single(harness.Events.Items);
+        row.EventStatusId = EventStatusCode.Published;
+        harness.Events.BeforeLock = item => { if (changeStatus) item.EventStatusId = EventStatusCode.Completed; else item.VenueId++; };
+        var edit = Model("New", type.TypeId, venue.VenueId);
+        edit.EventId = id;
+        edit.EventStatusId = EventStatusCode.Published;
+        var error = await Assert.ThrowsAsync<DomainException>(() => harness.Service.UpdateDraftAsync(edit, TestContext.Current.CancellationToken));
+        Assert.Equal(OutcomeCode.Stale, error.Outcome);
+        Assert.Equal("Old", row.Title);
+        Assert.Empty(harness.Audit.Entries);
+    }
+
+    [Fact]
+    public async Task EditRejectsPublicationAfterControllerReadBeforeServiceDiscovery()
+    {
+        var harness = new Harness();
+        var type = harness.AddType("Type", true);
+        var venue = harness.AddVenue("Room", 30, true);
+        var id = await harness.Service.CreateDraftAsync(Model("Old", type.TypeId, venue.VenueId), TestContext.Current.CancellationToken);
+        var edit = Model("New", type.TypeId, venue.VenueId);
+        edit.EventId = id;
+        var row = Assert.Single(harness.Events.Items);
+        row.EventStatusId = EventStatusCode.Published;
+        harness.Locks.Clear();
+
+        var error = await Assert.ThrowsAsync<DomainException>(() => harness.Service.UpdateDraftAsync(edit, TestContext.Current.CancellationToken));
+
+        Assert.Equal(OutcomeCode.Stale, error.Outcome);
+        Assert.Equal("Old", row.Title);
+        Assert.Empty(harness.Audit.Entries);
+        Assert.Empty(harness.Locks);
+    }
+
+    [Theory]
+    [InlineData(0, false, RoleCodes.Officer)]
+    [InlineData(7, true, RoleCodes.Member)]
+    [InlineData(0, true, RoleCodes.Officer)]
+    public async Task EditRejectsUnauthorizedActorsBeforeTakingLocks(int userId, bool authenticated, string role)
+    {
+        var harness = new Harness(actor: new FixedActor(userId, authenticated, role));
+        var model = Model("Edit", 1, 1);
+        model.EventId = 1;
+        var error = await Assert.ThrowsAsync<DomainException>(() => harness.Service.UpdateDraftAsync(model, TestContext.Current.CancellationToken));
+        Assert.Equal(OutcomeCode.Forbidden, error.Outcome);
+        Assert.Empty(harness.Locks);
         Assert.Empty(harness.Audit.Entries);
     }
 
@@ -442,7 +548,8 @@ public class EventLifecycleServiceTests
             VenueId = venueId,
             StartsAt = Start,
             RegistrationDeadline = Deadline,
-            ParticipantLimit = limit
+            ParticipantLimit = limit,
+            EventStatusId = EventStatusCode.Draft
         };
 
     private static string Json(IAuditValues values) => JsonSerializer.Serialize(values, values.GetType());

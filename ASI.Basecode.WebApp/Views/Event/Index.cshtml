@@ -42,9 +42,12 @@ else
                         <td>@eventItem.StatusLabel</td>
                         <td class="actions">
                             <a asp-action="Cover" asp-route-id="@eventItem.EventId" class="button button-secondary">Cover</a>
-                            @if (eventItem.EventStatusId == EventStatusCode.Draft)
+                            @if (eventItem.EventStatusId is EventStatusCode.Draft or EventStatusCode.Published)
                             {
                                 <a asp-action="Edit" asp-route-id="@eventItem.EventId" class="button button-secondary">Edit</a>
+                            }
+                            @if (eventItem.EventStatusId == EventStatusCode.Draft)
+                            {
                                 <form asp-action="Publish" method="post" class="inline-form">
                                     <input type="hidden" name="id" value="@eventItem.EventId" />
                                     <button type="submit" class="button button-primary">Publish</button>
