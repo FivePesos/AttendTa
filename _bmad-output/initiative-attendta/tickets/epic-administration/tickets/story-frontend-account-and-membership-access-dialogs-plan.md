@@ -3,14 +3,14 @@ title: 'Frontend account and membership access dialogs'
 type: 'feature'
 ticket: '11'
 created: '2026-11-07'
-status: 'in-progress'
+status: 'in-review'
 baseline_revision: 'dc57cd0622821bce9cd6b6c00a7ef1552f87c1e9'
 route: 'full'
 route_source: 'auto'
 risk: 'medium'
-review: ''
-review_source: ''
-lenses_ran: []
+review: 'quick'
+review_source: 'pinned'
+lenses_ran: ['quick']
 review_loop_iteration: 0
 context:
   - 'AGENTS.md'
@@ -89,11 +89,24 @@ Verification: `dotnet build ASI.Basecode.sln` 0 warnings/0 errors; Services test
 
 Known limit: the demo last-administrator refusal counts the real active Administrators. With two real Administrators, demo-deactivating one does not reduce that count, so the other can also be demo-deactivated. The block is reliable for the single-Administrator demo scenario; the real rule arrives with 5.4. This is recorded in `demo-mock-register.md`.
 
+Review pass 1 patched the reason-check order in both demo commands, added `aria-describedby` to both dialogs, and added the browser-side whitespace-reason guard in `site.js`. The two demo overlay limits (status filter before the overlay, last-admin flag from the real row) are recorded in the register.
+
 Matrix audit: the matrix rows are UI/demo behaviors and the demo-phase ticket forbids new automated tests, so they are verified by the manual smoke above rather than a new test. The existing preview JS test still covers the shared fetch-failure path.
 
 ## Plan Change Log
 
 ## Review Triage Log
+
+**Pass 1 — quick lens (2026-11-07).** Verdicts: high 0, medium 0, low 6, false 0, maybe-false 0.
+
+| # | Finding | Verdict | Route | Evidence |
+|---|---|---|---|---|
+| 1 | `_AccessDialog` reason: a whitespace-only value passes `required`, the server refuses, and the redirect loses the dialog and the typed text | low | patch | `required` catches empty but not whitespace; `DemoStore` refuses it and the controller redirects with a toast. Fixed with a submit-time trim check in `site.js` so the common case stays in the dialog; a direct POST still gets the standard refusal. |
+| 2 | Members status filter runs in SQL before the overlay, so a demo-deactivated member stays under Active | low | patch | `MemberService.GetPageAsync` filters `status` before `IAccessStateOverlay` runs; the unfiltered list (the demo path) is correct. Recorded as a known demo limit. |
+| 3 | POST redirects drop `search`/`status`/`page` | low | reject | The demo script acts from the unfiltered list; preserving list context needs hidden fields and query plumbing beyond a direct correction, and 8.15/8.12 own the polish. |
+| 4 | Demo commands check state before the reason, so a blank reason on the last admin reports the last-admin refusal | low | patch | `DemoAccountAccessCommands.DeactivateAsync` checks `IsActive`/last-admin before `DemoStore` checks the reason; the membership command does the same. Fixed by checking the reason first. |
+| 5 | `IsLastActiveAdministrator` is computed from the real row while `IsActive` is overlaid; a demo-reactivated real-inactive admin can show a form the POST refuses | low | patch | The normal real-active single-admin path is correct; the narrow case is recorded as a known demo limit. |
+| 6 | Dialogs set `aria-labelledby` but not `aria-describedby`; the blocked `role="alert"` is inserted before `showModal()` | low | patch | `docs/DESIGN.md` §5 requires associating the title and description. Added `aria-describedby` to both dialogs; the blocked text remains visible and is announced by the dialog description. |
 
 ## Design Notes
 
