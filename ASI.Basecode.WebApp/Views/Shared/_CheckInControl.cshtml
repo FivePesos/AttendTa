@@ -27,6 +27,10 @@
     {
     <form asp-controller="Event" asp-action="@action" method="post" class="check-in-control">
         <input type="hidden" name="id" value="@Model.EventId" />
+        @if (!string.IsNullOrWhiteSpace(Model.ReturnUrl))
+        {
+            <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
+        }
         <span class="badge @stateBadge">@stateLabel</span>
         <button type="submit" class="button button-secondary button-small" aria-label="@actionLabel">@actionText</button>
     </form>

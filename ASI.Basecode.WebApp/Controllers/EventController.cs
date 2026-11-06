@@ -80,8 +80,12 @@ namespace ASI.Basecode.WebApp.Controllers
             return View(model);
         }
 
-        private IActionResult StateReturn(int id, bool dossier) => dossier
-            ? RedirectToAction(nameof(Details), new { id }) : RedirectToRoute(EventIndexRoute);
+        private IActionResult StateReturn(int id, bool dossier, string returnUrl = null) =>
+            !string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl)
+                ? LocalRedirect(returnUrl)
+                : dossier
+                    ? RedirectToAction(nameof(Details), new { id })
+                    : RedirectToRoute(EventIndexRoute);
 
         [HttpGet]
         public async Task<IActionResult> Cover(int id, CancellationToken cancellationToken)
@@ -227,7 +231,7 @@ namespace ASI.Basecode.WebApp.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> OpenCheckIn(int id, CancellationToken cancellationToken, bool dossier = false)
+        public async Task<IActionResult> OpenCheckIn(int id, CancellationToken cancellationToken, bool dossier = false, string returnUrl = null)
         {
             try
             {
@@ -239,11 +243,11 @@ namespace ASI.Basecode.WebApp.Controllers
                 TempData["ErrorMessage"] = exception.Message;
             }
 
-            return StateReturn(id, dossier);
+            return StateReturn(id, dossier, returnUrl);
         }
 
         [HttpPost]
-        public async Task<IActionResult> CloseCheckIn(int id, CancellationToken cancellationToken, bool dossier = false)
+        public async Task<IActionResult> CloseCheckIn(int id, CancellationToken cancellationToken, bool dossier = false, string returnUrl = null)
         {
             try
             {
@@ -255,7 +259,7 @@ namespace ASI.Basecode.WebApp.Controllers
                 TempData["ErrorMessage"] = exception.Message;
             }
 
-            return StateReturn(id, dossier);
+            return StateReturn(id, dossier, returnUrl);
         }
 
         [HttpPost]

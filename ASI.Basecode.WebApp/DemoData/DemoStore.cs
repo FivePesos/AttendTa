@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
-using System.Linq;
 using ASI.Basecode.Data.Models.Lookups;
 using ASI.Basecode.Resources;
 using ASI.Basecode.Services.ServiceModels;
@@ -123,7 +123,13 @@ public sealed class DemoStore
     /// <summary>
     /// Records a check-in. A repeat returns the original record so the first time is preserved.
     /// </summary>
-    public DemoAttendance RecordAttendance(int registrationId, int eventId, DateTime recordedAt, CheckInMethodCode method)
+    public DemoAttendance RecordAttendance(
+        int registrationId,
+        int eventId,
+        string memberName,
+        string studentNumber,
+        DateTime recordedAt,
+        CheckInMethodCode method)
     {
         lock (_gate)
         {
@@ -132,9 +138,25 @@ public sealed class DemoStore
                 return existing;
             }
 
-            var record = new DemoAttendance(registrationId, eventId, recordedAt, method, null, null);
+            var record = new DemoAttendance(registrationId, eventId, memberName, studentNumber, recordedAt, method, null, null);
             _attendance[registrationId] = record;
             return record;
+        }
+    }
+
+    /// <summary>
+    /// The event's attendance rows, newest first, for the scanner log. The store is in memory, so
+    /// this read is bounded by the rows a session recorded.
+    /// </summary>
+    public IReadOnlyList<DemoAttendance> GetAttendanceForEvent(int eventId)
+    {
+        lock (_gate)
+        {
+            return _attendance.Values
+                .Where(record => record.EventId == eventId)
+                .OrderByDescending(record => record.RecordedAt)
+                .ThenBy(record => record.RegistrationId)
+                .ToList();
         }
     }
 
@@ -359,6 +381,8 @@ public sealed class DemoStore
 public sealed record DemoAttendance(
     int RegistrationId,
     int EventId,
+    string MemberName,
+    string StudentNumber,
     DateTime RecordedAt,
     CheckInMethodCode Method,
     DateTime? InvalidatedAt,
