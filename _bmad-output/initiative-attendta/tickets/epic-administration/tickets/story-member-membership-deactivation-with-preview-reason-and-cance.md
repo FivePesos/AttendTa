@@ -4,7 +4,7 @@ type: story
 title: "Member membership deactivation with preview, reason and cancellation cascade"
 parent: epic-administration
 covers: [R1, R3, R4]
-after: [3, 2.6, 3.15]
+after: [3, 5, 11, 2.6, 3.15]
 hitl: false
 risk: low
 tracker_id: "57"
@@ -25,3 +25,12 @@ Verify: Management opens a Member; the deactivation modal lists that member's up
 ## References
 
 - parent — _bmad-output/initiative-attendta/tickets/epic-administration/epic-administration.md
+- _bmad-output/initiative-attendta/delivery-queue.md
+- _bmad-output/initiative-attendta/finale-test-cases.md
+
+## Delivery (2026-11-06)
+
+- Backend command only; the membership deactivation dialog with the real preview is already delivered by 5.11 on 5.3's preview. This issue wires the real command and adds no competing dialog.
+- Development check: build plus one focused preview/reason/cascade smoke; existing CI unchanged. Broad automation goes to 8.5 (#78), the full suite runs once at 8.4 (#77), final manual acceptance is 8.6–8.8.
+- Final rules unchanged: an empty reason is refused, membership reads inactive, the affected Registrations are cancelled with QR tokens cleared, login still works and `users.is_active` is unchanged.
+- Serialization: 5.4 (#55) and 5.5 (#56) land before 5.6 (#57) and 5.7 (#58) because all four change the shared administration source.

@@ -137,28 +137,85 @@ title = "Event completion closing check-in"
 description = "Completes a Published Event at or after its start (injected `TimeProvider`, refused before start) under the event lock through `IEventLifecycleService`, setting status to Completed, clearing `is_check_in_open` (with `check_in_closed_by/at` as in entry 11), recording `completed_by` and `completed_at`, and writing an `event.completed` entry; this entry declares `IEventCompletionHandler` in Services and invokes every registered implementation (`IEnumerable`) inside the same transaction, with an empty list valid until epic-certificates registers one."
 verify = "An officer completes an Event at or after its start time, observing status Completed, check-in closed and an Activity Log entry; an attempt before start is refused; and a test-double `IEventCompletionHandler` registered in IntegrationTests runs once inside the completion transaction, and its exception rolls completion back."
 covers = ["R5", "R14"]
-after = [11]
+after = [11, 16]
 hitl = false
 risk = "low"
+phase = "integration"
+area = "backend"
+queue = 210
 
 [[entry]]
 id = 13
 type = "story"
 title = "My Events personal registrations list"
-description = "Implements the paged My Events view for logged-in members, scoped to their own registrations, showing event title, Asia/Manila dates through the shared formatter, and status badges including Not confirmed before cutoff, with the badge classes safelisted in source; creates `MyEventsController`, the card view model and the `_PassPartial` and `_CertificateLinkPartial` host slots that epic-check-in and epic-certificates fill (AD-14)."
+description = "Replace 3.17's fixture-backed registrations source with the real owner-scoped 25-row query, preserving the My Events controller, card contract and partial slots established by the frontend slice. Reuse RegistrationStatusDisplay from merged #133 and ManilaTimeFormatter. Return accurate Pending, Confirmed, Waitlisted, Cancelled and Not confirmed before cutoff states; never expose another member's rows. This integration ticket stays open until the real query is wired; no second UI host or card implementation."
 verify = "A member navigates to My Events and views their registrations paged at 25 rows per page, showing accurate statuses (Pending, Confirmed, Waitlisted, Cancelled, Not confirmed before cutoff) with local time display; host slots for _PassPartial and _CertificateLinkPartial are present."
 covers = ["R12", "R15"]
-after = [9, 10]
+after = [9, 10, 17]
 hitl = false
 risk = "low"
+phase = "integration"
+area = "backend"
+queue = 200
 
 [[entry]]
 id = 14
 type = "story"
 title = "Refactor sweep"
-description = "Cleans up temporary test harnesses, shared service registration interfaces, and deferred review findings across the event and registration modules, with scope set at its start from plans and review findings the epic deferred."
-verify = "The solution builds with zero warnings, both test projects pass in CI, and no unused epic types or unresolved review findings remain."
+description = "Finale backend-only cleanup of concrete deferred event/registration controller, service and contract findings. Preserve the existing cancellation, seat-allocation and cutoff implementations; no feature rewrite or repeated frontend audit. Frontend walkthrough/polish belongs to 8.12."
+verify = "The solution builds with zero warnings, the focused affected regression check passes and no agreed backend finding remains unresolved. Full-suite execution is recorded once by 8.4, not repeated as new test authoring here."
 covers = []
-after = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 15]
+after = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 15, 16, 17, 18]
 hitl = false
 risk = "low"
+phase = "finale"
+area = "backend"
+queue = 450
+
+[[entry]]
+id = 16
+type = "story"
+title = "Frontend officer event dossier roster and lifecycle dialogs"
+description = "Complete the officer event-list/create/detail composition and registration roster using the ready event, review, promotion and cancellation services. Replace the rough Event ID filter workflow with contextual event navigation. Present the completion and check-in-window controls through the 1.13 prototype contract until 3.12/4.2 are real; never simulate a successful real write. Own Event/RegistrationReview presentation and scoped assets, not My Events. Use impeccable for implementation, critique and polish against DESIGN screens 8–10."
+verify = "An Officer navigates Events to a dossier with metadata, capacity and status-aware roster/actions, uses ready real review/cancel actions, and can inspect completion/open-paused prototype states with a clear fixture notice. Required reason, validation and blocked-action states remain usable on desktop and phone width."
+covers = ["R1", "R2", "R3", "R4", "R5", "R8", "R9", "R14", "R15"]
+after = ["1.13"]
+hitl = false
+risk = "medium"
+phase = "frontend"
+area = "frontend"
+queue = 70
+references = ["docs/DESIGN.md", "_bmad-output/initiative-attendta/delivery-queue.md"]
+notes = ["Frontend only: load impeccable for implementation, critique rendered results and polish before review.", "Development checks: build/CSS and one primary/blocked/manual interaction; no new exhaustive lifecycle test suite. Missing completion/toggle behavior remains accountable to 3.12/4.2."]
+
+[[entry]]
+id = 17
+type = "story"
+title = "Frontend My Events history host and extension slots"
+description = "Build the member My Events/Participation History shell with registration, attendance and certificate tabs, accurate status presentation and separate pager state. Use 1.13's contracts and existing queries when available; otherwise use its explicit Development-only fixtures. Establish one MyEventsController/card host and named _PassPartial, attendance and _CertificateLinkPartial slots with empty handoff partials; 4.10/4.12/6.13 own their partials and data contracts without rewriting this host. 3.13 owns the real registrations query. Use impeccable for implementation, critique and polish."
+verify = "A Member can navigate registrations/history, switch the three tabs and inspect populated/empty/cutoff scenarios without dead ends. The host slot map lets pass, attendance and certificate UI build independently; mock-backed content is conspicuous and does not claim real attendance or issuance."
+covers = ["R12", "R15"]
+after = ["1.13"]
+hitl = false
+risk = "medium"
+phase = "frontend"
+area = "frontend"
+queue = 30
+references = ["docs/DESIGN.md", "_bmad-output/initiative-attendta/delivery-queue.md"]
+notes = ["Frontend only: impeccable implementation, rendered critique and polish; build/CSS plus tab/pager/keyboard smoke only. Functional completion and ownership checks belong to 3.13 and finale tests."]
+
+[[entry]]
+id = 18
+type = "story"
+title = "Frontend member event feed and detail visual alignment"
+description = "Align the existing real member feed/detail screens to DESIGN screens 11–12: cover hierarchy, metadata, registration-status panel, truthful capacity/deadline messages and cancellation dialog. Preserve the ready registration/cancellation services and RegistrationStatusDisplay shipped by #133; no backend rule rewrite. Own only MemberEvents presentation and scoped assets, not the My Events host. Use impeccable for implementation, critique and polish."
+verify = "A Member browses events, opens a readable responsive detail page and sees consistent Pending/Confirmed/Waitlisted/Cancelled/cutoff states, with working existing registration/cancellation behavior and no unrelated mock replacing a ready real source."
+covers = ["R6", "R7", "R10", "R11", "R15"]
+after = ["1.13", 10]
+hitl = false
+risk = "low"
+phase = "frontend"
+area = "frontend"
+queue = 80
+references = ["docs/DESIGN.md", "_bmad-output/initiative-attendta/delivery-queue.md"]
+notes = ["Frontend only: use impeccable for implementation and critique, then polish. Build/CSS and a short real-flow smoke; reuse existing boundary tests rather than rewriting them."]

@@ -25,3 +25,12 @@ Verify: Invalidating an attendance record whose review is pending_approval or el
 ## References
 
 - parent — _bmad-output/initiative-attendta/tickets/epic-certificates/epic-certificates.md
+- _bmad-output/initiative-attendta/delivery-queue.md
+- _bmad-output/initiative-attendta/finale-test-cases.md
+
+## Delivery (2026-11-06)
+
+- Integration implements the invalidation hook declared by 4.6 inside the existing transaction; it does not build a second invalidation screen or change presentation.
+- Development check: build plus a focused invalidation-disqualification smoke; existing CI unchanged. Missing important test authoring is 8.5 (#78), combined final execution 8.4 (#77), manual 8.6–8.8.
+- Backend-only: no Impeccable requirement; frontend design lives only in the separate slices 6.12/6.13/7.4 and finale 8.12.
+- The issued-certificate lock, the same-commit not_eligible write and the serialization against issuance stay final acceptance even while test authoring is deferred.

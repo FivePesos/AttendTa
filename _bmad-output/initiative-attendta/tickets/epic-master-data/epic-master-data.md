@@ -4,7 +4,7 @@ title: "Management maintains members, event types and venues"
 parent: initiative-attendta
 covers: [R4, R5, R8, R6, R7, R33, R36]
 sources: [_bmad-output/initiative-attendta/initiative-attendta.md]
-companions: [_bmad-output/initiative-attendta/architecture-attendta/architecture-attendta.md, docsss/architecture.md, docsss/design.md, _bmad-output/initiative-attendta/ux-attendta/DESIGN.md, _bmad-output/initiative-attendta/ux-attendta/EXPERIENCE.md, docsss/AttendTa-System-Specification.md]
+companions: [_bmad-output/initiative-attendta/architecture-attendta/architecture-attendta.md, docsss/architecture.md, docsss/design.md, docs/DESIGN.md, _bmad-output/initiative-attendta/ux-attendta/DESIGN.md, _bmad-output/initiative-attendta/ux-attendta/EXPERIENCE.md, _bmad-output/initiative-attendta/delivery-queue.md, _bmad-output/initiative-attendta/finale-test-cases.md, docsss/AttendTa-System-Specification.md]
 after: []
 refined: true
 risk: medium
@@ -14,11 +14,20 @@ risk: medium
 
 ## Description
 
-Brings the existing Member, Event Type and Venue code to the PRD rules on the real login: Management edits Member Profiles (all fields but membership status), maintains Event Types and Venues with photos, and a Member reads their own profile. It builds `IPrivateFileStore` (AD-12) that Event Covers, certificates and renderer temporary files reuse.
+Brings the existing Member, Event Type and Venue code to the PRD rules on the real login: Management edits Member Profiles (all fields but membership status), maintains Event Types and Venues with photos, and a Member reads their own profile. It builds `IPrivateFileStore` (AD-12) that Event Covers, certificates and renderer temporary files reuse. The backend and the 2.9 UI sweep are on `dev`; this epic now also hosts the Master Data frontend acceptance slices 2.10–2.14, which consume the real endpoints and close the remaining visual and interaction gaps.
 
 ## Outcome
 
 For Management, the reference data every Event depends on is maintained in one audited place, shown by an Officer editing a member, a type and a venue with photo on the dev build.
+
+## Delivery (2026-11-06)
+
+- The Master Data backend is on `dev` (2.1–2.9; 2.1 is still marked in progress in the tracker although its code is present); these slices reuse it and add no backend contract. 2.10 finishes only #127's residual submitting/loading feedback, error/retry and truthful empty/no-match states; status filters and result counts already shipped in #134/#132 are preserved, not rebuilt.
+- 2.12 is the shared dialog plus Event Type tracer; 2.13 applies the same dialog pattern to Member; 2.14 applies it to Venue. Then 2.11 is the #128 acceptance umbrella that verifies all three rendered editors after 2.13 and 2.14; it is not a separate 2.15 entry. These are parent-owned entries recorded here as the frontend order, not new backend scope.
+- Every slice in this epic is UI-facing and uses impeccable for implementation, rendered critique and polish per `AGENTS.md`.
+- Development checks are a clean build, a reproducible CSS build when views/styles change, and a manual smoke of the changed surface. Keep the focused venue-capacity guard for this live high-risk mutation. Finale 8.5 (#78) authors/maps important cases before 8.4 (#77) runs the combined suite; 8.6–8.8 record acceptance.
+- 2.9 is the historical Master Data sweep and is not repeated. The final whole-app frontend walkthrough, refactor and polish is 8.12; backend hardening is 8.13.
+- Dependency note: 2.10 waits on 2.9 and 1.13; 2.12 on 2.9 and 1.13; 2.13 and 2.14 on 2.12; 2.11 on 2.13 and 2.14. These are contract-level waits, not whole-backend epic gates.
 
 ## Requirements
 
@@ -69,7 +78,7 @@ For Management, the reference data every Event depends on is maintained in one a
 
 ## Notes
 
-- Owner: Member 2 (addendum C).
+- Historical delivery attribution: Member 2 (addendum C). This is history only; future work is claimed per ticket from the shared queue and no fixed human owner is assigned (2026-11-06 decision).
 - Decision: 2026-11-04 — refined from the initiative's lines alone.
 - Decision: 2026-11-04 — images capped at 2 MiB per PRD FR-8 (AD-12); the existing 5 MiB limit in VenueImageStorage.cs, AGENTS.md and docs/database-setup.md is corrected here.
 - Waits on epic-platform-access because: real login and cookie session (AD-8), ICurrentActor, IUnitOfWork and the audit writer (AD-3, AD-7), TimeProvider (1.4), DomainException (AD-9), the pager (AD-13), the Tailwind shell (1.9), the canonical schema with lookups (AD-10), and the transaction-wrapped master-data writes (1.11).
@@ -79,3 +88,7 @@ For Management, the reference data every Event depends on is maintained in one a
 - Decision: 2026-11-04 — boundary: membership status mutation is removed from Member edit and index in this epic, leaving status read-only until epic-administration wires the deactivation modal and registration cancellation cascade.
 - Decision: 2026-11-04 — venue capacity guard against linked draft/published events is verified under test/seeding in this epic prior to epic-events-registration building the event creation UI.
 - Decision: 2026-11-04 — re-sliced against the architecture spine (AD-1..AD-18): Entry 2 delivers the full IPrivateFileStore across areas with venue path migration; Entry 5 shrinks to active reference queries as ParticipationFacts moves to e3; lock methods added for event_types and venues; ICurrentActor, DomainException and TimeProvider adopted; membership status write removed from Member edit.
+- Decision: 2026-11-06 — final frontend handoff: 2.10 closes #127's residual submitting/loading feedback, error/retry and truthful empty/no-match states only (shipped filters/counts remain); 2.12 is the shared dialog and Event Type tracer; 2.13 is Member; 2.14 is Venue; 2.11 is the #128 whole-editor acceptance umbrella after 2.13/2.14. There is no 2.15. These reuse the real 2.1–2.9 backend and add no backend contract. The parent owns the entries. Reason: only visual and interaction acceptance remains.
+- Decision: 2026-11-06 — no fixed future human owner. Historical attribution above is preserved as history; claims from `delivery-queue.md` win over the addendum assignment.
+- Decision: 2026-11-06 — every slice here is UI-facing and uses impeccable for implementation, rendered critique and polish. Development checks are minimal (build, reproducible CSS, manual smoke); the venue-capacity guard keeps a focused automated regression because it is a live high-risk mutation. Finale 8.5 (#78) authors/maps important cases before 8.4 (#77) runs the combined suite, followed by 8.6–8.8 acceptance.
+- Decision: 2026-11-06 — 2.9 is not repeated. Final frontend walkthrough/refactor/polish is 8.12; backend hardening is 8.13. No container status change and no implementation starts from this planning edit.

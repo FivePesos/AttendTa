@@ -1,13 +1,33 @@
 [[entry]]
+id = 4
+type = "story"
+title = "Frontend per-event report with summary breakdowns and participant table"
+description = "Build DESIGN screen 18 from 1.13 contracts: event selector, status/Confirmed/Valid attendee summary, completed-only no-shows, course/year breakdowns and a paged detail table with accessible values. Use one coherent explicitly labelled fixture dataset until 7.1–7.3 supply real queries; do not combine real counts with fake attendance or invent global metrics/exports. Include empty, zero-denominator N/A, invalidated, cancelled and long-content scenarios. Own the report surface/scoped assets. Use impeccable for implementation, critique and polish."
+verify = "An Officer can select a sample event and inspect populated/empty/zero-denominator/completed/cancelled report states. Summary totals do not change with detail paging, charts have equivalent values, and the layout works on desktop, keyboard and phone width without page overflow."
+covers = ["R1", "R2"]
+after = ["1.13"]
+hitl = false
+risk = "medium"
+phase = "frontend"
+area = "frontend"
+queue = 60
+references = ["docs/DESIGN.md", "_bmad-output/initiative-attendta/delivery-queue.md"]
+notes = ["Frontend only: use impeccable for implementation, rendered critique and polish. Build/CSS and focused selector/pager/keyboard smoke; formula automation and full regression belong to the finale."]
+
+[[entry]]
 id = 1
 type = "story"
 title = "Event selector and participation summary KPIs"
-description = "Delivers the report pipeline from coherent read queries to a Tailwind view authorized by the Management policy (AD-8), displaying an event selector and per-event summary KPIs including registration status counts, Confirmed count, Valid attendee count (Confirmed registrations with Valid Attendance, excluding invalidated attendance), and attendance rate shown as a percentage per FR-30 (Valid attendees ÷ Confirmed, calculated from the ParticipationFacts decimal, N/A when Confirmed is 0, rounded to two decimal places for display only); provides the base report view for no-shows, distributions, and detail rows; needs canonical schema, role claims, and Tailwind shell from epic-platform-access, event and registration entities from epic-events-registration, and attendance records with invalidation from epic-check-in."
-verify = "Sign in as an officer, open /Report, select an event, and verify summary cards display status counts, Confirmed count, Valid attendees (excluding invalidated attendance), and attendance rate formatted as a percentage (e.g. 92.00%, or N/A when zero Confirmed) matching database records."
+description = "Wire 7.4's existing report contract to coherent Management-authorized real read queries: selected-event registration status counts, Confirmed count and Valid attendees excluding invalidated attendance. Calculate the canonical ParticipationFacts rate as Valid attendees divided by Confirmed, null at zero; round only for display. Following the existing authoritative SPEC/docs/DESIGN.md presentation scope, show final attendance rate only for completed non-cancelled events, otherwise N/A/not final. No change to the underlying canonical fact or new PM override; no second report screen."
+verify = "An Officer selects a real completed event and sees status counts, Confirmed/Valid attendee totals and the percentage rate match the full database dataset, with N/A at zero Confirmed. Published/cancelled events do not present a final rate; changing detail pages does not change the totals."
 covers = ["R1"]
-after = ["1.1", "1.9", "3.7", "4.6"]
+after = [4, "1.1", "1.9", "3.7"]
 hitl = false
 risk = "medium"
+phase = "integration"
+area = "backend"
+queue = 390
+notes = ["Wire the 7.4 presentation contract using canonical mapped attendance and ParticipationFacts; read queries can be built without waiting for the scanner/invalidation UI. Full real-attendance verification remains mandatory in 8.11. Final no-show/rate presentation follows authoritative SPEC/docs/DESIGN.md: completed, non-cancelled events; zero denominator N/A."]
 
 [[entry]]
 id = 2
@@ -19,6 +39,9 @@ covers = ["R1"]
 after = [1, "3.11", "3.12"]
 hitl = false
 risk = "medium"
+phase = "integration"
+area = "backend"
+queue = 400
 
 [[entry]]
 id = 3
@@ -27,6 +50,10 @@ title = "Paged participant detail rows with full-dataset totals"
 description = "Extends the report view with server-side 25-row paged participant detail rows with FR-30 fields (name, student number, snapshot course, registration status, attendance result, Manila check-in time), ordered by participant name, then registration_id, so page boundaries are stable (AD-13), while preserving full-dataset summary totals and entry 2 attendee distributions across pages; needs the shared 25-row pager component from epic-platform-access."
 verify = "Navigate through 25-row pages of participant detail rows on a completed event, verifying columns show name, student number, snapshot course, status, attendance result, and Manila check-in time, with stable paging across boundaries, while full-dataset totals and distributions remain unchanged."
 covers = ["R1", "R2"]
-after = [2, "1.4", "1.6"]
+after = [2, "1.4", "1.6", "4.6"]
 hitl = false
 risk = "low"
+phase = "integration"
+area = "backend"
+queue = 410
+notes = ["Summary/distribution query work starts earlier; this final real-detail integration verifies actual invalidation effects from 4.6, pinning the epic's attendance handoff without gating the frontend or initial report reads."]

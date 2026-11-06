@@ -4,7 +4,7 @@ title: "Officers issue retained PDF certificates"
 parent: initiative-attendta
 covers: [R13, R20, R25, R27, R28, R29, R33, R36]
 sources: [_bmad-output/initiative-attendta/initiative-attendta.md]
-companions: [_bmad-output/initiative-attendta/architecture-attendta/architecture-attendta.md, docsss/architecture.md, docsss/design.md, _bmad-output/initiative-attendta/ux-attendta/DESIGN.md, _bmad-output/initiative-attendta/ux-attendta/EXPERIENCE.md, docsss/AttendTa-System-Specification.md]
+companions: [_bmad-output/initiative-attendta/architecture-attendta/architecture-attendta.md, docsss/architecture.md, docsss/design.md, docs/DESIGN.md, _bmad-output/initiative-attendta/ux-attendta/DESIGN.md, _bmad-output/initiative-attendta/ux-attendta/EXPERIENCE.md, _bmad-output/initiative-attendta/delivery-queue.md, _bmad-output/initiative-attendta/finale-test-cases.md, docsss/AttendTa-System-Specification.md]
 after: []
 refined: true
 risk: high
@@ -14,11 +14,20 @@ risk: high
 
 ## Description
 
-Turns completed, attended Events into certificates: completion creates Certificate Reviews for valid attendees, Management approves or declines each, issues one fixed-template A4 PDF at a time rendered by Playwright, and the owner or Management downloads it through an authorized endpoint. Attendance corrections and issuance are serialized.
+Turns completed, attended Events into certificates: completion creates Certificate Reviews for valid attendees, Management approves or declines each, issues one fixed-template A4 PDF at a time rendered by Playwright, and the owner or Management downloads it through an authorized endpoint. Attendance corrections and issuance are serialized. The Playwright tracer (6.1), the fixed template (6.2) and the configured signatory (6.3) are built on `dev`; the review, issuance and download backend remain, and the epic now also hosts the frontend slices 6.12–6.13.
 
 ## Outcome
 
 For Members and Officers, certificate eligibility rests on recorded attendance and approval, shown by UJ-4 ending with a downloaded PDF.
+
+## Delivery (2026-11-06)
+
+- 6.12 is the certificate ledger decision dialogs and document viewer after 1.13, 6.2 and 6.3; 6.13 is the member certificate history and download-link states after 3.17. They are parent-owned frontend slices recorded here as the epic's UI order. Reason: the tracer, template and signatory already exist, so the ledger and member history can be built and reviewed before the review/issuance backend lands.
+- The real 6.1–6.3 tracer, template and signatory configuration are reused. The review, issuance and download contracts (6.4–6.9) are not built yet, so the slices use Development-only mocks of those contracts: conspicuous, no real writes, no silent fallback, same contract as the real service, tracked removal in `delivery-queue.md`. The later backend entries wire into them: 6.6 and 6.8 follow 6.12, and 6.9 follows 6.13. The finale removes the mocks (8.11).
+- The slices are UI-facing and use impeccable for implementation, rendered critique and polish per `AGENTS.md`.
+- Development checks are a clean build, a reproducible CSS build when views/styles change, and a manual smoke of the changed surface. Keep a focused guard for live issuance. Finale 8.5 (#78) authors/maps important cases including the SM-4 certificate race before 8.4 (#77) executes the combined suite; 8.6–8.8 record acceptance.
+- 6.11 remains a focused backend cleanup at the finale; it is not a repeated whole-app or UI audit. Frontend review belongs to 8.12; backend hardening to 8.13.
+- Dependency note: 6.12 waits on 1.13/6.2/6.3 and 6.13 on 3.17; these are contract-level waits, not whole-backend epic gates. The epic-level waits in Notes gate backend completion only.
 
 ## Requirements
 
@@ -49,7 +58,7 @@ For Members and Officers, certificate eligibility rests on recorded attendance a
 - The PDF is landscape A4 from the fixed template with embedded fonts, a unique number and snapshots, rendered by Microsoft.Playwright 1.64.1 (Stack; AD-18) on the dev host, and on the demo host after the AD-16 staging install.
 - SQL Server integration tests in tests/ASI.Basecode.IntegrationTests show concurrent issuance yields one Certificate and invalidation versus issuance resolves one way (SM-4 certificates; AD-17).
 - Unauthorized and inactive-Account downloads are refused; a retry never replaces an issued PDF.
-- Merged to dev with integrated verification; official issuance waits for the configured signatory (Q1).
+- Merged to dev with integrated verification; official issuance uses the configured signatory (Q1 resolved 2026-11-06 by #63/PR102).
 
 ## Boundaries
 
@@ -69,8 +78,8 @@ For Members and Officers, certificate eligibility rests on recorded attendance a
 
 ## Notes
 
-- Owner: Pinca (addendum C). Certificate state rules on branch 0be8898 may be reused after validation; Valid Attendance and Completed status come from ParticipationFacts (AD-5), and pure rule tests live in tests/ASI.Basecode.Services.Tests with a fake TimeProvider (AD-17, AD-11).
-- Open question: Q1 — authorized signatory name, title and signature; PM (Talisic); needed before official issuance (parent Notes).
+- Historical delivery attribution: Pinca (addendum C). Certificate state rules on branch 0be8898 may be reused after validation; Valid Attendance and Completed status come from ParticipationFacts (AD-5), and pure rule tests live in tests/ASI.Basecode.Services.Tests with a fake TimeProvider (AD-17, AD-11). The attribution is history only; future work is claimed per ticket from the shared queue and no fixed human owner is assigned (2026-11-06 decision).
+- Resolved: 2026-11-06 — Q1 (authorized signatory) is configured by #63/PR102: name `Christian Kyle Ducay`, title `Organization President`, packaged signature asset `img/christian-kyle-ducay-signature.png` under `Certificates:Signatory`. Historical open question: the details were not supplied when this epic was refined; official issuance is no longer blocked by Q1.
 - Decision: 2026-11-04 — refined from the initiative's lines alone.
 - Waits on epic-events-registration because: the completion transaction with IEventCompletionHandler declared, and the My Events page.
 - Waits on epic-check-in because: Attendance Records with Valid Attendance facts and IAttendanceInvalidationHandler declared in the invalidation transaction.
@@ -80,3 +89,8 @@ For Members and Officers, certificate eligibility rests on recorded attendance a
 - Decision: 2026-11-04 — no closing end-to-end suite in this epic; epic-release-acceptance runs SPEC §20 across the build.
 - Decision: 2026-11-04 — entry 10 concurrency tests folded into entry 7 (transactional issuance and invalidation race resolution) to satisfy the test-only story rule; entry 10 deleted, leaving id 10 retired.
 - Decision: 2026-11-04 — re-sliced against the architecture spine (AD-2, AD-3, AD-4, AD-5, AD-7, AD-8, AD-9, AD-10, AD-11, AD-12, AD-13, AD-14, AD-16, AD-17, AD-18): 6.4 and 6.5 implement hooks without editing foreign transactions; 6.7 refuses repeat issuance as Duplicate with render/promote outside locks and inline cleanup; 6.8 returns identical unauthorized/unknown responses; 6.9 contributes _CertificateLinkPartial to e3's My Events; 6.1 drops certificates mapping and host Chromium install.
+- Decision: 2026-11-06 — frontend-first replan: 6.12 (certificate ledger decision dialogs and document viewer, after 1.13/6.2/6.3) and 6.13 (member certificate history and download-link states, after 3.17) are the epic's frontend slices. They reuse the real 6.1–6.3 tracer/template/signatory and mock only the missing 6.4–6.9 contracts, Development-only and tracked for removal. The later backend entries wire into them: 6.6/6.8 follow 6.12 and 6.9 follows 6.13. The parent owns these entries.
+- Decision: 2026-11-06 — no fixed future human owner. Historical attribution above is preserved as history; claims from `delivery-queue.md` win over the addendum assignment.
+- Decision: 2026-11-06 — development checks are minimal (build, reproducible CSS, manual smoke); issuance keeps a focused guard because it is a live high-risk mutation. Finale 8.5 (#78) authors/maps important cases including the SM-4 certificate race before 8.4 (#77) executes the combined suite, then 8.6–8.8 acceptance.
+- Decision: 2026-11-06 — 6.11 stays a focused backend cleanup at the finale, not a repeated whole-app/UI audit. Frontend review is 8.12; backend hardening is 8.13.
+- Note: 2026-11-06 — no container status change and no implementation starts from this planning edit.

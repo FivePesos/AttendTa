@@ -4,7 +4,7 @@ type: story
 title: "Account deactivation with registration cancellation cascade and session refusal"
 parent: epic-administration
 covers: [R3, R4]
-after: [2, 3, 1.1, 3.15]
+after: [2, 3, 11, 1.1, 3.15]
 hitl: false
 risk: medium
 tracker_id: "55"
@@ -25,3 +25,12 @@ Verify: Executing the UJ-5 flow, deactivating an officer account with a valid re
 ## References
 
 - parent — _bmad-output/initiative-attendta/tickets/epic-administration/epic-administration.md
+- _bmad-output/initiative-attendta/delivery-queue.md
+- _bmad-output/initiative-attendta/finale-test-cases.md
+
+## Delivery (2026-11-06)
+
+- Backend command only; the account deactivation dialog with preview, reason and last-admin states is already delivered by 5.11. This issue wires the real command and verifies session refusal, adding no competing dialog or session code.
+- Development check: build plus one focused deactivate/cascade/session-refusal smoke; existing CI unchanged. Broad automation goes to 8.5 (#78), the full suite runs once at 8.4 (#77), final manual acceptance is 8.6–8.8.
+- Final rules unchanged: the last active Administrator cannot be deactivated, seats are released without promotion, and the next request of a deactivated session is refused.
+- Serialization: 5.4 (#55) and 5.5 (#56) land before 5.6 (#57) and 5.7 (#58) because all four change the shared administration source.

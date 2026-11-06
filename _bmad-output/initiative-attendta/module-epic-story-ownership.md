@@ -1,5 +1,25 @@
 # AttendTa module, epic, and story ownership
 
+## Current delivery rule — 6 November 2026
+
+**The project owner superseded fixed future assignments with five interchangeable builders
+using one prioritized shared queue.** Whoever is available claims the next unblocked ticket,
+updates its status before editing and hands it to review. No named person below owns all future
+work in a module. Human approval/environment contacts remain contacts, not implementation lanes.
+
+Use [delivery-queue.md](delivery-queue.md) for the current frontend-first order, claim protocol,
+prototype replacement responsibilities and finale. The numeric `queue` and `phase` in each
+`tickets.toml` order open work; the GitHub issue is the live claim/status source.
+
+The architecture's code/table writers and shared service boundaries still apply. Impeccable is
+required for frontend/UI-facing implementation, critique and polish only, not backend/test work.
+Historical assignees and the WBS mapping below are preserved for attribution, **not dispatch**.
+
+## Historical WBS mapping and original baseline waves
+
+The rest of this document records the earlier module assignment and original planning snapshot.
+Its old waves and ownership language are not the active queue and do not override the rule above.
+
 This is a mapping of the existing BMAD epics and stories to the module owners in the [WBS](../../docs/WBS_J4S_ATTENDTA_20261103.pdf), pages 9–11. Story IDs are written as `epic.story` (for example, `3.15`); the linked `tickets.toml` files contain the full descriptions, verification criteria, and dependencies. This document is an ownership reference, not a separate set of BMAD tickets or a record of completed work.
 
 | WBS member | Owner | WBS modules | BMAD epics |

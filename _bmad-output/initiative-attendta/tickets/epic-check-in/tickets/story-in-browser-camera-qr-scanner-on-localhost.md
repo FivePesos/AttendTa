@@ -4,13 +4,12 @@ type: story
 title: "In-browser camera QR scanner on localhost"
 parent: epic-check-in
 covers: [R4]
-after: [2, 3]
+after: [2, 3, 11]
 hitl: true
 risk: high
 tracker_id: "47"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/47"
 tracker_status: backlog
-assignee: "rainyDayssss"
 ---
 
 # In-browser camera QR scanner on localhost
@@ -26,3 +25,13 @@ Verify: An Officer opens the scanner on localhost on a laptop webcam, points it 
 ## References
 
 - parent — _bmad-output/initiative-attendta/tickets/epic-check-in/epic-check-in.md
+- docs/DESIGN.md
+- _bmad-output/initiative-attendta/delivery-queue.md
+- _bmad-output/initiative-attendta/finale-test-cases.md
+
+## Delivery (2026-11-06)
+
+- Frontend-facing integration: the scanner screen and its separate camera adapter are already delivered by 4.11. This issue wires the real camera adapter to the engine (4.3), does not rebuild the screen, and does not gate the manual adapter 4.5.
+- Use impeccable for implementation, then a rendered critique and polish of the wired scanner before review.
+- Development check: build/CSS plus one real scan, one duplicate and the camera-denied fallback; existing CI unchanged. The full matrix and the phone/hotspot run are 8.5 (#78) and 8.6–8.8; the full suite runs once at 8.4 (#77).
+- Final rules unchanged: no hard-coded localhost origin, assets served locally with no runtime CDN, antiforgery header read from the layout meta tag, and no scan payload in logs.

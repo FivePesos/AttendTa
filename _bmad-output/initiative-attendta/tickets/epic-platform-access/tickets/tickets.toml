@@ -118,3 +118,35 @@ covers = []
 after = [1, 2, 3, 4, 5, 6, 7, 9, 10, 11]
 hitl = false
 risk = "low"
+
+[[entry]]
+id = 12
+type = "spike"
+title = "Frontend walkthrough and prioritized usability findings"
+description = "Timebox a rendered walkthrough of the current merged app against docs/DESIGN.md: inventory the 20 core screens, identify missing navigation, rough existing event and review screens, mobile problems, and reusable components. Use the impeccable skill to critique the existing frontend; record concrete findings and the smallest safe refactors in the shared delivery queue. Do not rebuild shipped backend or start a broad redesign. This is the opening frontend tracer and supplies the route/surface inventory to 1.13."
+verify = "A non-builder can follow the role-based walkthrough, see the populated/empty/error and phone-width findings, distinguish shipped features from missing screens, and find a prioritized ticket for each release-relevant gap. No backend implementation is claimed complete by this walkthrough."
+covers = []
+after = [9]
+hitl = false
+risk = "low"
+phase = "frontend"
+area = "frontend"
+queue = 10
+references = ["docs/DESIGN.md", "_bmad-output/initiative-attendta/delivery-queue.md"]
+notes = ["Decision: 2026-11-06 — five builders self-claim the next unblocked ticket; no fixed human/module assignments.", "Frontend only: use impeccable for any implementation and critique; polish changed UI before review. Planning-only inspection needs no craft-floor edit pass.", "Development checks: build/CSS when changed plus a short rendered smoke check; broad automation belongs to 8.5/8.4 and final acceptance 8.6–8.8."]
+
+[[entry]]
+id = 13
+type = "story"
+title = "Frontend shell routes and isolated prototype data contracts"
+description = "Prepare the shared role-appropriate navigation, route skeletons and typed screen contracts for My Events/passes/history, the scanner, certificate ledger/viewer and reports from 1.12. Preserve Razor/Tailwind, the current shell and docs/DESIGN.md. Publish the route/partial/data-source and source-file boundary map in delivery-queue.md before handing off independent surfaces. Provide one explicitly enabled Development-only fixture mechanism with a visible prototype notice, no real writes and no silent fallback from failing real services. Ready backend sources stay real; release startup must refuse fixture mode. Prepare feature-scoped asset seams so later UI tickets do not all edit the shell, Startup.DI.cs or global JavaScript. Use impeccable for implementation, critique and final polish."
+verify = "Each approved route opens an authorized shell rather than a dead link; the route and model contracts identify real versus fixture-backed sources and the ticket that will replace each fixture. Fixture mode cannot run outside Development and simulated decisions cannot mutate real records. Five independent surface tickets can start after this handoff."
+covers = []
+after = [12]
+hitl = false
+risk = "medium"
+phase = "frontend"
+area = "frontend"
+queue = 20
+references = ["docs/DESIGN.md", "_bmad-output/initiative-attendta/delivery-queue.md"]
+notes = ["Frontend only: load impeccable before implementation; critique rendered desktop/mobile surfaces and polish before review.", "Development checks: build, css:build and a short route/keyboard smoke check. Add only a focused fixture-mode isolation guard now; broad acceptance automation belongs to the finale.", "The final real-data integration gate is 8.11; prototype delivery never closes the existing functional integration tickets."]

@@ -4,7 +4,7 @@ title: "Administrators control roles, access and the audit trail"
 parent: initiative-attendta
 covers: [R5, R31, R32, R33, R34, R36]
 sources: [_bmad-output/initiative-attendta/initiative-attendta.md]
-companions: [_bmad-output/initiative-attendta/architecture-attendta/architecture-attendta.md, docsss/architecture.md, docsss/design.md, _bmad-output/initiative-attendta/ux-attendta/DESIGN.md, _bmad-output/initiative-attendta/ux-attendta/EXPERIENCE.md, docsss/AttendTa-System-Specification.md]
+companions: [_bmad-output/initiative-attendta/architecture-attendta/architecture-attendta.md, docsss/architecture.md, docsss/design.md, docs/DESIGN.md, _bmad-output/initiative-attendta/ux-attendta/DESIGN.md, _bmad-output/initiative-attendta/ux-attendta/EXPERIENCE.md, _bmad-output/initiative-attendta/delivery-queue.md, _bmad-output/initiative-attendta/finale-test-cases.md, docsss/AttendTa-System-Specification.md]
 after: []
 refined: true
 risk: high
@@ -14,11 +14,20 @@ risk: high
 
 ## Description
 
-Gives Administrators control of Roles and Account access and gives Management the membership-status change, both with a preview of affected upcoming Registrations, a reason, and cancellation through the Registration-owned service. It protects the last active Administrator and adds the read-only Activity Log viewer.
+Gives Administrators control of Roles and Account access and gives Management the membership-status change, both with a preview of affected upcoming Registrations, a reason, and cancellation through the Registration-owned service. It protects the last active Administrator and adds the read-only Activity Log viewer. The accounts list (5.1) and the deactivation preview (5.3) are built on `dev`; the role, deactivation and log backend remain, and the epic now also hosts the access/status dialog frontend slice 5.11.
 
 ## Outcome
 
 For Administrators, cutting off a departed officer is one attributable action, shown by UJ-5 on the dev build.
+
+## Delivery (2026-11-06)
+
+- 5.11 is the frontend account and membership access dialogs: the role, account deactivation/reactivation and membership status dialogs built on the real 5.1 accounts list and the real 5.3 preview. It waits on 5.3, 1.13 and 2.13, not on the deactivation commands. It is a parent-owned frontend slice recorded here as the epic's UI order. Reason: the accounts list and preview already exist, so the decision dialogs can be built and reviewed before the deactivation commands land.
+- The deactivation/reactivation commands (5.4–5.7) are not built yet, so 5.11 uses a Development-only mock of those contracts: conspicuous, no real writes, no silent fallback, same contract as the real service, tracked removal in `delivery-queue.md`. The finale removes the mock (8.11).
+- 5.11 is UI-facing and uses impeccable for implementation, rendered critique and polish per `AGENTS.md`.
+- Development checks are a clean build, a reproducible CSS build when views/styles change, and a manual smoke of the changed surface. Keep focused guards for the live last-administrator and deactivation-cascade mutations. Finale 8.5 (#78) authors/maps important cases before 8.4 (#77) runs the combined suite, followed by 8.6–8.8 acceptance.
+- 5.10 remains a focused backend cleanup at the finale; it is not a repeated whole-app or UI audit. Frontend review belongs to 8.12; backend hardening to 8.13.
+- Dependency note: 5.11 waits on 5.3, 1.13 and 2.13; these are contract-level waits, not whole-backend epic gates. The epic-level waits in Notes gate backend completion only.
 
 ## Requirements
 
@@ -63,7 +72,7 @@ For Administrators, cutting off a departed officer is one attributable action, s
 
 ## Notes
 
-- Owner: Pinca (addendum C). Admin-role pure rules exist on branch 7477e95 (architecture §1) and may be reused after validation into ASI.Basecode.Services with AD-17 tests; AD-1 forbids Data-layer rules.
+- Historical delivery attribution: Pinca (addendum C). Admin-role pure rules exist on branch 7477e95 (architecture §1) and may be reused after validation into ASI.Basecode.Services with AD-17 tests; AD-1 forbids Data-layer rules. The attribution is history only; future work is claimed per ticket from the shared queue and no fixed human owner is assigned (2026-11-06 decision).
 - Decision: 2026-11-04 — refined from the initiative's lines alone.
 - Waits on epic-master-data because: the Member edit screen whose status control this epic replaces (entry 2.6).
 - Waits on epic-events-registration because: the participation cancellation service (entry 3.15, AD-6).
@@ -74,3 +83,8 @@ For Administrators, cutting off a departed officer is one attributable action, s
 - Decision: 2026-11-04 — test-only entry 9 deleted and its UJ-5 verification folded into entry 4 in accordance with no closing end-to-end suite.
 - Decision: 2026-11-04 — entry 1 hitl set to false as it requires no manual starter or user setup.
 - Decision: 2026-11-04 — re-sliced against the architecture spine (AD-2, AD-3, AD-4, AD-6, AD-7, AD-8, AD-10, AD-11, AD-13, AD-14, AD-17, AD-18): adopted sp_getapplock attendta:last-admin, consumed IRegistrationCancellationService from 3.15, moved membership deactivation command and cascade to entry 6 with entry 7 reactivation-only, scoped activity log viewer to Administrator policy with AD-7 ordering and AD-13 pager without search, and aligned audit writer and session handling to platform access.
+- Decision: 2026-11-06 — frontend-first replan: 5.11 is the frontend account and membership access dialogs, built on the real 5.1 accounts list and 5.3 preview, with a Development-only mock of the missing 5.4–5.7 commands. It waits on 5.3, 1.13 and 2.13. The parent owns the entry.
+- Decision: 2026-11-06 — no fixed future human owner. Historical attribution above is preserved as history; claims from `delivery-queue.md` win over the addendum assignment.
+- Decision: 2026-11-06 — development checks are minimal (build, reproducible CSS, manual smoke); the last-administrator guard and deactivation cascade keep focused regressions. Finale 8.5 (#78) authors/maps important cases before 8.4 (#77) executes the combined suite, then 8.6–8.8 acceptance.
+- Decision: 2026-11-06 — 5.10 stays a focused backend cleanup at the finale, not a repeated whole-app/UI audit. Frontend review is 8.12; backend hardening is 8.13.
+- Note: 2026-11-06 — no container status change and no implementation starts from this planning edit.

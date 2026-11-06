@@ -4,7 +4,7 @@ title: "Confirmed members get a QR Pass and officers record attendance"
 parent: initiative-attendta
 covers: [R20, R21, R22, R23, R24, R25, R26, R33, R36]
 sources: [_bmad-output/initiative-attendta/initiative-attendta.md]
-companions: [_bmad-output/initiative-attendta/architecture-attendta/architecture-attendta.md, docsss/architecture.md, docsss/design.md, _bmad-output/initiative-attendta/ux-attendta/DESIGN.md, _bmad-output/initiative-attendta/ux-attendta/EXPERIENCE.md, docsss/AttendTa-System-Specification.md]
+companions: [_bmad-output/initiative-attendta/architecture-attendta/architecture-attendta.md, docsss/architecture.md, docsss/design.md, docs/DESIGN.md, _bmad-output/initiative-attendta/ux-attendta/DESIGN.md, _bmad-output/initiative-attendta/ux-attendta/EXPERIENCE.md, _bmad-output/initiative-attendta/delivery-queue.md, _bmad-output/initiative-attendta/finale-test-cases.md, docsss/AttendTa-System-Specification.md]
 after: []
 refined: true
 risk: high
@@ -14,11 +14,20 @@ risk: high
 
 ## Description
 
-Gives each Confirmed Registration a downloadable QR Pass and gives Management a check-in window, a scanner and a manual fallback that record exactly one Attendance Record per Registration, plus invalidation of mistakes. Members see their pass and attendance in My Events.
+Gives each Confirmed Registration a downloadable QR Pass and gives Management a check-in window, a scanner and a manual fallback that record exactly one Attendance Record per Registration, plus invalidation of mistakes. Members see their pass and attendance in My Events. The check-in backend is not built yet; the epic now opens with the frontend slices 4.11, 4.10 and 4.12 against Development-only mocks of the missing contracts, then 4.13 consumes 4.10's passes route, and the finale finishes 4.1–4.7 and replaces those mocks.
 
 ## Outcome
 
 For Officers at the door, check-in becomes fast and duplicate-proof, shown by UJ-3 on a laptop camera.
+
+## Delivery (2026-11-06)
+
+- Final frontend order: 4.11 is the scanner/manual UI (independent camera and manual adapters, lookup and attendance dialogs) after 1.13; 4.10 is the pass UI after 3.17; 4.12 is the attendance-history partial after 3.17; 4.13 is the #129 passes link after 4.10. #129 sits under check-in because it consumes the passes route; profile visuals shipped in #132/#134 are not reopened. These are parent-owned frontend slices recorded here as the epic's UI order. Reason: the check-in backend is the largest remaining gap, so building and reviewing these surfaces first against explicit contracts reduces later integration risk.
+- The check-in backend (4.1–4.7) is missing, so 4.11, 4.10 and 4.12 use Development-only fixtures/contracts: conspicuous in UI and logs, no real writes, no silent fallback when a real endpoint exists or breaks, and tracked removal in `delivery-queue.md`. 4.13 consumes 4.10's route and adds no mock. The finale removes every mock (8.11). Backend handoffs: 4.1 follows 4.10; 4.2 follows 4.11 and 3.16; 4.4 consumes 4.11's camera adapter; 4.5 consumes its separate manual adapter and does not depend on the camera adapter; 4.7 fills 4.12's history slot.
+- The slices are UI-facing and use impeccable for implementation, rendered critique and polish per `AGENTS.md`.
+- Development checks are a clean build, a reproducible CSS build when views/styles change, and a manual smoke of the changed surface. Once attendance recording lands, keep a focused guard regression for that live high-risk mutation. Finale 8.5 (#78) authors/maps the FR-23 scan/refusal matrix before 8.4 (#77) executes the combined suite; 8.6–8.8 record acceptance. This matrix is an epic-final-acceptance criterion, not a requirement on each frontend slice.
+- 4.9 remains a focused backend cleanup at the finale; it is not a repeated whole-app or UI audit. Frontend review belongs to 8.12; backend hardening to 8.13.
+- Dependency note: 4.11 waits on 1.13; 4.10 and 4.12 wait on 3.17; 4.13 waits on 4.10. These are contract-level waits, not whole-backend epic gates. The epic-level waits in Notes gate backend completion only.
 
 ## Requirements
 
@@ -47,7 +56,7 @@ For Officers at the door, check-in becomes fast and duplicate-proof, shown by UJ
 ## Done when
 
 - UJ-3 runs on the dev build with a laptop camera on localhost: a valid scan shows name and student number, a repeat shows the original time, and a student-number lookup checks in a participant.
-- Every FR-23 scan outcome has an automated test in tests/ASI.Basecode.Services.Tests, and concurrent duplicate scans create one Attendance Record, proven in tests/ASI.Basecode.IntegrationTests against ATTENDTA_TEST_SQL (SM-4 attendance; AD-4, AD-17).
+- Before epic final acceptance, finale 8.5 (#78) maps and authors automation for every FR-23 scan/refusal outcome; 8.4 (#77) executes the combined suite and SQL Server race check proving concurrent duplicate scans create one Attendance Record (SM-4 attendance; AD-4, AD-17).
 - An invalidated record stays stored, is marked for the Member and blocks re-check-in.
 - A Member downloads their QR Pass PNG; another Member's pass is refused.
 - Merged to dev with integrated verification.
@@ -70,7 +79,7 @@ For Officers at the door, check-in becomes fast and duplicate-proof, shown by UJ
 
 ## Notes
 
-- Owner: Member 4 (addendum C); the server QR library and the browser scanner library are chosen by this epic within AD-18 (spine Deferred); record both in the spine Stack table when chosen.
+- Historical delivery attribution: Member 4 (addendum C); the server QR library and the browser scanner library are chosen by this epic within AD-18 (spine Deferred), and both are recorded in the spine Stack table when chosen. The attribution is history only; future work is claimed per ticket from the shared queue and no fixed human owner is assigned (2026-11-06 decision).
 - Decision: 2026-11-04 — refined from the initiative's lines alone; scanning verified on a laptop camera on localhost, phone over hotspot in epic-release-acceptance.
 - Waits on epic-events-registration because: Confirmed Registrations with QR tokens (3.7), IEventLifecycleService and completion (3.1, 3.12), ParticipationFacts (3.3), and My Events (3.13).
 - Decision: 2026-11-04 — tracer bullet: entry 1, On-demand QR Pass PNG rendering and download; least-certain story is entry 4, In-browser camera QR scanner on localhost, which is deferred to fourth in build order because it requires the check-in window toggle (entry 2) and server check-in endpoint (entry 3) to post scanned tokens and verify attendance.
@@ -80,3 +89,8 @@ For Officers at the door, check-in becomes fast and duplicate-proof, shown by UJ
 - Decision: 2026-11-04 — re-sliced against the architecture spine (AD-1..AD-18): 4.2 sets check-in window via IEventLifecycleService.SetCheckInWindowAsync after 3.12 (and 3.1); 4.6 declares IAttendanceInvalidationHandler; 4.1 renders QR PNG in WebApp/Rendering without System.Drawing; 4.4 serves local scanner library with antiforgery header after entries 1, 2, 3; entry 3 adds attendance Lock method LockAttendanceAsync; no new entry added as 3.3 writes ParticipationFacts.
 - Check beyond criteria, entry 3: a reviewer compares the check-in transaction's lock sequence (users → event → attendance) with AD-4 before merge.
 - Check beyond criteria, entry 4: during the laptop check, confirm no scan payload appears in server logs (spine Consistency: Diagnostics).
+- Decision: 2026-11-06 — final frontend handoff: 4.11 scanner/manual UI prepares independent camera and manual adapters; 4.10 is pass UI; 4.12 is the attendance-history partial; 4.13 is #129's passes link after 4.10. Only missing 4.1–4.7 contracts use conspicuous Development-only fixtures, tracked for removal; 4.4 consumes the camera adapter and 4.5 the independent manual adapter. Shipped profile visuals #132/#134 remain closed. The parent owns these entries.
+- Decision: 2026-11-06 — no fixed future human owner. Historical attribution above is preserved as history; claims from `delivery-queue.md` win over the addendum assignment.
+- Decision: 2026-11-06 — development checks are minimal (build, reproducible CSS, manual smoke); attendance recording keeps a focused automated guard regression once implemented. Finale 8.5 (#78) fulfills the FR-23 scan/refusal automation matrix before epic final acceptance; 8.4 (#77) executes it with the combined suite. This is not a per-frontend-slice gate; full final acceptance is unchanged.
+- Decision: 2026-11-06 — 4.9 stays a focused backend cleanup at the finale, not a repeated whole-app/UI audit. Frontend review is 8.12; backend hardening is 8.13.
+- Note: 2026-11-06 — no container status change and no implementation starts from this planning edit.

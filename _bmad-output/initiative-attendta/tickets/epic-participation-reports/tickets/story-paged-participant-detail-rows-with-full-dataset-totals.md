@@ -4,7 +4,7 @@ type: story
 title: "Paged participant detail rows with full-dataset totals"
 parent: epic-participation-reports
 covers: [R1, R2]
-after: [2, 1.4, 1.6]
+after: [2, 1.4, 1.6, 4.6]
 hitl: false
 risk: low
 tracker_id: "73"
@@ -25,3 +25,13 @@ Verify: Navigate through 25-row pages of participant detail rows on a completed 
 ## References
 
 - parent — _bmad-output/initiative-attendta/tickets/epic-participation-reports/epic-participation-reports.md
+- _bmad-output/initiative-attendta/delivery-queue.md
+- _bmad-output/initiative-attendta/finale-test-cases.md
+
+## Delivery (2026-11-06)
+
+- Extends the real 7.1/7.2 report reads behind the 7.4 frontend contract; it does not construct a second report screen or change presentation, and mock figures do not close the functional issue.
+- Detail paging uses the shared 25-row pager and a stable unique-id tiebreak while totals and distributions stay full-dataset; 8.11 proves the real data end to end.
+- Development check: build plus a focused paging/totals smoke; existing CI unchanged. Missing important test authoring is 8.5 (#78), combined final execution 8.4 (#77), manual 8.6–8.8.
+- Backend-only: no Impeccable requirement; frontend design lives only in the separate slices 6.12/6.13/7.4 and finale 8.12.
+- SPEC v2.1 precedence over the unresolved R30 rate wording is preserved; do not invent a PM override. The stable-paging and full-dataset-total rules stay final acceptance even while test authoring is deferred.

@@ -10,7 +10,6 @@ risk: medium
 tracker_id: "49"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/49"
 tracker_status: backlog
-assignee: "rainyDayssss"
 ---
 
 # Attendance invalidation with confirmation and reason
@@ -26,3 +25,11 @@ Verify: An Officer invalidates an Attendance Record after entering a reason and 
 ## References
 
 - parent — _bmad-output/initiative-attendta/tickets/epic-check-in/epic-check-in.md
+- _bmad-output/initiative-attendta/delivery-queue.md
+- _bmad-output/initiative-attendta/finale-test-cases.md
+
+## Delivery (2026-11-06)
+
+- Backend command only; the invalidation dialog with reason and confirmation is already delivered by 4.11. This issue wires the real invalidation after the manual/controller handoff (4.5) and adds no second dialog.
+- Development check: build plus one focused invalidate/refuse-recheck-in smoke; existing CI unchanged. Broad automation goes to 8.5 (#78), the full suite runs once at 8.4 (#77), final manual acceptance is 8.6–8.8.
+- Final rules unchanged: the row is retained with `invalidated_at` and metadata, one `attendance.invalidated` entry with the reason, a throwing handler rolls back, and no registered handler still commits.

@@ -96,3 +96,83 @@ covers = []
 after = [1, 2, 3, 4, 5, 6, 7, 8]
 hitl = false
 risk = "low"
+
+[[entry]]
+id = 10
+type = "story"
+title = "Master Data lists: status filters, result counts, and loading/error states"
+description = "Finish existing GitHub #127 only: result counts shipped in #132 and status filters in #134. Preserve those real integrations and finish meaningful submitting/loading feedback and shell-preserving error/retry states on Member, Event Type and Venue lists. Use the 1.13 shared conventions and impeccable for implementation, critique and polish; do not rebuild the filters or require an AJAX conversion merely to display a loading state."
+verify = "An Officer sees the shipped filters and counts still working across pagination; a delayed or failed list interaction has truthful feedback and a usable retry inside the shell, and no records versus no matches remain distinct. Check keyboard and phone-width behavior manually."
+covers = ["R7"]
+after = [9, "1.13"]
+hitl = false
+risk = "low"
+phase = "frontend"
+area = "frontend"
+queue = 90
+references = ["docs/DESIGN.md", "_bmad-output/initiative-attendta/delivery-queue.md"]
+notes = ["Existing issue #127 is reused; #132/#134 shipped work remains historical acceptance evidence.", "Frontend only: use impeccable for implementation and rendered critique, then polish before review. Build/CSS/manual smoke only; full regression and acceptance belong to the finale."]
+
+[[entry]]
+id = 12
+type = "story"
+title = "Shared centered record dialog and Event Type editor tracer"
+description = "Deliver the reusable centered-record-dialog interaction and convert Event Type create/edit as the tracer for #128, using the real existing services. Preserve required markers and grouping shipped in #132. Cover fetch or row hydration, retained input and field errors inside the dialog, submitting feedback, focus containment/restoration, Escape/Cancel and separate status actions. Publish the reusable partial/JavaScript contract for 2.13/2.14; do not rewrite the backend. Use impeccable for implementation, critique and polish."
+verify = "An Officer creates and edits an Event Type from the list in a centered dialog, corrects a duplicate-name error without losing entered values, and can open/save/cancel with keyboard focus returned to the trigger. The dialog fits a 390px viewport."
+covers = ["R3", "R6"]
+after = [9, "1.13"]
+hitl = false
+risk = "medium"
+phase = "frontend"
+area = "frontend"
+queue = 100
+references = ["docs/DESIGN.md", "_bmad-output/initiative-attendta/delivery-queue.md"]
+notes = ["Frontend only: use impeccable for implementation and critique, then polish before review.", "Development checks: build/CSS, one successful save, one validation failure and keyboard smoke; do not add a comprehensive modal suite during prototyping."]
+
+[[entry]]
+id = 13
+type = "story"
+title = "Member centered record editor using the shared dialog"
+description = "Apply 2.12's reusable record dialog to Member edit using the current real Member service. Preserve read-only email, academic fields, membership type, student-number correction reason and errors; do not add standalone creation or implement membership-status mutations. Reserve the agreed access/status action seam for 5.11 without editing its partial. Use impeccable for implementation, critique and polish."
+verify = "An Officer edits a Member in a centered dialog, sees a required correction reason and inline server errors, cancels without saving and returns focus to the original row. Phone-width content and actions remain reachable."
+covers = ["R2", "R6"]
+after = [12]
+hitl = false
+risk = "medium"
+phase = "frontend"
+area = "frontend"
+queue = 140
+references = ["docs/DESIGN.md", "_bmad-output/initiative-attendta/delivery-queue.md"]
+notes = ["Frontend only: use impeccable for implementation, rendered critique and polish. Keep development verification to build/CSS and focused save/error/keyboard checks; defer broad automation to the finale."]
+
+[[entry]]
+id = 14
+type = "story"
+title = "Venue centered record editor with photo and validation feedback"
+description = "Apply 2.12's reusable record dialog to Venue create/edit using the existing real service and private photo store. Keep the current photo, upload preview, required/format guidance, capacity guard errors and separate status action; retain entered values on failed save. Own only Venue presentation files and its scoped assets. Use impeccable for implementation, critique and polish."
+verify = "An Officer creates/edits a Venue inside the centered dialog, sees its existing or selected photo, corrects an invalid capacity/upload without a blank panel and can cancel by keyboard. The dialog and footer fit phone width."
+covers = ["R4", "R5", "R6"]
+after = [12]
+hitl = false
+risk = "medium"
+phase = "frontend"
+area = "frontend"
+queue = 150
+references = ["docs/DESIGN.md", "_bmad-output/initiative-attendta/delivery-queue.md"]
+notes = ["Frontend only: use impeccable for implementation, rendered critique and polish. Build/CSS plus focused save/error/keyboard smoke; reuse existing file-store tests, no new broad upload suite."]
+
+[[entry]]
+id = 11
+type = "story"
+title = "Master Data forms: centered record dialogs and required markers"
+description = "Retain existing GitHub #128 as the acceptance umbrella for centered Member, Event Type and Venue editors. Required markers, fieldsets and constrained forms already shipped in #132; implementation is split into 2.12–2.14. Verify the complete original visual scope rather than claiming that the Event Type tracer alone finishes #128. Use impeccable to critique all three rendered editors and polish remaining UI findings."
+verify = "All three editors satisfy docs/DESIGN.md: centered dialogs, keyboard focus entering/contained/restored, separate status versus Cancel/Save actions, retained validation and Venue photo preview. Close #128 only after 2.12–2.14 are complete and this combined walkthrough passes."
+covers = ["R2", "R3", "R4", "R5", "R6"]
+after = [13, 14]
+hitl = false
+risk = "low"
+phase = "frontend"
+area = "frontend"
+queue = 180
+references = ["docs/DESIGN.md", "_bmad-output/initiative-attendta/delivery-queue.md"]
+notes = ["Existing issue #128 is reused, not closed or weakened by the split. Frontend only: impeccable implementation for any fixes, critique and polish; manual acceptance rather than a duplicate automated suite."]

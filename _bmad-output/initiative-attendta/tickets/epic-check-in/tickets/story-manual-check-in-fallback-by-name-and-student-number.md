@@ -4,13 +4,12 @@ type: story
 title: "Manual check-in fallback by name and student number"
 parent: epic-check-in
 covers: [R5, R8, R9]
-after: [3, 4]
+after: [3, 11]
 hitl: false
 risk: medium
 tracker_id: "48"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/48"
 tracker_status: backlog
-assignee: "rainyDayssss"
 ---
 
 # Manual check-in fallback by name and student number
@@ -26,3 +25,13 @@ Verify: An Officer searches confirmed participants by student number or name on 
 ## References
 
 - parent — _bmad-output/initiative-attendta/tickets/epic-check-in/epic-check-in.md
+- docs/DESIGN.md
+- _bmad-output/initiative-attendta/delivery-queue.md
+- _bmad-output/initiative-attendta/finale-test-cases.md
+
+## Delivery (2026-11-06)
+
+- Frontend-facing integration: the manual-lookup surface and its separate manual adapter are already delivered by 4.11. This issue wires the real manual adapter to the engine (4.3) and does not depend on the camera adapter 4.4.
+- Use impeccable for implementation, then a rendered critique and polish of the wired lookup before review.
+- Development check: build/CSS plus one lookup and one explicit check-in; searching or viewing must not write. Existing CI unchanged; broad cases are 8.5 (#78), the full suite runs once at 8.4 (#77), final manual acceptance is 8.6–8.8.
+- Final rules unchanged: 25-row paging, `manual_search`/`student_number` methods, and the same engine validations as a scan.
