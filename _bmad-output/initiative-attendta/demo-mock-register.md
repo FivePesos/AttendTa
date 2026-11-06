@@ -224,6 +224,10 @@ the member's status, and deactivating a membership never changes the linked acco
 
 - Deactivating an account in the demo does not end that person's real session or block their
   login; the real behavior arrives with 5.4. Leave that step out of the demo script.
+- The demo last-administrator refusal counts the real active Administrators. With two real
+  Administrators, demo-deactivating one does not reduce that count, so the other can also be
+  demo-deactivated. The block is reliable for the single-Administrator demo scenario; the real
+  rule arrives with 5.4.
 - Check-ins, review decisions and issued certificates last only until the app restarts; passes
   keep scanning.
 - A pass scanned in the demo is matched against rule 10 tokens, not `registrations.qr_token`.
