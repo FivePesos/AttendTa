@@ -70,6 +70,10 @@ public sealed class AccountRequestQueueTests : IClassFixture<SqlServerDatabaseFi
         var defaultPending = await adminClient.GetStringAsync("/AccountRequest", TestContext.Current.CancellationToken);
         Assert.Contains("Page 1 of 2", defaultPending, StringComparison.Ordinal);
         Assert.Contains("Pending Queue Request", defaultPending, StringComparison.Ordinal);
+        Assert.Contains("Rejection reason for", defaultPending, StringComparison.Ordinal);
+        Assert.Contains("/AccountRequest/Approve", defaultPending, StringComparison.Ordinal);
+        Assert.Contains("/AccountRequest/Reject", defaultPending, StringComparison.Ordinal);
+        Assert.Contains("__RequestVerificationToken", defaultPending, StringComparison.Ordinal);
         Assert.DoesNotContain("Rejected Queue Request", defaultPending, StringComparison.Ordinal);
 
         var firstPageResponse = await adminClient.GetAsync("/AccountRequest?status=pending&page=1&keep=alpha&keep=beta", TestContext.Current.CancellationToken);
@@ -105,6 +109,8 @@ public sealed class AccountRequestQueueTests : IClassFixture<SqlServerDatabaseFi
         Assert.DoesNotContain("Pending Queue Request", rejected, StringComparison.Ordinal);
         Assert.DoesNotContain("aria-label=\"Pagination\"", rejected, StringComparison.Ordinal);
         Assert.DoesNotContain(PasswordHashMarker, rejected, StringComparison.Ordinal);
+        Assert.DoesNotContain("/AccountRequest/Approve", rejected, StringComparison.Ordinal);
+        Assert.DoesNotContain("/AccountRequest/Reject", rejected, StringComparison.Ordinal);
 
         var empty = await adminClient.GetStringAsync("/AccountRequest?status=approved", TestContext.Current.CancellationToken);
         Assert.Contains("No approved account requests found.", empty, StringComparison.Ordinal);

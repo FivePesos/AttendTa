@@ -70,6 +70,13 @@
   .badge-admin { background: #fef3c7; color: #92400e; } .badge-officer { background: #dbeafe; color: #1e40af; } .badge-member { background: #f1f5f9; color: #334155; }
   .badge-active { background: #ecfdf5; color: #065f46; } .badge-inactive { background: #fef2f2; color: #991b1b; }
   .empty-state { color: #475569; padding: 1rem; }
+  .queue-filter { display: flex; flex-wrap: wrap; align-items: end; gap: .75rem; }
+  .queue-filter .field { margin: 0; min-width: min(100%, 14rem); }
+  .queue-review { min-width: 18rem; }
+  .queue-reject { display: grid; gap: .5rem; margin-top: .75rem; }
+  .queue-reject label { font-weight: 600; }
+  .queue-reject textarea { resize: vertical; }
+  .queue-reject .button { justify-self: start; }
   .event-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1rem; }
   .event-card { display: flex; flex-direction: column; overflow: hidden; background: white; border: 1px solid #e2e8f0; border-radius: 10px; box-shadow: 0 4px 12px -2px #0f172a0d; }
   .event-cover { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; background: #e2e8f0; }
