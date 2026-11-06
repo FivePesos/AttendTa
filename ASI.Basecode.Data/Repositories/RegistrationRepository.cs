@@ -98,7 +98,11 @@ public sealed class RegistrationRepository : BaseRepository, IRegistrationReposi
         var ordered = status == RegistrationStatusCode.Waitlisted
             ? rows.OrderBy(row => row.r.ReviewedAt).ThenBy(row => row.r.RegistrationId)
             : rows.OrderBy(row => row.r.SubmittedAt).ThenBy(row => row.r.RegistrationId);
-        return ordered.Select(row => new RegistrationReviewRow(row.r.RegistrationId, row.e.EventId, row.e.Title, row.u.Name, row.m.StudentNumber, row.r.SubmittedAt, row.r.RegistrationStatusId));
+        return ordered.Select(row => new RegistrationReviewRow(row.r.RegistrationId, row.e.EventId, row.e.Title, row.u.Name, row.m.StudentNumber, row.r.SubmittedAt, row.r.RegistrationStatusId)
+        {
+            Course = row.r.CourseSnapshot,
+            YearLevel = row.r.YearLevelSnapshot
+        });
     }
 
     public Task<int> CountReviewQueueAsync(RegistrationStatusCode status, int? eventId, CancellationToken ct = default) => ReviewQueue(status, eventId).CountAsync(ct);

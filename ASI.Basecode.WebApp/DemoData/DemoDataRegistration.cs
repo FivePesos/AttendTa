@@ -19,6 +19,7 @@ internal static class DemoDataRegistration
         {
             services.AddSingleton<IEventStateOverlay, NoOpEventStateOverlay>();
             services.AddScoped<IEventStateCommands, UnavailableEventStateCommands>();
+            services.AddScoped<IParticipationReportService, EmptyParticipationReportService>();
             services.AddSingleton<IAccessStateOverlay, NoOpAccessStateOverlay>();
             services.AddScoped<IAccountAccessCommands, UnavailableAccessCommands>();
             services.AddScoped<IMembershipAccessCommands, UnavailableAccessCommands>();
@@ -35,6 +36,7 @@ internal static class DemoDataRegistration
         services.AddHostedService<DemoSeedService>();
 
         DemoEventsRegistration.AddDemoEvents(services);
+        DemoReportsRegistration.AddDemoReports(services);
         DemoAccessRegistration.AddDemoAccess(services);
         DemoPassesRegistration.AddDemoPasses(services);
         DemoMyEventsRegistration.AddDemoMyEvents(services);
