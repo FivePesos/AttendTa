@@ -28,6 +28,7 @@ Used by a University of Cebu student organization on a laptop at the door and on
 - Membership requests are reviewed and approved or declined with a reason; decisions are audited.
 - Master data covers members, event types, and venues; records are deactivated rather than hard-deleted.
 - Events move through draft, published, completed, and cancelled states with capacity, deadline, and venue checks.
+- Officers open an event dossier from Events to review metadata, confirmed capacity and paged status rosters, make explicit registration decisions, and confirm check-in and lifecycle changes in contextual dialogs.
 - Registrations are pending, confirmed, waitlisted, or cancelled; seat allocation is transactional.
 - Attendance is recorded by QR or manual lookup; certificates are issued one at a time from an eligibility review.
 - Participation reports are per event and include attendance rate, no-shows, and course/year distribution.
