@@ -49,6 +49,7 @@ public sealed class EventTypeManagementFlowTests(SqlServerDatabaseFixture fixtur
 
         var lastPage = await officerClient.GetStringAsync("/EventType?page=2", ct);
         Assert.Contains("Page 2 of 2", lastPage, StringComparison.Ordinal);
+        Assert.Contains("name=\"page\" value=\"2\"", lastPage, StringComparison.Ordinal);
         Assert.Contains("Flow Type 26", lastPage, StringComparison.Ordinal);
         Assert.DoesNotContain("Flow Type 01", lastPage, StringComparison.Ordinal);
         Assert.DoesNotContain("aria-label=\"Next page\"", lastPage, StringComparison.Ordinal);
@@ -120,6 +121,14 @@ public sealed class EventTypeManagementFlowTests(SqlServerDatabaseFixture fixtur
             Assert.Contains("\"IsActive\":true", statusLog.OldValues, StringComparison.Ordinal);
             Assert.Contains("\"IsActive\":false", statusLog.NewValues, StringComparison.Ordinal);
         }
+
+        var pagedToggleToken = await AntiforgeryTokenAsync(officerClient, "/EventType?page=2", ct);
+        var pagedToggleResponse = await officerClient.PostAsync($"/EventType/ToggleActive?id={createdId}&page=2", Form(new Dictionary<string, string>
+        {
+            ["__RequestVerificationToken"] = pagedToggleToken
+        }), ct);
+        Assert.Equal(HttpStatusCode.Redirect, pagedToggleResponse.StatusCode);
+        Assert.Equal("/EventType?page=2", LocationPath(pagedToggleResponse));
 
         await SignInAsync(memberClient, memberEmail, password, ct);
         var denied = await memberClient.GetAsync("/EventType", ct);

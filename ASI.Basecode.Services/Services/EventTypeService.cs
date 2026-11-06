@@ -57,7 +57,7 @@ namespace ASI.Basecode.Services.Services
         private static EventTypeAuditValues Snapshot(EventType eventType) =>
             new(eventType.TypeName, eventType.Description, eventType.IsActive);
 
-        private int ActorUserId()
+        private int RequireActorId()
         {
             if (!_actor.IsAuthenticated)
             {
@@ -106,7 +106,7 @@ namespace ASI.Basecode.Services.Services
 
         public async Task AddEventTypeAsync(EventTypeViewModel model, CancellationToken cancellationToken = default)
         {
-            var actorUserId = ActorUserId();
+            var actorId = RequireActorId();
             var typeName = RequiredTypeName(model);
             var description = RequiredDescription(model);
 
@@ -122,7 +122,7 @@ namespace ASI.Basecode.Services.Services
                     TypeName = typeName,
                     Description = description,
                     IsActive = true,
-                    CreatedBy = actorUserId,
+                    CreatedBy = actorId,
                     CreatedAt = _timeProvider.GetUtcNow().UtcDateTime
                 };
                 await _repository.AddEventTypeAsync(eventType, ct);
@@ -134,7 +134,7 @@ namespace ASI.Basecode.Services.Services
 
         public async Task UpdateEventTypeAsync(EventTypeViewModel model, CancellationToken cancellationToken = default)
         {
-            var actorUserId = ActorUserId();
+            var actorId = RequireActorId();
             var typeName = RequiredTypeName(model);
             var description = RequiredDescription(model);
 
@@ -154,7 +154,7 @@ namespace ASI.Basecode.Services.Services
                 var oldValues = Snapshot(eventType);
                 eventType.TypeName = typeName;
                 eventType.Description = description;
-                eventType.UpdatedBy = actorUserId;
+                eventType.UpdatedBy = actorId;
                 eventType.UpdatedAt = _timeProvider.GetUtcNow().UtcDateTime;
                 await _repository.UpdateEventTypeAsync(eventType, ct);
                 _audit.Append(new AuditEntry(AuditActions.EventTypeEdited, "event_types", eventType.TypeId,
@@ -165,7 +165,7 @@ namespace ASI.Basecode.Services.Services
 
         public async Task ToggleActiveAsync(int id, CancellationToken cancellationToken = default)
         {
-            var actorUserId = ActorUserId();
+            var actorId = RequireActorId();
 
             await _unitOfWork.ExecuteInTransactionAsync(async ct =>
             {
@@ -178,7 +178,7 @@ namespace ASI.Basecode.Services.Services
                 var linkedEventCount = await _repository.CountLinkedEventsAsync(id, ct);
                 var oldValues = new EventTypeStatusAuditValues(eventType.IsActive, linkedEventCount);
                 eventType.IsActive = !eventType.IsActive;
-                eventType.UpdatedBy = actorUserId;
+                eventType.UpdatedBy = actorId;
                 eventType.UpdatedAt = _timeProvider.GetUtcNow().UtcDateTime;
                 await _repository.UpdateEventTypeAsync(eventType, ct);
                 _audit.Append(new AuditEntry(AuditActions.EventTypeStatusChanged, "event_types", eventType.TypeId,

@@ -5,11 +5,16 @@
 
 <h2>Edit Venue</h2>
 
+<div class="field">
+    <span class="field-label">Current photo</span>
+    <a asp-action="Photo" asp-route-id="@Model.VenueId" target="_blank" rel="noopener">
+        <img src="@Url.Action("Photo", new { id = Model.VenueId })" alt="Current photo of @Model.RoomName" width="96" height="64" class="venue-thumb" />
+    </a>
+</div>
 
 <form asp-action="Edit" method="post" enctype="multipart/form-data">
     <div asp-validation-summary="ModelOnly" class="validation-summary" role="alert"></div>
     <input type="hidden" asp-for="VenueId" />
-    <p class="muted">A venue photo is currently stored. Upload a replacement up to 2 MiB if needed.</p>
     <partial name="_Form" model="Model" />
     <button type="submit" class="button button-primary">Save</button>
     <a asp-action="Index" class="button button-secondary">Cancel</a>

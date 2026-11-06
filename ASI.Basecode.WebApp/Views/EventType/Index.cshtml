@@ -14,14 +14,14 @@
 }
 else
 {
-    <div class="table-scroll" role="region" aria-label="EventType table" tabindex="0">
+    <div class="table-scroll" role="region" aria-label="Event Type table" tabindex="0">
         <table class="data-table">
             <thead>
                 <tr>
                     <th scope="col">Type Name</th>
                     <th scope="col">Description</th>
                     <th scope="col">Status</th>
-                    <th scope="col">Actions</th>
+                    <th scope="col" class="actions">Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -30,12 +30,15 @@ else
                     <tr data-type-id="@eventType.TypeId">
                         <td>@eventType.TypeName</td>
                         <td>@eventType.Description</td>
-                        <td>@(eventType.IsActive ? "Active" : "Inactive")</td>
-                        <td>
-                            <a asp-action="Edit" asp-route-id="@eventType.TypeId" class="button button-secondary">Edit</a>
-                            <form asp-action="ToggleActive" asp-route-id="@eventType.TypeId" method="post" class="inline-form">
-                                <button type="submit" class="button button-secondary">@(eventType.IsActive ? "Deactivate" : "Activate")</button>
-                            </form>
+                        <td><span class="badge @(eventType.IsActive ? "badge-active" : "badge-inactive")">@(eventType.IsActive ? "Active" : "Inactive")</span></td>
+                        <td class="actions">
+                            <div class="row-actions">
+                                <a asp-action="Edit" asp-route-id="@eventType.TypeId" class="button button-small button-secondary">Edit</a>
+                                <form asp-action="ToggleActive" asp-route-id="@eventType.TypeId" method="post" class="inline-form">
+                                    <input type="hidden" name="page" value="@Model.PageNumber" />
+                                    <button type="submit" class="button button-small button-secondary">@(eventType.IsActive ? "Deactivate" : "Activate")</button>
+                                </form>
+                            </div>
                         </td>
                     </tr>
                 }
