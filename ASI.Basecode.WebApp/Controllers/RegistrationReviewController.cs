@@ -25,19 +25,30 @@ public sealed class RegistrationReviewController(IHttpContextAccessor accessor, 
     }
 
     [HttpPost, ValidateAntiForgeryToken]
-    public Task<IActionResult> Approve(int id, string status, int? eventId, int? page) => Decide(() => review.ApproveAsync(id, HttpContext.RequestAborted), status, eventId, page);
+    public Task<IActionResult> Approve(int id, string status, int? eventId, int? page) => Decide(() => review.ApproveAsync(id, HttpContext.RequestAborted), status, eventId, page, id: id, dialog: "approve");
     [HttpPost, ValidateAntiForgeryToken]
-    public Task<IActionResult> Decline(int id, string reason, string status, int? eventId, int? page) => Decide(() => review.DeclineAsync(id, reason, HttpContext.RequestAborted), status, eventId, page);
+    public Task<IActionResult> Decline(int id, string reason, string status, int? eventId, int? page) => Decide(() => review.DeclineAsync(id, reason, HttpContext.RequestAborted), status, eventId, page, id: id, dialog: "decline", reason: reason);
     [HttpPost, ValidateAntiForgeryToken]
-    public Task<IActionResult> Cancel(int id, string reason, string status, int? eventId, int? page) => Decide(() => review.CancelAsync(id, reason, HttpContext.RequestAborted), status, eventId, page);
+    public Task<IActionResult> Cancel(int id, string reason, string status, int? eventId, int? page) => Decide(() => review.CancelAsync(id, reason, HttpContext.RequestAborted), status, eventId, page, id: id, dialog: "registration-cancel", reason: reason);
     [HttpPost, ValidateAntiForgeryToken]
     public Task<IActionResult> Promote(int eventId, int? page) =>
-        Decide(() => review.PromoteNextAsync(eventId, HttpContext.RequestAborted), "waitlisted", eventId, page, "Next eligible participant promoted.");
+        Decide(() => review.PromoteNextAsync(eventId, HttpContext.RequestAborted), "waitlisted", eventId, page, "Next eligible participant promoted.", eventId, "promote");
 
-    private async Task<IActionResult> Decide(System.Func<Task> command, string status, int? eventId, int? page, string successMessage = "Registration updated.")
+    private async Task<IActionResult> Decide(System.Func<Task> command, string status, int? eventId, int? page, string successMessage = "Registration updated.", int id = 0, string dialog = null, string reason = null)
     {
         try { await command(); TempData["SuccessMessage"] = successMessage; }
-        catch (DomainException ex) { TempData["ErrorMessage"] = ex.Message; }
+        catch (DomainException ex)
+        {
+            TempData["ErrorMessage"] = ex.Message;
+            if (eventId.HasValue)
+            {
+                TempData["DossierError"] = ex.Message;
+                TempData["DossierDialog"] = dialog;
+                TempData["DossierId"] = id;
+                TempData["DossierReason"] = reason;
+            }
+        }
+        if (eventId.HasValue && Request.Form["dossier"] == "true") return RedirectToAction("Details", "Event", new { id = eventId, status, page });
         return RedirectToAction(nameof(Index), new { status, eventId, page });
     }
 }
