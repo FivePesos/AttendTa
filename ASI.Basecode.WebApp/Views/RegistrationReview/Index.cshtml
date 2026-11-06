@@ -13,6 +13,14 @@
     <label for="eventId">Event ID (optional)</label><input id="eventId" name="eventId" type="number" min="1" value="@ViewBag.EventId" />
     <button type="submit">Filter</button>
 </form>
+@if (string.Equals((string)ViewBag.Status, "waitlisted", StringComparison.OrdinalIgnoreCase) && ViewBag.EventId != null && Model.Items.Any())
+{
+    <form asp-action="Promote" method="post" class="inline-form">
+        <input type="hidden" name="eventId" value="@ViewBag.EventId" />
+        <input type="hidden" name="page" value="@Model.PageNumber" />
+        <button type="submit">Promote next eligible participant</button>
+    </form>
+}
 @if (!Model.Items.Any()) { <p>No registrations found.</p> }
 @foreach (var row in Model.Items)
 {
