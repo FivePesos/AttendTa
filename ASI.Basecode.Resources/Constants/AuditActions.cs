@@ -9,6 +9,7 @@ public static class AuditActions
     public const string EventCancelled = "event.cancelled";
     public const string RegistrationCancelled = "registration.cancelled";
     public const string RegistrationApproved = "registration.approved";
+    public const string RegistrationPromoted = "registration.promoted";
     public const string RegistrationDeclined = "registration.declined";
     public const string RegistrationAdminCancelled = "registration.admin_cancelled";
     public const string EventTypeCreated = "event_type.created";

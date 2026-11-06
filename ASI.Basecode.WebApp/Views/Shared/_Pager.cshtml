@@ -28,7 +28,7 @@
 @if (Model.TotalPages > 1)
 {
     <nav class="page-heading" aria-label="Pagination">
-        <span aria-live="polite">Page @Model.PageNumber of @Model.TotalPages</span>
+        <span aria-live="polite" class="numeric">Page @Model.PageNumber of @Model.TotalPages</span>
         <div class="search-group">
             @if (Model.HasPreviousPage)
             {

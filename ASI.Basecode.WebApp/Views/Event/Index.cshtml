@@ -42,6 +42,7 @@ else
                         <td>@eventItem.StatusLabel</td>
                         <td class="actions">
                             <a asp-action="Cover" asp-route-id="@eventItem.EventId" class="button button-secondary">Cover</a>
+                            <a asp-controller="RegistrationReview" asp-action="Index" asp-route-eventId="@eventItem.EventId" class="button button-secondary">Review</a>
                             @if (eventItem.EventStatusId is EventStatusCode.Draft or EventStatusCode.Published)
                             {
                                 <a asp-action="Edit" asp-route-id="@eventItem.EventId" class="button button-secondary">Edit</a>

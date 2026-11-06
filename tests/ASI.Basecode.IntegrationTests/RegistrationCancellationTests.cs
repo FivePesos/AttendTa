@@ -355,6 +355,7 @@ public sealed class RegistrationCancellationTests(SqlServerDatabaseFixture fixtu
     private sealed class ReverseDiscoveryRepository(IRegistrationRepository inner) : IRegistrationRepository
     {
         public Task<RegistrationReviewIdentity> DiscoverReviewAsync(int id, CancellationToken ct = default) => inner.DiscoverReviewAsync(id, ct);
+        public Task<RegistrationPromotionCandidate> DiscoverPromotionCandidateAsync(int eventId, CancellationToken ct = default) => inner.DiscoverPromotionCandidateAsync(eventId, ct);
         public Task<bool> HasEligibleWaitlistAsync(int id, CancellationToken ct = default) => inner.HasEligibleWaitlistAsync(id, ct);
         public Task<bool> HasValidAttendanceAsync(int id, CancellationToken ct = default) => inner.HasValidAttendanceAsync(id, ct);
         public Task<bool> HasValidAttendanceForEventAsync(int eventId, CancellationToken ct = default) => inner.HasValidAttendanceForEventAsync(eventId, ct);
