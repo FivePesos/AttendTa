@@ -139,6 +139,18 @@ Reference by path only. The SPEC is the source of truth for planned features not
 ## UI review
 The impeccable design skill is installed at `.opencode/skills/impeccable`, with `/impeccable` in `.opencode/commands`. For any UI-facing ticket — a new screen, form, table, dialog, navigation change, or a refactor sweep that touches Razor or CSS — run `/impeccable critique` on the changed surface and `/impeccable polish` before review. Keep `PRODUCT.md` current; `docs/DESIGN.md` remains the visual authority.
 
+## Subagents
+Subagents (`general`, `explore`) run on `mistral/deepseek-v4-1-flash-1017`, set in `opencode.jsonc`
+with no pinned variant. The orchestrator chooses the reasoning effort for each task by passing
+`model` to the `subagent` tool:
+- `#low` — mechanical lookups, pattern searches, formatting, small single-file edits.
+- `#high` — normal research, implementation, and review work.
+- `#max` — deep debugging, cross-module analysis, or adversarial review.
+- `#none` — deterministic, trivial tasks where reasoning adds nothing.
+
+Start at the cheapest effort that will reliably finish the task and escalate only when the result
+is insufficient; do not default to `#max`.
+
 ## Current assignment scope
 Master Data only — Member Management, Event Type Management, Venue Management (Admin & Officer).
 Auth, Transactions, Reports, Administration are owned by other members.
