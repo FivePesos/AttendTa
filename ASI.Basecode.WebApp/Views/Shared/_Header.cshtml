@@ -26,6 +26,7 @@
                     @if (management)
                     {
                         <a asp-controller="Event" asp-action="Index" aria-current="@(controller == "Event" ? "page" : null)">Events</a>
+                        <a asp-controller="RegistrationReview" asp-action="Index">Registration review</a>
                         <a asp-controller="MemberEvents" asp-action="Index" aria-current="@(controller == "MemberEvents" ? "page" : null)">Browse events</a>
                         <a asp-controller="Member" asp-action="Index" aria-current="@(controller == "Member" ? "page" : null)">Members</a>
                         <a asp-controller="AccountRequest" asp-action="Index" aria-current="@(controller == "AccountRequest" ? "page" : null)">Account requests</a>
@@ -58,6 +59,7 @@
             @if (management)
             {
                 <a asp-controller="Event" asp-action="Index" aria-current="@(controller == "Event" ? "page" : null)">Events</a>
+                <a asp-controller="RegistrationReview" asp-action="Index">Registration review</a>
                 <a asp-controller="MemberEvents" asp-action="Index" aria-current="@(controller == "MemberEvents" ? "page" : null)">Browse events</a>
                 <a asp-controller="Member" asp-action="Index" aria-current="@(controller == "Member" ? "page" : null)">Members</a>
                 <a asp-controller="AccountRequest" asp-action="Index" aria-current="@(controller == "AccountRequest" ? "page" : null)">Account requests</a>

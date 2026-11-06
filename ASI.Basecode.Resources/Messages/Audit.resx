@@ -19,4 +19,7 @@
   <data name="MemberEdited" xml:space="preserve"><value>Member profile edited.</value></data>
   <data name="MemberStudentNumberCorrected" xml:space="preserve"><value>Member student number corrected.</value></data>
   <data name="RegistrationCancelled" xml:space="preserve"><value>Registration cancelled.</value></data>
+  <data name="RegistrationApproved" xml:space="preserve"><value>Registration reviewed and approved.</value></data>
+  <data name="RegistrationDeclined" xml:space="preserve"><value>Registration declined.</value></data>
+  <data name="RegistrationAdminCancelled" xml:space="preserve"><value>Registration administratively cancelled.</value></data>
 </root>

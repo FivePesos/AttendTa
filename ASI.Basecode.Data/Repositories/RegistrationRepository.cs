@@ -39,6 +39,34 @@ public sealed class RegistrationRepository : BaseRepository, IRegistrationReposi
         return Task.CompletedTask;
     }
 
+    public Task<RegistrationReviewIdentity> DiscoverReviewAsync(int id, CancellationToken ct = default) =>
+        (from r in GetDbSet<Registration>().AsNoTracking()
+         join m in GetDbSet<Member>().AsNoTracking() on r.MemberId equals m.MemberId
+         where r.RegistrationId == id
+         select new RegistrationReviewIdentity(m.UserId, m.MemberId, r.EventId)).SingleOrDefaultAsync(ct);
+
+    public Task<bool> HasEligibleWaitlistAsync(int eventId, CancellationToken ct = default)
+    {
+        var eligible = ParticipationFacts.EligibleParticipantMemberIds(GetDbSet<User>().AsNoTracking(), GetDbSet<Member>().AsNoTracking());
+        return ParticipationFacts.WaitlistPriority(GetDbSet<Registration>().AsNoTracking(), eventId).AnyAsync(r => eligible.Contains(r.MemberId), ct);
+    }
+
+    public Task<bool> HasValidAttendanceAsync(int id, CancellationToken ct = default) =>
+        ParticipationFacts.ValidAttendances(GetDbSet<Attendance>().AsNoTracking()).AnyAsync(a => a.RegistrationId == id, ct);
+
+    private IQueryable<RegistrationReviewRow> ReviewQueue(RegistrationStatusCode status, int? eventId) =>
+        from r in GetDbSet<Registration>().AsNoTracking()
+        join m in GetDbSet<Member>().AsNoTracking() on r.MemberId equals m.MemberId
+        join u in GetDbSet<User>().AsNoTracking() on m.UserId equals u.Id
+        join e in GetDbSet<Event>().AsNoTracking() on r.EventId equals e.EventId
+        where r.RegistrationStatusId == status && (!eventId.HasValue || r.EventId == eventId.Value)
+        orderby r.SubmittedAt, r.RegistrationId
+        select new RegistrationReviewRow(r.RegistrationId, e.EventId, e.Title, u.Name, m.StudentNumber, r.SubmittedAt, r.RegistrationStatusId);
+
+    public Task<int> CountReviewQueueAsync(RegistrationStatusCode status, int? eventId, CancellationToken ct = default) => ReviewQueue(status, eventId).CountAsync(ct);
+    public async Task<IReadOnlyList<RegistrationReviewRow>> GetReviewQueueAsync(RegistrationStatusCode status, int? eventId, int offset, int limit, CancellationToken ct = default) =>
+        await ReviewQueue(status, eventId).Skip(offset).Take(limit).ToListAsync(ct);
+
     private static bool Open(RegistrationStatusCode status) => status is RegistrationStatusCode.Pending or RegistrationStatusCode.Confirmed or RegistrationStatusCode.Waitlisted;
 
     public async Task<Registration> GetForCancellationAsync(int registrationId, CancellationToken cancellationToken = default)
