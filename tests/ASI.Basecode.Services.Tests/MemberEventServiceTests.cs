@@ -196,6 +196,40 @@ public sealed class MemberEventServiceTests
         Assert.Empty(harness.Registrations.Items);
     }
 
+    [Theory]
+    [InlineData(-1, true)]
+    [InlineData(0, false)]
+    [InlineData(1, false)]
+    public async Task RegisterUsesTickPrecisionAfterBothLocks(long offsetTicks, bool succeeds)
+    {
+        var clock = new FixedClock { Now = Now.AddMinutes(-1) };
+        var harness = new Harness(clock);
+        var actor = harness.AddUser(RoleCode.Member, isActive: true);
+        var member = harness.AddMember(actor.Id, MembershipStatusCode.Active);
+        var type = harness.AddType("Workshop");
+        var venue = harness.AddVenue("Room A");
+        var eventItem = harness.AddEvent("Boundary", type.TypeId, venue.VenueId, EventStatusCode.Published, Now.AddDays(1), Now);
+        harness.Events.BeforeLock = _ => clock.Now = Now.AddTicks(offsetTicks);
+
+        if (succeeds)
+        {
+            await harness.Service.RegisterAsync(eventItem.EventId, TestContext.Current.CancellationToken);
+            var row = Assert.Single(harness.Registrations.Items);
+            Assert.Equal(member.MemberId, row.MemberId);
+            Assert.Equal(RegistrationStatusCode.Pending, row.RegistrationStatusId);
+            Assert.Equal(Now.AddTicks(-1), row.SubmittedAt);
+        }
+        else
+        {
+            var error = await Assert.ThrowsAsync<DomainException>(() =>
+                harness.Service.RegisterAsync(eventItem.EventId, TestContext.Current.CancellationToken));
+            Assert.Equal(OutcomeCode.CutoffPassed, error.Outcome);
+            Assert.Empty(harness.Registrations.Items);
+        }
+
+        Assert.Equal(new[] { "user", "event" }, harness.Locks);
+    }
+
     [Fact]
     public async Task RegisterCapturesTimeAfterBothLocks()
     {

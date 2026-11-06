@@ -7,6 +7,20 @@ namespace ASI.Basecode.Services.Tests;
 
 public sealed class ParticipationFactsTests
 {
+    [Theory]
+    [InlineData(-1, true)]
+    [InlineData(0, false)]
+    [InlineData(1, false)]
+    public void SignupBoundaryUsesClockTicks(long offsetTicks, bool expectedOpen)
+    {
+        var deadline = new DateTimeOffset(2026, 3, 1, 12, 0, 0, TimeSpan.Zero);
+        var clock = new FixedClock(deadline.AddTicks(offsetTicks));
+        var eventItem = Event(deadline.UtcDateTime, EventStatusCode.Published);
+        eventItem.RegistrationDeadline = deadline.UtcDateTime;
+
+        Assert.Equal(expectedOpen, ParticipationFacts.SignupOpen(clock.GetUtcNow().UtcDateTime).Compile()(eventItem));
+    }
+
     [Fact]
     public void ExpressionsApplyExactEligibilityAttendanceSeatCutoffSignupAndPublishBoundaries()
     {
