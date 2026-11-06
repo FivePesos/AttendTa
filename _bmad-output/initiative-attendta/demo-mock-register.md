@@ -181,6 +181,55 @@ ids the store marks. Real reads run first; a failing real read is never replaced
 Refusal rules: open/close check-in only on a Published event that is not demo-completed; complete
 only on a Published event that is not demo-completed and whose start time has passed.
 
+## M-02 — demo seam detail (3.17)
+
+**Contract and classes.** The contract is in `ASI.Basecode.Services`; the providers are in
+`ASI.Basecode.WebApp/DemoData/`.
+
+| Piece | File |
+|---|---|
+| Read contract `IMyEventsService.GetRegistrationsAsync` | `ASI.Basecode.Services/Interfaces/IMyEventsService.cs` |
+| Demo provider (composes `IRegistrationRepository.DiscoverOpenEventIdsForUserAsync`, `GetMemberRegistrationAsync`, `IEventRepository.CountAsync` and `GetPageAsync`) | `ASI.Basecode.WebApp/DemoData/DemoMyEventsService.cs` |
+| Switch-off provider (empty page) | `ASI.Basecode.WebApp/DemoData/EmptyMyEventsService.cs` |
+| My Events surface registration file | `ASI.Basecode.WebApp/DemoData/DemoMyEventsRegistration.cs` |
+
+**What it composes.** The actor's open event ids, each event's own registration row, and one event
+page for title, type, venue, start and status. Cards are ordered newest start first and paged at 25
+in memory; the status label and badge come from `RegistrationStatusDisplay`, and the "View event"
+link appears only for a published event. Nothing is written. Cancelled registrations are absent
+because `DiscoverOpenEventIdsForUserAsync` excludes them; 3.13's real query replaces this provider
+and its per-event reads.
+
+## M-03 — pass card QR image and PNG download detail (4.10)
+
+**Contract and classes.** The contract is in `ASI.Basecode.Services`; all demo code is in
+`ASI.Basecode.WebApp/DemoData/`.
+
+| Piece | File |
+|---|---|
+| Pass contract `IPassService` (`GetMyPassesAsync`) | `ASI.Basecode.Services/Interfaces/IPassService.cs` |
+| Screen model `PassesViewModel` (`Active`, `Past`, `Empty()`) | `ASI.Basecode.Services/ServiceModels/PassesViewModel.cs` |
+| Card model `PassViewModel` (event metadata, holder, rule-10 token, download name) | `ASI.Basecode.Services/ServiceModels/MyEventsViewModels.cs` |
+| Demo passes | `ASI.Basecode.WebApp/DemoData/DemoPassService.cs` |
+| Switch-off passes (empty state) | `ASI.Basecode.WebApp/DemoData/UnavailablePassService.cs` |
+| Passes surface registration file | `ASI.Basecode.WebApp/DemoData/DemoPassesRegistration.cs` |
+| Screen and card | `Controllers/PassesController.cs`, `Views/Passes/Index.cshtml`, `Views/MyEvents/_PassPartial.cshtml` |
+| QR library and browser drawing | `wwwroot/lib/qrcode/qrcode.js` (MIT, 1.4.4) with `LICENSE`, `wwwroot/js/features/passes.js` |
+
+**Source and composition.** `DemoPassService` composes
+`IRegistrationRepository.DiscoverOpenEventIdsForUserAsync` for the actor's non-cancelled event ids,
+`IRegistrationRepository.GetMemberRegistrationAsync` for the actor's own row per event,
+`IEventRepository.GetPublishedEventAsync` for the title, type, venue and start, and
+`IMemberRepository.GetMemberRecordByUserIdAsync` for the holder name and student number. It keeps
+only Confirmed registrations whose event is published, splits them on `TimeProvider` (event start
+passed means Past), takes the rule-10 token from `DemoStore.GetPassToken`, and never writes. Pending,
+waitlisted and cancelled registrations, and cancelled or unpublished events, produce no card. The QR
+encodes only the 64-character token; the browser draws it with a 4-module quiet zone and saves it as
+PNG. Nothing rendered names the data as demo data, including the download file name.
+
+**Removal (4.1).** Replace the demo provider behind the same `IPassService` contract, and replace
+`QrToken` with the server-rendered `QrImageUrl` and the authorized `DownloadUrl`.
+
 ## M-10a, M-10b, M-11a and M-11b — certificate ledger (6.12)
 
 **Contract and registration.** `ASI.Basecode.Services/Interfaces/ICertificateLedgerService.cs`
