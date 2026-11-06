@@ -36,6 +36,7 @@ Used by a University of Cebu student organization on a laptop at the door and on
 - No hard deletes. Activity logs are append-only. Passwords are stored only as Argon2id hashes.
 - The MVP is a light-theme web application; there is no dark mode, native app, or offline mode.
 - The officer certificate ledger supports completed-event review, final decline reasons, individual issuance, and PDF viewing/download with the approved template and signatory. In the guarded demonstration configuration, reviews and issued documents live only in shared process memory; retained issuance and audit integration remain scheduled backend work.
+- My Certificates shows the member's pending, eligible, declined, issued and unavailable records with review reasons, independently paged history, and issued-only View/Download PDF. Every document read checks the current owner; in the guarded demonstration configuration, the member and officer share the same captured snapshots and in-memory PDF bytes.
 
 ## Brand Commitments
 

@@ -1,3 +1,4 @@
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using ASI.Basecode.Resources.Constants;
@@ -21,16 +22,19 @@ namespace ASI.Basecode.WebApp.Controllers;
 public sealed class MyEventsController : ControllerBase<MyEventsController>
 {
     private readonly IMyEventsService _myEvents;
+    private readonly IMyCertificatesService _certificates;
 
     public MyEventsController(
         IHttpContextAccessor httpContextAccessor,
         ILoggerFactory loggerFactory,
         IConfiguration configuration,
         IMapper mapper,
-        IMyEventsService myEvents)
+        IMyEventsService myEvents,
+        IMyCertificatesService certificates)
         : base(httpContextAccessor, loggerFactory, configuration, mapper)
     {
         _myEvents = myEvents;
+        _certificates = certificates;
     }
 
     [HttpGet]
@@ -49,8 +53,21 @@ public sealed class MyEventsController : ControllerBase<MyEventsController>
         View("Index", MyEventsViewModel.FromAttendance(
             await _myEvents.GetAttendanceAsync(page, cancellationToken)));
 
-    // The certificate tab keeps its empty model until 6.13 fills it.
     [HttpGet]
     [Route("MyEvents/Certificates")]
-    public IActionResult Certificates(int? page) => View("Index", MyEventsViewModel.Empty(MyEventsTab.Certificates));
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
+    public async Task<IActionResult> Certificates(int? page, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return View("Index", MyEventsViewModel.FromCertificates(
+                await _certificates.GetPageAsync(page, cancellationToken)));
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            _logger.LogWarning("Certificate history read failed ({ExceptionType}).", exception.GetType().Name);
+            ViewData["CertificateHistoryError"] = "Your certificate history could not be loaded. Please try again.";
+            return View("Index", MyEventsViewModel.Empty(MyEventsTab.Certificates));
+        }
+    }
 }

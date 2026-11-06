@@ -16,7 +16,7 @@ namespace ASI.Basecode.WebApp.DemoData;
 // M-10a/M-10b/M-11a/M-11b: certificate surface adapters removed by 6.4/6.6/6.7/6.8 respectively.
 public sealed class DemoCertificateLedgerService(
     IEventRepository events, IRegistrationRepository registrations, DemoStore store,
-    ICertificatePdfRenderer renderer, ICurrentActor actor, TimeProvider clock) : ICertificateLedgerService
+    DemoCertificateDocuments documents, ICurrentActor actor, TimeProvider clock) : ICertificateLedgerService
 {
     public async Task<CertificateLedgerViewModel> GetPageAsync(int? eventId, CertificateLedgerTab tab, int? page,
         CancellationToken cancellationToken = default)
@@ -103,7 +103,7 @@ public sealed class DemoCertificateLedgerService(
         var issuedAt = clock.GetUtcNow().UtcDateTime;
         var snapshot = new CertificatePdfSnapshot(registration.MemberName, eventItem.Title, eventItem.StartsAt,
             issuedAt, store.GetCertificateNumber(registrationId, issuedAt));
-        var bytes = await RenderAsync(snapshot, cancellationToken);
+        var bytes = await documents.RenderAsync(snapshot, cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
         await RequireCurrentParticipationAsync(registrationId, cancellationToken);
         store.PublishCertificate(registrationId, snapshot, bytes, actor.UserId);
@@ -124,16 +124,10 @@ public sealed class DemoCertificateLedgerService(
         });
     }
 
-    public async Task<CertificateDocument> GetPdfAsync(int registrationId, CancellationToken cancellationToken = default)
+    public Task<CertificateDocument> GetPdfAsync(int registrationId, CancellationToken cancellationToken = default)
     {
         RequireManagement();
-        var issue = RequireIssue(registrationId);
-        if (issue.Pdf == null)
-        {
-            var bytes = await RenderAsync(issue.Snapshot, cancellationToken);
-            issue = store.AttachCertificateDocument(registrationId, issue.Snapshot, bytes);
-        }
-        return new CertificateDocument((byte[])issue.Pdf.Clone(), issue.CertificateNumber);
+        return documents.GetPdfAsync(registrationId, cancellationToken);
     }
 
     private DemoCertificateIssue RequireIssue(int registrationId)
@@ -165,22 +159,6 @@ public sealed class DemoCertificateLedgerService(
     {
         var count = await registrations.CountReviewQueueAsync(RegistrationStatusCode.Confirmed, eventId, cancellationToken);
         return await registrations.GetReviewQueueAsync(RegistrationStatusCode.Confirmed, eventId, 0, count, cancellationToken);
-    }
-
-    private async Task<byte[]> RenderAsync(CertificatePdfSnapshot snapshot, CancellationToken cancellationToken)
-    {
-        try
-        {
-            var bytes = await renderer.RenderSnapshotAsync(snapshot, cancellationToken);
-            if (bytes == null || bytes.Length < 5 || bytes[0] != '%' || bytes[1] != 'P' || bytes[2] != 'D' || bytes[3] != 'F' || bytes[4] != '-')
-                throw new InvalidOperationException("The renderer did not return a PDF.");
-            return bytes;
-        }
-        catch (OperationCanceledException) { throw; }
-        catch (Exception)
-        {
-            throw new DomainException(OutcomeCode.Invalid, "The certificate could not be rendered. Please try again.");
-        }
     }
 
     private void RequireManagement()
