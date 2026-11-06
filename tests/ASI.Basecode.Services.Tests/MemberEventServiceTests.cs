@@ -364,10 +364,16 @@ public sealed class MemberEventServiceTests
     }
 
     [Theory]
-    [InlineData(-1, true)]
-    [InlineData(0, false)]
-    [InlineData(1, false)]
-    public async Task CancelRegistrationUsesTickPrecisionAfterBothLocks(long offsetTicks, bool succeeds)
+    [InlineData(RegistrationStatusCode.Pending, -1, true)]
+    [InlineData(RegistrationStatusCode.Pending, 0, false)]
+    [InlineData(RegistrationStatusCode.Pending, 1, false)]
+    [InlineData(RegistrationStatusCode.Confirmed, -1, true)]
+    [InlineData(RegistrationStatusCode.Confirmed, 0, false)]
+    [InlineData(RegistrationStatusCode.Confirmed, 1, false)]
+    [InlineData(RegistrationStatusCode.Waitlisted, -1, true)]
+    [InlineData(RegistrationStatusCode.Waitlisted, 0, false)]
+    [InlineData(RegistrationStatusCode.Waitlisted, 1, false)]
+    public async Task CancelRegistrationUsesTickPrecisionAfterBothLocks(RegistrationStatusCode status, long offsetTicks, bool succeeds)
     {
         var clock = new FixedClock { Now = Now.AddTicks(-1) };
         var harness = new Harness(clock);
@@ -377,14 +383,18 @@ public sealed class MemberEventServiceTests
         var venue = harness.AddVenue("Room A");
         // The event starts exactly at Now, so only the clock captured after both locks decides.
         var eventItem = harness.AddEvent("Boundary", type.TypeId, venue.VenueId, EventStatusCode.Published, Now, Now.AddDays(-1));
-        var registration = harness.AddRegistration(eventItem.EventId, member.MemberId, RegistrationStatusCode.Confirmed);
+        var registration = harness.AddRegistration(eventItem.EventId, member.MemberId, status);
+        registration.QrToken = status == RegistrationStatusCode.Confirmed ? new string('a', 64) : null;
         harness.Events.BeforeLock = _ => clock.Now = Now.AddTicks(offsetTicks);
 
         if (succeeds)
         {
             await harness.Service.CancelRegistrationAsync(eventItem.EventId, TestContext.Current.CancellationToken);
-            Assert.Single(harness.Cancellation.Calls);
+            var call = Assert.Single(harness.Cancellation.Calls);
+            Assert.Equal(registration.RegistrationId, call.RegistrationId);
+            Assert.Equal(CancellationCause.MemberRequested, call.Cause);
             Assert.Equal(RegistrationStatusCode.Cancelled, registration.RegistrationStatusId);
+            Assert.Null(registration.QrToken);
         }
         else
         {
@@ -392,10 +402,14 @@ public sealed class MemberEventServiceTests
                 harness.Service.CancelRegistrationAsync(eventItem.EventId, TestContext.Current.CancellationToken));
             Assert.Equal(OutcomeCode.CutoffPassed, error.Outcome);
             Assert.Empty(harness.Cancellation.Calls);
-            Assert.Equal(RegistrationStatusCode.Confirmed, registration.RegistrationStatusId);
+            Assert.Equal(status, registration.RegistrationStatusId);
+            Assert.Equal(status == RegistrationStatusCode.Confirmed ? new string('a', 64) : null, registration.QrToken);
         }
 
         Assert.Equal(new[] { "user", "event" }, harness.Locks);
+
+        var detail = await harness.Service.GetDetailAsync(eventItem.EventId, TestContext.Current.CancellationToken);
+        Assert.Equal(!succeeds, detail.IsStartCutoffPassed);
     }
 
     [Fact]
@@ -555,6 +569,52 @@ public sealed class MemberEventServiceTests
 
         Assert.False((await harness.Service.GetDetailAsync(atStart.EventId, TestContext.Current.CancellationToken)).CanCancel);
         Assert.False((await harness.Service.GetDetailAsync(attended.EventId, TestContext.Current.CancellationToken)).CanCancel);
+    }
+
+    [Theory]
+    [InlineData(-1, false)]
+    [InlineData(0, true)]
+    [InlineData(1, true)]
+    public async Task DetailReportsTheStartCutoffFlagFromTheCapturedClock(long offsetTicks, bool expected)
+    {
+        var clock = new FixedClock { Now = Now.AddTicks(offsetTicks) };
+        var harness = new Harness(clock);
+        var actor = harness.AddUser(RoleCode.Member, isActive: true);
+        var member = harness.AddMember(actor.Id, MembershipStatusCode.Active);
+        var type = harness.AddType("Workshop");
+        var venue = harness.AddVenue("Room A");
+        var eventItem = harness.AddEvent("Started", type.TypeId, venue.VenueId, EventStatusCode.Published, Now, Now.AddDays(-1));
+        var registration = harness.AddRegistration(eventItem.EventId, member.MemberId, RegistrationStatusCode.Pending);
+
+        var detail = await harness.Service.GetDetailAsync(eventItem.EventId, TestContext.Current.CancellationToken);
+
+        Assert.Equal(expected, detail.IsStartCutoffPassed);
+        Assert.Equal(RegistrationStatusCode.Pending, detail.RegistrationStatus);
+        Assert.Equal(RegistrationStatusCode.Pending, registration.RegistrationStatusId);
+        Assert.Equal(!expected, detail.CanCancel);
+    }
+
+    [Theory]
+    [InlineData(RegistrationStatusCode.Pending)]
+    [InlineData(RegistrationStatusCode.Waitlisted)]
+    public async Task DetailDerivesTheCutoffLabelWithoutChangingTheStoredStatus(RegistrationStatusCode status)
+    {
+        var harness = new Harness(new FixedClock { Now = Now });
+        var actor = harness.AddUser(RoleCode.Member, isActive: true);
+        var member = harness.AddMember(actor.Id, MembershipStatusCode.Active);
+        var type = harness.AddType("Workshop");
+        var venue = harness.AddVenue("Room A");
+        var eventItem = harness.AddEvent("Started", type.TypeId, venue.VenueId, EventStatusCode.Published, Now, Now.AddDays(-1));
+        var registration = harness.AddRegistration(eventItem.EventId, member.MemberId, status);
+
+        var detail = await harness.Service.GetDetailAsync(eventItem.EventId, TestContext.Current.CancellationToken);
+
+        Assert.True(detail.IsStartCutoffPassed);
+        Assert.Equal(status, detail.RegistrationStatus);
+        Assert.Equal(status, registration.RegistrationStatusId);
+        Assert.Equal(RegistrationStatusDisplay.NotConfirmedBeforeCutoff, RegistrationStatusDisplay.Label(detail.RegistrationStatus, detail.IsStartCutoffPassed));
+        Assert.Equal("badge-closed", RegistrationStatusDisplay.BadgeClass(detail.RegistrationStatus, detail.IsStartCutoffPassed));
+        Assert.False(detail.CanCancel);
     }
 
     [Fact]
