@@ -41,6 +41,7 @@ else
                         <td>@eventItem.ParticipantLimit</td>
                         <td>@eventItem.StatusLabel</td>
                         <td class="actions">
+                            <a asp-action="Cover" asp-route-id="@eventItem.EventId" class="button button-secondary">Cover</a>
                             @if (eventItem.EventStatusId == EventStatusCode.Draft)
                             {
                                 <a asp-action="Edit" asp-route-id="@eventItem.EventId" class="button button-secondary">Edit</a>

@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -42,6 +43,55 @@ namespace ASI.Basecode.WebApp.Controllers
         [Route("Event/Index")]
         public async Task<IActionResult> Index(int? page, CancellationToken cancellationToken) =>
             View(await _eventService.GetPageAsync(page, cancellationToken));
+
+        [HttpGet]
+        public async Task<IActionResult> Cover(int id, CancellationToken cancellationToken)
+        {
+            try
+            {
+                return View(await _eventService.GetCoverManagementAsync(id, cancellationToken));
+            }
+            catch (DomainException exception) when (exception.Outcome == OutcomeCode.NotFound)
+            {
+                return NotFound();
+            }
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> UploadCover(int id, IFormFile cover, CancellationToken cancellationToken)
+        {
+            try
+            {
+                await using var content = cover?.OpenReadStream();
+                await _eventService.UploadCoverAsync(id, content, Path.GetExtension(cover?.FileName), cancellationToken);
+                TempData["SuccessMessage"] = "Event cover updated.";
+                return RedirectToAction(nameof(Cover), new { id });
+            }
+            catch (InvalidDataException exception)
+            {
+                ModelState.AddModelError("cover", exception.Message);
+                return await CoverViewAsync(id, cancellationToken);
+            }
+            catch (DomainException exception)
+            {
+                return await HandleCoverErrorAsync(id, exception, cancellationToken);
+            }
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> RemoveCover(int id, CancellationToken cancellationToken)
+        {
+            try
+            {
+                await _eventService.RemoveDraftCoverAsync(id, cancellationToken);
+                TempData["SuccessMessage"] = "Draft event cover removed.";
+                return RedirectToAction(nameof(Cover), new { id });
+            }
+            catch (DomainException exception)
+            {
+                return await HandleCoverErrorAsync(id, exception, cancellationToken);
+            }
+        }
 
         [HttpGet]
         public async Task<IActionResult> Create(CancellationToken cancellationToken) =>
@@ -115,6 +165,37 @@ namespace ASI.Basecode.WebApp.Controllers
         {
             model.FormOptions = await _eventService.GetFormOptionsAsync(cancellationToken);
             return model;
+        }
+
+        private async Task<IActionResult> CoverViewAsync(int id, CancellationToken cancellationToken)
+        {
+            try
+            {
+                return View("Cover", await _eventService.GetCoverManagementAsync(id, cancellationToken));
+            }
+            catch (DomainException exception) when (exception.Outcome == OutcomeCode.NotFound)
+            {
+                return NotFound();
+            }
+        }
+
+        private async Task<IActionResult> HandleCoverErrorAsync(int id, DomainException exception, CancellationToken cancellationToken)
+        {
+            if (exception.Outcome == OutcomeCode.NotFound)
+            {
+                return NotFound();
+            }
+
+            if (exception.Field != null)
+            {
+                ModelState.AddModelError(exception.Field, exception.Message);
+            }
+            else
+            {
+                TempData["ErrorMessage"] = exception.Message;
+            }
+
+            return await CoverViewAsync(id, cancellationToken);
         }
 
         private async Task<IActionResult> HandleAsync(DomainException exception, EventViewModel model, CancellationToken cancellationToken)

@@ -16,6 +16,7 @@ using AutoMapper;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
 namespace ASI.Basecode.IntegrationTests;
@@ -527,7 +528,9 @@ internal static class EventDraftTestSupport
             Mapper,
             TimeProvider.System,
             new ActivityLogWriter(context, actor, TimeProvider.System),
-            actor);
+            actor,
+            new UnusedPrivateFileStore(),
+            NullLogger<EventLifecycleService>.Instance);
     }
 
     public static async Task<int> SeedActorAsync(string connectionString, CancellationToken cancellationToken)
@@ -690,5 +693,14 @@ internal static class EventDraftTestSupport
         public bool IsAuthenticated => true;
         public int UserId => id;
         public string Role => "officer";
+    }
+
+    private sealed class UnusedPrivateFileStore : IPrivateFileStore
+    {
+        public Task<string> SaveAsync(PrivateFileArea area, Stream content, string extension, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public string CreateTemporaryPath(string extension) => throw new NotSupportedException();
+        public Task<string> PromoteAsync(string temporaryPath, PrivateFileArea area, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<Stream> OpenReadAsync(string relativePath, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public void Delete(string relativePath) => throw new NotSupportedException();
     }
 }
