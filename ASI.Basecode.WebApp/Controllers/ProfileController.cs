@@ -12,7 +12,7 @@ using System.Threading.Tasks;
 
 namespace ASI.Basecode.WebApp.Controllers
 {
-    [Authorize(Roles = RoleCodes.Member)]
+    [Authorize(Policy = Policies.Member)]
     public class ProfileController : ControllerBase<ProfileController>
     {
         private readonly IMemberService _memberService;

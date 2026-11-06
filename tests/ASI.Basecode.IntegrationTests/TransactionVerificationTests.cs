@@ -101,7 +101,8 @@ public class TransactionVerificationTests(SqlServerDatabaseFixture fixture) : IC
     }
 
     [Theory]
-    [InlineData(2601)] [InlineData(2627)]
+    [InlineData(2601)]
+    [InlineData(2627)]
     public async Task BothSqlDuplicateCodesAreTranslatedAtTransactionAndSaveBoundaries(int code)
     {
         var ct = TestContext.Current.CancellationToken;

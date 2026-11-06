@@ -78,6 +78,59 @@ public class EventTypeTimestampTests
         Assert.Empty(audit.Entries);
     }
 
+    [Theory]
+    [InlineData(false, 7, "officer")]
+    [InlineData(true, 0, "officer")]
+    [InlineData(true, -1, "officer")]
+    [InlineData(true, 7, "member")]
+    public async Task VenueWritesRejectInvalidActorsBeforeAnyStorageOrDatabaseWork(bool authenticated, int id, string role)
+    {
+        var service = new VenueService(null!, null!, null!, TimeProvider.System, null!, null!,
+            new VenueActor(authenticated, id, role), null!);
+        var token = TestContext.Current.CancellationToken;
+        var create = await Assert.ThrowsAsync<DomainException>(() => service.AddVenueAsync(new VenueViewModel(), null!, null!, token));
+        var edit = await Assert.ThrowsAsync<DomainException>(() => service.UpdateVenueAsync(new VenueViewModel(), null!, null!, token));
+        var toggle = await Assert.ThrowsAsync<DomainException>(() => service.ToggleActiveAsync(1, token));
+        Assert.Equal(OutcomeCode.Forbidden, create.Outcome);
+        Assert.Equal(OutcomeCode.Forbidden, edit.Outcome);
+        Assert.Equal(OutcomeCode.Forbidden, toggle.Outcome);
+        Assert.Equal("A valid authenticated user is required to update a venue.", toggle.Message);
+    }
+
+    [Fact]
+    public async Task PrivateFileBoundaryMapsValidationErrorsButPreservesIoFailures()
+    {
+        var token = TestContext.Current.CancellationToken;
+        var invalid = new FailingStore(new InvalidDataException("Invalid image."));
+        var upload = await Assert.ThrowsAsync<DomainException>(() => invalid.SaveImageAsync(
+            PrivateFileArea.VenueImages, Stream.Null, ".jpg", "photo", token));
+        Assert.Equal(OutcomeCode.Invalid, upload.Outcome);
+        Assert.Equal("photo", upload.Field);
+        Assert.Equal("Invalid image.", upload.Message);
+        var read = await Assert.ThrowsAsync<DomainException>(() => invalid.OpenSafelyAsync("unsafe", token));
+        Assert.Equal(OutcomeCode.NotFound, read.Outcome);
+        Assert.DoesNotContain("unsafe", read.Message);
+        var io = new FailingStore(new IOException("I/O failure"));
+        await Assert.ThrowsAsync<IOException>(() => io.SaveImageAsync(PrivateFileArea.VenueImages, Stream.Null, ".jpg", "photo", token));
+        await Assert.ThrowsAsync<IOException>(() => io.OpenSafelyAsync("key", token));
+    }
+
+    private sealed class VenueActor(bool authenticated, int id, string role) : ICurrentActor
+    {
+        public bool IsAuthenticated => authenticated;
+        public int UserId => id == -1 ? throw new InvalidOperationException() : id;
+        public string Role => role;
+    }
+
+    private sealed class FailingStore(Exception error) : IPrivateFileStore
+    {
+        public Task<string> SaveAsync(PrivateFileArea area, Stream content, string extension, CancellationToken cancellationToken = default) => Task.FromException<string>(error);
+        public Task<Stream> OpenReadAsync(string relativePath, CancellationToken cancellationToken = default) => Task.FromException<Stream>(error);
+        public string CreateTemporaryPath(string extension) => throw new NotSupportedException();
+        public Task<string> PromoteAsync(string temporaryPath, PrivateFileArea area, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public void Delete(string relativePath) => throw new NotSupportedException();
+    }
+
     private static string Json(IAuditValues values) => JsonSerializer.Serialize(values, values.GetType());
 
     private sealed class FixedClock : TimeProvider

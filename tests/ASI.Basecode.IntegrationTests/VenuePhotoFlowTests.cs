@@ -53,6 +53,7 @@ public sealed class VenuePhotoFlowTests(SqlServerDatabaseFixture fixture) : ICla
         using var memberClient = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
 
         string oldPath;
+        string eventPath;
         string legacyPath;
         int venueId;
         using (var scope = factory.Services.CreateScope())
@@ -60,6 +61,8 @@ public sealed class VenuePhotoFlowTests(SqlServerDatabaseFixture fixture) : ICla
             var files = scope.ServiceProvider.GetRequiredService<IPrivateFileStore>();
             await using var image = new MemoryStream(OldPhoto);
             oldPath = await files.SaveAsync(PrivateFileArea.VenueImages, image, ".jpg", ct);
+            await using var eventImage = new MemoryStream(ReplacementPhoto);
+            eventPath = await files.SaveAsync(PrivateFileArea.EventImages, eventImage, ".jpg", ct);
             legacyPath = oldPath["uploads/".Length..];
         }
 
@@ -106,12 +109,49 @@ public sealed class VenuePhotoFlowTests(SqlServerDatabaseFixture fixture) : ICla
             Assert.Equal("image/jpeg", photo.Content.Headers.ContentType?.MediaType);
             Assert.Equal(OldPhoto, await photo.Content.ReadAsByteArrayAsync(ct));
 
+            await using (var context = new AsiBasecodeDBContext(options))
+            {
+                var venue = await context.Venues.SingleAsync(item => item.VenueId == venueId, ct);
+                venue.ImagePath = eventPath;
+                await context.SaveChangesAsync(ct);
+            }
+            var eventPhoto = await officerClient.GetAsync($"/Venue/Photo?id={venueId}", ct);
+            Assert.Equal(HttpStatusCode.NotFound, eventPhoto.StatusCode);
+            Assert.DoesNotContain(eventPath, await eventPhoto.Content.ReadAsStringAsync(ct), StringComparison.Ordinal);
+
+            await using (var context = new AsiBasecodeDBContext(options))
+            {
+                var venue = await context.Venues.SingleAsync(item => item.VenueId == venueId, ct);
+                venue.ImagePath = "uploads/venues/../private.jpg";
+                await context.SaveChangesAsync(ct);
+            }
+            var unsafePhoto = await officerClient.GetAsync($"/Venue/Photo?id={venueId}", ct);
+            Assert.Equal(HttpStatusCode.NotFound, unsafePhoto.StatusCode);
+            Assert.DoesNotContain("private.jpg", await unsafePhoto.Content.ReadAsStringAsync(ct), StringComparison.Ordinal);
+            await using (var context = new AsiBasecodeDBContext(options))
+            {
+                var venue = await context.Venues.SingleAsync(item => item.VenueId == venueId, ct);
+                venue.ImagePath = "uploads/venues/bad\0.jpg";
+                await context.SaveChangesAsync(ct);
+            }
+            var malformedPhoto = await officerClient.GetAsync($"/Venue/Photo?id={venueId}", ct);
+            Assert.Equal(HttpStatusCode.NotFound, malformedPhoto.StatusCode);
+            await using (var context = new AsiBasecodeDBContext(options))
+            {
+                var venue = await context.Venues.SingleAsync(item => item.VenueId == venueId, ct);
+                venue.ImagePath = oldPath;
+                await context.SaveChangesAsync(ct);
+            }
+
             Assert.Equal(HttpStatusCode.Redirect, (await SignInAsync(memberClient, MemberEmail, password, ct)).StatusCode);
             var denied = await memberClient.GetAsync($"/Venue/Photo?id={venueId}", ct);
             Assert.Equal(HttpStatusCode.Redirect, denied.StatusCode);
             Assert.Contains("/Account/AccessDenied", denied.Headers.Location?.ToString(), StringComparison.Ordinal);
 
             Assert.Equal(HttpStatusCode.Redirect, (await SignInAsync(adminClient, AdminEmail, password, ct)).StatusCode);
+            var managementProfile = await adminClient.GetAsync("/Profile", ct);
+            Assert.Equal(HttpStatusCode.Redirect, managementProfile.StatusCode);
+            Assert.Contains("/Account/AccessDenied", managementProfile.Headers.Location?.ToString(), StringComparison.Ordinal);
             using (var connection = new Microsoft.Data.SqlClient.SqlConnection(fixture.ConnectionString))
             {
                 await connection.OpenAsync(ct);
@@ -166,6 +206,17 @@ public sealed class VenuePhotoFlowTests(SqlServerDatabaseFixture fixture) : ICla
             Assert.Equal(HttpStatusCode.OK, createPage.StatusCode);
             var createToken = Regex.Match(await createPage.Content.ReadAsStringAsync(ct), "__RequestVerificationToken[^>]*value=\"([^\"]+)\"", RegexOptions.IgnoreCase);
             Assert.True(createToken.Success, "No antiforgery token was rendered on the venue create form.");
+
+            using (var invalidForm = new MultipartFormDataContent())
+            {
+                invalidForm.Add(new StringContent(createToken.Groups[1].Value), "__RequestVerificationToken");
+                invalidForm.Add(new StringContent("Invalid image venue"), "RoomName");
+                invalidForm.Add(new StringContent("40"), "Capacity");
+                invalidForm.Add(new ByteArrayContent([1, 2, 3, 4]), "photo", "invalid.jpg");
+                var invalidResult = await officerClient.PostAsync("/Venue/Create", invalidForm, ct);
+                Assert.Equal(HttpStatusCode.OK, invalidResult.StatusCode);
+                Assert.Contains("The uploaded file content does not match a supported image format.", await invalidResult.Content.ReadAsStringAsync(ct), StringComparison.Ordinal);
+            }
 
             var uploadedName = $"Officer upload {Guid.NewGuid():N}";
             var uploadedPhoto = await LoadPaddedJpegAsync(2 * 1024 * 1024, ct);

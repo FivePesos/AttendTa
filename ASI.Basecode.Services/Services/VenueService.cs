@@ -68,10 +68,19 @@ namespace ASI.Basecode.Services.Services
             key.Length > "uploads/venues/".Length && key.IndexOfAny(new[] { '/', '\\' }, "uploads/venues/".Length) < 0 &&
             key != "uploads/venues/..";
 
-        private void ValidateWrite(VenueViewModel model, int actorUserId)
+        private int RequireManagementActor(string message = "A valid authenticated user is required.")
         {
-            if (!_actor.IsAuthenticated || actorUserId <= 0 || _actor.UserId != actorUserId)
-                throw new DomainException(OutcomeCode.Forbidden, "A valid authenticated user is required.");
+            if (!_actor.IsAuthenticated || (_actor.Role != RoleCodes.Admin && _actor.Role != RoleCodes.Officer))
+                throw new DomainException(OutcomeCode.Forbidden, message);
+            int id;
+            try { id = _actor.UserId; }
+            catch (InvalidOperationException) { throw new DomainException(OutcomeCode.Forbidden, message); }
+            if (id <= 0) throw new DomainException(OutcomeCode.Forbidden, message);
+            return id;
+        }
+
+        private void ValidateWrite(VenueViewModel model)
+        {
             if (model.Capacity <= 0)
                 throw new DomainException(OutcomeCode.Invalid, "Capacity must be greater than 0.", nameof(VenueViewModel.Capacity));
             if (_unitOfWork.Database.Database.CurrentTransaction != null || System.Transactions.Transaction.Current != null)
@@ -85,19 +94,29 @@ namespace ASI.Basecode.Services.Services
             catch (Exception) { _logger.LogWarning("Could not clean up a venue photo."); }
         }
 
-        public async Task AddVenueAsync(VenueViewModel model, int actorUserId, Stream photo, string extension, CancellationToken cancellationToken = default)
+        public async Task AddVenueAsync(VenueViewModel model, Stream photo, string extension, CancellationToken cancellationToken = default)
         {
-            ValidateWrite(model, actorUserId);
+            var actorId = RequireManagementActor();
+            ValidateWrite(model);
             if (photo == null) throw new DomainException(OutcomeCode.Invalid, "A venue photo is required.", "photo");
             string newPath = null;
             try
             {
-                newPath = await _files.SaveAsync(PrivateFileArea.VenueImages, photo, extension, cancellationToken);
+                newPath = await _files.SaveImageAsync(PrivateFileArea.VenueImages, photo, extension, "photo", cancellationToken);
                 await _unitOfWork.ExecuteInTransactionAsync(async ct =>
                 {
-                    var venue = new Venue { RoomName = model.RoomName?.Trim(), Capacity = model.Capacity, Location = model.Location,
-                        AvailabilityNotes = model.AvailabilityNotes, ContactPerson = model.ContactPerson, ImagePath = newPath,
-                        IsActive = true, CreatedBy = actorUserId, CreatedAt = _timeProvider.GetUtcNow().UtcDateTime };
+                    var venue = new Venue
+                    {
+                        RoomName = model.RoomName?.Trim(),
+                        Capacity = model.Capacity,
+                        Location = model.Location,
+                        AvailabilityNotes = model.AvailabilityNotes,
+                        ContactPerson = model.ContactPerson,
+                        ImagePath = newPath,
+                        IsActive = true,
+                        CreatedBy = actorId,
+                        CreatedAt = _timeProvider.GetUtcNow().UtcDateTime
+                    };
                     await _repository.AddVenueAsync(venue, ct);
                     await _unitOfWork.SaveChangesAsync(ct);
                     _audit.Append(new AuditEntry(AuditActions.VenueCreated, "venues", venue.VenueId, NewValues: Snapshot(venue, true)));
@@ -107,14 +126,15 @@ namespace ASI.Basecode.Services.Services
             catch { DeleteBestEffort(newPath); throw; }
         }
 
-        public async Task UpdateVenueAsync(VenueViewModel model, int actorUserId, Stream photo, string extension, CancellationToken cancellationToken = default)
+        public async Task UpdateVenueAsync(VenueViewModel model, Stream photo, string extension, CancellationToken cancellationToken = default)
         {
-            ValidateWrite(model, actorUserId);
+            var actorId = RequireManagementActor();
+            ValidateWrite(model);
             string newPath = null;
             string oldPath = null;
             try
             {
-                if (photo != null) newPath = await _files.SaveAsync(PrivateFileArea.VenueImages, photo, extension, cancellationToken);
+                if (photo != null) newPath = await _files.SaveImageAsync(PrivateFileArea.VenueImages, photo, extension, "photo", cancellationToken);
                 await _unitOfWork.ExecuteInTransactionAsync(async ct =>
                 {
                     var venue = await _repository.LockVenueAsync(model.VenueId, ct);
@@ -131,7 +151,7 @@ namespace ASI.Basecode.Services.Services
                     venue.AvailabilityNotes = model.AvailabilityNotes;
                     venue.ContactPerson = model.ContactPerson;
                     if (newPath != null) venue.ImagePath = newPath;
-                    venue.UpdatedBy = actorUserId;
+                    venue.UpdatedBy = actorId;
                     venue.UpdatedAt = _timeProvider.GetUtcNow().UtcDateTime;
                     await _repository.UpdateVenueAsync(venue, ct);
                     _audit.Append(new AuditEntry(AuditActions.VenueEdited, "venues", venue.VenueId, OldValues: oldValues, NewValues: Snapshot(venue, newPath != null)));
@@ -142,12 +162,9 @@ namespace ASI.Basecode.Services.Services
             if (newPath != null && IsVenuePhoto(oldPath) && !string.Equals(oldPath, newPath, StringComparison.OrdinalIgnoreCase)) DeleteBestEffort(oldPath);
         }
 
-        public async Task ToggleActiveAsync(int id, int actorUserId, CancellationToken cancellationToken = default)
+        public async Task ToggleActiveAsync(int id, CancellationToken cancellationToken = default)
         {
-            if (!_actor.IsAuthenticated || actorUserId <= 0 || _actor.UserId != actorUserId)
-            {
-                throw new DomainException(OutcomeCode.Forbidden, "A valid authenticated user is required to update a venue.");
-            }
+            var actorId = RequireManagementActor("A valid authenticated user is required to update a venue.");
 
             await _unitOfWork.ExecuteInTransactionAsync(async ct =>
             {
@@ -160,7 +177,7 @@ namespace ASI.Basecode.Services.Services
                 var linkedEventCount = await _repository.CountLinkedEventsAsync(venue.VenueId, ct);
                 var oldValues = new VenueStatusAuditValues(venue.IsActive, linkedEventCount);
                 venue.IsActive = !venue.IsActive;
-                venue.UpdatedBy = actorUserId;
+                venue.UpdatedBy = actorId;
                 venue.UpdatedAt = _timeProvider.GetUtcNow().UtcDateTime;
                 await _repository.UpdateVenueAsync(venue, ct);
                 _audit.Append(new AuditEntry(AuditActions.VenueStatusChanged, "venues", venue.VenueId,

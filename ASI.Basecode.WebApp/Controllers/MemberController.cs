@@ -62,7 +62,7 @@ namespace ASI.Basecode.WebApp.Controllers
 
             try
             {
-                await _memberService.UpdateMemberAsync(model, GetActorUserId(), HttpContext.RequestAborted);
+                await _memberService.UpdateMemberAsync(model, HttpContext.RequestAborted);
                 TempData["SuccessMessage"] = "Member updated successfully.";
                 return RedirectToAction("Index");
             }
