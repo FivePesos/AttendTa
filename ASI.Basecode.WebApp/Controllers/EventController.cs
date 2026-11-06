@@ -161,6 +161,22 @@ namespace ASI.Basecode.WebApp.Controllers
             }
         }
 
+        [HttpPost]
+        public async Task<IActionResult> Publish(int id, CancellationToken cancellationToken)
+        {
+            try
+            {
+                await _eventService.PublishAsync(id, cancellationToken);
+                TempData["SuccessMessage"] = "Event published.";
+            }
+            catch (DomainException exception)
+            {
+                TempData["ErrorMessage"] = exception.Message;
+            }
+
+            return RedirectToRoute(EventIndexRoute);
+        }
+
         private async Task<EventViewModel> WithOptionsAsync(EventViewModel model, CancellationToken cancellationToken)
         {
             model.FormOptions = await _eventService.GetFormOptionsAsync(cancellationToken);

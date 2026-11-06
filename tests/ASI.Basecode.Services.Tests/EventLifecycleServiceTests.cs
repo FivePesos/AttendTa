@@ -335,6 +335,100 @@ public class EventLifecycleServiceTests
         Assert.Null(await harness.Service.GetEventAsync(404, TestContext.Current.CancellationToken));
     }
 
+    [Fact]
+    public async Task PublishLocksReferencesPublishesAndWritesOneAuditEntry()
+    {
+        var clock = new FixedClock { Now = new DateTimeOffset(2026, 3, 1, 2, 0, 0, TimeSpan.Zero) };
+        var harness = new Harness(clock);
+        var eventType = harness.AddType("Workshop", isActive: true);
+        var venue = harness.AddVenue("Room A", capacity: 30, isActive: true);
+        var id = await harness.Service.CreateDraftAsync(Model("Orientation", eventType.TypeId, venue.VenueId), TestContext.Current.CancellationToken);
+        var row = Assert.Single(harness.Events.Items);
+        row.ImagePath = "uploads/events/0123456789abcdef0123456789abcdef.jpg";
+        harness.Locks.Clear();
+
+        await harness.Service.PublishAsync(id, TestContext.Current.CancellationToken);
+
+        Assert.Equal(new[] { "type", "venue", "event" }, harness.Locks);
+        Assert.Equal(EventStatusCode.Published, row.EventStatusId);
+        Assert.Equal(7, row.PublishedBy);
+        Assert.Equal(clock.Now.UtcDateTime, row.PublishedAt);
+        Assert.Equal(7, row.UpdatedBy);
+        var audit = Assert.Single(harness.Audit.Entries);
+        Assert.Equal(AuditActions.EventPublished, audit.Action);
+        Assert.Equal(id, audit.EntityId);
+    }
+
+    [Theory]
+    [InlineData(EventStatusCode.Published, true, true, true, 10, 1)]
+    [InlineData(EventStatusCode.Completed, true, true, true, 10, 1)]
+    [InlineData(EventStatusCode.Cancelled, true, true, true, 10, 1)]
+    [InlineData(EventStatusCode.Draft, false, true, true, 10, 1)]
+    [InlineData(EventStatusCode.Draft, true, false, true, 10, 1)]
+    [InlineData(EventStatusCode.Draft, true, true, false, 10, 1)]
+    [InlineData(EventStatusCode.Draft, true, true, true, 31, 1)]
+    [InlineData(EventStatusCode.Draft, true, true, true, 10, 0)]
+    [InlineData(EventStatusCode.Draft, true, true, true, 10, -1)]
+    public async Task PublishRefusalLeavesStatusAndAuditUnchanged(
+        EventStatusCode status, bool activeType, bool activeVenue, bool hasCover, int limit, int deadlineOffsetSeconds)
+    {
+        var clock = new FixedClock { Now = new DateTimeOffset(2026, 3, 1, 2, 0, 0, TimeSpan.Zero) };
+        var harness = new Harness(clock);
+        var eventType = harness.AddType("Workshop", isActive: true);
+        var venue = harness.AddVenue("Room A", 30, isActive: true);
+        var id = await harness.Service.CreateDraftAsync(Model("Orientation", eventType.TypeId, venue.VenueId), TestContext.Current.CancellationToken);
+        var row = Assert.Single(harness.Events.Items);
+        row.EventStatusId = status;
+        row.ImagePath = hasCover ? "uploads/events/0123456789abcdef0123456789abcdef.jpg" : null;
+        row.ParticipantLimit = limit;
+        eventType.IsActive = activeType;
+        venue.IsActive = activeVenue;
+        row.RegistrationDeadline = clock.Now.UtcDateTime.AddSeconds(deadlineOffsetSeconds);
+
+        var error = await Assert.ThrowsAsync<DomainException>(() => harness.Service.PublishAsync(id, TestContext.Current.CancellationToken));
+
+        Assert.Equal(OutcomeCode.Invalid, error.Outcome);
+        Assert.Equal(status, row.EventStatusId);
+        Assert.Empty(harness.Audit.Entries);
+    }
+
+    [Fact]
+    public async Task PublishMissingEventIsNotFoundAndChangedReferencesAreStaleWithoutWrites()
+    {
+        var missing = new Harness();
+        var missingError = await Assert.ThrowsAsync<DomainException>(() => missing.Service.PublishAsync(404, TestContext.Current.CancellationToken));
+        Assert.Equal(OutcomeCode.NotFound, missingError.Outcome);
+
+        var clock = new FixedClock();
+        var harness = new Harness(clock);
+        var eventType = harness.AddType("Workshop", true);
+        var venue = harness.AddVenue("Room A", 30, true);
+        var id = await harness.Service.CreateDraftAsync(Model("Orientation", eventType.TypeId, venue.VenueId), TestContext.Current.CancellationToken);
+        var row = Assert.Single(harness.Events.Items);
+        row.ImagePath = "uploads/events/0123456789abcdef0123456789abcdef.jpg";
+        harness.Events.BeforeLock = item => item.VenueId++;
+
+        var stale = await Assert.ThrowsAsync<DomainException>(() => harness.Service.PublishAsync(id, TestContext.Current.CancellationToken));
+
+        Assert.Equal(OutcomeCode.Stale, stale.Outcome);
+        Assert.Equal(EventStatusCode.Draft, row.EventStatusId);
+        Assert.Empty(harness.Audit.Entries);
+    }
+
+    [Theory]
+    [InlineData(0, false, RoleCodes.Officer)]
+    [InlineData(7, true, RoleCodes.Member)]
+    [InlineData(0, true, RoleCodes.Officer)]
+    public async Task PublishRejectsAnonymousMemberAndInvalidActors(int userId, bool authenticated, string role)
+    {
+        var harness = new Harness(actor: new FixedActor(userId, authenticated, role));
+
+        var error = await Assert.ThrowsAsync<DomainException>(() => harness.Service.PublishAsync(1, TestContext.Current.CancellationToken));
+
+        Assert.Equal(OutcomeCode.Forbidden, error.Outcome);
+        Assert.Empty(harness.Audit.Entries);
+    }
+
     private static EventViewModel Model(
         string title,
         int typeId,
@@ -357,9 +451,9 @@ public class EventLifecycleServiceTests
     {
         public Harness(TimeProvider? clock = null, ICurrentActor? actor = null)
         {
-            Events = new MemoryEvents();
-            EventTypes = new MemoryEventTypes();
-            Venues = new MemoryVenues();
+            Events = new MemoryEvents(this);
+            EventTypes = new MemoryEventTypes(this);
+            Venues = new MemoryVenues(this);
             Audit = new RecordingAudit();
             Service = new EventLifecycleService(
                 Events,
@@ -379,6 +473,7 @@ public class EventLifecycleServiceTests
         public MemoryVenues Venues { get; }
         public RecordingAudit Audit { get; }
         public EventLifecycleService Service { get; }
+        public List<string> Locks { get; } = [];
 
         public EventType AddType(string name, bool isActive)
         {
@@ -420,11 +515,11 @@ public class EventLifecycleServiceTests
         public override DateTimeOffset GetUtcNow() => Now;
     }
 
-    private sealed class FixedActor(int userId, bool isAuthenticated = true) : ICurrentActor
+    private sealed class FixedActor(int userId, bool isAuthenticated = true, string role = RoleCodes.Officer) : ICurrentActor
     {
         public bool IsAuthenticated => isAuthenticated;
         public int UserId => userId;
-        public string Role => "officer";
+        public string Role => role;
     }
 
     private sealed class RecordingAudit : IActivityLogWriter
@@ -434,12 +529,13 @@ public class EventLifecycleServiceTests
         public void Append(AuditEntry entry) => Entries.Add(entry);
     }
 
-    private sealed class MemoryEvents : IEventRepository
+    private sealed class MemoryEvents(Harness harness) : IEventRepository
     {
         public List<Event> Items { get; } = [];
         public Dictionary<int, string> TypeNames { get; } = [];
         public Dictionary<int, string> VenueNames { get; } = [];
         private int nextId = 1;
+        public Action<Event>? BeforeLock { get; set; }
 
         public Task<int> CountAsync(CancellationToken cancellationToken = default) => Task.FromResult(Items.Count);
 
@@ -465,11 +561,26 @@ public class EventLifecycleServiceTests
             return Task.FromResult(page);
         }
 
-        public Task<Event> GetEventAsync(int eventId, CancellationToken cancellationToken = default) =>
-            Task.FromResult<Event>(Items.FirstOrDefault(item => item.EventId == eventId)!);
+        public Task<Event> GetEventAsync(int eventId, CancellationToken cancellationToken = default)
+        {
+            var item = Items.FirstOrDefault(item => item.EventId == eventId);
+            return Task.FromResult<Event>(item == null ? null! : new Event
+            {
+                EventId = item.EventId,
+                TypeId = item.TypeId,
+                VenueId = item.VenueId,
+                EventStatusId = item.EventStatusId,
+                ImagePath = item.ImagePath
+            });
+        }
 
-        public Task<Event> LockEventAsync(int eventId, CancellationToken cancellationToken = default) =>
-            Task.FromResult<Event>(Items.FirstOrDefault(item => item.EventId == eventId)!);
+        public Task<Event> LockEventAsync(int eventId, CancellationToken cancellationToken = default)
+        {
+            harness.Locks.Add("event");
+            var item = Items.FirstOrDefault(item => item.EventId == eventId);
+            if (item != null) BeforeLock?.Invoke(item);
+            return Task.FromResult<Event>(item!);
+        }
 
         public Task AddEventAsync(Event eventItem, CancellationToken cancellationToken = default)
         {
@@ -481,7 +592,7 @@ public class EventLifecycleServiceTests
         public Task UpdateEventAsync(Event eventItem, CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 
-    private sealed class MemoryEventTypes : IEventTypeRepository
+    private sealed class MemoryEventTypes(Harness harness) : IEventTypeRepository
     {
         public List<EventType> Items { get; } = [];
 
@@ -497,7 +608,11 @@ public class EventLifecycleServiceTests
 
         public EventType GetEventType(int typeId) => Find(typeId)!;
 
-        public Task<EventType> LockEventTypeAsync(int typeId, CancellationToken cancellationToken = default) => Task.FromResult(Find(typeId)!);
+        public Task<EventType> LockEventTypeAsync(int typeId, CancellationToken cancellationToken = default)
+        {
+            harness.Locks.Add("type");
+            return Task.FromResult(Find(typeId)!);
+        }
 
         public Task<int> CountLinkedEventsAsync(int typeId, CancellationToken cancellationToken = default) => Task.FromResult(0);
 
@@ -515,7 +630,7 @@ public class EventLifecycleServiceTests
             Items.Any(item => item.TypeName == typeName && (!excludeId.HasValue || item.TypeId != excludeId.Value));
     }
 
-    private sealed class MemoryVenues : IVenueRepository
+    private sealed class MemoryVenues(Harness harness) : IVenueRepository
     {
         public List<Venue> Items { get; } = [];
 
@@ -532,7 +647,11 @@ public class EventLifecycleServiceTests
 
         public Venue GetVenue(int venueId) => Find(venueId)!;
 
-        public Task<Venue> LockVenueAsync(int venueId, CancellationToken cancellationToken = default) => Task.FromResult(Find(venueId)!);
+        public Task<Venue> LockVenueAsync(int venueId, CancellationToken cancellationToken = default)
+        {
+            harness.Locks.Add("venue");
+            return Task.FromResult(Find(venueId)!);
+        }
 
         public Task<int> CountLinkedEventsAsync(int venueId, CancellationToken cancellationToken = default) => Task.FromResult(0);
 
