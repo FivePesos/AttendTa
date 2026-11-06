@@ -59,6 +59,8 @@ namespace ASI.Basecode.WebApp.Controllers
             View(_eventStateOverlay.Apply(await _eventService.GetPageAsync(page, cancellationToken)));
 
         [HttpGet]
+        [Route("Event/Details")]
+        [Route("Event/{id:int}")]
         public async Task<IActionResult> Details(int id, string status = "pending", int? page = null, CancellationToken cancellationToken = default)
         {
             var item = await _eventService.GetEventAsync(id, cancellationToken);
