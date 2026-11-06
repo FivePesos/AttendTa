@@ -7,6 +7,6 @@
 - source_plan: `_bmad-output/initiative-attendta/plan-gh-34-signup-deadline.md`
   summary: Show precise Manila signup deadlines when stored values include seconds or milliseconds.
   evidence: Existing ManilaTimeFormatter truncates to minutes while EventLifecycleService accepts more precise timestamps, potentially displaying a deadline earlier than the actual cutoff.
-- source_plan: `_bmad-output/initiative-attendta/tickets/epic-platform-access/tickets/story-refactor-sweep-follow-up-plan.md`
+- source_plan: `_bmad-output/initiative-attendta/handoffs/story-refactor-sweep-follow-up.md`
   summary: Add reviewer, reviewed-at, and reason metadata to decided account-request rows and keep the table shell on empty tabs.
   evidence: Impeccable critique on 2026-11-06 scored the queue 17/40; decided rows show only "Reviewed" and empty tabs drop the toolbar and column context.
