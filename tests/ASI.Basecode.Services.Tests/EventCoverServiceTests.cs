@@ -7,6 +7,7 @@ using ASI.Basecode.Data.Models.Lookups;
 using ASI.Basecode.Resources;
 using ASI.Basecode.Resources.Constants;
 using ASI.Basecode.Services.Interfaces;
+using ASI.Basecode.Services.ServiceModels;
 using ASI.Basecode.Services.Services;
 using AutoMapper;
 using Microsoft.EntityFrameworkCore;
@@ -252,6 +253,8 @@ public sealed class EventCoverServiceTests
                 Events,
                 new MemoryEventTypes(this),
                 new MemoryVenues(this),
+                new UnusedRegistrations(),
+                new UnusedCancellations(),
                 UnitOfWork,
                 new MapperConfiguration(_ => { }).CreateMapper(),
                 Clock,
@@ -394,6 +397,33 @@ public sealed class EventCoverServiceTests
         public Task AddVenueAsync(Venue venue, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task UpdateVenueAsync(Venue venue, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public bool VenueExists(int venueId) => venueId == harness.Venue.VenueId;
+    }
+
+    private sealed class UnusedRegistrations : IRegistrationRepository
+    {
+        public Task<RegistrationReviewIdentity> DiscoverReviewAsync(int id, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<bool> HasEligibleWaitlistAsync(int id, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<bool> HasValidAttendanceAsync(int id, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<bool> HasValidAttendanceForEventAsync(int eventId, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<bool> HasIssuedCertificateForEventAsync(int eventId, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<int> CountReviewQueueAsync(RegistrationStatusCode status, int? eventId, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<IReadOnlyList<RegistrationReviewRow>> GetReviewQueueAsync(RegistrationStatusCode status, int? eventId, int offset, int limit, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<Registration> GetForCancellationAsync(int id, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<IReadOnlyList<Registration>> GetOpenForEventAsync(int id, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<IReadOnlyList<int>> DiscoverOpenEventIdsForUserAsync(int id, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<IReadOnlyList<UpcomingRegistrationRow>> GetUpcomingForUserAsync(int id, DateTime now, int? eventId = null, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<bool> IsConfirmedAsync(int id, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<bool> ExistsAsync(int eventId, int memberId, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<int> CountConfirmedAsync(int eventId, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task AddAsync(Registration registration, CancellationToken ct = default) => throw new NotSupportedException();
+    }
+
+    private sealed class UnusedCancellations : IRegistrationCancellationService
+    {
+        public Task CancelRegistrationAsync(int registrationId, CancellationCause cause, string reason, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task CancelAllForEventAsync(int eventId, CancellationCause cause, string reason, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task CancelUpcomingForUserAsync(int userId, CancellationCause cause, string reason, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<IReadOnlyList<UpcomingRegistrationPreview>> PreviewUpcomingForUserAsync(int userId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }
 
     private sealed class TransactionUnitOfWork(MemoryEvents events, RecordingAudit audit) : IUnitOfWork

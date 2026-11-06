@@ -535,6 +535,318 @@ public class EventLifecycleServiceTests
         Assert.Empty(harness.Audit.Entries);
     }
 
+    [Fact]
+    public async Task CancelPublishedEventCancelsOpenRegistrationsClosesCheckInAndAuditsEachChange()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var clock = new FixedClock { Now = new DateTimeOffset(2026, 3, 5, 10, 0, 0, TimeSpan.Zero) };
+        var harness = new Harness(clock);
+        var eventType = harness.AddType("Workshop", isActive: true);
+        var venue = harness.AddVenue("Room A", capacity: 30, isActive: true);
+        var id = await harness.Service.CreateDraftAsync(Model("Orientation", eventType.TypeId, venue.VenueId), ct);
+        var row = Assert.Single(harness.Events.Items);
+        row.EventStatusId = EventStatusCode.Published;
+        row.IsCheckInOpen = true;
+        row.CheckInOpenedBy = 7;
+        row.CheckInOpenedAt = Start;
+        harness.Registrations.Items.AddRange(
+        [
+            Registration(1, id, RegistrationStatusCode.Pending, new string('a', 64)),
+            Registration(2, id, RegistrationStatusCode.Confirmed, new string('b', 64)),
+            Registration(3, id, RegistrationStatusCode.Waitlisted, new string('c', 64)),
+            Registration(4, id, RegistrationStatusCode.Cancelled, null)
+        ]);
+        harness.Registrations.Items[3].CancelledBy = 99;
+        harness.Registrations.Items[3].CancelledAt = Start;
+        harness.Registrations.Items[3].CancellationReason = "earlier";
+        harness.Locks.Clear();
+
+        await harness.Service.CancelAsync(id, "  Weather  ", ct);
+
+        Assert.Equal(["event"], harness.Locks);
+        Assert.Equal(EventStatusCode.Cancelled, row.EventStatusId);
+        Assert.Equal(7, row.CancelledBy);
+        Assert.Equal(clock.Now.UtcDateTime, row.CancelledAt);
+        Assert.Equal("Weather", row.CancellationReason);
+        Assert.False(row.IsCheckInOpen);
+        Assert.Equal(7, row.CheckInClosedBy);
+        Assert.Equal(clock.Now.UtcDateTime, row.CheckInClosedAt);
+        Assert.Equal(7, row.UpdatedBy);
+        Assert.Equal(clock.Now.UtcDateTime, row.UpdatedAt);
+
+        var call = Assert.Single(harness.Cancellations.Calls);
+        Assert.Equal(new CancellationCall(id, CancellationCause.EventCancelled, "Weather"), call);
+
+        foreach (var cancelled in harness.Registrations.Items.Take(3))
+        {
+            Assert.Equal(RegistrationStatusCode.Cancelled, cancelled.RegistrationStatusId);
+            Assert.Null(cancelled.QrToken);
+            Assert.Equal("Weather", cancelled.CancellationReason);
+            Assert.Equal(7, cancelled.CancelledBy);
+        }
+
+        var earlier = harness.Registrations.Items[3];
+        Assert.Equal(99, earlier.CancelledBy);
+        Assert.Equal(Start, earlier.CancelledAt);
+        Assert.Equal("earlier", earlier.CancellationReason);
+
+        Assert.Equal(4, harness.Audit.Entries.Count);
+        Assert.Equal(3, harness.Audit.Entries.Count(entry => entry.Action == AuditActions.RegistrationCancelled));
+        var eventAudit = Assert.Single(harness.Audit.Entries, entry => entry.Action == AuditActions.EventCancelled);
+        Assert.Equal("events", eventAudit.EntityType);
+        Assert.Equal(id, eventAudit.EntityId);
+        Assert.Equal("Weather", eventAudit.Reason);
+        Assert.Contains("\"Status\":2", Json(eventAudit.OldValues));
+        Assert.Contains("\"IsCheckInOpen\":true", Json(eventAudit.OldValues));
+        Assert.Contains("\"Status\":3", Json(eventAudit.NewValues));
+        Assert.Contains("\"IsCheckInOpen\":false", Json(eventAudit.NewValues));
+        Assert.Contains("\"CancelledBy\":7", Json(eventAudit.NewValues));
+        Assert.Contains("\"CancellationReason\":\"Weather\"", Json(eventAudit.NewValues));
+        Assert.DoesNotContain("qr", Json(eventAudit.NewValues), StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("token", Json(eventAudit.NewValues), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task CancelDraftEventRecordsCancellationWithoutClosingAnAlreadyClosedCheckIn()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var clock = new FixedClock { Now = new DateTimeOffset(2026, 3, 5, 10, 0, 0, TimeSpan.Zero) };
+        var harness = new Harness(clock);
+        var eventType = harness.AddType("Workshop", isActive: true);
+        var venue = harness.AddVenue("Room A", capacity: 30, isActive: true);
+        var id = await harness.Service.CreateDraftAsync(Model("Orientation", eventType.TypeId, venue.VenueId), ct);
+        var row = Assert.Single(harness.Events.Items);
+        harness.Locks.Clear();
+
+        await harness.Service.CancelAsync(id, "No longer needed", ct);
+
+        Assert.Equal(["event"], harness.Locks);
+        Assert.Equal(EventStatusCode.Cancelled, row.EventStatusId);
+        Assert.Equal("No longer needed", row.CancellationReason);
+        Assert.Equal(7, row.CancelledBy);
+        Assert.Equal(clock.Now.UtcDateTime, row.CancelledAt);
+        Assert.False(row.IsCheckInOpen);
+        Assert.Null(row.CheckInClosedBy);
+        Assert.Null(row.CheckInClosedAt);
+        Assert.Single(harness.Cancellations.Calls);
+        var audit = Assert.Single(harness.Audit.Entries);
+        Assert.Equal(AuditActions.EventCancelled, audit.Action);
+        Assert.Contains("\"IsCheckInOpen\":false", Json(audit.OldValues));
+    }
+
+    [Theory]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    public async Task CancelRefusesValidAttendanceOrAnIssuedCertificateWithoutChanges(bool attendance, bool certificate)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var harness = new Harness();
+        var eventType = harness.AddType("Workshop", isActive: true);
+        var venue = harness.AddVenue("Room A", capacity: 30, isActive: true);
+        var id = await harness.Service.CreateDraftAsync(Model("Orientation", eventType.TypeId, venue.VenueId), ct);
+        var row = Assert.Single(harness.Events.Items);
+        row.EventStatusId = EventStatusCode.Published;
+        row.IsCheckInOpen = true;
+        harness.Registrations.Items.Add(Registration(1, id, RegistrationStatusCode.Confirmed, new string('a', 64)));
+        harness.Registrations.ValidAttendanceForEvent = attendance;
+        harness.Registrations.IssuedCertificateForEvent = certificate;
+        harness.Locks.Clear();
+
+        var error = await Assert.ThrowsAsync<DomainException>(() => harness.Service.CancelAsync(id, "Weather", ct));
+
+        Assert.Equal(OutcomeCode.Invalid, error.Outcome);
+        Assert.Equal(["event"], harness.Locks);
+        Assert.Equal(EventStatusCode.Published, row.EventStatusId);
+        Assert.True(row.IsCheckInOpen);
+        Assert.Null(row.CancelledBy);
+        Assert.Null(row.CancellationReason);
+        Assert.Equal(RegistrationStatusCode.Confirmed, harness.Registrations.Items[0].RegistrationStatusId);
+        Assert.NotNull(harness.Registrations.Items[0].QrToken);
+        Assert.Empty(harness.Cancellations.Calls);
+        Assert.Empty(harness.Audit.Entries);
+    }
+
+    [Theory]
+    [InlineData(EventStatusCode.Completed)]
+    [InlineData(EventStatusCode.Cancelled)]
+    public async Task CancelRefusesTerminalEventsWithoutTakingLocks(EventStatusCode status)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var harness = new Harness();
+        var eventType = harness.AddType("Workshop", isActive: true);
+        var venue = harness.AddVenue("Room A", capacity: 30, isActive: true);
+        var id = await harness.Service.CreateDraftAsync(Model("Orientation", eventType.TypeId, venue.VenueId), ct);
+        var row = Assert.Single(harness.Events.Items);
+        row.EventStatusId = status;
+        harness.Locks.Clear();
+
+        var error = await Assert.ThrowsAsync<DomainException>(() => harness.Service.CancelAsync(id, "Weather", ct));
+
+        Assert.Equal(OutcomeCode.Invalid, error.Outcome);
+        Assert.Equal(status, row.EventStatusId);
+        Assert.Empty(harness.Locks);
+        Assert.Empty(harness.Cancellations.Calls);
+        Assert.Empty(harness.Audit.Entries);
+    }
+
+    [Fact]
+    public async Task CancelMissingEventIsNotFoundWithoutTakingLocks()
+    {
+        var harness = new Harness();
+
+        var error = await Assert.ThrowsAsync<DomainException>(() => harness.Service.CancelAsync(404, "Weather", TestContext.Current.CancellationToken));
+
+        Assert.Equal(OutcomeCode.NotFound, error.Outcome);
+        Assert.Empty(harness.Locks);
+        Assert.Empty(harness.Audit.Entries);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData(null)]
+    public async Task CancelRefusesABlankReasonInsideTheTransactionWithoutChanges(string? reason)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var harness = new Harness();
+        var eventType = harness.AddType("Workshop", isActive: true);
+        var venue = harness.AddVenue("Room A", capacity: 30, isActive: true);
+        var id = await harness.Service.CreateDraftAsync(Model("Orientation", eventType.TypeId, venue.VenueId), ct);
+        var row = Assert.Single(harness.Events.Items);
+        row.EventStatusId = EventStatusCode.Published;
+        row.IsCheckInOpen = true;
+        harness.Locks.Clear();
+
+        var error = await Assert.ThrowsAsync<DomainException>(() => harness.Service.CancelAsync(id, reason!, ct));
+
+        Assert.Equal(OutcomeCode.Invalid, error.Outcome);
+        Assert.Equal(nameof(EventCancelViewModel.Reason), error.Field);
+        Assert.Equal(["event"], harness.Locks);
+        Assert.Equal(EventStatusCode.Published, row.EventStatusId);
+        Assert.True(row.IsCheckInOpen);
+        Assert.Empty(harness.Cancellations.Calls);
+        Assert.Empty(harness.Audit.Entries);
+    }
+
+    [Theory]
+    [InlineData(0, false, RoleCodes.Officer)]
+    [InlineData(7, true, RoleCodes.Member)]
+    [InlineData(0, true, RoleCodes.Officer)]
+    public async Task CancelRejectsAnonymousMemberAndInvalidActorsBeforeTakingLocks(int userId, bool authenticated, string role)
+    {
+        var harness = new Harness(actor: new FixedActor(userId, authenticated, role));
+
+        var error = await Assert.ThrowsAsync<DomainException>(() => harness.Service.CancelAsync(1, "Weather", TestContext.Current.CancellationToken));
+
+        Assert.Equal(OutcomeCode.Forbidden, error.Outcome);
+        Assert.Empty(harness.Locks);
+        Assert.Empty(harness.Audit.Entries);
+    }
+
+    [Fact]
+    public async Task CancelRejectsAStatusChangeBeforeTheLockAsStale()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var harness = new Harness();
+        var eventType = harness.AddType("Workshop", isActive: true);
+        var venue = harness.AddVenue("Room A", capacity: 30, isActive: true);
+        var id = await harness.Service.CreateDraftAsync(Model("Orientation", eventType.TypeId, venue.VenueId), ct);
+        var row = Assert.Single(harness.Events.Items);
+        row.EventStatusId = EventStatusCode.Published;
+        harness.Events.BeforeLock = item => item.EventStatusId = EventStatusCode.Cancelled;
+        harness.Locks.Clear();
+
+        var error = await Assert.ThrowsAsync<DomainException>(() => harness.Service.CancelAsync(id, "Weather", ct));
+
+        Assert.Equal(OutcomeCode.Stale, error.Outcome);
+        Assert.Empty(harness.Cancellations.Calls);
+        Assert.Empty(harness.Audit.Entries);
+    }
+
+    [Fact]
+    public async Task CancelRollsBackEventRegistrationsAndAuditWhenTheSaveFails()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var harness = new Harness();
+        var eventType = harness.AddType("Workshop", isActive: true);
+        var venue = harness.AddVenue("Room A", capacity: 30, isActive: true);
+        var id = await harness.Service.CreateDraftAsync(Model("Orientation", eventType.TypeId, venue.VenueId), ct);
+        var row = Assert.Single(harness.Events.Items);
+        row.EventStatusId = EventStatusCode.Published;
+        row.IsCheckInOpen = true;
+        harness.Registrations.Items.AddRange(
+        [
+            Registration(1, id, RegistrationStatusCode.Pending, new string('a', 64)),
+            Registration(2, id, RegistrationStatusCode.Confirmed, new string('b', 64)),
+            Registration(3, id, RegistrationStatusCode.Waitlisted, new string('c', 64))
+        ]);
+        harness.UnitOfWork.FailSave = true;
+        var commits = harness.UnitOfWork.CommitCount;
+
+        await Assert.ThrowsAsync<IOException>(() => harness.Service.CancelAsync(id, "Weather", ct));
+
+        AssertUnchangedAfterRollback(harness, id, commits);
+    }
+
+    [Fact]
+    public async Task CancelRollsBackWhenTheEventAuditFails()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var harness = new Harness();
+        var eventType = harness.AddType("Workshop", isActive: true);
+        var venue = harness.AddVenue("Room A", capacity: 30, isActive: true);
+        var id = await harness.Service.CreateDraftAsync(Model("Orientation", eventType.TypeId, venue.VenueId), ct);
+        var row = Assert.Single(harness.Events.Items);
+        row.EventStatusId = EventStatusCode.Published;
+        row.IsCheckInOpen = true;
+        harness.Registrations.Items.AddRange(
+        [
+            Registration(1, id, RegistrationStatusCode.Pending, new string('a', 64)),
+            Registration(2, id, RegistrationStatusCode.Confirmed, new string('b', 64))
+        ]);
+        harness.Audit.FailOnAction = AuditActions.EventCancelled;
+        var commits = harness.UnitOfWork.CommitCount;
+
+        await Assert.ThrowsAsync<IOException>(() => harness.Service.CancelAsync(id, "Weather", ct));
+
+        AssertUnchangedAfterRollback(harness, id, commits);
+    }
+
+    private static void AssertUnchangedAfterRollback(Harness harness, int eventId, int expectedCommits)
+    {
+        var row = Assert.Single(harness.Events.Items);
+        Assert.Equal(eventId, row.EventId);
+        Assert.Equal(EventStatusCode.Published, row.EventStatusId);
+        Assert.True(row.IsCheckInOpen);
+        Assert.Null(row.CancelledBy);
+        Assert.Null(row.CancelledAt);
+        Assert.Null(row.CancellationReason);
+        Assert.Null(row.CheckInClosedBy);
+        Assert.Null(row.CheckInClosedAt);
+        Assert.All(harness.Registrations.Items, registration =>
+        {
+            Assert.NotEqual(RegistrationStatusCode.Cancelled, registration.RegistrationStatusId);
+            Assert.NotNull(registration.QrToken);
+        });
+        Assert.Empty(harness.Audit.Entries);
+        Assert.Equal(expectedCommits, harness.UnitOfWork.CommitCount);
+    }
+
+    private static Registration Registration(int id, int eventId, RegistrationStatusCode status, string? qrToken) => new()
+    {
+        RegistrationId = id,
+        MemberId = id,
+        EventId = eventId,
+        RegistrationStatusId = status,
+        CourseSnapshot = "BSIT",
+        YearLevelSnapshot = 1,
+        SectionSnapshot = "A",
+        SubmittedAt = Start,
+        QrToken = qrToken,
+        CreatedBy = 7,
+        CreatedAt = Start
+    };
+
     private static EventViewModel Model(
         string title,
         int typeId,
@@ -561,16 +873,23 @@ public class EventLifecycleServiceTests
             Events = new MemoryEvents(this);
             EventTypes = new MemoryEventTypes(this);
             Venues = new MemoryVenues(this);
+            Registrations = new MemoryRegistrations();
             Audit = new RecordingAudit();
+            Actor = actor ?? new FixedActor(7);
+            Clock = clock ?? TimeProvider.System;
+            Cancellations = new RecordingCancellations(Registrations, Audit, Actor, Clock);
+            UnitOfWork = new TransactionUnitOfWork(Events, Registrations, Audit);
             Service = new EventLifecycleService(
                 Events,
                 EventTypes,
                 Venues,
-                new ImmediateUnitOfWork(),
+                Registrations,
+                Cancellations,
+                UnitOfWork,
                 Mapper,
-                clock ?? TimeProvider.System,
+                Clock,
                 Audit,
-                actor ?? new FixedActor(7),
+                Actor,
                 new UnusedPrivateFileStore(),
                 NullLogger<EventLifecycleService>.Instance);
         }
@@ -578,7 +897,12 @@ public class EventLifecycleServiceTests
         public MemoryEvents Events { get; }
         public MemoryEventTypes EventTypes { get; }
         public MemoryVenues Venues { get; }
+        public MemoryRegistrations Registrations { get; }
+        public RecordingCancellations Cancellations { get; }
         public RecordingAudit Audit { get; }
+        public TransactionUnitOfWork UnitOfWork { get; }
+        public ICurrentActor Actor { get; }
+        public TimeProvider Clock { get; }
         public EventLifecycleService Service { get; }
         public List<string> Locks { get; } = [];
 
@@ -632,8 +956,78 @@ public class EventLifecycleServiceTests
     private sealed class RecordingAudit : IActivityLogWriter
     {
         public List<AuditEntry> Entries { get; } = [];
+        public string? FailOnAction { get; set; }
 
-        public void Append(AuditEntry entry) => Entries.Add(entry);
+        public void Append(AuditEntry entry)
+        {
+            if (entry.Action == FailOnAction) throw new IOException("simulated audit failure");
+            Entries.Add(entry);
+        }
+    }
+
+    private sealed class MemoryRegistrations : IRegistrationRepository
+    {
+        public List<Registration> Items { get; } = [];
+        public bool ValidAttendanceForEvent { get; set; }
+        public bool IssuedCertificateForEvent { get; set; }
+
+        public Task<bool> HasValidAttendanceForEventAsync(int eventId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(ValidAttendanceForEvent);
+
+        public Task<bool> HasIssuedCertificateForEventAsync(int eventId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(IssuedCertificateForEvent);
+
+        public Task<RegistrationReviewIdentity> DiscoverReviewAsync(int id, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<bool> HasEligibleWaitlistAsync(int id, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<bool> HasValidAttendanceAsync(int id, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<int> CountReviewQueueAsync(RegistrationStatusCode status, int? eventId, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<IReadOnlyList<RegistrationReviewRow>> GetReviewQueueAsync(RegistrationStatusCode status, int? eventId, int offset, int limit, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<Registration> GetForCancellationAsync(int id, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<IReadOnlyList<Registration>> GetOpenForEventAsync(int id, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<IReadOnlyList<int>> DiscoverOpenEventIdsForUserAsync(int id, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<IReadOnlyList<UpcomingRegistrationRow>> GetUpcomingForUserAsync(int id, DateTime now, int? eventId = null, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<bool> IsConfirmedAsync(int id, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<bool> ExistsAsync(int eventId, int memberId, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<int> CountConfirmedAsync(int eventId, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task AddAsync(Registration registration, CancellationToken ct = default) => throw new NotSupportedException();
+    }
+
+    private sealed record CancellationCall(int EventId, CancellationCause Cause, string Reason);
+
+    /// <summary>Mimics the real cancellation service contract without touching another module's rules.</summary>
+    private sealed class RecordingCancellations(
+        MemoryRegistrations registrations,
+        RecordingAudit audit,
+        ICurrentActor actor,
+        TimeProvider clock) : IRegistrationCancellationService
+    {
+        public List<CancellationCall> Calls { get; } = [];
+        public bool Fail { get; set; }
+
+        public Task CancelAllForEventAsync(int eventId, CancellationCause cause, string reason, CancellationToken cancellationToken = default)
+        {
+            Calls.Add(new CancellationCall(eventId, cause, reason));
+            if (Fail) throw new IOException("simulated cancellation failure");
+            var now = clock.GetUtcNow().UtcDateTime;
+            foreach (var row in registrations.Items.Where(row => row.EventId == eventId
+                && row.RegistrationStatusId is RegistrationStatusCode.Pending or RegistrationStatusCode.Confirmed or RegistrationStatusCode.Waitlisted))
+            {
+                row.RegistrationStatusId = RegistrationStatusCode.Cancelled;
+                row.QrToken = null;
+                row.CancelledBy = actor.UserId;
+                row.CancelledAt = now;
+                row.CancellationReason = reason;
+                row.UpdatedBy = actor.UserId;
+                row.UpdatedAt = now;
+                audit.Append(new AuditEntry(AuditActions.RegistrationCancelled, "registrations", row.RegistrationId, reason));
+            }
+
+            return Task.CompletedTask;
+        }
+
+        public Task CancelRegistrationAsync(int registrationId, CancellationCause cause, string reason, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task CancelUpcomingForUserAsync(int userId, CancellationCause cause, string reason, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<IReadOnlyList<UpcomingRegistrationPreview>> PreviewUpcomingForUserAsync(int userId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }
 
     private sealed class MemoryEvents(Harness harness) : IEventRepository
@@ -822,13 +1216,102 @@ public class EventLifecycleServiceTests
         public bool VenueExists(int venueId) => Find(venueId) != null;
     }
 
-    private sealed class ImmediateUnitOfWork : IUnitOfWork
+    /// <summary>
+    /// Applies the work immediately but restores the rows, registrations and audit entries when the
+    /// work throws, so rollback behavior is observable without SQL Server.
+    /// </summary>
+    private sealed class TransactionUnitOfWork(MemoryEvents events, MemoryRegistrations registrations, RecordingAudit audit) : IUnitOfWork
     {
+        public bool FailSave { get; set; }
+        public int CommitCount { get; private set; }
         public DbContext Database => throw new NotSupportedException();
-        public void SaveChanges() { }
-        public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) => Task.FromResult(1);
-        public Task ExecuteInTransactionAsync(Func<CancellationToken, Task> work, CancellationToken cancellationToken = default) => work(cancellationToken);
-        public Task<T> ExecuteInTransactionAsync<T>(Func<CancellationToken, Task<T>> work, CancellationToken cancellationToken = default) => work(cancellationToken);
+        public void SaveChanges() => throw new NotSupportedException();
+
+        public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) =>
+            FailSave ? Task.FromException<int>(new IOException("simulated database failure")) : Task.FromResult(1);
+
+        public Task ExecuteInTransactionAsync(Func<CancellationToken, Task> work, CancellationToken cancellationToken = default) =>
+            ExecuteAsync(async ct => { await work(ct); return true; }, cancellationToken);
+
+        public async Task<T> ExecuteInTransactionAsync<T>(Func<CancellationToken, Task<T>> work, CancellationToken cancellationToken = default) =>
+            await ExecuteAsync(work, cancellationToken);
+
+        private async Task<T> ExecuteAsync<T>(Func<CancellationToken, Task<T>> work, CancellationToken cancellationToken)
+        {
+            var eventSnapshots = events.Items.Select(Clone).ToList();
+            var registrationSnapshots = registrations.Items.Select(Clone).ToList();
+            var auditCount = audit.Entries.Count;
+            try
+            {
+                var result = await work(cancellationToken);
+                CommitCount++;
+                return result;
+            }
+            catch
+            {
+                events.Items.Clear();
+                events.Items.AddRange(eventSnapshots);
+                registrations.Items.Clear();
+                registrations.Items.AddRange(registrationSnapshots);
+                audit.Entries.RemoveRange(auditCount, audit.Entries.Count - auditCount);
+                throw;
+            }
+        }
+
+        private static Event Clone(Event item) => new()
+        {
+            EventId = item.EventId,
+            Title = item.Title,
+            Description = item.Description,
+            TypeId = item.TypeId,
+            VenueId = item.VenueId,
+            StartsAt = item.StartsAt,
+            RegistrationDeadline = item.RegistrationDeadline,
+            ParticipantLimit = item.ParticipantLimit,
+            EventStatusId = item.EventStatusId,
+            ImagePath = item.ImagePath,
+            PublishedBy = item.PublishedBy,
+            PublishedAt = item.PublishedAt,
+            IsCheckInOpen = item.IsCheckInOpen,
+            CheckInOpenedBy = item.CheckInOpenedBy,
+            CheckInOpenedAt = item.CheckInOpenedAt,
+            CheckInClosedBy = item.CheckInClosedBy,
+            CheckInClosedAt = item.CheckInClosedAt,
+            CompletedBy = item.CompletedBy,
+            CompletedAt = item.CompletedAt,
+            CancelledBy = item.CancelledBy,
+            CancelledAt = item.CancelledAt,
+            CancellationReason = item.CancellationReason,
+            CreatedBy = item.CreatedBy,
+            CreatedAt = item.CreatedAt,
+            UpdatedBy = item.UpdatedBy,
+            UpdatedAt = item.UpdatedAt
+        };
+
+        private static Registration Clone(Registration item) => new()
+        {
+            RegistrationId = item.RegistrationId,
+            MemberId = item.MemberId,
+            EventId = item.EventId,
+            RegistrationStatusId = item.RegistrationStatusId,
+            CourseSnapshot = item.CourseSnapshot,
+            YearLevelSnapshot = item.YearLevelSnapshot,
+            SectionSnapshot = item.SectionSnapshot,
+            SubmittedAt = item.SubmittedAt,
+            ReviewedBy = item.ReviewedBy,
+            ReviewedAt = item.ReviewedAt,
+            ReviewNotes = item.ReviewNotes,
+            ConfirmedBy = item.ConfirmedBy,
+            ConfirmedAt = item.ConfirmedAt,
+            QrToken = item.QrToken,
+            CancelledBy = item.CancelledBy,
+            CancelledAt = item.CancelledAt,
+            CancellationReason = item.CancellationReason,
+            CreatedBy = item.CreatedBy,
+            CreatedAt = item.CreatedAt,
+            UpdatedBy = item.UpdatedBy,
+            UpdatedAt = item.UpdatedAt
+        };
     }
 
     private sealed class UnusedPrivateFileStore : IPrivateFileStore

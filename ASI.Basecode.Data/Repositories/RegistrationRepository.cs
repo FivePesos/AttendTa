@@ -54,6 +54,21 @@ public sealed class RegistrationRepository : BaseRepository, IRegistrationReposi
     public Task<bool> HasValidAttendanceAsync(int id, CancellationToken ct = default) =>
         ParticipationFacts.ValidAttendances(GetDbSet<Attendance>().AsNoTracking()).AnyAsync(a => a.RegistrationId == id, ct);
 
+    public Task<bool> HasValidAttendanceForEventAsync(int eventId, CancellationToken ct = default)
+    {
+        var validAttendance = ParticipationFacts.ValidAttendances(GetDbSet<Attendance>().AsNoTracking());
+        return (from registration in GetDbSet<Registration>().AsNoTracking()
+                join attendance in validAttendance on registration.RegistrationId equals attendance.RegistrationId
+                where registration.EventId == eventId
+                select attendance.AttendanceId).AnyAsync(ct);
+    }
+
+    public Task<bool> HasIssuedCertificateForEventAsync(int eventId, CancellationToken ct = default) =>
+        (from registration in GetDbSet<Registration>().AsNoTracking()
+         join certificate in GetDbSet<Certificate>().AsNoTracking() on registration.RegistrationId equals certificate.RegistrationId
+         where registration.EventId == eventId && certificate.CertificateStatusId == CertificateStatusCode.Issued
+         select certificate.CertificateId).AnyAsync(ct);
+
     private IQueryable<RegistrationReviewRow> ReviewQueue(RegistrationStatusCode status, int? eventId) =>
         from r in GetDbSet<Registration>().AsNoTracking()
         join m in GetDbSet<Member>().AsNoTracking() on r.MemberId equals m.MemberId
