@@ -17,7 +17,28 @@
 
 @if (Model.Items.Count == 0)
 {
-    <p class="empty-state">@(string.IsNullOrWhiteSpace(ViewBag.Search as string) ? "No members found." : "No members match your search.")</p>
+    <div class="table-scroll" role="region" aria-label="Member table" tabindex="0">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th scope="col">Student Number</th>
+                    <th scope="col">Full Name</th>
+                    <th scope="col">Course</th>
+                    <th scope="col">Year</th>
+                    <th scope="col">Section</th>
+                    <th scope="col">Mobile</th>
+                    <th scope="col">Membership Type</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td colspan="9" class="empty-state">@(string.IsNullOrWhiteSpace(ViewBag.Search as string) ? "No members yet. Members are created when an account request is approved." : "No members match your search. Try a different name or student number.")</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
 }
 else
 {

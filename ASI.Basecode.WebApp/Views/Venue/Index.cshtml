@@ -10,7 +10,27 @@
 
 @if (Model.Items.Count == 0)
 {
-    <p class="empty-state">No records found.</p>
+    <div class="table-scroll" role="region" aria-label="Venue table" tabindex="0">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th scope="col">Room Name</th>
+                    <th scope="col">Capacity</th>
+                    <th scope="col">Location</th>
+                    <th scope="col">Availability Notes</th>
+                    <th scope="col">Contact Person</th>
+                    <th scope="col">Photo</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td colspan="8" class="empty-state">No venues yet. Use "Add Venue" to create the first one.</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
 }
 else
 {

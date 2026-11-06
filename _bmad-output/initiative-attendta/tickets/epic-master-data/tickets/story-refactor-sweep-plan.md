@@ -86,6 +86,7 @@ context: []
 - `VenueToggleAuditTests` pinned the old `<td>Active</td>` markup. Its two assertions now check `class="badge badge-active">Active</span>` and the inactive counterpart, matching the frozen matrix's badge requirement and the `AdminAccountsListTests` style. The status text is still asserted.
 - `Member/Index.cshtml` renders `Active`/`Inactive` rather than the raw lowercase lookup code, matching the Event Type and Venue badges. `MemberPagedListTests` asserts the text case-insensitively, so it still passes.
 - No CSS classes were added, so `wwwroot/css/app.css` is unchanged.
+- Follow-up after the rendered review: all three lists now keep the table and its headers when empty, with the message in a full-width row, per `docs/DESIGN.md:224`. Member distinguishes "no members yet" from "no match"; Event Type and Venue say what to do next. `AuthenticationFlowTests` and `VenuePagedListTests` were updated to the new copy and now also assert `data-table` is retained.
 
 ## Plan Change Log
 
