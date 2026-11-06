@@ -1,8 +1,14 @@
 @model PagedResult<AccountRequestQueueItemViewModel>
 @using System
+@using System.Linq
 @{
     ViewData["Title"] = "Account requests";
     var selectedStatus = ViewBag.Status as string ?? "pending";
+    var decisionError = ViewBag.DecisionError as string;
+    var decisionRequestId = ViewBag.DecisionRequestId as int?;
+    var decisionReason = ViewBag.DecisionReason as string;
+    var isRejection = ViewBag.IsRejection is true;
+    var query = Context.Request.QueryString.ToString();
 }
 
 <div class="page-heading">
@@ -11,7 +17,7 @@
 </div>
 
 <form asp-action="Index" method="get" class="spacing-bottom">
-    <div class="search-group">
+    <div class="queue-filter">
         <div class="field">
             <label for="status">Request status</label>
             <select id="status" name="status" class="field-control">
@@ -23,6 +29,20 @@
         <button type="submit" class="button button-secondary">Filter</button>
     </div>
 </form>
+
+@if (decisionError != null)
+{
+    <div class="notice notice-error" role="alert">
+        @decisionError <a href="@(Url.Action("Index") + query)">Refresh the queue</a>.
+    </div>
+    @if (isRejection && !Model.Items.Any(item => item.RequestId == decisionRequestId))
+    {
+        <div class="field">
+            <label for="saved-rejection-reason">Your entered rejection reason (copy it before refreshing)</label>
+            <textarea id="saved-rejection-reason" class="field-control" rows="2" readonly>@decisionReason</textarea>
+        </div>
+    }
+}
 
 @if (Model.Items.Count == 0)
 {
@@ -43,6 +63,7 @@ else
                     <th scope="col">Section</th>
                     <th scope="col">Mobile</th>
                     <th scope="col">Status</th>
+                    @if (selectedStatus == "pending") { <th scope="col">Review</th> }
                 </tr>
             </thead>
             <tbody>
@@ -58,6 +79,24 @@ else
                         <td>@request.Section</td>
                         <td>@request.MobileNumber</td>
                         <td>@request.Status</td>
+                        @if (selectedStatus == "pending")
+                        {
+                            <td class="queue-review">
+                                <form action="@(Url.Action("Approve") + query)" method="post">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="id" value="@request.RequestId" />
+                                    <button class="button button-primary" type="submit" aria-label="Approve request from @request.FullName">Approve</button>
+                                </form>
+                                <form action="@(Url.Action("Reject") + query)" method="post" class="queue-reject">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="id" value="@request.RequestId" />
+                                    <label for="reason-@request.RequestId">Rejection reason for @request.FullName</label>
+                                    <textarea id="reason-@request.RequestId" name="reason" class="field-control" rows="2" required aria-invalid="@(decisionRequestId == request.RequestId && isRejection ? "true" : "false")" aria-describedby="@(decisionRequestId == request.RequestId && isRejection ? $"reason-error-{request.RequestId}" : null)">@(decisionRequestId == request.RequestId ? decisionReason : null)</textarea>
+                                    @if (decisionRequestId == request.RequestId && isRejection) { <span id="reason-error-@request.RequestId" class="field-error">@decisionError</span> }
+                                    <button class="button button-secondary" type="submit" aria-label="Reject request from @request.FullName">Reject</button>
+                                </form>
+                            </td>
+                        }
                     </tr>
                 }
             </tbody>

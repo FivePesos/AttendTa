@@ -59,6 +59,52 @@ namespace ASI.Basecode.WebApp.Controllers
             return View(result);
         }
 
+        [HttpPost]
+        [Authorize(Policy = Policies.Management)]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Approve(int id, string status = "pending", int? page = null)
+        {
+            try
+            {
+                await _accountRequestService.ApproveAsync(id, GetActorUserId(), HttpContext.RequestAborted);
+                TempData["SuccessMessage"] = "Account request approved.";
+                return Redirect(Url.Action(nameof(Index)) + Request.QueryString);
+            }
+            catch (DomainException exception)
+            {
+                return await DecisionError(exception, id, null, false, page);
+            }
+        }
+
+        [HttpPost]
+        [Authorize(Policy = Policies.Management)]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Reject(int id, string reason, string status = "pending", int? page = null)
+        {
+            try
+            {
+                await _accountRequestService.RejectAsync(id, reason, GetActorUserId(), HttpContext.RequestAborted);
+                TempData["SuccessMessage"] = "Account request rejected.";
+                return Redirect(Url.Action(nameof(Index)) + Request.QueryString);
+            }
+            catch (DomainException exception)
+            {
+                return await DecisionError(exception, id, reason, true, page);
+            }
+        }
+
+        private async Task<IActionResult> DecisionError(DomainException exception, int id, string reason, bool isRejection, int? page)
+        {
+            ViewBag.Status = "pending";
+            ViewBag.DecisionError = exception.Message;
+            ViewBag.DecisionRequestId = id;
+            ViewBag.DecisionReason = reason;
+            ViewBag.IsRejection = isRejection;
+            ViewData["PagerPath"] = Url.Action(nameof(Index));
+            var result = await _accountRequestQueueService.GetPageAsync("pending", page, HttpContext.RequestAborted);
+            return View("Index", result);
+        }
+
         /// <summary>
         /// Shows the anonymous membership request form.
         /// </summary>
