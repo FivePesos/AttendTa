@@ -167,6 +167,10 @@
   .event-card-actions { padding: 0 1rem 1rem; }
   .event-detail-cover { width: 100%; max-height: 24rem; object-fit: cover; border-radius: 10px; margin-bottom: 1rem; }
   .event-details { margin-bottom: 1.5rem; }
+  /* The dossier roster has a different column order from the member directory. */
+  .dossier-roster th:nth-child(3), .dossier-roster td:nth-child(3),
+  .dossier-roster th:last-child, .dossier-roster td:last-child { position: static; box-shadow: none; }
+  .dossier-roster td { overflow-wrap: anywhere; min-width: 8rem; }
   .event-registration { margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid #e2e8f0; }
   @media (min-width: 640px) { .event-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   @media (min-width: 1280px) { .event-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }

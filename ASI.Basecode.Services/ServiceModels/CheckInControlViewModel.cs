@@ -14,4 +14,5 @@ public sealed class CheckInControlViewModel
 
     /// <summary>True when the event is in a state that accepts an open or close command.</summary>
     public bool CanChange { get; set; }
+    public bool Dossier { get; set; }
 }

@@ -230,6 +230,34 @@ PNG. Nothing rendered names the data as demo data, including the download file n
 **Removal (4.1).** Replace the demo provider behind the same `IPassService` contract, and replace
 `QrToken` with the server-rendered `QrImageUrl` and the authorized `DownloadUrl`.
 
+## M-08 — demo seam detail (4.12)
+
+**Contract and classes.** The contract stays in `ASI.Basecode.Services`; the providers are in
+`ASI.Basecode.WebApp/DemoData/`.
+
+| Piece | File |
+|---|---|
+| Read contract `IMyEventsService.GetAttendanceAsync` | `ASI.Basecode.Services/Interfaces/IMyEventsService.cs` |
+| Method label rule `CheckInMethodDisplay` | `ASI.Basecode.Services/ServiceModels/CheckInMethodDisplay.cs` |
+| Demo provider (composes `IRegistrationRepository.DiscoverOpenEventIdsForUserAsync`, `GetMemberRegistrationAsync`, `IEventRepository.CountAsync` and `GetPageAsync`, and `DemoStore.TryGetAttendance`) | `ASI.Basecode.WebApp/DemoData/DemoMyEventsService.cs` |
+| Switch-off provider (empty page) | `ASI.Basecode.WebApp/DemoData/EmptyMyEventsService.cs` |
+| My Events surface registration file | `ASI.Basecode.WebApp/DemoData/DemoMyEventsRegistration.cs` |
+
+**What it composes.** The actor's non-cancelled event ids (completed events included), each event's
+own registration row, one event page for the titles, and the store's attendance keyed by the real
+registration id. Rows are ordered newest recorded first and paged at 25 in memory; the method label
+comes from `CheckInMethodDisplay` and the valid and invalidated badges are the partial's own
+rendering. `AttendanceId` carries the registration id because the store keeps one attendance per
+registration; 4.7's real query returns the real `attendance_id` behind the same contract. Nothing
+is written, and the tab is read-only: no check-in, correction, edit or delete control. With
+`DemoData:Enabled` off the switch-off provider returns an empty page and the tab shows its empty
+state.
+
+**Hand-over to 3.13 (register rule 12).** M-08 shares `DemoMyEventsService` and
+`EmptyMyEventsService` with M-02. When 3.13 removes M-02's provider classes it must keep
+`GetAttendanceAsync` — returning an empty page — so the attendance read survives until 4.7 lands;
+4.7 then replaces that method with the real owner-scoped query instead of deleting a class.
+
 ## Known limits of the demo
 
 - Deactivating an account in the demo does not end that person's real session or block their
