@@ -74,10 +74,10 @@ public sealed class DemoStore
     }
 
     /// <summary>
-    /// Marks the event completed. This is only the participation-report overlay test fixture now;
-    /// the app completes events through the real <c>IEventLifecycleService</c>, and the real
-    /// completion hook creates the certificate reviews. Reviews for the demo ledger are seeded
-    /// explicitly through <see cref="SeedPendingReviewsForEvent"/>.
+    /// Marks the event completed. This is only the certificate-ledger demo and test fixture now; the
+    /// app completes events through the real <c>IEventLifecycleService</c>, and the real completion
+    /// hook creates the certificate reviews. Reviews for the demo ledger are seeded explicitly
+    /// through <see cref="SeedPendingReviewsForEvent"/>.
     /// </summary>
     public void MarkCompleted(int eventId)
     {
