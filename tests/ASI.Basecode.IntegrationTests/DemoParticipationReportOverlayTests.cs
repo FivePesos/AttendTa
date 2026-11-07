@@ -178,6 +178,8 @@ public sealed class DemoParticipationReportOverlayTests
         public Task AddAsync(Attendance attendance, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<IReadOnlyList<AttendanceLogRow>> GetRecentForEventAsync(int eventId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<IReadOnlyList<int>> GetValidAttendedRegistrationIdsAsync(int eventId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<int> CountMyAttendanceAsync(int userId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<IReadOnlyList<MyAttendanceRow>> GetMyAttendanceAsync(int userId, int skip, int take, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }
 
     private sealed class FakeRegistrations(int registrationId, int eventId, DateTime submittedAt) : IRegistrationRepository

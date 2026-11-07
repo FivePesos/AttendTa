@@ -89,7 +89,7 @@ into lettered rows.
 | M-05 | Check-in by scan: outcome (success, repeat, invalid, closed) and the attendance record | Validation engine and attendance write | 4.11 | 4.3 | removed |
 | M-06 | Manual lookup of confirmed participants by name or student number, and manual check-in | Registration-scoped search and manual check-in | 4.11 | 4.5 | removed (ff06123) |
 | M-07 | Attendance invalidation with reason, and its effect on the review (rule 8) | Invalidation command | 4.11 | 4.6 | removed (6a82840) |
-| M-08 | Member attendance history | Owner-scoped attendance query | 4.12 | 4.7 | open |
+| M-08 | Member attendance history | Owner-scoped attendance query | 4.12 | 4.7 | removed |
 | M-09 | Event completion command and the Completed status overlaid on event reads (rule 7) | Completion command | 1.14 | 3.12 | removed |
 | M-10a | Certificate reviews created at completion (a pending review for each valid check-in of a completed event) | Review creation hook | 6.12 | 6.4 | removed (cd227f694fdf71d10504db4406d13a3694941cbb) |
 | M-10b | Review queue and the approve and decline decisions | Review queue and decisions | 6.12 | 6.6 | open |
@@ -336,27 +336,30 @@ registration status never changes. M-10a is removed by 6.4's real completion hoo
 reviews from real attendance.
 
 
-## M-08 — demo seam detail (4.12)
+## M-08 — demo seam detail (4.12, removed by 4.7)
 
-**Contract and classes.** The contract is in `ASI.Basecode.Services`; the provider is
-`ASI.Basecode.Services/Services/MyEventsService.cs`, whose `GetAttendanceAsync` returns an empty
-attendance page until 4.7.
+**Removed.** 4.7 replaced the empty `MyEventsService.GetAttendanceAsync` page with the real
+owner-scoped attendance read behind the same `IMyEventsService` contract, so the tab, its partial,
+pager and controller action did not change. The read is
+`IAttendanceRepository.CountMyAttendanceAsync` plus `GetMyAttendanceAsync`: one owner-scoped
+cross-event query joining `attendance → registrations → members` and the event, filtered by
+`members.user_id`, ordered `recorded_at DESC, attendance_id DESC` and paged at 25 in SQL. It
+returns every owned attendance row, including an invalidated one with its stored reason, and the
+method label comes from `CheckInMethodDisplay`. Nothing is written.
 
 | Piece | File |
 |---|---|
 | Read contract `IMyEventsService.GetAttendanceAsync` | `ASI.Basecode.Services/Interfaces/IMyEventsService.cs` |
 | Method label rule `CheckInMethodDisplay` | `ASI.Basecode.Services/ServiceModels/CheckInMethodDisplay.cs` |
-| Real provider (returns an empty page until 4.7) | `ASI.Basecode.Services/Services/MyEventsService.cs` |
+| Real provider | `ASI.Basecode.Services/Services/MyEventsService.cs`, `ASI.Basecode.Data/Repositories/AttendanceRepository.cs` |
 
-**What it composes.** 3.13 removed the M-02 demo and switch-off providers and kept
-`MyEventsService.GetAttendanceAsync` as an empty page. 4.7 replaces that method with the real
-owner-scoped attendance query behind the same contract. The tab stays read-only: no check-in,
-correction, edit or delete control. Until 4.7 the tab shows its empty state.
-
-**Hand-over to 4.7 (register rule 12).** 3.13 removed M-02's `DemoMyEventsService`,
+**Hand-over (register rule 12).** 3.13 removed M-02's `DemoMyEventsService`,
 `EmptyMyEventsService` and `DemoMyEventsRegistration`, and kept `GetAttendanceAsync` on the real
-`MyEventsService` returning an empty page. 4.7 replaces that method with the real owner-scoped
-query instead of deleting a class.
+`MyEventsService` returning an empty page. 4.7 replaced that method with the real owner-scoped
+query; no demo class, provider or registration line remained to delete, so the row needed no
+code removal beyond the method body. The implementation commit sha is recorded in a follow-up
+docs commit, as 4.6 did for M-07.
+
 ## M-13a, M-13b and M-13c — participation report detail (7.4)
 
 **M-13a and M-13b are removed.** 7.1 replaced the summary computation and 7.2 replaced the no-show
