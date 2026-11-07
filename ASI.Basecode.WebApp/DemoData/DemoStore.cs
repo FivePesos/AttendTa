@@ -26,7 +26,6 @@ public sealed class DemoStore
     private readonly Dictionary<int, DemoAttendance> _attendance = new();
     private readonly Dictionary<int, DemoCertificateReview> _reviews = new();
     private readonly Dictionary<int, DemoCertificateIssue> _issues = new();
-    private readonly Dictionary<int, DemoMembershipStatus> _memberships = new();
 
     public DemoStore(IOptions<DemoDataOptions> options)
     {
@@ -324,44 +323,6 @@ public sealed class DemoStore
                 registrationId, eventId, CertificateStatusCode.Issued, null, issuedAt);
         }
     }
-
-    // ---- Membership status (read by 5.11) -----------------------------------
-
-    public bool TryGetMembershipStatus(int memberId, out DemoMembershipStatus status)
-    {
-        lock (_gate)
-        {
-            return _memberships.TryGetValue(memberId, out status);
-        }
-    }
-
-    public DemoMembershipStatus SetMembershipStatus(int memberId, MembershipStatusCode status, string reason, DateTime changedAt)
-    {
-        var trimmedReason = reason?.Trim();
-        if (string.IsNullOrWhiteSpace(trimmedReason))
-        {
-            throw new DomainException(OutcomeCode.Invalid, "A reason is required.", "reason");
-        }
-
-        lock (_gate)
-        {
-            var membership = new DemoMembershipStatus(memberId, status, trimmedReason, changedAt);
-            _memberships[memberId] = membership;
-            return membership;
-        }
-    }
-
-    /// <summary>
-    /// Drops any stored membership status so the real row is authoritative again. Used once a real
-    /// command writes SQL, so no demo overlay can mask the new state.
-    /// </summary>
-    public void ClearMembershipStatus(int memberId)
-    {
-        lock (_gate)
-        {
-            _memberships.Remove(memberId);
-        }
-    }
 }
 
 /// <summary>A demo attendance record keyed by the real registration id.</summary>
@@ -396,6 +357,3 @@ public sealed record DemoCertificateIssue(
     CertificatePdfSnapshot Snapshot = null,
     byte[] Pdf = null,
     int? IssuedBy = null);
-
-/// <summary>A demo membership status keyed by the real member id.</summary>
-public sealed record DemoMembershipStatus(int MemberId, MembershipStatusCode Status, string Reason, DateTime ChangedAt);
