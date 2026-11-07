@@ -26,10 +26,12 @@ public sealed class CertificateLedgerFlowTests(SqlServerDatabaseFixture fixture)
         var eventItem = await MemberEventTestSupport.SeedEventAsync(fixture.ConnectionString, officer.Id, type, venue,
             EventStatusCode.Published, startsAt, startsAt.AddDays(-1), 20, null, "Campus Leadership Summit", ct);
         var registrationIds = new List<int>();
+        var memberEmails = new List<string>();
         var memberEmail = "";
         for (var index = 1; index <= 5; index++)
         {
             memberEmail = $"ledger-member-{Guid.NewGuid():N}@attendta.test";
+            memberEmails.Add(memberEmail);
             var user = await MemberEventTestSupport.SeedUserAsync(fixture.ConnectionString, memberEmail, password, RoleCode.Member, ct);
             await using (var context = MemberEventTestSupport.Context(fixture.ConnectionString))
             {
@@ -176,6 +178,26 @@ public sealed class CertificateLedgerFlowTests(SqlServerDatabaseFixture fixture)
         Assert.Equal("attachment", download.Content.Headers.ContentDisposition!.DispositionType);
         Assert.Equal(await pdf.Content.ReadAsByteArrayAsync(ct), await download.Content.ReadAsByteArrayAsync(ct));
         Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"/Certificates/Pdf/{registrationIds[3]}", ct)).StatusCode);
+
+        // The seeded issued row has no retained file; its officer viewer and PDF must still work
+        // through the in-memory document fallback (M-11b, removed by 6.8).
+        var seededViewer = await client.GetStringAsync($"/Certificates/Viewer/{registrationIds[0]}", ct);
+        Assert.Contains("Download PDF", seededViewer, StringComparison.Ordinal);
+        var seededPdf = await client.GetAsync($"/Certificates/Pdf/{registrationIds[0]}", ct);
+        Assert.Equal(HttpStatusCode.OK, seededPdf.StatusCode);
+        Assert.StartsWith("%PDF-",
+            System.Text.Encoding.ASCII.GetString(await seededPdf.Content.ReadAsByteArrayAsync(ct)), StringComparison.Ordinal);
+
+        // The member history was handed over to the real issued row and its retained file.
+        using var ownerClient = enabled.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        await MemberEventTestSupport.SignInAsync(ownerClient, memberEmails[1], password, ct);
+        var memberHistory = await ownerClient.GetStringAsync("/MyEvents/Certificates", ct);
+        Assert.Contains($"AT-2026-{registrationIds[1]:D6}", memberHistory, StringComparison.Ordinal);
+        var memberPdf = await ownerClient.GetAsync($"/MyEvents/Certificates/{registrationIds[1]}/Pdf", ct);
+        Assert.Equal(HttpStatusCode.OK, memberPdf.StatusCode);
+        Assert.StartsWith("%PDF-",
+            System.Text.Encoding.ASCII.GetString(await memberPdf.Content.ReadAsByteArrayAsync(ct)), StringComparison.Ordinal);
+
         await page.SetViewportSizeAsync(390, 900);
         await page.GotoAsync($"http://localhost/Certificates/Viewer/{registrationIds[1]}");
         await page.ScreenshotAsync(new() { Path = Path.Combine(Path.GetTempPath(), "attendta-6-12-certificate-viewer-phone.png"), FullPage = true });
@@ -198,11 +220,18 @@ public sealed class CertificateLedgerFlowTests(SqlServerDatabaseFixture fixture)
         var issuance = Assert.Single(logs, row => row.Action == AuditActions.CertificateIssued);
         Assert.Equal(issuedCertificate.CertificateId, issuance.EntityId);
         Assert.DoesNotContain("path", issuance.NewValues!, StringComparison.OrdinalIgnoreCase);
-        var certificateFiles = Directory.GetFiles(
-            Path.Combine(factory.SetupRoot, "certificates"), "*", SearchOption.AllDirectories);
+        var certificateDirectory = Path.Combine(factory.SetupRoot, "certificates");
+        var certificateFiles = Directory.Exists(certificateDirectory)
+            ? Directory.GetFiles(certificateDirectory, "*", SearchOption.AllDirectories)
+            : Array.Empty<string>();
         var retained = Assert.Single(certificateFiles);
         Assert.StartsWith("%PDF-",
             System.Text.Encoding.ASCII.GetString(await File.ReadAllBytesAsync(retained, ct)), StringComparison.Ordinal);
+
+        // A retained file missing on disk is a controlled not-found, not an unhandled 500.
+        File.Delete(retained);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"/Certificates/Pdf/{registrationIds[1]}", ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await ownerClient.GetAsync($"/MyEvents/Certificates/{registrationIds[1]}/Pdf", ct)).StatusCode);
         Assert.Equal(EventStatusCode.Completed, (await observer.Events.SingleAsync(row => row.EventId == eventItem.EventId, ct)).EventStatusId);
 
         async Task PostAsync(string action, int id, string reason = "")

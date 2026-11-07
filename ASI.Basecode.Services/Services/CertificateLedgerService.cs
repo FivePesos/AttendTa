@@ -45,6 +45,7 @@ public sealed class CertificateLedgerService(
     private const string AttendanceInvalidMessage = "This review's attendance is no longer valid.";
     private const string AlreadyIssuedMessage = "A certificate has already been issued.";
     private const string NotApprovedMessage = "Approve this review before issuing a certificate.";
+    private const string DeclinedMessage = "This review was declined and cannot be issued.";
     private const string NotConfirmedMessage = "A confirmed registration is required for a certificate.";
     private const string EventNotCompletedMessage = "Certificates are available only for completed events.";
     private const string ChangedMessage = "This review's certificate details changed. Reload the ledger and try again.";
@@ -197,6 +198,11 @@ public sealed class CertificateLedgerService(
         if (review.Status == CertificateStatusCode.Issued)
         {
             throw new DomainException(OutcomeCode.Duplicate, AlreadyIssuedMessage);
+        }
+
+        if (review.Status == CertificateStatusCode.NotEligible)
+        {
+            throw new DomainException(OutcomeCode.Invalid, DeclinedMessage);
         }
 
         if (review.Status != CertificateStatusCode.Eligible)

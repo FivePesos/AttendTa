@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -88,11 +89,7 @@ public sealed class DemoCertificateLedgerService(
             await stream.CopyToAsync(copy, cancellationToken);
             return new CertificateDocument(copy.ToArray(), certificate.CertificateNumber);
         }
-        catch (FileNotFoundException)
-        {
-            throw NotFound();
-        }
-        catch (DirectoryNotFoundException)
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidDataException)
         {
             throw NotFound();
         }

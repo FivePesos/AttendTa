@@ -239,7 +239,7 @@ public sealed class DemoSeedService : IHostedService
 
         var issuedAt = eventItem.StartsAt.AddDays(1);
         var issuedNumber = valid.Count >= 1
-            ? CertificateNumber(eventItem.StartsAt, valid[0].RegistrationId)
+            ? CertificateNumber(issuedAt, valid[0].RegistrationId)
             : string.Empty;
 
         if (valid.Count >= 1 && staged.Contains(known[valid[0].RegistrationId]))

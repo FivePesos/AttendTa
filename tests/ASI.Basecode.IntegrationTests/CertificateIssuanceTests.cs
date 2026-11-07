@@ -29,7 +29,7 @@ public sealed class CertificateIssuanceTests(SqlServerDatabaseFixture fixture) :
     public async Task IssueWritesNumberSnapshotsIssuerPathAndOneAuditRow()
     {
         var ct = TestContext.Current.CancellationToken;
-        var (store, basePath, _) = CreateStore();
+        var (store, basePath, setupRoot) = CreateStore();
         try
         {
             var setup = await SeedAsync();
@@ -56,6 +56,7 @@ public sealed class CertificateIssuanceTests(SqlServerDatabaseFixture fixture) :
             using var copy = new MemoryStream();
             await file.CopyToAsync(copy, ct);
             Assert.StartsWith("%PDF-", System.Text.Encoding.ASCII.GetString(copy.ToArray()), StringComparison.Ordinal);
+            Assert.Empty(TemporaryFiles(setupRoot));
 
             var log = await observer.ActivityLogs.AsNoTracking()
                 .SingleAsync(row => row.EntityType == "certificates" && row.EntityId == setup.CertificateId, ct);
@@ -128,6 +129,7 @@ public sealed class CertificateIssuanceTests(SqlServerDatabaseFixture fixture) :
 
             Assert.Equal(OutcomeCode.Invalid, exception.Outcome);
             Assert.Empty(CertificateFiles(setupRoot));
+            Assert.Empty(TemporaryFiles(setupRoot));
             Assert.Equal(0, await IssuedAuditCountAsync(setup.CertificateId, ct));
             await AssertUnchangedAsync(setup.CertificateId, status);
         }
@@ -153,6 +155,7 @@ public sealed class CertificateIssuanceTests(SqlServerDatabaseFixture fixture) :
 
             Assert.Equal(OutcomeCode.Stale, exception.Outcome);
             Assert.Empty(CertificateFiles(setupRoot));
+            Assert.Empty(TemporaryFiles(setupRoot));
             Assert.Equal(0, await IssuedAuditCountAsync(setup.CertificateId, ct));
             await AssertUnchangedAsync(setup.CertificateId, CertificateStatusCode.Eligible);
         }
@@ -178,6 +181,7 @@ public sealed class CertificateIssuanceTests(SqlServerDatabaseFixture fixture) :
 
             Assert.Equal(OutcomeCode.Invalid, exception.Outcome);
             Assert.Empty(CertificateFiles(setupRoot));
+            Assert.Empty(TemporaryFiles(setupRoot));
             Assert.Equal(0, await IssuedAuditCountAsync(setup.CertificateId, ct));
             await AssertUnchangedAsync(setup.CertificateId, CertificateStatusCode.Eligible);
         }
@@ -208,6 +212,7 @@ public sealed class CertificateIssuanceTests(SqlServerDatabaseFixture fixture) :
 
             Assert.Equal(OutcomeCode.Invalid, exception.Outcome);
             Assert.Empty(CertificateFiles(setupRoot));
+            Assert.Empty(TemporaryFiles(setupRoot));
             Assert.Equal(0, await IssuedAuditCountAsync(setup.CertificateId, ct));
             await AssertUnchangedAsync(setup.CertificateId, CertificateStatusCode.Eligible);
         }
@@ -241,6 +246,7 @@ public sealed class CertificateIssuanceTests(SqlServerDatabaseFixture fixture) :
 
             Assert.Equal(OutcomeCode.Stale, exception.Outcome);
             Assert.Empty(CertificateFiles(setupRoot));
+            Assert.Empty(TemporaryFiles(setupRoot));
             Assert.Equal(0, await IssuedAuditCountAsync(setup.CertificateId, ct));
             await AssertUnchangedAsync(setup.CertificateId, CertificateStatusCode.NotEligible);
         }
@@ -266,6 +272,7 @@ public sealed class CertificateIssuanceTests(SqlServerDatabaseFixture fixture) :
 
             Assert.Equal(OutcomeCode.Forbidden, exception.Outcome);
             Assert.Empty(CertificateFiles(setupRoot));
+            Assert.Empty(TemporaryFiles(setupRoot));
             Assert.Equal(0, await IssuedAuditCountAsync(setup.CertificateId, ct));
             await AssertUnchangedAsync(setup.CertificateId, CertificateStatusCode.Eligible);
         }
@@ -296,7 +303,92 @@ public sealed class CertificateIssuanceTests(SqlServerDatabaseFixture fixture) :
                 () => service.IssueAsync(setup.RegistrationId, ct));
 
             Assert.Empty(CertificateFiles(setupRoot));
+            Assert.Empty(TemporaryFiles(setupRoot));
             await AssertUnchangedAsync(setup.CertificateId, CertificateStatusCode.Eligible);
+        }
+        finally
+        {
+            Directory.Delete(basePath, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task AttendanceInvalidatedDuringRenderIsStaleAndDeletesTheNewFile()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (store, basePath, setupRoot) = CreateStore();
+        try
+        {
+            var setup = await SeedAsync();
+            var renderer = new MutatingPdfRenderer(async () =>
+            {
+                await using var writer = EventDraftTestSupport.Context(fixture.ConnectionString);
+                var row = await writer.AttendanceRecords
+                    .SingleAsync(item => item.RegistrationId == setup.RegistrationId, ct);
+                row.InvalidatedBy = setup.OfficerId;
+                row.InvalidatedAt = Now;
+                row.InvalidationReason = "Invalidated while the document rendered.";
+                await writer.SaveChangesAsync(ct);
+            });
+            await using var context = EventDraftTestSupport.Context(fixture.ConnectionString);
+            var service = Service(context, setup.OfficerId, RoleCodes.Officer, renderer, store);
+
+            var exception = await Assert.ThrowsAsync<DomainException>(
+                () => service.IssueAsync(setup.RegistrationId, ct));
+
+            Assert.Equal(OutcomeCode.Stale, exception.Outcome);
+            Assert.Empty(CertificateFiles(setupRoot));
+            Assert.Empty(TemporaryFiles(setupRoot));
+            Assert.Equal(0, await IssuedAuditCountAsync(setup.CertificateId, ct));
+            await AssertUnchangedAsync(setup.CertificateId, CertificateStatusCode.Eligible);
+        }
+        finally
+        {
+            Directory.Delete(basePath, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task UnknownRegistrationIsNotFound()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (store, basePath, setupRoot) = CreateStore();
+        try
+        {
+            var setup = await SeedAsync();
+            await using var context = EventDraftTestSupport.Context(fixture.ConnectionString);
+            var service = Service(context, setup.OfficerId, RoleCodes.Officer, new FakePdfRenderer(), store);
+
+            var exception = await Assert.ThrowsAsync<DomainException>(
+                () => service.IssueAsync(int.MaxValue, ct));
+
+            Assert.Equal(OutcomeCode.NotFound, exception.Outcome);
+            Assert.Empty(CertificateFiles(setupRoot));
+            Assert.Empty(TemporaryFiles(setupRoot));
+        }
+        finally
+        {
+            Directory.Delete(basePath, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task ConfirmedRegistrationWithoutReviewIsNotFound()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (store, basePath, setupRoot) = CreateStore();
+        try
+        {
+            var setup = await SeedAsync(seedReview: false);
+            await using var context = EventDraftTestSupport.Context(fixture.ConnectionString);
+            var service = Service(context, setup.OfficerId, RoleCodes.Officer, new FakePdfRenderer(), store);
+
+            var exception = await Assert.ThrowsAsync<DomainException>(
+                () => service.IssueAsync(setup.RegistrationId, ct));
+
+            Assert.Equal(OutcomeCode.NotFound, exception.Outcome);
+            Assert.Empty(CertificateFiles(setupRoot));
+            Assert.Empty(TemporaryFiles(setupRoot));
         }
         finally
         {
@@ -330,7 +422,8 @@ public sealed class CertificateIssuanceTests(SqlServerDatabaseFixture fixture) :
 
     private async Task<Setup> SeedAsync(
         CertificateStatusCode reviewStatus = CertificateStatusCode.Eligible,
-        bool invalidateAttendance = false)
+        bool invalidateAttendance = false,
+        bool seedReview = true)
     {
         var ct = TestContext.Current.CancellationToken;
         var password = MemberEventTestSupport.NewPassword();
@@ -360,16 +453,21 @@ public sealed class CertificateIssuanceTests(SqlServerDatabaseFixture fixture) :
             InvalidatedAt = invalidateAttendance ? Now.AddHours(-1) : null,
             InvalidationReason = invalidateAttendance ? "Correction." : null
         });
-        var certificate = new Certificate
+        Certificate? certificate = null;
+        if (seedReview)
         {
-            RegistrationId = registration.RegistrationId,
-            CertificateStatusId = reviewStatus,
-            ReviewedBy = officer.Id,
-            ReviewedAt = Now.AddDays(-1),
-            CreatedBy = officer.Id,
-            CreatedAt = Now.AddDays(-2)
-        };
-        writer.Certificates.Add(certificate);
+            certificate = new Certificate
+            {
+                RegistrationId = registration.RegistrationId,
+                CertificateStatusId = reviewStatus,
+                ReviewedBy = officer.Id,
+                ReviewedAt = Now.AddDays(-1),
+                CreatedBy = officer.Id,
+                CreatedAt = Now.AddDays(-2)
+            };
+            writer.Certificates.Add(certificate);
+        }
+
         await writer.SaveChangesAsync(ct);
 
         return new Setup(
@@ -380,7 +478,7 @@ public sealed class CertificateIssuanceTests(SqlServerDatabaseFixture fixture) :
             title,
             startsAt,
             registration.RegistrationId,
-            certificate.CertificateId);
+            certificate?.CertificateId ?? 0);
     }
 
     private async Task AssertUnchangedAsync(int certificateId, CertificateStatusCode expected)
@@ -419,6 +517,14 @@ public sealed class CertificateIssuanceTests(SqlServerDatabaseFixture fixture) :
     private static string[] CertificateFiles(string setupRoot)
     {
         var directory = Path.Combine(setupRoot, "certificates");
+        return Directory.Exists(directory)
+            ? Directory.GetFiles(directory, "*", SearchOption.AllDirectories)
+            : Array.Empty<string>();
+    }
+
+    private static string[] TemporaryFiles(string setupRoot)
+    {
+        var directory = Path.Combine(setupRoot, "temporary");
         return Directory.Exists(directory)
             ? Directory.GetFiles(directory, "*", SearchOption.AllDirectories)
             : Array.Empty<string>();

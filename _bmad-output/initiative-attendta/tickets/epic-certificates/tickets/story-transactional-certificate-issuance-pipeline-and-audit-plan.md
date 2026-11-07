@@ -152,3 +152,49 @@ context:
 
 **Manual checks:**
 - With `DemoData__Enabled=true`, complete the seeded event, approve one review, issue it, open the Issued Registry, and view and download the PDF; confirm one file under `<SetupRoot>/certificates` and one `certificate.issued` row in the Activity Log.
+
+## Code Review
+
+### 2026-11-07
+
+**Code review complete.** 1 decision-needed, 10 patch, 0 defer, 25 rejected.
+
+- [x] [Review][Defer] Demo-off issued certificate cannot be viewed or downloaded [ASI.Basecode.Services/Services/CertificateLedgerService.cs:244-254] — deferred: accepted by the project owner until 6.8 implements the real owner-or-Management viewer/PDF; the demo provider already serves the retained file and the integration phase is sequential.
+- [x] [Review][Patch] Member certificate history hand-over has no test [ASI.Basecode.WebApp/DemoData/DemoMyCertificatesService.cs:46-48]
+- [x] [Review][Patch] Seeded issued row's officer viewer/PDF never requested [ASI.Basecode.WebApp/DemoData/DemoCertificateLedgerService.cs:44-80]
+- [x] [Review][Patch] In-transaction attendance recheck never exercised [ASI.Basecode.Services/Services/CertificateLedgerService.cs:351-358]
+- [x] [Review][Patch] Temporary-area cleanup not asserted [tests/ASI.Basecode.IntegrationTests/CertificateIssuanceTests.cs:419-425]
+- [x] [Review][Patch] Retained-file read maps only two exception types [ASI.Basecode.WebApp/DemoData/DemoCertificateLedgerService.cs:82-117]
+- [x] [Review][Patch] Missing-retained-file NotFound untested [tests/ASI.Basecode.IntegrationTests/CertificateIssuanceTests.cs]
+- [x] [Review][Patch] Unknown registration and no-review NotFound untested [tests/ASI.Basecode.IntegrationTests/CertificateIssuanceTests.cs]
+- [x] [Review][Patch] Declined review gets the "approve this review" message [ASI.Basecode.Services/Services/CertificateLedgerService.cs:202-205]
+- [x] [Review][Patch] Seeded certificate number year derives from event start [ASI.Basecode.WebApp/DemoData/DemoSeedService.cs:287-288]
+- [x] [Review][Patch] Directory.GetFiles without Directory.Exists [tests/ASI.Basecode.IntegrationTests/CertificateLedgerFlowTests.cs:201-202]
+
+**Rejected**
+
+- `false` — R1 confirmed-registration recheck: cancellation is refused while valid attendance exists, and the transaction rechecks Valid Attendance.
+- `false` — R31 cancelled-between-pre-check-and-commit: same refutation as R1.
+- `false` — R5 missing-event message: events are never hard-deleted, so the null branch is unreachable.
+- `false` — R11 promoted-key null guard: `PromoteAsync` is contracted to return a key.
+- `false` — R20 plan risk vs quick lens: this formal review runs four lenses.
+- `false` — R22 review_loop_iteration: it counts loopbacks, not passes.
+- `false` — R25 inline NotFound in the service: the messages differ intentionally (review vs certificate).
+- `false` — R36 certificate lock: AD-4 writes certificate rows only under the event lock, and the plan forbids a certificate lock.
+- `false` — R37 invalidation guard: 6.5 is merged and refuses issued certificates.
+- `false` — R38 CERT-01/02: the intent assigns race authoring to 8.5 and execution to 8.4.
+- `false` — R39 renderer fidelity: 6.2's tests assert landscape A4 and embedded fonts.
+- `false` — R40 queue-wiring surface: 6.12's controller and views already consume the contract.
+- `false` — R41 scope: register rule 12 and the frozen demo constraint require the hand-over.
+- `low` — R2 whole-queue read: bounded by event participation; the fix adds a repository method.
+- `low` — R4 generic Stale message: already actionable; splitting adds branches.
+- `low` — R6 no logging: the failure reaches the caller; a logger is a new dependency.
+- `low` — R7 orphan on crash: the sweep would be a background job, which AD-16 forbids.
+- `low` — R9 duplicated helper: two small methods; extraction adds a shared type.
+- `low` — R10 HasDocument from FilePath: the download returns a controlled 404; a per-row check adds I/O.
+- `low` — R13 seed issuer snapshot: no consumer reads it; the fix needs a user lookup.
+- `low` — R14 unreachable pre-check tests: reviews exist only for confirmed registrations; Completed is terminal.
+- `low` — R21 plan verification outcomes: the Implementation Notes record the passing counts.
+- `low` — R23 matrix race wording: the row is inside the frozen block and the intent defers the race.
+- `low` — R26 inline NotFound in the demo service: same message either way.
+- `low` — R28 long parameter lists: types prevent a silent swap; refactor only.
