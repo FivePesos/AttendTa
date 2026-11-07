@@ -124,7 +124,7 @@ dotnet run --project "ASI.Basecode.WebApp\ASI.Basecode.WebApp.csproj" --no-build
 The start-up log must show:
 
 ```
-Demo data active (M-01, M-04, M-05, M-06, M-07, M-09). Check-in open event 3; ready to complete event 2; completed event 1.
+Demo data active (M-01, M-07). Ready to complete event 2.
 ```
 
 If it says "Demo data seeded nothing", the connected database has no events; re-run the

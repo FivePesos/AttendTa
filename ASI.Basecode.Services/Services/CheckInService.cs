@@ -94,7 +94,7 @@ public sealed class CheckInService(
         }
 
         var result = await recording.RecordAsync(eventId, id, CheckInMethodCode.QrCode, cancellationToken);
-        return ToOutcome(result);
+        return CheckInOutcomeViewModel.FromRecordingResult(result);
     }
 
     private async Task<IReadOnlyList<CheckInResultViewModel>> RecentResultsAsync(int eventId, CancellationToken cancellationToken)
@@ -114,30 +114,6 @@ public sealed class CheckInService(
             })
             .ToList();
     }
-
-    private static CheckInOutcomeViewModel ToOutcome(AttendanceRecordingResult result) => result.Outcome switch
-    {
-        AttendanceRecordingOutcome.Recorded => new CheckInOutcomeViewModel
-        {
-            Outcome = CheckInOutcomeViewModel.Success,
-            Message = result.Message,
-            MemberName = result.MemberName,
-            StudentNumber = result.StudentNumber,
-            RecordedAt = result.RecordedAt,
-            RegistrationId = result.RegistrationId
-        },
-        AttendanceRecordingOutcome.Repeat => new CheckInOutcomeViewModel
-        {
-            Outcome = CheckInOutcomeViewModel.Repeat,
-            Message = result.Message,
-            MemberName = result.MemberName,
-            StudentNumber = result.StudentNumber,
-            RecordedAt = result.RecordedAt,
-            RegistrationId = result.RegistrationId
-        },
-        AttendanceRecordingOutcome.Closed => CheckInOutcomeViewModel.ClosedResult(result.Message),
-        _ => CheckInOutcomeViewModel.InvalidResult(result.Message)
-    };
 
     private static PublishedEventListItem SelectEvent(IReadOnlyList<PublishedEventListItem> published, int? requestedEventId)
     {

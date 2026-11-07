@@ -11,7 +11,6 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Options;
 using Xunit;
 
 namespace ASI.Basecode.IntegrationTests;
@@ -46,8 +45,7 @@ public sealed class DemoCheckInWindowFlagTests(SqlServerDatabaseFixture fixture)
             new ActivityLogWriter(context, actor, clock),
             clock);
         var scanner = new CheckInService(events, registrations, attendance, engine);
-        var store = new DemoStore(Options.Create(new DemoDataOptions { Enabled = true, TokenKey = "test-token-key" }));
-        var lookup = new DemoCheckInLookupService(events, registrations, store, clock);
+        var lookup = new CheckInLookupService(events, registrations, engine);
 
         Assert.False((await scanner.GetScreenAsync(published.EventId, ct)).IsCheckInOpen);
         Assert.Equal(CheckInOutcomeViewModel.Closed, (await scanner.ScanAsync(published.EventId, "unknown", ct)).Outcome);
@@ -80,6 +78,17 @@ public sealed class DemoCheckInWindowFlagTests(SqlServerDatabaseFixture fixture)
         using var scope = demo.Services.CreateScope();
 
         Assert.IsType<CheckInService>(scope.ServiceProvider.GetRequiredService<ICheckInService>());
+        Assert.IsType<CheckInLookupService>(scope.ServiceProvider.GetRequiredService<ICheckInLookupService>());
+    }
+
+    [Fact]
+    public void SwitchOffResolvesTheRealCheckInLookupService()
+    {
+        using var factory = new AttendTaWebApplicationFactory(fixture.ConnectionString);
+        using var client = factory.CreateClient();
+        using var scope = factory.Services.CreateScope();
+
+        Assert.IsType<CheckInLookupService>(scope.ServiceProvider.GetRequiredService<ICheckInLookupService>());
     }
 
     private sealed class Actor(int id) : ICurrentActor

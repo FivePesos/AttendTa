@@ -87,7 +87,7 @@ into lettered rows.
 | M-03 | Pass card QR image and PNG download (rule 10 token, QR drawn by a locally served browser library) | QR library, token read, authorized PNG endpoint | 4.10 | 4.1 | removed |
 | M-04 | Check-in window open/close command, the shared control partial, and the open flag overlaid on event reads (rule 7) | Open/close command | 1.14 | 4.2 | removed (7f6ae2218e6bc9e74611c610287b11ffa7f19ec4) |
 | M-05 | Check-in by scan: outcome (success, repeat, invalid, closed) and the attendance record | Validation engine and attendance write | 4.11 | 4.3 | removed |
-| M-06 | Manual lookup of confirmed participants by name or student number, and manual check-in | Registration-scoped search and manual check-in | 4.11 | 4.5 | open |
+| M-06 | Manual lookup of confirmed participants by name or student number, and manual check-in | Registration-scoped search and manual check-in | 4.11 | 4.5 | removed (ff06123) |
 | M-07 | Attendance invalidation with reason, and its effect on the review (rule 8) | Invalidation command | 4.11 | 4.6 | open |
 | M-08 | Member attendance history | Owner-scoped attendance query | 4.12 | 4.7 | open |
 | M-09 | Event completion command and the Completed status overlaid on event reads (rule 7) | Completion command | 1.14 | 3.12 | removed |
@@ -177,8 +177,9 @@ opener or closer actor/time columns and appends one `event.check_in_opened` or
 their demo and switch-off providers and `DemoEventsRegistration` are deleted. The officer list
 renders "Opened by <name> · <Manila time>" or "Closed by <name> · <Manila time>"; the dossier and
 scanner keep their badge-only control. Hand-over (register rule 12): `DemoCheckInService` and
-`DemoCheckInLookupService` remain the M-05/M-06 providers until 4.3 and 4.5, but they now read
+`DemoCheckInLookupService` remained the M-05/M-06 providers until 4.3 and 4.5, reading
 `events.is_check_in_open` from the real event projection, and the seed no longer opens a window.
+Both are now removed: 4.3 and 4.5 replaced them with the real services.
 
 ## M-14a, M-14b, M-15a and M-15b — account and membership access detail (5.11)
 
@@ -288,9 +289,9 @@ The M-01 `--demo-pass-token` switch and `DemoStore.GetPassToken` remain until 8.
 | Invalidation contract `IAttendanceInvalidationService` | `ASI.Basecode.Services/Interfaces/IAttendanceInvalidationService.cs` |
 | Screen, outcome, lookup and log models | `ASI.Basecode.Services/ServiceModels/CheckInScreenViewModel.cs` |
 | Real scan provider (M-05 removed by 4.3) | `ASI.Basecode.Services/Services/CheckInService.cs`, `ASI.Basecode.Services/Services/AttendanceRecordingService.cs`, `ASI.Basecode.Data/Repositories/AttendanceRepository.cs` |
-| Demo lookup and manual check-in provider | `ASI.Basecode.WebApp/DemoData/DemoCheckInLookupService.cs` |
+| Real lookup and manual check-in provider (M-06 removed by 4.5) | `ASI.Basecode.Services/Services/CheckInLookupService.cs`, `ASI.Basecode.Data/Repositories/RegistrationRepository.cs` |
 | Demo invalidation provider | `ASI.Basecode.WebApp/DemoData/DemoAttendanceInvalidationService.cs` |
-| Switch-off providers | `UnavailableCheckInLookupService.cs`, `UnavailableAttendanceInvalidationService.cs` |
+| Switch-off provider | `UnavailableAttendanceInvalidationService.cs` |
 | Check-in surface registration file | `ASI.Basecode.WebApp/DemoData/DemoCheckInRegistration.cs` |
 | Store additions | `DemoStore.GetAttendanceForEvent`, `DemoAttendance.MemberName`/`StudentNumber` |
 | Screen, adapters and decoder | `Controllers/CheckInController.cs`, `Views/CheckIn/Index.cshtml`, `wwwroot/js/features/scanner.js`, `scanner-camera.js`, `scanner-manual.js`, `wwwroot/lib/jsqr/jsQR.js` (Apache-2.0, 1.4.0) |
@@ -299,12 +300,12 @@ The M-01 `--demo-pass-token` switch and `DemoStore.GetPassToken` remain until 8.
 with an open window, and read the store's attendance for the log. A scan matched the rule-10 token of
 a confirmed registration of the event, reloaded `IsConfirmedAsync`, and returned `success`, `repeat`
 (the original time), `invalid` (unknown, wrong-event, cancelled or invalidated) or `closed` (not
-published, completed or window closed). The manual lookup reads the event's confirmed rows (bounded
-at 500), filters by name or student number in memory, and pages at 25; the explicit Check in records
+published, completed or window closed). The manual lookup read the event's confirmed rows (bounded
+at 500), filtered by name or student number in memory, and paged at 25; the explicit Check in recorded
 `student_number` when the query equals the student number, otherwise `manual_search`. Invalidation
 requires a reason, checks that the registration belongs to the event, refuses an issued certificate,
 and leaves a pending or approved review not eligible with that reason. Searching or viewing never
-records. The manual lookup and invalidation still write only the demo store until 4.5 and 4.6.
+records. The manual lookup is real from 4.5; invalidation still writes only the demo store until 4.6.
 
 **Scanner follow-up (#138, after PR #170).** Form-post scan and manual check-in results now
 survive the redirect as an event-scoped, server-rendered outcome panel (identity, student number,
@@ -317,10 +318,18 @@ providers, shared store and removal owners; these changes add no demo state or r
 shared `AttendanceRecordingService`, deleted `DemoCheckInService` and `UnavailableCheckInService`, and
 removed their registration lines. A scan now writes one real `attendance` row plus one
 `attendance.recorded` audit row in the caller-owned transaction; the screen keeps its shape and reads
-the real recent log. 4.5 replaces `ICheckInLookupService` and 4.6 replaces
-`IAttendanceInvalidationService`; each deletes its provider and its line in
-`DemoCheckInRegistration.cs`, and the screen keeps its shape. M-10a is removed by 6.4's real
-completion hook, which creates reviews from real attendance.
+the real recent log. 4.5 (commit `ff06123`) replaced `ICheckInLookupService` with the real
+`CheckInLookupService`, deleted `DemoCheckInLookupService` and `UnavailableCheckInLookupService`, and
+removed their registration lines, so the real service serves both switch states. The search is a
+read-only, registration-scoped SQL read over the selected event's Confirmed registrations matching a
+name or student-number substring (`Contains` under the database collation), ordered by member name
+then registration id and paged at 25; the explicit Check in pre-checks the published event and open
+window, reads the row's student number to choose `student_number` or `manual_search`, and delegates
+the validation and write to `AttendanceRecordingService`. 4.6 replaces
+`IAttendanceInvalidationService`, deletes its provider and its line in `DemoCheckInRegistration.cs`,
+and the screen keeps its shape. M-10a is removed by 6.4's real completion hook, which creates
+reviews from real attendance.
+
 
 ## M-08 — demo seam detail (4.12)
 
