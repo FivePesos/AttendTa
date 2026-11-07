@@ -3,7 +3,7 @@ title: 'Check-in validation engine and attendance recording'
 type: 'feature'
 ticket: '3'
 created: '2026-11-07'
-status: 'in-progress'
+status: 'in-review'
 baseline_revision: '4392e0935929ee89ec4c4054d65e69101c1117d9'
 route: 'full'
 route_source: 'auto'
@@ -79,8 +79,8 @@ context:
 - [x] `IAttendanceRecordingService` + `AttendanceRecordingService` — implement the engine; save attendance to obtain the identity, append the audit with that id, save again; re-read after the attendance lock.
 - [x] `CheckInService` — real screen and scan; `ScanAsync` delegates to the engine with `qr_code`.
 - [x] DI registration; delete the M-05 demo and unavailable providers; update the stale comments.
-- [x] M-10a hand-over — the demo ledger now creates pending reviews from real Valid Attendance ids; `DemoStore` has the id-based overload.
-- [x] `CheckInFlowTests` (including the M-10a hand-over); rebuild `DemoCheckInWindowFlagTests`; update `CertificateLedgerTests`.
+- [x] M-10a hand-over — after merging `upstream/dev`, 6.4's real completion hook owns review creation from real attendance; the demo ledger no longer creates reviews and the store helper only seeds the demo fixture.
+- [x] `CheckInFlowTests`; rebuild `DemoCheckInWindowFlagTests`; `CertificateLedgerTests` taken from 6.4 after the merge.
 - [x] Demo register M-05 row.
 
 **Acceptance Criteria:**
@@ -90,7 +90,7 @@ context:
 - Given a registration that already attended but is now cancelled or ineligible, when scanned, then the refusal wins and no repeat identity is returned.
 - Given the real service, when the scanner screen loads, then the selector and recent log read SQL, and the log orders newest first and caps at 25.
 - Given the demo switch on, when the scanner scans a pass, then it writes real SQL and the M-05 provider is gone.
-- Given a completed event with real attendance, when the demo certificate ledger opens, then M-10a creates reviews from real attendance, not the store.
+- Given a completed event with real attendance, when the event completes, then 6.4's real completion hook creates the pending review from real attendance (the M-10a hand-over).
 
 ## Implementation Notes
 
@@ -98,11 +98,12 @@ context:
 - The transaction locks the participant's `users` row, then the event, then (when present) the attendance row. It re-reads the attendance by registration id after the event lock, so a concurrent first scan is seen before the repeat decision. The unique `registration_id` index remains the backstop: a `DomainException(Duplicate)` is caught outside the transaction and answered as Repeat or Invalid.
 - The audit payload is `EventId`, `RegistrationId`, `CheckInMethodId` and `RecordedAt`; it never carries the QR token.
 - `GetRecentForEventAsync` joins attendance → registration → member → user, orders by `recorded_at DESC, attendance_id DESC`, caps at 25 and carries the issued-certificate flag for `CanInvalidate`.
-- M-10a hand-over: `DemoCertificateLedgerService` injects `IAttendanceRepository` and passes the event's real Valid Attendance registration ids to the new `DemoStore.EnsureCertificateReviews(eventId, ids, now)` overload. The store-based overload remains for the demo seed and the `MarkCompleted` test fixture. `CheckInFlowTests` proves a real attendance row produces a pending review. When 6.4 merges, its real completion hook supersedes this hand-over; resolve in 6.4's favour.
+- M-10a hand-over: after merging `upstream/dev` (6.4, PR #194), the real completion hook creates pending reviews from real attendance, so the demo ledger no longer creates reviews. The merge took 6.4's `DemoCertificateLedgerService` and `DemoStore.SeedPendingReviewsForEvent`; the 4.3 M-10a test was removed because 6.4 owns that behavior and its `EventCompletionReviewTests` cover it.
 
 ## Plan Change Log
 
-- 2026-11-07 implementation: the shared worktree was switched to the concurrent 6.4 branch mid-run. The 4.3 changes were stashed and re-applied on `feature/46/Check-in-validation-engine-and-attendance-recording` at `4392e09`, so this branch contains no 6.4 commits. The M-10a hand-over was restored on this branch because 6.4 is not merged here; `CertificateLedgerTests` now supplies an `IAttendanceRepository` proxy. When 6.4 merges, its real completion hook supersedes the hand-over.
+- 2026-11-07 implementation: the shared worktree was switched to the concurrent 6.4 branch mid-run. The 4.3 changes were stashed and re-applied on `feature/46/Check-in-validation-engine-and-attendance-recording` at `4392e09`, so this branch contained no 6.4 commits.
+- 2026-11-07 conflict resolution: `upstream/dev` advanced to 6.4 (PR #194). Merging it resolved `DemoCertificateLedgerService` and `DemoStore` in 6.4's favour, took 6.4's `CertificateLedgerTests`, and removed the 4.3 M-10a test. The check-in engine, scanner replacement and M-05 removal are unchanged.
 
 ## Review Triage Log
 
@@ -110,7 +111,7 @@ context:
 
 The engine is separate so 4.5 can call the same validation and write path from the manual adapter without depending on the scanner screen contract. It locks the participant's `users` row (not the recorder's), then the event, then the attendance row. `LockAttendanceAsync` takes the attendance primary key, matching AD-4's primary-key seek; the event lock serializes first inserts for one event, and the unique `registration_id` index is the final guard. If that guard still raises `DomainException(Duplicate)`, the engine re-reads and returns Repeat or Invalid. It reuses the existing `GetForCancellationAsync` as the fresh tracked registration read, so no shared interface changes and no fake updates are needed. `GetScreenAsync` keeps the published-only selector, `IsCompleted = false`, and the existing outcome JSON; the controller stays unchanged, and the engine's `Forbidden` is defence in depth behind the policy.
 
-Known temporary limitations, owned by later tickets: M-06 shows real check-ins as not checked in until 4.5; M-07 cannot invalidate a real row until 4.6; the M-13c report overlay still reads the store until 4.6. M-10a now reads real Valid Attendance; 6.4's completion hook will supersede it.
+Known temporary limitations, owned by later tickets: M-06 shows real check-ins as not checked in until 4.5; M-07 cannot invalidate a real row until 4.6; the M-13c report overlay still reads the store until 4.6. M-10a is removed by 6.4's real completion hook.
 
 ## Verification
 

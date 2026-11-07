@@ -74,15 +74,16 @@ public sealed class DemoStore
     }
 
     /// <summary>
-    /// Marks the event completed. This is only the M-10a/M-13b and participation-report overlay
-    /// test fixture now; the app completes events through the real <c>IEventLifecycleService</c>.
+    /// Marks the event completed. This is only the participation-report overlay test fixture now;
+    /// the app completes events through the real <c>IEventLifecycleService</c>, and the real
+    /// completion hook creates the certificate reviews. Reviews for the demo ledger are seeded
+    /// explicitly through <see cref="SeedPendingReviewsForEvent"/>.
     /// </summary>
     public void MarkCompleted(int eventId)
     {
         lock (_gate)
         {
             _completedEventIds.Add(eventId);
-            EnsureCertificateReviews(eventId, DateTime.UtcNow);
         }
     }
 
@@ -184,37 +185,17 @@ public sealed class DemoStore
     // M-11a: registration identity makes the number unique within the shared store.
     public string GetCertificateNumber(int registrationId, DateTime issuedAt) => $"AT-{issuedAt:yyyy}-{registrationId:D6}";
 
-    // M-10a: 4.3 hands review creation to real attendance; 6.4 replaces it with the completion hook.
-    public void EnsureCertificateReviews(int eventId, DateTime now)
+    // M-10a removed by 6.4: the real completion hook creates the reviews. This helper only seeds the
+    // demo store for the demo ledger and its tests, and never overwrites an existing review.
+    public void SeedPendingReviewsForEvent(int eventId, DateTime now)
     {
         lock (_gate)
         {
-            EnsureCertificateReviewsCore(
-                eventId,
-                _attendance.Values.Where(row => row.EventId == eventId && row.IsValid).Select(row => row.RegistrationId),
-                now);
-        }
-    }
-
-    /// <summary>
-    /// M-10a hand-over (4.3): creates pending reviews for the event's real Valid Attendance rows.
-    /// Existing decisions are never overwritten.
-    /// </summary>
-    public void EnsureCertificateReviews(int eventId, IReadOnlyCollection<int> registrationIds, DateTime now)
-    {
-        ArgumentNullException.ThrowIfNull(registrationIds);
-        lock (_gate)
-        {
-            EnsureCertificateReviewsCore(eventId, registrationIds, now);
-        }
-    }
-
-    private void EnsureCertificateReviewsCore(int eventId, IEnumerable<int> registrationIds, DateTime now)
-    {
-        foreach (var registrationId in registrationIds)
-        {
-            _reviews.TryAdd(registrationId, new DemoCertificateReview(
-                registrationId, eventId, CertificateStatusCode.PendingApproval, null, now));
+            foreach (var attendance in _attendance.Values.Where(row => row.EventId == eventId && row.IsValid))
+            {
+                _reviews.TryAdd(attendance.RegistrationId, new DemoCertificateReview(
+                    attendance.RegistrationId, eventId, CertificateStatusCode.PendingApproval, null, now));
+            }
         }
     }
 

@@ -8,9 +8,7 @@ using ASI.Basecode.Resources.Constants;
 using ASI.Basecode.Services.Interfaces;
 using ASI.Basecode.Services.ServiceModels;
 using ASI.Basecode.Services.Services;
-using ASI.Basecode.WebApp.DemoData;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Options;
 using Xunit;
 
 namespace ASI.Basecode.IntegrationTests;
@@ -305,45 +303,6 @@ public sealed class CheckInFlowTests(SqlServerDatabaseFixture fixture) : IClassF
         Assert.True(screen.RecentResults[2].CanInvalidate);
     }
 
-    [Fact]
-    public async Task DemoCertificateLedgerCreatesReviewsFromRealAttendance()
-    {
-        var ct = TestContext.Current.CancellationToken;
-        var setup = await SeedScanAsync();
-        await using (var context = EventDraftTestSupport.Context(fixture.ConnectionString))
-        {
-            var (_, engine) = Services(context, setup.OfficerId, RoleCodes.Officer);
-            Assert.Equal(AttendanceRecordingOutcome.Recorded,
-                (await engine.RecordAsync(setup.EventId, setup.RegistrationId, CheckInMethodCode.QrCode, ct)).Outcome);
-        }
-
-        await using (var writer = EventDraftTestSupport.Context(fixture.ConnectionString))
-        {
-            var row = await writer.Events.SingleAsync(item => item.EventId == setup.EventId, ct);
-            row.EventStatusId = EventStatusCode.Completed;
-            await writer.SaveChangesAsync(ct);
-        }
-
-        var store = new DemoStore(Options.Create(new DemoDataOptions { TokenKey = "check-in-handover" }));
-        await using var ledgerContext = EventDraftTestSupport.Context(fixture.ConnectionString);
-        var unitOfWork = new UnitOfWork(ledgerContext);
-        var ledger = new DemoCertificateLedgerService(
-            new EventRepository(unitOfWork),
-            new RegistrationRepository(unitOfWork),
-            new AttendanceRepository(unitOfWork),
-            store,
-            new DemoCertificateDocuments(store, new StubRenderer()),
-            new Actor(setup.OfficerId, RoleCodes.Officer),
-            new FixedClock(Now));
-
-        var page = await ledger.GetPageAsync(setup.EventId, CertificateLedgerTab.Eligibility, 1, ct);
-
-        var ledgerRow = Assert.Single(page.Rows, item => item.RegistrationId == setup.RegistrationId);
-        Assert.Equal(CertificateStatusCode.PendingApproval, ledgerRow.Status);
-        Assert.True(store.TryGetReview(setup.RegistrationId, out var review));
-        Assert.Equal(CertificateStatusCode.PendingApproval, review.Status);
-    }
-
     private static (CheckInService Scanner, AttendanceRecordingService Engine) Services(
         AsiBasecodeDBContext context,
         int actorId,
@@ -547,15 +506,6 @@ public sealed class CheckInFlowTests(SqlServerDatabaseFixture fixture) : IClassF
         int RegistrationId,
         string Token,
         string StudentNumber);
-
-    private sealed class StubRenderer : ICertificatePdfRenderer
-    {
-        public Task<byte[]> RenderSampleAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(Array.Empty<byte>());
-
-        public Task<byte[]> RenderSnapshotAsync(CertificatePdfSnapshot snapshot, CancellationToken cancellationToken = default) =>
-            Task.FromResult(Array.Empty<byte>());
-    }
 
     private sealed class FixedClock(DateTime now) : TimeProvider
     {

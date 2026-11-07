@@ -18,7 +18,7 @@ public sealed class CertificateLedgerTests
     private static readonly DateTime Now = new(2026, 11, 7, 3, 0, 0, DateTimeKind.Utc);
 
     [Fact]
-    public async Task LedgerCreatesReviewsForEveryValidAttendeeAndPagesBothTabs()
+    public async Task LedgerPagesSeededReviewsForEveryValidAttendeeOnBothTabs()
     {
         var setup = new Setup(28, invalidateBeforeCompletion: true);
         var first = await setup.Service.GetPageAsync(null, CertificateLedgerTab.Eligibility, 1, TestContext.Current.CancellationToken);
@@ -190,18 +190,13 @@ public sealed class CertificateLedgerTests
                 nameof(IRegistrationRepository.DiscoverReviewAsync) => Task.FromResult(new RegistrationReviewIdentity(10, (int)args![0]!, 7)),
                 _ => throw new NotSupportedException(method.Name)
             });
-            var validAttended = rows.Select(row => row.RegistrationId)
-                .Where(id => !invalidateBeforeCompletion || id != count)
-                .ToList();
-            var attendance = Proxy<IAttendanceRepository>((method, args) => method.Name switch
-            {
-                nameof(IAttendanceRepository.GetValidAttendedRegistrationIdsAsync) => Task.FromResult<IReadOnlyList<int>>(validAttended),
-                _ => throw new NotSupportedException(method.Name)
-            });
             foreach (var row in rows) Store.RecordAttendance(row.RegistrationId, 7, row.MemberName, row.StudentNumber, Now.AddDays(-2), CheckInMethodCode.QrCode);
             if (invalidateBeforeCompletion) Store.InvalidateAttendance(count, "Attendance corrected.", Now);
+            // The demo ledger no longer creates reviews at query time; seed them after invalidation
+            // because the helper filters to valid attendance.
+            Store.SeedPendingReviewsForEvent(7, Now);
             Store.MarkCompleted(7);
-            Service = new DemoCertificateLedgerService(events, registrations, attendance, Store, new DemoCertificateDocuments(Store, Renderer), Actor, new Clock());
+            Service = new DemoCertificateLedgerService(events, registrations, Store, new DemoCertificateDocuments(Store, Renderer), Actor, new Clock());
         }
     }
 
