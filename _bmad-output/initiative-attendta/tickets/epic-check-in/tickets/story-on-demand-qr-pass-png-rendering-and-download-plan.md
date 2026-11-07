@@ -3,7 +3,7 @@ title: 'On-demand QR Pass PNG rendering and download'
 type: 'feature'
 ticket: '1'
 created: '2026-11-07'
-status: 'ready-for-dev'
+status: 'in-review'
 baseline_revision: '0a61d4e35f71c9c2ec15f538b876bfbee0bba1a2'
 route: 'full'
 route_source: 'auto'
@@ -70,12 +70,12 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] Repository methods above, with the owner-scoped pass query and the token lookup.
-- [ ] `PassService` and `IPassService.GetPassDownloadAsync`; remove the demo token fields from the model.
-- [ ] `QrPassPngRenderer`, controller action, partial, DI registration.
-- [ ] Delete the demo pass providers, browser QR library, and script tags.
-- [ ] Demo scanner hand-over to the real token.
-- [ ] Register, architecture Stack, and the focused integration test.
+- [x] Repository methods above, with the owner-scoped pass query and the token lookup.
+- [x] `PassService` and `IPassService.GetPassDownloadAsync`; remove the demo token fields from the model.
+- [x] `QrPassPngRenderer`, controller action, partial, DI registration.
+- [x] Delete the demo pass providers, browser QR library, and script tags.
+- [x] Demo scanner hand-over to the real token.
+- [x] Register, architecture Stack, and the focused integration test.
 
 **Acceptance Criteria:**
 - Given a signed-in member with a Confirmed registration on a Published event, when they open `/Passes`, then the card shows a server-rendered QR image and a Download pass link.
@@ -95,7 +95,40 @@ context:
 
 ## Implementation Notes
 
+- **Repository.** `GetMyPassRowsAsync` is one owner-scoped query (registrations → members → users →
+  events → event_types → venues) filtered on Confirmed + Published + `qr_token IS NOT NULL`, ordered
+  by start then registration id. `GetOwnedPassAsync` joins the event so it returns the event status
+  too; `FindConfirmedRegistrationIdByTokenAsync` normalizes to lowercase and rejects anything that is
+  not 64 hex characters before querying, so a malformed scan never reaches SQL.
+- **Service.** `PassService` re-checks the canonical token shape in memory for both the list and the
+  download, so a malformed stored value renders no card and downloads nothing. Every refusal is
+  `DomainException(Forbidden, "This pass is unavailable.")`; the message is the constant
+  `PassService.UnavailableMessage` so the controller and the test assert the same string.
+- **Renderer.** `QrPassPngRenderer` uses `QrCode.EncodeText(token, Ecc.Medium)` and
+  `ToPngBitmap(border, scale)`. The library's `border` parameter is a *factor of module size*, not a
+  module count, so a border of 4 gives the 4-module quiet zone. Scale is
+  `ceil(168 / (size + 8))`, which yields 172 px for a 64-character token at ECC Medium.
+- **Controller.** `Passes/Qr/{id:int}` serves the inline image and `?download=true` from one action,
+  mirroring `MyCertificatesController.Pdf`. `ResponseCache(NoStore = true)` covers the success path;
+  the 403 path sets `Cache-Control: no-store` explicitly because it bypasses the result filter.
+  `Index` fills `QrImageUrl`/`DownloadUrl` with `Url.Action`; routing renders the boolean as
+  `download=True`, which the test matches case-insensitively.
+- **Demo hand-over.** `DemoCheckInService` now matches the real token through
+  `FindConfirmedRegistrationIdByTokenAsync` and reads the holder identity from the same confirmed
+  row. `DemoStore.GetPassToken` and the M-01 `--demo-pass-token` switch have no remaining reader
+  besides each other; both are left for 8.13, which removes the store, and the switch carries a
+  comment saying so.
+- **Test.** `PassDownloadTests` seeds upcoming, past, cancelled, unconfirmed, unpublished,
+  token-less and foreign rows plus a member with no registrations. It asserts the card markup, the
+  PNG signature and IHDR (≥ 168 px, square), the attachment name, `no-store`, and that all six
+  refusal cases return the identical 403 body for both the inline and download URLs. Per the
+  2026-11-07 decision it does not decode the QR; that proof stays with QR-01.
+
 ## Plan Change Log
+
+- 2026-11-07 — `GetOwnedPassAsync` also returns the event status. The plan's download guard listed
+  "unpublished" as a refusal, but an id+owner read alone cannot see the event; the join is the
+  smallest change that keeps the single refusal without a second query.
 
 ## Review Triage Log
 

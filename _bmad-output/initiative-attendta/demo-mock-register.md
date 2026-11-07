@@ -88,7 +88,7 @@ into lettered rows.
 |---|---|---|---|---|---|
 | M-01 | Demo seam: `DemoData:Enabled`, the startup database guard, `DemoData:TokenKey`, the demo store (event check-in and completed state, pass tokens, attendance, certificate reviews and issues, membership status), the registration method and the start-up seed | — (infrastructure) | 1.14 | 8.13 | open |
 | M-02 | My Events: all of a member's registrations across events, with status and cutoff labels | Cross-event owner query (only per-event and upcoming-only reads exist) | 3.17 | 3.13 | removed |
-| M-03 | Pass card QR image and PNG download (rule 10 token, QR drawn by a locally served browser library) | QR library, token read, authorized PNG endpoint | 4.10 | 4.1 | open |
+| M-03 | Pass card QR image and PNG download (rule 10 token, QR drawn by a locally served browser library) | QR library, token read, authorized PNG endpoint | 4.10 | 4.1 | removed |
 | M-04 | Check-in window open/close command, the shared control partial, and the open flag overlaid on event reads (rule 7) | Open/close command | 1.14 | 4.2 | open |
 | M-05 | Check-in by scan: outcome (success, repeat, invalid, closed) and the attendance record | Validation engine and attendance write | 4.11 | 4.3 | open |
 | M-06 | Manual lookup of confirmed participants by name or student number, and manual check-in | Registration-scoped search and manual check-in | 4.11 | 4.5 | open |
@@ -264,8 +264,16 @@ waitlisted and cancelled registrations, and cancelled or unpublished events, pro
 encodes only the 64-character token; the browser draws it with a 4-module quiet zone and saves it as
 PNG. Nothing rendered names the data as demo data, including the download file name.
 
-**Removal (4.1).** Replace the demo provider behind the same `IPassService` contract, and replace
-`QrToken` with the server-rendered `QrImageUrl` and the authorized `DownloadUrl`.
+**Removal (4.1).** 4.1 replaced the demo provider behind the same `IPassService` contract with the
+real owner-scoped `PassService` over `IRegistrationRepository.GetMyPassRowsAsync`, and replaced
+`QrToken` with the server-rendered `QrImageUrl` and the authorized `DownloadUrl`. It deleted
+`DemoPassService`, `UnavailablePassService`, `DemoPassesRegistration`, `wwwroot/lib/qrcode/` and
+`wwwroot/js/features/passes.js`, so `IPassService` is the real service in both switch states. The QR
+PNG is rendered in `WebApp/Rendering/QrPassPngRenderer` with `Net.Codecrete.QrCodeGenerator` and
+streamed from `Passes/Qr/{id}` (the same GET serves the inline image and `?download=true`). Every
+unavailable request is one 403 with `This pass is unavailable.` The demo scanner now matches the
+real `registrations.qr_token` through `FindConfirmedRegistrationIdByTokenAsync` (register rule 12).
+The M-01 `--demo-pass-token` switch and `DemoStore.GetPassToken` remain until 8.13 removes the store.
 
 ## M-05, M-06 and M-07 — door scanner detail (4.11)
 
@@ -464,4 +472,5 @@ than continuing to regenerate documents (register rule 12).
   command changed can still appear under the tab that matches its real status.
 - Check-ins, review decisions and issued certificates last only until the app restarts; passes
   keep scanning.
-- A pass scanned in the demo is matched against rule 10 tokens, not `registrations.qr_token`.
+- A pass scanned in the demo is matched against the real `registrations.qr_token`, the same value
+  the server-rendered PNG encodes, so a cancelled registration's cleared token stops scanning.
