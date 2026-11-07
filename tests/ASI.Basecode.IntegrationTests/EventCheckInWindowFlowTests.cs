@@ -1,6 +1,8 @@
+using System.Net;
 using ASI.Basecode.Data.Models.Lookups;
 using ASI.Basecode.Resources;
 using ASI.Basecode.Resources.Constants;
+using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
 
@@ -86,6 +88,48 @@ public sealed class EventCheckInWindowFlowTests(SqlServerDatabaseFixture fixture
         Assert.Null(draftRow.CheckInOpenedBy);
         Assert.Equal(0, await final.ActivityLogs
             .CountAsync(row => row.EntityType == "events" && row.EntityId == draft.EventId, ct));
+    }
+
+    [Fact]
+    public async Task RealCheckInWindowCommandWorksWhenDemoDataIsDisabled()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var email = $"check-in-window-{Guid.NewGuid():N}@attendta.test";
+        var password = MemberEventTestSupport.NewPassword();
+        var officer = await MemberEventTestSupport.SeedUserAsync(
+            fixture.ConnectionString, email, password, RoleCode.Officer, ct);
+        var (typeId, venueId) = await MemberEventTestSupport.SeedReferencesAsync(
+            fixture.ConnectionString, officer.Id, ct);
+        var published = await MemberEventTestSupport.SeedEventAsync(
+            fixture.ConnectionString, officer.Id, typeId, venueId, EventStatusCode.Published,
+            Now.AddHours(1), Now.AddMinutes(-30), 20, null, "Check-in window without demo data", ct);
+
+        using var factory = new AttendTaWebApplicationFactory(fixture.ConnectionString);
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false,
+            HandleCookies = true
+        });
+
+        await MemberEventTestSupport.SignInAsync(client, email, password, ct);
+        var token = await MemberEventTestSupport.AntiforgeryTokenAsync(client, "/Event", ct);
+        using var response = await client.PostAsync("/Event/OpenCheckIn", new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["id"] = published.EventId.ToString(),
+            ["__RequestVerificationToken"] = token
+        }), ct);
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+
+        await using var observer = MemberEventTestSupport.Context(fixture.ConnectionString);
+        var opened = await observer.Events.AsNoTracking()
+            .SingleAsync(row => row.EventId == published.EventId, ct);
+        Assert.True(opened.IsCheckInOpen);
+        Assert.Equal(officer.Id, opened.CheckInOpenedBy);
+        Assert.Equal(1, await observer.ActivityLogs.CountAsync(
+            row => row.EntityType == "events"
+                && row.EntityId == published.EventId
+                && row.Action == AuditActions.EventCheckInOpened, ct));
     }
 
     private sealed class FixedClock(DateTime now) : TimeProvider
