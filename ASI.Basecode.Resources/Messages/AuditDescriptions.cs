@@ -33,6 +33,7 @@ public static class AuditDescriptions
         AuditActions.MemberEdited => Templates.GetString("MemberEdited") ?? throw new InvalidOperationException("Missing audit template."),
         AuditActions.MemberStudentNumberCorrected => Templates.GetString("MemberStudentNumberCorrected") ?? throw new InvalidOperationException("Missing audit template."),
         AuditActions.MemberMembershipDeactivated => Templates.GetString("MemberMembershipDeactivated") ?? throw new InvalidOperationException("Missing audit template."),
+        AuditActions.MemberMembershipReactivated => Templates.GetString("MemberMembershipReactivated") ?? throw new InvalidOperationException("Missing audit template."),
         _ => throw new ArgumentException("Unsupported audit action.", nameof(action))
     };
 }

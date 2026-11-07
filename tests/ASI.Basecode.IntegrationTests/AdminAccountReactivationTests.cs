@@ -10,7 +10,6 @@ using ASI.Basecode.Resources;
 using ASI.Basecode.Resources.Constants;
 using ASI.Basecode.Services.Interfaces;
 using ASI.Basecode.Services.Services;
-using ASI.Basecode.WebApp.DemoData;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
@@ -229,7 +228,6 @@ public sealed class AdminAccountReactivationTests : IClassFixture<SqlServerDatab
         {
             var commands = scope.ServiceProvider.GetRequiredService<IAccountAccessCommands>();
             Assert.IsType<AccountAccessService>(commands);
-            Assert.IsType<DemoAccessStateOverlay>(scope.ServiceProvider.GetRequiredService<IAccessStateOverlay>());
         }
 
         await MemberEventTestSupport.SignInAsync(demoClient, actor.UserId, password, ct);

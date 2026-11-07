@@ -10,7 +10,6 @@ using ASI.Basecode.Resources;
 using ASI.Basecode.Resources.Constants;
 using ASI.Basecode.Services.Interfaces;
 using ASI.Basecode.Services.Services;
-using ASI.Basecode.WebApp.DemoData;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
@@ -266,7 +265,7 @@ public sealed class AdminMembershipDeactivationTests : IClassFixture<SqlServerDa
     }
 
     [Fact]
-    public async Task DemoSwitchOnWritesSqlClearsTheStoreAndShowsTheInactiveBadge()
+    public async Task DemoSwitchOnUsesTheRealCommandAndShowsTheInactiveBadge()
     {
         var ct = TestContext.Current.CancellationToken;
         var actor = await SeedUserAsync(RoleCode.Admin, "demo-deactivate-actor", ct);
@@ -291,13 +290,7 @@ public sealed class AdminMembershipDeactivationTests : IClassFixture<SqlServerDa
 
         using (var scope = demoHost.Services.CreateScope())
         {
-            Assert.IsType<DemoMembershipAccessCommands>(scope.ServiceProvider.GetRequiredService<IMembershipAccessCommands>());
-            Assert.IsType<DemoAccessStateOverlay>(scope.ServiceProvider.GetRequiredService<IAccessStateOverlay>());
-
-            // Stands in for a demo reactivation: the store says active while the real row is active.
-            // A real deactivation must win and clear the entry, or the overlay would mask it.
-            scope.ServiceProvider.GetRequiredService<DemoStore>()
-                .SetMembershipStatus(member.MemberId, MembershipStatusCode.Active, "Earlier demo reactivation.", DateTime.UtcNow);
+            Assert.IsType<MembershipAccessService>(scope.ServiceProvider.GetRequiredService<IMembershipAccessCommands>());
         }
 
         await MemberEventTestSupport.SignInAsync(demoClient, actor.UserId, password, ct);
@@ -318,11 +311,6 @@ public sealed class AdminMembershipDeactivationTests : IClassFixture<SqlServerDa
                 .SingleAsync(item => item.RegistrationId == registration.RegistrationId, ct);
             Assert.Equal(RegistrationStatusCode.Cancelled, registrationAfter.RegistrationStatusId);
             Assert.Null(registrationAfter.QrToken);
-        }
-
-        using (var scope = demoHost.Services.CreateScope())
-        {
-            Assert.False(scope.ServiceProvider.GetRequiredService<DemoStore>().TryGetMembershipStatus(member.MemberId, out _));
         }
 
         var page = await demoClient.GetStringAsync($"/Member?search={Uri.EscapeDataString(member.StudentNumber)}", ct);

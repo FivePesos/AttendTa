@@ -14,14 +14,14 @@ namespace ASI.Basecode.Services.Services;
 /// Management membership access commands. Deactivation runs in one transaction that locks the
 /// member's <c>users</c> row, marks <c>members.membership_status_id</c> inactive, cancels the
 /// member's upcoming registrations through the shared cancellation service and records one
-/// <c>member.membership_deactivated</c> audit row. It never takes the last-administrator
-/// application lock and never changes <c>users.is_active</c>: membership eligibility is separate
-/// from login access. Reactivation is still demo-only and refuses until 5.7.
+/// <c>member.membership_deactivated</c> audit row. Reactivation runs in one transaction that locks
+/// the <c>users</c> row, restores eligibility only and records one
+/// <c>member.membership_reactivated</c> audit row. Neither takes the last-administrator application
+/// lock or changes <c>users.is_active</c>: membership eligibility is separate from login access.
 /// </summary>
 public sealed class MembershipAccessService : IMembershipAccessCommands
 {
     private const int ReasonMaxLength = 1000;
-    private const string NotAvailableMessage = "This action is not available on this deployment.";
 
     private readonly IMemberRepository _memberRepository;
     private readonly IUserRepository _userRepository;
@@ -104,8 +104,55 @@ public sealed class MembershipAccessService : IMembershipAccessCommands
     }
 
     /// <inheritdoc />
-    public Task ReactivateAsync(int memberId, string reason, CancellationToken cancellationToken = default) =>
-        Task.FromException(new DomainException(OutcomeCode.Invalid, NotAvailableMessage));
+    public async Task ReactivateAsync(int memberId, string reason, CancellationToken cancellationToken = default)
+    {
+        var actorUserId = RequireManagementActor();
+        var normalizedReason = RequiredReason(reason);
+
+        await _unitOfWork.ExecuteInTransactionAsync(async ct =>
+        {
+            var memberRecord = _memberRepository.GetMemberRecord(memberId);
+            if (memberRecord is null)
+            {
+                throw new DomainException(OutcomeCode.NotFound, "Member not found.");
+            }
+
+            // AD-4 makes the users row the serialization point that also protects the member row.
+            var user = await _userRepository.LockUserAsync(memberRecord.UserId, ct);
+            if (user is null)
+            {
+                throw new DomainException(OutcomeCode.NotFound, "Member not found.");
+            }
+
+            var member = _memberRepository.GetMember(memberId);
+            if (member is null)
+            {
+                throw new DomainException(OutcomeCode.NotFound, "Member not found.");
+            }
+
+            if (member.MembershipStatusId == MembershipStatusCode.Active)
+            {
+                throw new DomainException(OutcomeCode.Invalid, "This membership is already active.");
+            }
+
+            var previousStatus = member.MembershipStatusId;
+            member.MembershipStatusId = MembershipStatusCode.Active;
+            member.UpdatedBy = actorUserId;
+            member.UpdatedAt = _timeProvider.GetUtcNow().UtcDateTime;
+            await _memberRepository.UpdateMemberAsync(member, ct);
+            await _unitOfWork.SaveChangesAsync(ct);
+
+            _activityLogWriter.Append(new AuditEntry(
+                AuditActions.MemberMembershipReactivated,
+                "members",
+                member.MemberId,
+                Reason: normalizedReason,
+                OldValues: new MembershipStatusAuditValues(previousStatus.ToString()),
+                NewValues: new MembershipStatusAuditValues(MembershipStatusCode.Active.ToString())));
+
+            await _unitOfWork.SaveChangesAsync(ct);
+        }, cancellationToken);
+    }
 
     private static string RequiredReason(string reason)
     {

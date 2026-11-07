@@ -26,4 +26,5 @@ public static class AuditActions
     public const string MemberEdited = "member.edited";
     public const string MemberStudentNumberCorrected = "member.student_number_corrected";
     public const string MemberMembershipDeactivated = "member.membership_deactivated";
+    public const string MemberMembershipReactivated = "member.membership_reactivated";
 }
