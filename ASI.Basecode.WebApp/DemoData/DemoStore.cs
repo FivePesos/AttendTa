@@ -26,7 +26,6 @@ public sealed class DemoStore
     private readonly Dictionary<int, DemoAttendance> _attendance = new();
     private readonly Dictionary<int, DemoCertificateReview> _reviews = new();
     private readonly Dictionary<int, DemoCertificateIssue> _issues = new();
-    private readonly Dictionary<int, DemoAccountStatus> _accounts = new();
     private readonly Dictionary<int, DemoMembershipStatus> _memberships = new();
 
     public DemoStore(IOptions<DemoDataOptions> options)
@@ -326,43 +325,7 @@ public sealed class DemoStore
         }
     }
 
-    // ---- Account and membership status (read by 5.11) -----------------------
-
-    public bool TryGetAccountStatus(int userId, out DemoAccountStatus status)
-    {
-        lock (_gate)
-        {
-            return _accounts.TryGetValue(userId, out status);
-        }
-    }
-
-    public DemoAccountStatus SetAccountActive(int userId, bool isActive, string reason, DateTime changedAt)
-    {
-        var trimmedReason = reason?.Trim();
-        if (string.IsNullOrWhiteSpace(trimmedReason))
-        {
-            throw new DomainException(OutcomeCode.Invalid, "A reason is required.", "reason");
-        }
-
-        lock (_gate)
-        {
-            var status = new DemoAccountStatus(userId, isActive, trimmedReason, changedAt);
-            _accounts[userId] = status;
-            return status;
-        }
-    }
-
-    /// <summary>
-    /// Drops a demo status entry once the real command wrote the authoritative state, so the overlay
-    /// stops masking the real row (5.4 removed M-14a; reactivation stays in the store for M-14b).
-    /// </summary>
-    public void ClearAccountStatus(int userId)
-    {
-        lock (_gate)
-        {
-            _accounts.Remove(userId);
-        }
-    }
+    // ---- Membership status (read by 5.11) -----------------------------------
 
     public bool TryGetMembershipStatus(int memberId, out DemoMembershipStatus status)
     {
@@ -421,9 +384,6 @@ public sealed record DemoCertificateIssue(
     CertificatePdfSnapshot Snapshot = null,
     byte[] Pdf = null,
     int? IssuedBy = null);
-
-/// <summary>A demo account status keyed by the real user id.</summary>
-public sealed record DemoAccountStatus(int UserId, bool IsActive, string Reason, DateTime ChangedAt);
 
 /// <summary>A demo membership status keyed by the real member id.</summary>
 public sealed record DemoMembershipStatus(int MemberId, MembershipStatusCode Status, string Reason, DateTime ChangedAt);
