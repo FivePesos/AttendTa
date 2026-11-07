@@ -142,7 +142,7 @@ public sealed class DemoSeedService : IHostedService
         }
 
         var valid = recorded.Where(registrationId => registrationId != invalidatedRegistrationId).ToList();
-        _store.EnsureCertificateReviews(eventId, startsAt.AddHours(2));
+        _store.SeedPendingReviewsForEvent(eventId, startsAt.AddHours(2));
 
         // A pending, a declined and an issued certificate, so every review state opens populated.
         if (valid.Count >= 1)

@@ -58,6 +58,10 @@ namespace ASI.Basecode.WebApp
             this._services.AddScoped<ParticipationReportService>();
             this._services.AddScoped<IParticipationReportService>(services => services.GetRequiredService<ParticipationReportService>());
 
+            // Event completion hooks (AD-2). The completion use case invokes every registration inside
+            // its transaction; each handler shares the caller's unit of work.
+            this._services.AddScoped<IEventCompletionHandler, CertificateReviewCompletionHandler>();
+
             // Repositories
             this._services.AddScoped<IUserRepository, UserRepository>();
             this._services.AddScoped<IAccountRequestRepository, AccountRequestRepository>();
@@ -69,6 +73,7 @@ namespace ASI.Basecode.WebApp
             this._services.AddScoped<IEventRepository, EventRepository>();
             this._services.AddScoped<IRegistrationRepository, RegistrationRepository>();
             this._services.AddScoped<IParticipationReportRepository, ParticipationReportRepository>();
+            this._services.AddScoped<ICertificateRepository, CertificateRepository>();
 
             // Shared server-local storage for private images, certificates and renderer files.
             this._services.AddScoped<IPrivateFileStore, PrivateFileStore>();
