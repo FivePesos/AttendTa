@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using System;
 using System.Threading.Tasks;
 
 namespace ASI.Basecode.WebApp.Controllers
@@ -57,11 +58,29 @@ namespace ASI.Basecode.WebApp.Controllers
         [Route("Member/Index")]
         public async Task<IActionResult> Index(string search, string status, int? page)
         {
-            var members = await _memberService.GetPageAsync(search, status, page, HttpContext.RequestAborted);
             ViewBag.Search = search;
             ViewBag.Status = status;
-            return View(_accessStateOverlay.Apply(members));
+
+            try
+            {
+                var members = await _memberService.GetPageAsync(search, status, page, HttpContext.RequestAborted);
+                return View(_accessStateOverlay.Apply(members));
+            }
+            catch (DomainException exception)
+            {
+                ViewData["ListError"] = exception.Message;
+                return View(EmptyPage());
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                _logger.LogWarning("Member list read failed ({ExceptionType}).", exception.GetType().Name);
+                ViewData["ListError"] = "The member list could not be loaded. Please try again.";
+                return View(EmptyPage());
+            }
         }
+
+        private static PagedResult<MemberViewModel> EmptyPage() =>
+            new PagedResult<MemberViewModel>(Array.Empty<MemberViewModel>(), 1, 0);
 
         [HttpGet]
         [Route("Member/{id:int}/access")]

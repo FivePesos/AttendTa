@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using System;
 using System.Threading.Tasks;
 
 namespace ASI.Basecode.WebApp.Controllers
@@ -49,10 +50,28 @@ namespace ASI.Basecode.WebApp.Controllers
         [Route("EventType/Index")]
         public async Task<IActionResult> Index(string status, int? page = null)
         {
-            var eventTypes = await _eventTypeService.GetPageAsync(status, page, HttpContext.RequestAborted);
             ViewBag.Status = status;
-            return View(eventTypes);
+
+            try
+            {
+                var eventTypes = await _eventTypeService.GetPageAsync(status, page, HttpContext.RequestAborted);
+                return View(eventTypes);
+            }
+            catch (DomainException exception)
+            {
+                ViewData["ListError"] = exception.Message;
+                return View(EmptyPage());
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                _logger.LogWarning("Event type list read failed ({ExceptionType}).", exception.GetType().Name);
+                ViewData["ListError"] = "The event type list could not be loaded. Please try again.";
+                return View(EmptyPage());
+            }
         }
+
+        private static PagedResult<EventTypeViewModel> EmptyPage() =>
+            new PagedResult<EventTypeViewModel>(Array.Empty<EventTypeViewModel>(), 1, 0);
 
         [HttpGet]
         public IActionResult Create()
