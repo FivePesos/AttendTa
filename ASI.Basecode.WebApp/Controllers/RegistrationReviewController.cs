@@ -36,11 +36,12 @@ public sealed class RegistrationReviewController(IHttpContextAccessor accessor, 
 
     private async Task<IActionResult> Decide(System.Func<Task> command, string status, int? eventId, int? page, string successMessage = "Registration updated.", int id = 0, string dialog = null, string reason = null)
     {
+        var dossier = eventId.HasValue && Request.Form["dossier"] == "true";
         try { await command(); TempData["SuccessMessage"] = successMessage; }
         catch (DomainException ex)
         {
             TempData["ErrorMessage"] = ex.Message;
-            if (eventId.HasValue)
+            if (dossier)
             {
                 TempData["DossierError"] = ex.Message;
                 TempData["DossierDialog"] = dialog;
@@ -48,7 +49,7 @@ public sealed class RegistrationReviewController(IHttpContextAccessor accessor, 
                 TempData["DossierReason"] = reason;
             }
         }
-        if (eventId.HasValue && Request.Form["dossier"] == "true") return RedirectToAction("Details", "Event", new { id = eventId, status, page });
+        if (dossier) return RedirectToAction("Details", "Event", new { id = eventId, status, page });
         return RedirectToAction(nameof(Index), new { status, eventId, page });
     }
 }

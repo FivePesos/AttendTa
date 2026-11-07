@@ -4,17 +4,19 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using ASI.Basecode.Data.Interfaces;
-using ASI.Basecode.Data.Models;
 using ASI.Basecode.Data.Models.Lookups;
 using ASI.Basecode.Services.Interfaces;
 using ASI.Basecode.Services.ServiceModels;
+using ASI.Basecode.Services.Services;
 
 namespace ASI.Basecode.WebApp.DemoData;
 
 /// <summary>
-/// Demo per-event participation report (register M-13a, M-13b and M-13c). It composes the existing
-/// event and registration reads and overlays the demo store's attendance and completion state; it
-/// never writes. 7.1, 7.2 and 7.3 replace the three parts behind the same contract.
+/// Demo overlay for the per-event participation report (register M-13b and M-13c). The real
+/// <see cref="ParticipationReportService"/> answers the 7.1 summary first; this provider then adds
+/// the still-open demo rows, breakdowns and no-shows, and keeps the demo store's effective Completed
+/// status and attendance-derived valid count and rate while M-05, M-07 and M-09 remain open. It
+/// never writes.
 /// </summary>
 public sealed class DemoParticipationReportService : IParticipationReportService
 {
@@ -28,54 +30,34 @@ public sealed class DemoParticipationReportService : IParticipationReportService
         RegistrationStatusCode.Cancelled
     };
 
-    private readonly IEventRepository _events;
+    private readonly ParticipationReportService _real;
     private readonly IRegistrationRepository _registrations;
     private readonly DemoStore _store;
 
     public DemoParticipationReportService(
-        IEventRepository events,
+        ParticipationReportService real,
         IRegistrationRepository registrations,
         DemoStore store)
     {
-        _events = events;
+        _real = real;
         _registrations = registrations;
         _store = store;
     }
 
     public async Task<ParticipationReportViewModel> GetReportAsync(int? eventId, int? page, CancellationToken cancellationToken = default)
     {
-        var totalEvents = await _events.CountAsync(cancellationToken);
-        var events = totalEvents == 0
-            ? Array.Empty<EventListItem>()
-            : await _events.GetPageAsync(0, totalEvents, cancellationToken);
-
-        var eventItem = eventId is int selectedId
-            ? await _events.GetEventAsync(selectedId, cancellationToken)
-            : null;
-
-        var selector = new EventSelectorViewModel
+        var report = await _real.GetReportAsync(eventId, page, cancellationToken);
+        if (report.EventId is not int selectedEventId)
         {
-            SelectedEventId = eventItem?.EventId,
-            Options = events.Select(row => new EventSelectorOption(row.EventId, row.Title)).ToList()
-        };
-
-        if (eventItem == null)
-        {
-            return new ParticipationReportViewModel { Selector = selector };
+            return report;
         }
-
-        // A demo-completed event is still Published in SQL; only the effective status changes.
-        var status = _store.IsCompleted(eventItem.EventId)
-            ? EventStatusCode.Completed
-            : eventItem.EventStatusId;
-        var isFinal = status == EventStatusCode.Completed;
 
         // One existing read per status so pending, waitlisted and cancelled rows are never dropped.
         var registrations = new List<RegistrationReviewRow>();
         foreach (var registrationStatus in Statuses)
         {
             registrations.AddRange(await _registrations.GetReviewQueueAsync(
-                registrationStatus, eventItem.EventId, 0, AllRows, cancellationToken));
+                registrationStatus, selectedEventId, 0, AllRows, cancellationToken));
         }
 
         var attendance = new Dictionary<int, DemoAttendance>();
@@ -92,8 +74,11 @@ public sealed class DemoParticipationReportService : IParticipationReportService
             .Where(row => attendance.TryGetValue(row.RegistrationId, out var record) && record.IsValid)
             .ToList();
 
-        var confirmedCount = confirmed.Count;
-        var validAttendeeCount = validAttendees.Count;
+        // A demo-completed event is still Published in SQL; only the effective status changes.
+        var status = _store.IsCompleted(selectedEventId)
+            ? EventStatusCode.Completed
+            : report.EventStatusId!.Value;
+        var isFinal = status == EventStatusCode.Completed;
 
         var ordered = registrations
             .OrderBy(row => row.MemberName, StringComparer.OrdinalIgnoreCase)
@@ -106,26 +91,32 @@ public sealed class DemoParticipationReportService : IParticipationReportService
             .Take(PageRequest.FixedPageSize)
             .ToList();
 
+        // Rule 12: while M-05 and M-07 are open, the demo store's attendance drives the valid count
+        // and rate whenever it holds attendance for the event; otherwise the real SQL facts stand.
+        var hasDemoAttendance = _store.GetAttendanceForEvent(selectedEventId).Count > 0;
+        var validAttendeeCount = hasDemoAttendance ? validAttendees.Count : report.ValidAttendeeCount;
+        var attendanceRate = hasDemoAttendance
+            ? report.ConfirmedCount == 0 ? null : (decimal)validAttendees.Count / report.ConfirmedCount
+            : report.AttendanceRate;
+
         return new ParticipationReportViewModel
         {
-            Selector = selector,
-            EventId = eventItem.EventId,
-            EventTitle = eventItem.Title,
-            StartsAt = eventItem.StartsAt,
+            Selector = report.Selector,
+            EventId = report.EventId,
+            EventTitle = report.EventTitle,
+            StartsAt = report.StartsAt,
             EventStatusId = status,
             EventStatusLabel = EventStatusDisplay.Label(status),
             EventStatusBadgeClass = EventStatusDisplay.BadgeClass(status),
             IsFinal = isFinal,
-            PendingCount = registrations.Count(row => row.Status == RegistrationStatusCode.Pending),
-            ConfirmedCount = confirmedCount,
-            WaitlistedCount = registrations.Count(row => row.Status == RegistrationStatusCode.Waitlisted),
-            CancelledCount = registrations.Count(row => row.Status == RegistrationStatusCode.Cancelled),
+            PendingCount = report.PendingCount,
+            ConfirmedCount = report.ConfirmedCount,
+            WaitlistedCount = report.WaitlistedCount,
+            CancelledCount = report.CancelledCount,
             ValidAttendeeCount = validAttendeeCount,
-            AttendanceRate = confirmedCount == 0
-                ? null
-                : Math.Round((decimal)validAttendeeCount / confirmedCount, 2, MidpointRounding.AwayFromZero),
+            AttendanceRate = attendanceRate,
             // No-shows are a completed-event fact; a cancelled event shows no figure at all.
-            NoShowCount = isFinal ? confirmedCount - validAttendeeCount : 0,
+            NoShowCount = isFinal ? report.ConfirmedCount - validAttendeeCount : 0,
             Rows = pageRows.Select(row => ToRow(row, attendance, isFinal)).ToList(),
             CourseBreakdown = CourseBreakdown(validAttendees),
             YearBreakdown = YearBreakdown(validAttendees),

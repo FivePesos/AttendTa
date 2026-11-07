@@ -5,6 +5,7 @@
         ? Url.Action("Index", "CheckIn", new { eventId = Model.EventId })
         : null;
     var manualActive = Model.Lookup.HasQuery;
+    var lastOutcome = ViewData["CheckInOutcome"] as CheckInOutcomeViewModel;
 }
 
 <div class="page-heading">
@@ -157,7 +158,33 @@ else
             }
         </div>
 
-        <div class="scanner-result" aria-live="polite" data-scan-result></div>
+        <div class="scanner-result" aria-live="polite" data-scan-result>
+            @if (lastOutcome != null)
+            {
+                <div class="scanner-outcome scanner-outcome-@lastOutcome.Outcome" role="@(lastOutcome.IsRecorded ? "status" : "alert")">
+                    <h3>@(lastOutcome.Outcome switch
+                        {
+                            CheckInOutcomeViewModel.Success => "Checked in",
+                            CheckInOutcomeViewModel.Repeat => "Already checked in",
+                            CheckInOutcomeViewModel.Closed => "Check-in closed",
+                            _ => "Not checked in"
+                        })</h3>
+                    @if (!string.IsNullOrWhiteSpace(lastOutcome.MemberName))
+                    {
+                        <p class="scanner-outcome-name">@lastOutcome.MemberName</p>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(lastOutcome.StudentNumber))
+                    {
+                        <p class="scanner-outcome-meta numeric">@lastOutcome.StudentNumber</p>
+                    }
+                    @if (lastOutcome.RecordedAt.HasValue)
+                    {
+                        <p class="scanner-outcome-meta">@ManilaTimeFormatter.Format(lastOutcome.RecordedAt)</p>
+                    }
+                    <p>@lastOutcome.Message</p>
+                </div>
+            }
+        </div>
     </section>
 
     <section class="panel" aria-labelledby="scanner-log-heading">
