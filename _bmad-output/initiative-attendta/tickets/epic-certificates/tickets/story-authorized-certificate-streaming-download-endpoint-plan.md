@@ -101,8 +101,8 @@ context:
   `Issue`, and `[Authorize]` on `Pdf`.
 - The seeded issued row has no retained file, so its officer viewer/PDF is now a controlled 404.
   `DemoStore` and `DemoCertificateDocuments` remain for M-12 member history until 6.9.
-- The register row was set to `removed`; the commit sha is recorded in the follow-up docs commit
-  (the same pattern M-08 used), because the builder does not create commits.
+- The register row is set to `removed (124ef29)` in the follow-up docs commit, matching the 6.7
+  pattern.
 - Step-03 matrix audit added two focused assertions to `CertificateLedgerFlowTests`: an inactive
   membership still downloads (200) and an inactive account is redirected to sign-in (302). Both
   passed in the 26-test filtered run.
@@ -115,7 +115,7 @@ context:
 
 | Finding | Verdict | Route | Evidence / action |
 |---|---|---|---|
-| `demo-mock-register.md:97` — M-11b is `removed` without the removing commit, against register rule 11 | low | patch | Verified: every other removed row carries a sha. The implementation commit is created after the review, then the row is set to `removed (<sha>)` in the follow-up docs commit, as 6.7 did for M-11a. |
+| `demo-mock-register.md:97` — M-11b is `removed` without the removing commit, against register rule 11 | low | patch | Verified: every other removed row carries a sha. Set to `removed (124ef29)` in the follow-up docs commit, as 6.7 did for M-11a. |
 | `demo-mock-register.md:97` — the M-11b Surface column still describes the deleted in-memory fallback | low | patch | Verified: the row text names the seeded in-memory document that 6.8 deleted. Reword to the real authorized retained-file retrieval. |
 | `CertificateReviewDecisionTests.cs:216-235` — the test never resolves the ledger from a switch-on host | false | — | The bare `ServiceCollection` proves the demo registration adds no `ICertificateLedgerService` descriptor, and the host proves the real registration; with no switch-on branch in `DemoCertificatesRegistration`, a second host would resolve the same descriptor. |
 | `CertificateLedgerFlowTests.cs:56,264` — the anonymous and inactive-account assertions check only 302, not the sign-in target | low | patch | Verified: `AllowAutoRedirect = false` and `LocationPath` is already used for the AccessDenied check. Assert the sign-in path for both. |
