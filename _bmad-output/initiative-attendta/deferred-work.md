@@ -24,6 +24,16 @@
 - source_plan: `_bmad-output/initiative-attendta/tickets/epic-check-in/tickets/story-member-attendance-view-on-my-events-plan.md`
   summary: `MyEventsController.Attendance` (and `Registrations`) lacks the `ResponseCache(NoStore)` attribute that the sibling `Certificates` action carries.
   evidence: `docs/CODING_STANDARDS.md` §5 asks sensitive responses to use the agreed no-store policy, and `Certificates` sets `NoStore = true` while `Attendance` and `Registrations` do not. The gap predates 4.7 and the approved intent freezes the controller action, so it is recorded rather than patched; no cache leak was demonstrated.
+
+## Deferred from: code review of story-transactional-certificate-issuance-pipeline-and-audit-plan (2026-11-07)
+
+- source_plan: `_bmad-output/initiative-attendta/tickets/epic-certificates/tickets/story-transactional-certificate-issuance-pipeline-and-audit-plan.md`
+  summary: With demo data off, an issued certificate cannot be viewed or downloaded until 6.8.
+  status: deferred
+  evidence: `CertificateLedgerService.GetViewerAsync` and `GetPdfAsync` still refuse as not-found, so 6.7 can issue a certificate that no non-demo user can open. The demo provider serves the retained file, so the demo is unaffected. Accepted by the project owner because 6.8 is the next integration ticket and implements the real owner-or-Management viewer/PDF.
+
+## Deferred from: code review of story-refactor-sweep-plan (2026-11-07)
+
 - source_plan: `_bmad-output/initiative-attendta/tickets/epic-events-registration/tickets/story-refactor-sweep-plan.md`
   summary: `ParticipationFacts.PublishableEventIds` builds a correlated projection (`venueIds` selects `eventItem.EventId` from a `Venue`-typed lambda) that is correct only because the keys are unique FKs, and it carries no comment.
   evidence: Code review of PR #204 (2026-11-07). The body is unchanged context in that diff — only the pass-through wrapper was removed — so the readability hazard predates the sweep and was deferred rather than patched.

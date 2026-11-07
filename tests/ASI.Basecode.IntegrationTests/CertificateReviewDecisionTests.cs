@@ -249,7 +249,9 @@ public sealed class CertificateReviewDecisionTests(SqlServerDatabaseFixture fixt
             unitOfWork,
             actor,
             new ActivityLogWriter(context, actor, clock),
-            clock);
+            clock,
+            new UnusedPdfRenderer(),
+            new UnusedPrivateFileStore());
     }
 
     private async Task<Setup> SeedAsync(
@@ -365,5 +367,20 @@ public sealed class CertificateReviewDecisionTests(SqlServerDatabaseFixture fixt
         public bool IsAuthenticated => true;
         public int UserId => userId;
         public string Role => role;
+    }
+
+    private sealed class UnusedPdfRenderer : ICertificatePdfRenderer
+    {
+        public Task<byte[]> RenderSampleAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<byte[]> RenderSnapshotAsync(CertificatePdfSnapshot snapshot, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+    }
+
+    private sealed class UnusedPrivateFileStore : IPrivateFileStore
+    {
+        public Task<string> SaveAsync(PrivateFileArea area, Stream content, string extension, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public string CreateTemporaryPath(string extension) => throw new NotSupportedException();
+        public Task<string> PromoteAsync(string temporaryPath, PrivateFileArea area, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<Stream> OpenReadAsync(string relativePath, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public void Delete(string relativePath) => throw new NotSupportedException();
     }
 }
