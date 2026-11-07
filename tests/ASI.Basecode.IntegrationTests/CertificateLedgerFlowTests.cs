@@ -15,7 +15,7 @@ namespace ASI.Basecode.IntegrationTests;
 public sealed class CertificateLedgerFlowTests(SqlServerDatabaseFixture fixture) : IClassFixture<SqlServerDatabaseFixture>
 {
     [Fact]
-    public async Task OfficerCanReviewIssueAndViewWithRealRendererWithoutPersistingCertificateRows()
+    public async Task OfficerCanReviewIssueAndDownloadTheRetainedCertificateWithAnAuditRow()
     {
         var ct = TestContext.Current.CancellationToken;
         var password = Convert.ToHexString(RandomNumberGenerator.GetBytes(32)) + "aA1!";
@@ -26,10 +26,12 @@ public sealed class CertificateLedgerFlowTests(SqlServerDatabaseFixture fixture)
         var eventItem = await MemberEventTestSupport.SeedEventAsync(fixture.ConnectionString, officer.Id, type, venue,
             EventStatusCode.Published, startsAt, startsAt.AddDays(-1), 20, null, "Campus Leadership Summit", ct);
         var registrationIds = new List<int>();
+        var memberEmails = new List<string>();
         var memberEmail = "";
         for (var index = 1; index <= 5; index++)
         {
             memberEmail = $"ledger-member-{Guid.NewGuid():N}@attendta.test";
+            memberEmails.Add(memberEmail);
             var user = await MemberEventTestSupport.SeedUserAsync(fixture.ConnectionString, memberEmail, password, RoleCode.Member, ct);
             await using (var context = MemberEventTestSupport.Context(fixture.ConnectionString))
             {
@@ -80,7 +82,6 @@ public sealed class CertificateLedgerFlowTests(SqlServerDatabaseFixture fixture)
         Assert.Contains("Decline reason", html, StringComparison.Ordinal);
         Assert.DoesNotMatch("(?i)demo|mock|prototype|simulated|fixture", html);
         var token = await MemberEventTestSupport.AntiforgeryTokenAsync(client, "/Certificates", ct);
-        var store = enabled.Services.GetRequiredService<DemoStore>();
 
         using var playwright = await Playwright.CreateAsync();
         await using var browser = await playwright.Chromium.LaunchAsync(new() { Headless = true });
@@ -146,12 +147,24 @@ public sealed class CertificateLedgerFlowTests(SqlServerDatabaseFixture fixture)
         await PostAsync("Approve", registrationIds[1]);
         Assert.Contains("already been decided", await client.GetStringAsync("/Certificates", ct), StringComparison.Ordinal);
         await PostAsync("Issue", registrationIds[3]);
-        Assert.False(store.IsCertificateIssued(registrationIds[3]));
+        await using (var refused = MemberEventTestSupport.Context(fixture.ConnectionString))
+        {
+            var declined = await refused.Certificates.AsNoTracking()
+                .SingleAsync(row => row.RegistrationId == registrationIds[3], ct);
+            Assert.Equal(CertificateStatusCode.NotEligible, declined.CertificateStatusId);
+            Assert.Null(declined.FilePath);
+        }
         await page.Locator($"[data-certificate-open='issue-certificate'][data-id='{registrationIds[1]}']").ClickAsync();
         await page.ScreenshotAsync(new() { Path = Path.Combine(Path.GetTempPath(), "attendta-6-12-issue-desktop.png") });
         await page.Locator("#issue-certificate button[type='submit']").ClickAsync();
         await page.GetByText("Certificate issued. View it in the Issued Registry.", new() { Exact = true }).WaitForAsync();
-        Assert.True(store.IsCertificateIssued(registrationIds[1]));
+        await using (var issuedCheck = MemberEventTestSupport.Context(fixture.ConnectionString))
+        {
+            var issued = await issuedCheck.Certificates.AsNoTracking()
+                .SingleAsync(row => row.RegistrationId == registrationIds[1], ct);
+            Assert.Equal(CertificateStatusCode.Issued, issued.CertificateStatusId);
+            Assert.StartsWith("certificates/", issued.FilePath, StringComparison.Ordinal);
+        }
         var registry = await client.GetStringAsync("/Certificates?tab=issued", ct);
         Assert.Contains("Participant 2", registry, StringComparison.Ordinal);
         var viewer = await client.GetStringAsync($"/Certificates/Viewer/{registrationIds[1]}", ct);
@@ -165,6 +178,26 @@ public sealed class CertificateLedgerFlowTests(SqlServerDatabaseFixture fixture)
         Assert.Equal("attachment", download.Content.Headers.ContentDisposition!.DispositionType);
         Assert.Equal(await pdf.Content.ReadAsByteArrayAsync(ct), await download.Content.ReadAsByteArrayAsync(ct));
         Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"/Certificates/Pdf/{registrationIds[3]}", ct)).StatusCode);
+
+        // The seeded issued row has no retained file; its officer viewer and PDF must still work
+        // through the in-memory document fallback (M-11b, removed by 6.8).
+        var seededViewer = await client.GetStringAsync($"/Certificates/Viewer/{registrationIds[0]}", ct);
+        Assert.Contains("Download PDF", seededViewer, StringComparison.Ordinal);
+        var seededPdf = await client.GetAsync($"/Certificates/Pdf/{registrationIds[0]}", ct);
+        Assert.Equal(HttpStatusCode.OK, seededPdf.StatusCode);
+        Assert.StartsWith("%PDF-",
+            System.Text.Encoding.ASCII.GetString(await seededPdf.Content.ReadAsByteArrayAsync(ct)), StringComparison.Ordinal);
+
+        // The member history was handed over to the real issued row and its retained file.
+        using var ownerClient = enabled.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        await MemberEventTestSupport.SignInAsync(ownerClient, memberEmails[1], password, ct);
+        var memberHistory = await ownerClient.GetStringAsync("/MyEvents/Certificates", ct);
+        Assert.Contains($"AT-2026-{registrationIds[1]:D6}", memberHistory, StringComparison.Ordinal);
+        var memberPdf = await ownerClient.GetAsync($"/MyEvents/Certificates/{registrationIds[1]}/Pdf", ct);
+        Assert.Equal(HttpStatusCode.OK, memberPdf.StatusCode);
+        Assert.StartsWith("%PDF-",
+            System.Text.Encoding.ASCII.GetString(await memberPdf.Content.ReadAsByteArrayAsync(ct)), StringComparison.Ordinal);
+
         await page.SetViewportSizeAsync(390, 900);
         await page.GotoAsync($"http://localhost/Certificates/Viewer/{registrationIds[1]}");
         await page.ScreenshotAsync(new() { Path = Path.Combine(Path.GetTempPath(), "attendta-6-12-certificate-viewer-phone.png"), FullPage = true });
@@ -174,8 +207,9 @@ public sealed class CertificateLedgerFlowTests(SqlServerDatabaseFixture fixture)
         // add and the decisions update the seeded rows in SQL.
         var certificates = await observer.Certificates.AsNoTracking().ToListAsync(ct);
         Assert.Equal(registrationIds.Count, certificates.Count);
-        Assert.Equal(CertificateStatusCode.Issued,
-            certificates.Single(row => row.RegistrationId == registrationIds[1]).CertificateStatusId);
+        var issuedCertificate = certificates.Single(row => row.RegistrationId == registrationIds[1]);
+        Assert.Equal(CertificateStatusCode.Issued, issuedCertificate.CertificateStatusId);
+        Assert.StartsWith("certificates/", issuedCertificate.FilePath, StringComparison.Ordinal);
         Assert.Equal(CertificateStatusCode.NotEligible,
             certificates.Single(row => row.RegistrationId == registrationIds[3]).CertificateStatusId);
         var logs = await observer.ActivityLogs.AsNoTracking().ToListAsync(ct);
@@ -183,8 +217,21 @@ public sealed class CertificateLedgerFlowTests(SqlServerDatabaseFixture fixture)
         Assert.Equal(eventItem.EventId, completion.EntityId);
         Assert.Single(logs, row => row.Action == AuditActions.CertificateApproved);
         Assert.Single(logs, row => row.Action == AuditActions.CertificateDeclined);
-        Assert.False(Directory.Exists(Path.Combine(factory.SetupRoot, "certificates"))
-            && Directory.EnumerateFiles(Path.Combine(factory.SetupRoot, "certificates"), "*", SearchOption.AllDirectories).Any());
+        var issuance = Assert.Single(logs, row => row.Action == AuditActions.CertificateIssued);
+        Assert.Equal(issuedCertificate.CertificateId, issuance.EntityId);
+        Assert.DoesNotContain("path", issuance.NewValues!, StringComparison.OrdinalIgnoreCase);
+        var certificateDirectory = Path.Combine(factory.SetupRoot, "certificates");
+        var certificateFiles = Directory.Exists(certificateDirectory)
+            ? Directory.GetFiles(certificateDirectory, "*", SearchOption.AllDirectories)
+            : Array.Empty<string>();
+        var retained = Assert.Single(certificateFiles);
+        Assert.StartsWith("%PDF-",
+            System.Text.Encoding.ASCII.GetString(await File.ReadAllBytesAsync(retained, ct)), StringComparison.Ordinal);
+
+        // A retained file missing on disk is a controlled not-found, not an unhandled 500.
+        File.Delete(retained);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"/Certificates/Pdf/{registrationIds[1]}", ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await ownerClient.GetAsync($"/MyEvents/Certificates/{registrationIds[1]}/Pdf", ct)).StatusCode);
         Assert.Equal(EventStatusCode.Completed, (await observer.Events.SingleAsync(row => row.EventId == eventItem.EventId, ct)).EventStatusId);
 
         async Task PostAsync(string action, int id, string reason = "")

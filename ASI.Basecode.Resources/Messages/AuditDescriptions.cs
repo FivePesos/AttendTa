@@ -40,6 +40,7 @@ public static class AuditDescriptions
         AuditActions.AttendanceInvalidated => Templates.GetString("AttendanceInvalidated") ?? throw new InvalidOperationException("Missing audit template."),
         AuditActions.CertificateApproved => Templates.GetString("CertificateApproved") ?? throw new InvalidOperationException("Missing audit template."),
         AuditActions.CertificateDeclined => Templates.GetString("CertificateDeclined") ?? throw new InvalidOperationException("Missing audit template."),
+        AuditActions.CertificateIssued => Templates.GetString("CertificateIssued") ?? throw new InvalidOperationException("Missing audit template."),
         _ => throw new ArgumentException("Unsupported audit action.", nameof(action))
     };
 }

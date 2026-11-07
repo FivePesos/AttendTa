@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using ASI.Basecode.Data.Interfaces;
+using ASI.Basecode.Data.Models;
 using ASI.Basecode.Data.Models.Lookups;
 using ASI.Basecode.Resources;
 using ASI.Basecode.Resources.Constants;
@@ -12,11 +14,12 @@ using ASI.Basecode.Services.ServiceModels;
 
 namespace ASI.Basecode.WebApp.DemoData;
 
-// M-12: replaced by 6.9's owner query. Reviews are the real SQL rows; the store only overlays the
-// still-demo issued document (M-11a/M-11b).
+// M-12: replaced by 6.9's owner query. Reviews are the real SQL rows; after 6.7 an issued row reads
+// its retained file_path, and only the seeded issued row falls back to the in-memory document.
 public sealed class DemoMyCertificatesService(
     IRegistrationRepository registrations, IEventRepository events, ICertificateRepository certificates,
-    DemoStore store, DemoCertificateDocuments documents, ICurrentActor actor) : IMyCertificatesService
+    IPrivateFileStore files, DemoStore store, DemoCertificateDocuments documents, ICurrentActor actor)
+    : IMyCertificatesService
 {
     public async Task<PagedResult<MyEventCertificateRowViewModel>> GetPageAsync(int? page, CancellationToken cancellationToken = default)
     {
@@ -41,7 +44,8 @@ public sealed class DemoMyCertificatesService(
                     CertificateStatusCode.Issued => MyCertificateState.Issued,
                     _ => MyCertificateState.Unavailable
                 };
-                var hasDocument = state == MyCertificateState.Issued && issue?.Snapshot != null;
+                var hasRetainedFile = review is not null && !string.IsNullOrWhiteSpace(review.FilePath);
+                var hasDocument = state == MyCertificateState.Issued && (hasRetainedFile || issue?.Snapshot != null);
                 if (state == MyCertificateState.Issued && !hasDocument) state = MyCertificateState.Unavailable;
                 if (issue?.Snapshot != null)
                 {
@@ -53,13 +57,13 @@ public sealed class DemoMyCertificatesService(
                 {
                     CertificateId = registration.RegistrationId,
                     EventId = eventRow.EventId,
-                    EventTitle = issue?.Snapshot?.EventTitle ?? eventRow.Title,
-                    StartsAt = issue?.Snapshot?.EventStartsAt ?? eventRow.StartsAt,
+                    EventTitle = review?.EventTitleSnapshot ?? issue?.Snapshot?.EventTitle ?? eventRow.Title,
+                    StartsAt = review?.EventStartsAtSnapshot ?? issue?.Snapshot?.EventStartsAt ?? eventRow.StartsAt,
                     State = state,
                     Reason = review?.ReviewNotes,
                     HasDocument = hasDocument,
-                    CertificateNumber = issue?.CertificateNumber,
-                    IssuedAt = issue?.IssuedAt
+                    CertificateNumber = review?.CertificateNumber ?? issue?.CertificateNumber,
+                    IssuedAt = review?.IssuedAt ?? issue?.IssuedAt
                 });
             }
         }
@@ -75,12 +79,41 @@ public sealed class DemoMyCertificatesService(
         RequireMember();
         // Reload the real owner for each request; ids and hidden/disabled links grant no access.
         var identity = await registrations.DiscoverReviewAsync(certificateId, cancellationToken);
-        if (identity == null || identity.UserId != actor.UserId
-            || !store.TryGetIssuedCertificate(certificateId, out var issue)
-            || issue.EventId != identity.EventId || issue.Snapshot == null)
+        if (identity == null || identity.UserId != actor.UserId)
             throw new DomainException(OutcomeCode.NotFound, "Certificate not found.");
+
+        var review = await certificates.GetByRegistrationIdAsync(certificateId, cancellationToken);
+        if (review is null || review.CertificateStatusId != CertificateStatusCode.Issued)
+            throw new DomainException(OutcomeCode.NotFound, "Certificate not found.");
+
+        // Issued rows read the retained file; only the seeded row falls back to the in-memory document.
+        if (!string.IsNullOrWhiteSpace(review.FilePath))
+        {
+            return await ReadRetainedAsync(review, cancellationToken);
+        }
+
+        if (!store.TryGetIssuedCertificate(certificateId, out var issue)
+            || issue.EventId != identity.EventId || issue.Snapshot == null)
+            throw NotFound();
         return await documents.GetPdfAsync(certificateId, cancellationToken);
     }
+
+    private async Task<CertificateDocument> ReadRetainedAsync(Certificate certificate, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await using var stream = await files.OpenReadAsync(certificate.FilePath, cancellationToken);
+            using var copy = new MemoryStream();
+            await stream.CopyToAsync(copy, cancellationToken);
+            return new CertificateDocument(copy.ToArray(), certificate.CertificateNumber);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidDataException)
+        {
+            throw NotFound();
+        }
+    }
+
+    private static DomainException NotFound() => new(OutcomeCode.NotFound, "Certificate not found.");
 
     private void RequireMember()
     {
