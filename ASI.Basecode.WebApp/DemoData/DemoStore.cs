@@ -124,8 +124,9 @@ public sealed class DemoStore
     /// <summary>
     /// Invalidates a seeded attendance with a reason. The app invalidates through the real
     /// <c>IAttendanceInvalidationService</c>; this helper only builds the start-up seed and the
-    /// demo tests. Refused when the registration's certificate is already issued; otherwise a
-    /// pending or approved review becomes not eligible with that reason.
+    /// demo tests. Refused when the registration's certificate is already issued. The review flip
+    /// is owned by the real <c>CertificateReviewInvalidationHandler</c> (6.5), so this helper only
+    /// stamps the attendance.
     /// </summary>
     public DemoAttendance InvalidateAttendance(int registrationId, string reason, DateTime invalidatedAt)
     {
@@ -149,18 +150,6 @@ public sealed class DemoStore
 
             var invalidated = record with { InvalidatedAt = invalidatedAt, InvalidationReason = trimmedReason };
             _attendance[registrationId] = invalidated;
-
-            if (_reviews.TryGetValue(registrationId, out var review)
-                && review.Status is CertificateStatusCode.PendingApproval or CertificateStatusCode.Eligible)
-            {
-                _reviews[registrationId] = review with
-                {
-                    Status = CertificateStatusCode.NotEligible,
-                    Reason = trimmedReason,
-                    UpdatedAt = invalidatedAt
-                };
-            }
-
             return invalidated;
         }
     }

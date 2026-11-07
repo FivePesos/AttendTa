@@ -134,9 +134,10 @@ in `ASI.Basecode.Services`.
 | Operator pass-token switch | `ASI.Basecode.WebApp/Program.cs` (`--demo-pass-token <registrationId>`) |
 
 **Store.** One singleton keyed by real ids: attendance by registration id, and certificate review and issue state. The check-in window is no longer store state after 4.2. `MarkCompleted` and `IsCompleted` remain only as the certificate-ledger demo and its M-10a test fixture; the app completes events through the real service. `InvalidateAttendance` requires a reason, is refused once a certificate is
-issued, and turns a pending or approved review not eligible with that reason. `GetPassToken` is
-the lowercase hex HMAC-SHA256 of the invariant registration id under `DemoData:TokenKey`; the
-`--demo-pass-token` switch prints the same value and writes nothing.
+issued, and only stamps the attendance; the real `CertificateReviewInvalidationHandler` turns a
+pending or approved review not eligible with that reason. `GetPassToken` is the lowercase hex
+HMAC-SHA256 of the invariant registration id under `DemoData:TokenKey`; the `--demo-pass-token`
+switch prints the same value and writes nothing.
 
 **Seeded starting state (for `demo-script.md`).** The seed composes `IEventRepository.GetPageAsync`
 and `IRegistrationRepository.GetReviewQueueAsync(Confirmed)`; it never writes.
@@ -302,8 +303,9 @@ published, completed or window closed). The manual lookup read the event's confi
 at 500), filtered by name or student number in memory, and paged at 25; the explicit Check in recorded
 `student_number` when the query equals the student number, otherwise `manual_search`. Invalidation
 requires a reason, checks that the registration belongs to the event, refuses an issued certificate,
-and leaves a pending or approved review not eligible with that reason. Searching or viewing never
-records. The manual lookup is real from 4.5; invalidation was the demo store until 4.6.
+and the real `CertificateReviewInvalidationHandler` leaves a pending or approved review not eligible
+with that reason. Searching or viewing never records. The manual lookup is real from 4.5; invalidation
+was the demo store until 4.6.
 
 **Scanner follow-up (#138, after PR #170).** Form-post scan and manual check-in results now
 survive the redirect as an event-scoped, server-rendered outcome panel (identity, student number,
