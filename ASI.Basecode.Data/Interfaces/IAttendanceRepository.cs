@@ -36,6 +36,22 @@ public interface IAttendanceRepository
     /// rows never match.
     /// </summary>
     Task<IReadOnlyList<int>> GetValidAttendedRegistrationIdsAsync(int eventId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Every attendance row of the event, ordered by registration id and uncapped, for the
+    /// participation report overlay. Each row carries its recorded time and invalidation state.
+    /// </summary>
+    Task<IReadOnlyList<EventAttendanceRow>> GetForEventAsync(int eventId, CancellationToken cancellationToken = default);
+}
+
+/// <summary>One attendance row of an event, keyed by its registration, for the report overlay.</summary>
+public sealed record EventAttendanceRow(
+    int RegistrationId,
+    DateTime RecordedAt,
+    DateTime? InvalidatedAt,
+    string InvalidationReason)
+{
+    public bool IsValid => InvalidatedAt is null;
 }
 
 /// <summary>One attendance row joined to its participant and certificate state for the scanner log.</summary>
