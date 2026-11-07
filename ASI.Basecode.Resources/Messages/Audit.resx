@@ -31,4 +31,5 @@
   <data name="RegistrationPromoted" xml:space="preserve"><value>Registration promoted from the waitlist.</value></data>
   <data name="RegistrationDeclined" xml:space="preserve"><value>Registration declined.</value></data>
   <data name="RegistrationAdminCancelled" xml:space="preserve"><value>Registration administratively cancelled.</value></data>
+  <data name="AttendanceRecorded" xml:space="preserve"><value>Attendance recorded.</value></data>
 </root>

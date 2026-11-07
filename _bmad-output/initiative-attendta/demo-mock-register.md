@@ -86,7 +86,7 @@ into lettered rows.
 | M-02 | My Events: all of a member's registrations across events, with status and cutoff labels | Cross-event owner query (only per-event and upcoming-only reads exist) | 3.17 | 3.13 | removed |
 | M-03 | Pass card QR image and PNG download (rule 10 token, QR drawn by a locally served browser library) | QR library, token read, authorized PNG endpoint | 4.10 | 4.1 | removed |
 | M-04 | Check-in window open/close command, the shared control partial, and the open flag overlaid on event reads (rule 7) | Open/close command | 1.14 | 4.2 | removed (7f6ae2218e6bc9e74611c610287b11ffa7f19ec4) |
-| M-05 | Check-in by scan: outcome (success, repeat, invalid, closed) and the attendance record | Validation engine and attendance write | 4.11 | 4.3 | open |
+| M-05 | Check-in by scan: outcome (success, repeat, invalid, closed) and the attendance record | Validation engine and attendance write | 4.11 | 4.3 | removed |
 | M-06 | Manual lookup of confirmed participants by name or student number, and manual check-in | Registration-scoped search and manual check-in | 4.11 | 4.5 | open |
 | M-07 | Attendance invalidation with reason, and its effect on the review (rule 8) | Invalidation command | 4.11 | 4.6 | open |
 | M-08 | Member attendance history | Owner-scoped attendance query | 4.12 | 4.7 | open |
@@ -287,24 +287,24 @@ The M-01 `--demo-pass-token` switch and `DemoStore.GetPassToken` remain until 8.
 | Lookup contract `ICheckInLookupService` (`SearchAsync`, `CheckInAsync`) | `ASI.Basecode.Services/Interfaces/ICheckInLookupService.cs` |
 | Invalidation contract `IAttendanceInvalidationService` | `ASI.Basecode.Services/Interfaces/IAttendanceInvalidationService.cs` |
 | Screen, outcome, lookup and log models | `ASI.Basecode.Services/ServiceModels/CheckInScreenViewModel.cs` |
-| Demo scan provider | `ASI.Basecode.WebApp/DemoData/DemoCheckInService.cs` |
+| Real scan provider (M-05 removed by 4.3) | `ASI.Basecode.Services/Services/CheckInService.cs`, `ASI.Basecode.Services/Services/AttendanceRecordingService.cs`, `ASI.Basecode.Data/Repositories/AttendanceRepository.cs` |
 | Demo lookup and manual check-in provider | `ASI.Basecode.WebApp/DemoData/DemoCheckInLookupService.cs` |
 | Demo invalidation provider | `ASI.Basecode.WebApp/DemoData/DemoAttendanceInvalidationService.cs` |
-| Switch-off providers | `UnavailableCheckInService.cs`, `UnavailableCheckInLookupService.cs`, `UnavailableAttendanceInvalidationService.cs` |
+| Switch-off providers | `UnavailableCheckInLookupService.cs`, `UnavailableAttendanceInvalidationService.cs` |
 | Check-in surface registration file | `ASI.Basecode.WebApp/DemoData/DemoCheckInRegistration.cs` |
 | Store additions | `DemoStore.GetAttendanceForEvent`, `DemoAttendance.MemberName`/`StudentNumber` |
 | Screen, adapters and decoder | `Controllers/CheckInController.cs`, `Views/CheckIn/Index.cshtml`, `wwwroot/js/features/scanner.js`, `scanner-camera.js`, `scanner-manual.js`, `wwwroot/lib/jsqr/jsQR.js` (Apache-2.0, 1.4.0) |
 
-**What it composes.** The screen reads the published event page, selects the first event with an
-open window, and reads the store's attendance for the log. A scan matches the rule-10 token of a
-confirmed registration of the event, reloads `IsConfirmedAsync`, and returns `success`, `repeat`
+**What it composed (4.11).** The demo screen read the published event page, selected the first event
+with an open window, and read the store's attendance for the log. A scan matched the rule-10 token of
+a confirmed registration of the event, reloaded `IsConfirmedAsync`, and returned `success`, `repeat`
 (the original time), `invalid` (unknown, wrong-event, cancelled or invalidated) or `closed` (not
 published, completed or window closed). The manual lookup reads the event's confirmed rows (bounded
 at 500), filters by name or student number in memory, and pages at 25; the explicit Check in records
 `student_number` when the query equals the student number, otherwise `manual_search`. Invalidation
 requires a reason, checks that the registration belongs to the event, refuses an issued certificate,
 and leaves a pending or approved review not eligible with that reason. Searching or viewing never
-records. Nothing writes SQL, a stored file or the Activity Log.
+records. The manual lookup and invalidation still write only the demo store until 4.5 and 4.6.
 
 **Scanner follow-up (#138, after PR #170).** Form-post scan and manual check-in results now
 survive the redirect as an event-scoped, server-rendered outcome panel (identity, student number,
@@ -313,9 +313,14 @@ stops streams from permission requests superseded by a mode change or page exit.
 text uses an explicit dark foreground on its white rows. M-05/M-06/M-07 retain the same contracts,
 providers, shared store and removal owners; these changes add no demo state or real writes.
 
-**Removal (4.3, 4.5, 4.6).** 4.3 replaces `ICheckInService`, 4.5 replaces
-`ICheckInLookupService`, and 4.6 replaces `IAttendanceInvalidationService`; each deletes its
-provider and its line in `DemoCheckInRegistration.cs`, and the screen keeps its shape.
+**Removal (4.3, 4.5, 4.6).** 4.3 replaced `ICheckInService` with the real `CheckInService` and the
+shared `AttendanceRecordingService`, deleted `DemoCheckInService` and `UnavailableCheckInService`, and
+removed their registration lines. A scan now writes one real `attendance` row plus one
+`attendance.recorded` audit row in the caller-owned transaction; the screen keeps its shape and reads
+the real recent log. 4.5 replaces `ICheckInLookupService` and 4.6 replaces
+`IAttendanceInvalidationService`; each deletes its provider and its line in
+`DemoCheckInRegistration.cs`, and the screen keeps its shape. M-10a is removed by 6.4's real
+completion hook, which creates reviews from real attendance.
 
 ## M-08 — demo seam detail (4.12)
 
@@ -492,7 +497,7 @@ than continuing to regenerate documents (register rule 12).
   `member.membership_deactivated`, while reactivation restores eligibility only and appends
   `member.membership_reactivated`. The linked account keeps signing in in both cases, and cancelled
   registrations stay Cancelled.
-- Check-ins, review decisions and issued certificates last only until the app restarts; passes
-  keep scanning.
+- Review decisions and issued certificates last only until the app restarts; check-ins are real SQL
+  rows and passes keep scanning.
 - A pass scanned in the demo is matched against the real `registrations.qr_token`, the same value
   the server-rendered PNG encodes, so a cancelled registration's cleared token stops scanning.
