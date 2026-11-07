@@ -8,7 +8,8 @@ namespace ASI.Basecode.WebApp.DemoData;
 /// The one demo registration method (register M-01; register rule 9). Called from
 /// <c>Startup.DI.cs</c> behind <c>DemoData:Enabled</c>; it calls one registration file per surface.
 /// With the switch off it registers the no-op providers so the controllers keep the same shape and
-/// the normal screens are untouched; the real account deactivation registered by DI stays in place.
+/// the normal screens are untouched; both account commands are the real service registered by DI,
+/// and only membership access has demo providers.
 /// </summary>
 internal static class DemoDataRegistration
 {
