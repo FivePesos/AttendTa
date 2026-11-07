@@ -98,8 +98,9 @@ public sealed class DemoStore
     }
 
     /// <summary>
-    /// Marks the event completed and closes its check-in window. This is only the M-10a/M-13b test
-    /// fixture now; the app completes events through the real <c>IEventLifecycleService</c>.
+    /// Marks the event completed and closes its check-in window. This is only the M-10a and
+    /// participation-report overlay test fixture now; the app completes events through the real
+    /// <c>IEventLifecycleService</c>.
     /// </summary>
     public void MarkCompleted(int eventId)
     {
