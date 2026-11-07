@@ -23,6 +23,20 @@ namespace ASI.Basecode.WebApp.Controllers
         private readonly IMembershipAccessCommands _membershipAccessCommands;
         private readonly IAccessStateOverlay _accessStateOverlay;
 
+        private bool IsRecordDialog => Request.Headers["X-Record-Dialog"] == "true";
+
+        private IActionResult Editor(MemberViewModel model)
+        {
+            return IsRecordDialog ? PartialView("_Editor", model) : View(model);
+        }
+
+        private IActionResult EditorError(DomainException exception, MemberViewModel model)
+        {
+            if (!IsRecordDialog) return HandleDomainException(exception, model, "Index");
+            ModelState.AddModelError(exception.Field ?? string.Empty, exception.Message);
+            return Editor(model);
+        }
+
         public MemberController(IHttpContextAccessor httpContextAccessor,
                                 ILoggerFactory loggerFactory,
                                 IConfiguration configuration,
@@ -105,10 +119,11 @@ namespace ASI.Basecode.WebApp.Controllers
             var model = _memberService.GetMember(id);
             if (model == null)
             {
+                if (IsRecordDialog) return NotFound();
                 return RedirectToAction("Index");
             }
 
-            return View(model);
+            return Editor(model);
         }
 
         [HttpPost]
@@ -117,19 +132,20 @@ namespace ASI.Basecode.WebApp.Controllers
             if (!ModelState.IsValid)
             {
                 RestoreCanonicalEmail(model);
-                return View(model);
+                return Editor(model);
             }
 
             try
             {
                 await _memberService.UpdateMemberAsync(model, HttpContext.RequestAborted);
                 TempData["SuccessMessage"] = "Member updated successfully.";
+                if (IsRecordDialog) return Json(new { saved = true });
                 return RedirectToAction("Index");
             }
             catch (DomainException ex)
             {
                 RestoreCanonicalEmail(model);
-                return HandleDomainException(ex, model, "Index");
+                return EditorError(ex, model);
             }
         }
 
