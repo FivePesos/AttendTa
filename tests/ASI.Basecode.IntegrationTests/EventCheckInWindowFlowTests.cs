@@ -130,6 +130,36 @@ public sealed class EventCheckInWindowFlowTests(SqlServerDatabaseFixture fixture
             row => row.EntityType == "events"
                 && row.EntityId == published.EventId
                 && row.Action == AuditActions.EventCheckInOpened, ct));
+
+        var openPage = await client.GetStringAsync("/Event", ct);
+        Assert.Contains("Check-in open", openPage, StringComparison.Ordinal);
+        Assert.Contains($"Opened by {officer.Name} &#xB7; ", openPage, StringComparison.Ordinal);
+
+        var closeToken = await MemberEventTestSupport.AntiforgeryTokenAsync(client, "/Event", ct);
+        using var closeResponse = await client.PostAsync("/Event/CloseCheckIn", new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["id"] = published.EventId.ToString(),
+            ["__RequestVerificationToken"] = closeToken
+        }), ct);
+
+        Assert.Equal(HttpStatusCode.Redirect, closeResponse.StatusCode);
+
+        var closedPage = await client.GetStringAsync("/Event", ct);
+        Assert.Contains("Check-in closed", closedPage, StringComparison.Ordinal);
+        Assert.Contains($"Closed by {officer.Name} &#xB7; ", closedPage, StringComparison.Ordinal);
+
+        await using var closedObserver = MemberEventTestSupport.Context(fixture.ConnectionString);
+        var closed = await closedObserver.Events.AsNoTracking()
+            .SingleAsync(row => row.EventId == published.EventId, ct);
+        Assert.False(closed.IsCheckInOpen);
+        Assert.Equal(officer.Id, closed.CheckInClosedBy);
+
+        var auditRows = await closedObserver.ActivityLogs.AsNoTracking()
+            .Where(row => row.EntityType == "events" && row.EntityId == published.EventId)
+            .ToListAsync(ct);
+        Assert.Equal(2, auditRows.Count);
+        Assert.Single(auditRows, row => row.Action == AuditActions.EventCheckInOpened);
+        Assert.Single(auditRows, row => row.Action == AuditActions.EventCheckInClosed);
     }
 
     private sealed class FixedClock(DateTime now) : TimeProvider
