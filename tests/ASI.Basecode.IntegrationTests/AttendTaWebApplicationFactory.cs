@@ -17,6 +17,10 @@ public sealed class AttendTaWebApplicationFactory : WebApplicationFactory<Progra
 
     public AttendTaWebApplicationFactory(string connectionString, string logLevel = "Warning", string environmentName = "Development")
     {
+        // Each host holds inotify instances for file watching, and the integration suite builds many
+        // hosts. Disabling configuration reload removes one watcher per host so the CI runner's small
+        // inotify budget is not exhausted.
+        Environment.SetEnvironmentVariable("DOTNET_hostBuilder__reloadConfigOnChange", "false");
         this.connectionString = connectionString;
         this.logLevel = logLevel;
         this.environmentName = environmentName;
