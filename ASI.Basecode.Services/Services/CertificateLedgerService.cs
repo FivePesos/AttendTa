@@ -53,8 +53,9 @@ public sealed class CertificateLedgerService(
     private const string ChangedMessage = "This review's certificate details changed. Reload the ledger and try again.";
     private const string RenderFailedMessage = "The certificate could not be rendered. Please try again.";
 
-    // A stored certificate key must stay inside the certificates area; the store derives the area
-    // from the key, so this prefix keeps a corrupt file_path from opening a venue or event image.
+    // A stored certificate key must stay inside the certificates area. The store's segment and
+    // descendant checks are the real containment barrier; this prefix is an area hint that refuses
+    // a corrupt file_path before the store is asked.
     private const string CertificateKeyPrefix = "certificates/";
 
     public async Task<CertificateLedgerViewModel> GetPageAsync(

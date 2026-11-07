@@ -206,6 +206,7 @@ public sealed class CertificateLedgerFlowTests(SqlServerDatabaseFixture fixture)
         var ownerPdf = await ownerClient.GetAsync($"/Certificates/Pdf/{registrationIds[1]}", ct);
         Assert.Equal(HttpStatusCode.OK, ownerPdf.StatusCode);
         Assert.Equal("application/pdf", ownerPdf.Content.Headers.ContentType!.MediaType);
+        Assert.True(ownerPdf.Headers.CacheControl!.NoStore);
         Assert.Equal(await pdf.Content.ReadAsByteArrayAsync(ct), await ownerPdf.Content.ReadAsByteArrayAsync(ct));
         var ownerDownload = await ownerClient.GetAsync($"/Certificates/Pdf/{registrationIds[1]}?download=true", ct);
         Assert.Equal("attachment", ownerDownload.Content.Headers.ContentDisposition!.DispositionType);
@@ -253,6 +254,24 @@ public sealed class CertificateLedgerFlowTests(SqlServerDatabaseFixture fixture)
         var retained = Assert.Single(certificateFiles);
         Assert.StartsWith("%PDF-",
             System.Text.Encoding.ASCII.GetString(await File.ReadAllBytesAsync(retained, ct)), StringComparison.Ordinal);
+
+        // A stored key outside certificates/ is refused by the service before the store is asked,
+        // so a corrupt file_path cannot open a venue or event image.
+        await using (var tampered = MemberEventTestSupport.Context(fixture.ConnectionString))
+        {
+            (await tampered.Certificates.SingleAsync(row => row.RegistrationId == registrationIds[1], ct)).FilePath =
+                "uploads/venues/not-a-certificate.png";
+            await tampered.SaveChangesAsync(ct);
+        }
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"/Certificates/Pdf/{registrationIds[1]}", ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await ownerClient.GetAsync($"/Certificates/Pdf/{registrationIds[1]}", ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"/Certificates/Viewer/{registrationIds[1]}", ct)).StatusCode);
+        await using (var restored = MemberEventTestSupport.Context(fixture.ConnectionString))
+        {
+            (await restored.Certificates.SingleAsync(row => row.RegistrationId == registrationIds[1], ct)).FilePath =
+                issuedCertificate.FilePath;
+            await restored.SaveChangesAsync(ct);
+        }
 
         // A retained file missing on disk is a controlled not-found, not an unhandled 500.
         File.Delete(retained);

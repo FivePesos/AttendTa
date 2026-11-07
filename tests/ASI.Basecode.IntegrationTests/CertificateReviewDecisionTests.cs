@@ -232,6 +232,13 @@ public sealed class CertificateReviewDecisionTests(SqlServerDatabaseFixture fixt
         Assert.Contains(services, descriptor =>
             descriptor.ServiceType == typeof(IMyCertificatesService)
             && descriptor.ImplementationType == typeof(DemoMyCertificatesService));
+
+        var unavailable = new ServiceCollection();
+        DemoCertificatesRegistration.AddCertificates(unavailable, enabled: false);
+        Assert.DoesNotContain(unavailable, descriptor => descriptor.ServiceType == typeof(ICertificateLedgerService));
+        Assert.Contains(unavailable, descriptor =>
+            descriptor.ServiceType == typeof(IMyCertificatesService)
+            && descriptor.ImplementationType == typeof(UnavailableMyCertificatesService));
     }
 
     private static CertificateLedgerService Service(

@@ -50,7 +50,7 @@ context:
 
 ## Code Map
 
-- `ASI.Basecode.Services/Services/CertificateLedgerService.cs:250-260` — replace the `GetViewerAsync`/`GetPdfAsync` stubs; `:487-514` — reuse `RequireManagement`/`NotFound`, add a document-access helper and a retained-file reader.
+- `ASI.Basecode.Services/Services/CertificateLedgerService.cs:256-284` — replace the `GetViewerAsync`/`GetPdfAsync` stubs; `:487-528` — reuse `RequireManagement`/`NotFound`, add a document-access helper and a retained-file reader.
 - `ASI.Basecode.Data/Interfaces/IRegistrationRepository.cs:78,94` — `DiscoverReviewAsync` returns `RegistrationReviewIdentity(UserId, MemberId, EventId)`; this is the owner check.
 - `ASI.Basecode.Data/Interfaces/ICertificateRepository.cs:28` — `GetByRegistrationIdAsync` returns the tracked row with `CertificateStatusId`, `FilePath`, snapshots and number.
 - `ASI.Basecode.Services/Interfaces/IPrivateFileStore.cs:29` — `OpenReadAsync`; `ASI.Basecode.WebApp/Storage/PrivateFileStore.cs:132-144,269-357` — area/segment/descendant/reparse containment and PDF signature.
@@ -144,3 +144,34 @@ context:
 
 **Manual checks:**
 - With `DemoData__Enabled=true`, complete the seeded event, issue a certificate, open the officer viewer and download; sign in as the owner and download `/Certificates/Pdf/{id}`; confirm a non-owner and the seeded row return 404 and the retained file is unchanged.
+
+## Code Review
+
+### 2026-11-08
+
+**Summary:** 0 high, 1 medium, 7 low — 8 patch, 0 defer, 0 decision-needed, 13 rejected. Lenses: blind-hunter, edge-case-hunter, verification-gap, intent-alignment; none failed.
+
+- [x] [Review][Patch] The `certificates/` key-prefix refusal is untested [ASI.Basecode.Services/Services/CertificateLedgerService.cs:497-504]
+- [x] [Review][Patch] `no-store` is not asserted on the owner PDF [tests/ASI.Basecode.IntegrationTests/CertificateLedgerFlowTests.cs:206]
+- [x] [Review][Patch] The prefix comment overstates what the service check does [ASI.Basecode.Services/Services/CertificateLedgerService.cs:55-58]
+- [x] [Review][Patch] Register Known limits omits the ledger's dead View PDF link [_bmad-output/initiative-attendta/demo-mock-register.md:542]
+- [x] [Review][Patch] `DemoSeedService` summary still implies a pre-existing issued row [ASI.Basecode.WebApp/DemoData/DemoSeedService.cs:21]
+- [x] [Review][Patch] Register M-12 row does not say it owns the last in-memory document path [_bmad-output/initiative-attendta/demo-mock-register.md:98]
+- [x] [Review][Patch] Plan Code Map line numbers are stale [story-authorized-certificate-streaming-download-endpoint-plan.md:53]
+- [x] [Review][Patch] The demo registration's switch-off branch is untested [tests/ASI.Basecode.IntegrationTests/CertificateReviewDecisionTests.cs:229]
+
+**Rejected**
+
+- `false` — Owner PDF route has no member UI: the plan forbids member-history rewiring and presentation changes; 6.9 rewires the partial.
+- `low` — Buffered, not streamed: the `CertificateDocument` byte[] contract is unchanged and the response is still `application/pdf`; fixing it changes a shared contract.
+- `false` — `NotSupportedException` not caught: `ValidateRelativeSegments` rejects `:`, `\` and rooted keys before `Path.GetFullPath`; no reachable input produces it.
+- `false` — `RequireManagement` returns an unused int: `:159` and `:175` consume the actor id.
+- `low` — Ownership check after the certificate read leaks timing: the response is identical and the intent's guarantee is about the response.
+- `false` — Triage log counts do not match the table: 8 low + 5 false = 13, matching the header.
+- `false` — `review_loop_iteration: 0` contradicts a non-empty triage log: the field counts loopbacks, not passes.
+- `low` — `DemoCertificateDocuments` redundant second lookup: M-12 is deleted by 6.9; folding it now is churn.
+- `false` — Comment claims `DemoCertificateDocuments` is switch-on only: the comment and the code agree.
+- `false` — `memberClient` signs in as the last loop member: `registrationIds[1]` belongs to `memberEmails[1]`, so the caller is a genuine non-owner.
+- `low` — `DemoMyCertificatesService` still has the old fallback and narrower catch: member-history rewiring is 6.9's scope.
+- `low` — Seeded-row viewer 404 covered by status only: the acceptance criterion is the status; the page body is presentation.
+- `low` — `Users.SingleAsync(row => row.UserId == memberEmails[1])` reads as a mismatch: a test-support naming quirk that works.
