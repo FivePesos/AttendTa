@@ -51,8 +51,29 @@ namespace ASI.Basecode.WebApp.Controllers
         [HttpGet]
         [Route("Venue", Name = VenueIndexRoute)]
         [Route("Venue/Index")]
-        public async Task<IActionResult> Index(string status, int? page, CancellationToken cancellationToken) =>
-            View(await _venueService.GetPageAsync(status, page, cancellationToken));
+        public async Task<IActionResult> Index(string status, int? page, CancellationToken cancellationToken)
+        {
+            ViewBag.Status = status;
+
+            try
+            {
+                return View(await _venueService.GetPageAsync(status, page, cancellationToken));
+            }
+            catch (DomainException exception)
+            {
+                ViewData["ListError"] = exception.Message;
+                return View(EmptyPage());
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                _logger.LogWarning("Venue list read failed ({ExceptionType}).", exception.GetType().Name);
+                ViewData["ListError"] = "The venue list could not be loaded. Please try again.";
+                return View(EmptyPage());
+            }
+        }
+
+        private static PagedResult<VenueViewModel> EmptyPage() =>
+            new PagedResult<VenueViewModel>(Array.Empty<VenueViewModel>(), 1, 0);
 
         [HttpGet]
         public async Task<IActionResult> Photo(int id, CancellationToken cancellationToken)

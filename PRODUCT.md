@@ -27,6 +27,7 @@ Used by a University of Cebu student organization on a laptop at the door and on
 - Authentication by email and password with role-based access for administrator, officer, and member.
 - Membership requests are reviewed and approved or declined with a reason; decisions are audited.
 - Master data covers members, event types, and venues; records are deactivated rather than hard-deleted.
+- Master Data lists announce a loading state while a filter, pager, search or status toggle is in flight, and a failed read keeps the shell, tabs and table headers with an in-shell notice and a Try again link instead of an empty-state row.
 - Event Type create/edit uses a centered keyboard-operable record dialog with retained server validation; standalone form routes remain available.
 - Events move through draft, published, completed, and cancelled states with capacity, deadline, and venue checks.
 - Officers open an event dossier from Events to review metadata, confirmed capacity and paged status rosters, make explicit registration decisions, and confirm check-in and lifecycle changes in contextual dialogs.
