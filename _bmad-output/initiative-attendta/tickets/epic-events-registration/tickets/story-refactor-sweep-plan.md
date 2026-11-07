@@ -132,14 +132,14 @@ deferred:
 
 ## Implementation Notes
 
-- Eleven code files changed, 173 insertions and 244 deletions; no test, Razor, CSS or demo-seam file was touched. The twelfth entry in the commit is this plan document, whose size grows as this record is written, so the plan is never counted in the code figures.
+- Ten code files changed, 185 insertions and 243 deletions; no test, Razor, CSS or demo-seam file was touched. The eleventh entry in the commit is this plan document, whose size grows as this record is written, so the plan is never counted in the code figures.
 - `EventLifecycleService` now has `RequireEventAsync`, two `LockEventAsync` overloads and `CloseCheckIn`. Each call site keeps its own stale predicate and its verbatim `Stale` message, so the guard order and wording are unchanged. The two cover commands use the null-check-only overload and keep `EnsureSameCoverReferences`, which throws rather than returning a bool.
 - `RegistrationReviewService` uses `ReviewOperation` instead of `0/1/2`; the status guard is now parenthesized, which is the only readability change with a semantic shape. `LockOwnerAndEventAsync` preserves the AD-4 `user → event` lock order. Both identity comparisons stay inline because they use different record types.
 - `EventController` gained `TryRunAsync`, `EventNotFoundResult` and `ConvertTimes`; `Cover` delegates to `CoverViewAsync`; `HandleAsync` reuses `WithOptionsAsync`. `CancelFromDossier` keeps its own dossier `TempData` handling because it deliberately does not set `TempData["ErrorMessage"]`.
 - `RegistrationReviewController` now takes `CancellationToken` on all five actions and threads it through `Decide`, matching every sibling controller.
 - Deliberately not done (recorded, not silently dropped): renaming `GetForCancellationAsync`/`DiscoverReviewAsync`, deleting the template scaffolding in `ControllerBase`, `EventRepository` projection de-duplication, `MyEventsService` AutoMapper/paging extraction, and `GetOpenForEventAsync`'s redundant in-memory filter. Each is either a public-member rename, outside the event/registration surface, or touches the cancellation read path the ticket freezes. The first five are recorded in this plan's `deferred:` frontmatter.
-- Scope note (code review, 2026-11-07): three edited files sit outside the ticket's named controller/service/contract layers — `ParticipationFacts.cs` (query layer), `RegistrationRepository.cs` (data layer) and `ControllerBase.cs` (shared MVC base). They are kept deliberately: each is a one-line dead-code or no-op removal, none can change behaviour, and reverting them would re-introduce the dead weight the sweep exists to remove.
-- Verification: `dotnet build ASI.Basecode.sln --configuration Release -warnaserror` → 0 warnings, 0 errors. Services suite → 310 passed, 0 failed, 0 skipped. Focused integration regression over every affected class in one run → 118 passed, 0 failed, 0 skipped. Earlier runs during the work were successive and overlapped, so only this combined figure is authoritative. Only the eleven code files are in the change set; the twelfth stat entry is this plan.
+- Scope note (code review, 2026-11-07): two edited files sit outside the ticket's named controller/service/contract layers — `ParticipationFacts.cs` (query layer) and `ControllerBase.cs` (shared MVC base). They are kept deliberately: each is a dead-code removal, neither can change behaviour, and reverting them would re-introduce the dead weight the sweep exists to remove. A third out-of-layer edit, `RegistrationRepository.IsConfirmedAsync`, was reverted during the same review because `AsNoTracking()` on an existence query is a no-op.
+- Verification: `dotnet build ASI.Basecode.sln --configuration Release -warnaserror` → 0 warnings, 0 errors. Services suite → 310 passed, 0 failed, 0 skipped. Focused integration regression over every affected class in one run → 118 passed, 0 failed, 0 skipped. Earlier runs during the work were successive and overlapped, so only this combined figure is authoritative. Only the ten code files are in the change set; the eleventh stat entry is this plan.
 - An untracked `_bmad-output/initiative-attendta/tickets/epic-check-in/tickets/story-refactor-sweep-plan.md` (ticket `9`, created during this run by another session) was left untouched and is not part of this change.
 
 ## Plan Change Log
@@ -179,7 +179,6 @@ Status: built
 - `ASI.Basecode.WebApp/Controllers/EventCoverController.cs` — one merged `catch` filter.
 - `ASI.Basecode.WebApp/Mvc/ControllerBase.cs` — duplicate assignment removed.
 - `ASI.Basecode.Data/Queries/ParticipationFacts.cs` — pass-through method folded.
-- `ASI.Basecode.Data/Repositories/RegistrationRepository.cs` — `AsNoTracking()` on `IsConfirmedAsync`.
 - `_bmad-output/initiative-attendta/tickets/epic-events-registration/tickets/story-refactor-sweep-plan.md` — this plan.
 
 **Review findings.** 2 reported: 1 patched (medium — the `IMemberEventService` summary misstated the cancellation precondition), 1 rejected (low — the Implementation Notes' eleven-file claim; its only remedy is editing this build's plan). 0 deferred.
@@ -191,7 +190,7 @@ Status: built
 - `dotnet test tests/ASI.Basecode.Services.Tests/ASI.Basecode.Services.Tests.csproj --configuration Release --no-build` → 310 passed, 0 failed, 0 skipped.
 - Focused integration regression over every affected class in one run with `ATTENDTA_TEST_SQL` at LocalDB `master` → 118 passed, 0 failed, 0 skipped. Earlier partial runs were successive and overlapped; this combined figure is authoritative.
 - Matrix audit: all five matrix rows are covered by tests that ran and passed — missing/stale event by the lifecycle and draft-flow classes, review decisions by the review and promotion classes, refused event POSTs by the publication/cancellation/completion HTTP flows, and cover read/upload by the cover flow and cover service classes.
-- `git diff HEAD --stat` → the eleven code files are 173 insertions and 244 deletions; the twelfth entry is this plan document, which is not a code change and is excluded from that figure.
+- `git diff HEAD --stat` → the ten code files are 185 insertions and 243 deletions; the eleventh entry is this plan document, which is not a code change and is excluded from that figure.
 
 **Residual risks.** The whole integration suite was not run; 8.4 owns that combined run. An untracked `_bmad-output/initiative-attendta/tickets/epic-check-in/tickets/story-refactor-sweep-plan.md` (ticket `9`) was present during the run from another session and was left untouched and uncommitted.
 
@@ -201,7 +200,7 @@ Status: built
 
 **Code review complete.** 0 `decision-needed`, 7 `patch`, 2 `defer`, 15 rejected.
 
-- [x] [Review][Patch] Sweep reaches outside the ticket's named layers [ASI.Basecode.Data/Queries/ParticipationFacts.cs, ASI.Basecode.Data/Repositories/RegistrationRepository.cs, ASI.Basecode.WebApp/Mvc/ControllerBase.cs] — resolved 2026-11-07: keep all three (all behaviour-neutral dead-weight removals) and record the scope note in this plan.
+- [x] [Review][Patch] Sweep reaches outside the ticket's named layers [ASI.Basecode.Data/Queries/ParticipationFacts.cs, ASI.Basecode.WebApp/Mvc/ControllerBase.cs] — resolved 2026-11-07: keep both (behaviour-neutral dead-code removals) and record the scope note in this plan. The third out-of-layer edit, `RegistrationRepository.IsConfirmedAsync`, was reverted under the patch below.
 - [x] [Review][Patch] The extracted lock helpers dropped the invariants their neighbours document [ASI.Basecode.Services/Services/RegistrationReviewService.cs:127]
 - [x] [Review][Patch] The plan's verification record carries unreconciled numbers [story-refactor-sweep-plan.md]
 - [x] [Review][Patch] Plan deferrals exist only in prose [story-refactor-sweep-plan.md]

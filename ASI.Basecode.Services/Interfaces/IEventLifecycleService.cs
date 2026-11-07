@@ -6,8 +6,9 @@ using System.Threading.Tasks;
 namespace ASI.Basecode.Services.Interfaces
 {
     /// <summary>
-    /// Management event lifecycle: the event list, draft creation and editing, publish, cancel,
-    /// complete, the check-in window, and cover management.
+    /// Management event lifecycle: the event list, draft creation, draft editing, the title and
+    /// description edits a published event still allows, publish, cancel, complete, the check-in
+    /// window, and cover management.
     /// </summary>
     public interface IEventLifecycleService
     {
