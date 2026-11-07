@@ -350,6 +350,18 @@ public sealed class DemoStore
             return membership;
         }
     }
+
+    /// <summary>
+    /// Drops any stored membership status so the real row is authoritative again. Used once a real
+    /// command writes SQL, so no demo overlay can mask the new state.
+    /// </summary>
+    public void ClearMembershipStatus(int memberId)
+    {
+        lock (_gate)
+        {
+            _memberships.Remove(memberId);
+        }
+    }
 }
 
 /// <summary>A demo attendance record keyed by the real registration id.</summary>

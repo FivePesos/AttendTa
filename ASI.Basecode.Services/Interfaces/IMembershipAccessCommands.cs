@@ -4,10 +4,10 @@ using System.Threading.Tasks;
 namespace ASI.Basecode.Services.Interfaces;
 
 /// <summary>
-/// Membership access commands for the Management members list. The demo provider implements this
-/// contract now; 5.6 (deactivation) and 5.7 (reactivation) implement the real one behind the same
-/// contract and raise the same <see cref="ASI.Basecode.Resources.DomainException"/> outcomes.
-/// Membership status is separate from account access.
+/// Membership access commands for the Management members list. Deactivation is the real
+/// transactional command (5.6) and raises the same <see cref="ASI.Basecode.Resources.DomainException"/>
+/// outcomes as the screen expects; reactivation stays demo-only until 5.7. Membership status is
+/// separate from account access.
 /// </summary>
 public interface IMembershipAccessCommands
 {
