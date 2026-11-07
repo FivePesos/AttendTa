@@ -3,14 +3,14 @@ title: 'Transactional certificate issuance pipeline and audit'
 type: 'feature'
 ticket: '7'
 created: '2026-11-07'
-status: 'in-review'
+status: 'built'
 baseline_revision: '052e737c817fc2282d77d9808679c5ad3d975f85'
 route: 'full'
 route_source: 'auto'
 risk: 'high'
 review: 'quick'
 review_source: 'pinned'
-lenses_ran: []
+lenses_ran: [quick]
 review_loop_iteration: 0
 context:
   - '_bmad-output/initiative-attendta/demo-mock-register.md'
@@ -109,6 +109,9 @@ context:
   retained file; only the seeded row without `file_path` uses `DemoCertificateDocuments`.
 - `DemoStore` keeps `IsCertificateIssued`, `TryGetIssuedCertificate`, `SeedIssuedCertificate` and
   `AttachCertificateDocument`; only the demo issuance methods were deleted.
+- Review pass 1 patches: stale demo-overlay docs and M-11a labels corrected; the ledger flow test
+  renamed to its persisted behaviour; a queue row without a certificate id now refuses as `NotFound`;
+  a retained file missing on disk now refuses as `NotFound` instead of an unhandled 500.
 
 ## Plan Change Log
 
@@ -118,6 +121,18 @@ context:
   issued certificate as unavailable.
 
 ## Review Triage Log
+
+**Pass 1 (quick)** — high 0, medium 1, low 6, false 0, maybe-false 0.
+
+| Finding | Verdict | Route | Evidence / action |
+|---|---|---|---|
+| `demo-mock-register.md:96` — M-11a reads `removed (pending commit)` instead of a commit | low | patch | Verified: the row must carry the removing commit for 8.11's check. Set to `removed (ee822e7)` after the implementation commit. |
+| `CertificateLedgerService.cs:63-67,105` — XML docs still describe the demo overlay | low | patch | Verified: `DemoCertificateLedgerService.GetPageAsync` now delegates straight to `inner`, so the overlay text is stale. Reworded both summaries to the real paged read. |
+| `DemoCertificatesRegistration.cs:7-8` — header comment still says the provider overlays the issued state and lists M-11a | low | patch | Verified: the overlay was deleted. Reworded to the remaining M-11b viewer/PDF role. |
+| `DemoSeedService.cs:21,112,267` — seeded document still labelled M-11a | low | patch | Verified: after 6.7 that document is the remaining M-11b state. Relabelled the summary, log line and seed comment. |
+| `CertificateLedgerFlowTests.cs:18` — test name says "WithoutPersistingCertificateRows" while the body asserts persistence | low | patch | Verified: the assertions now require an issued row, a retained file and an audit row. Renamed to `OfficerCanReviewIssueAndDownloadTheRetainedCertificateWithAnAuditRow`. |
+| `CertificateLedgerService.cs:191-205` — a confirmed registration with no certificate row is refused as `Invalid` | low | patch | Verified: `GetReviewQueueAsync` left-joins the certificate, so `FindReviewAsync` returns a row with a null `CertificateId` and the pre-check falls through to "Approve this review". `IssueAsync` now treats a row without a certificate id as `NotFound`, matching the decision path. |
+| `DemoCertificateLedgerService.cs:74-80`, `DemoMyCertificatesService.cs:89-95` — a missing retained file throws `FileNotFoundException` and becomes an unhandled 500 | medium | patch | Verified: `PrivateFileStore.OpenReadAsync` throws for a missing file and the controller catches only `DomainException`; CERT-02 exercises a missing file. Both providers now map the file-open failure to `DomainException(NotFound)`. |
 
 ## Design Notes
 
