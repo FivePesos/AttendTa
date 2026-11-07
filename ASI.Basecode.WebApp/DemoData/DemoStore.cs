@@ -74,10 +74,10 @@ public sealed class DemoStore
     }
 
     /// <summary>
-    /// Marks the event completed. This is only the participation-report overlay test fixture now;
-    /// the app completes events through the real <c>IEventLifecycleService</c>, and the real
-    /// completion hook creates the certificate reviews. Reviews for the demo ledger are seeded
-    /// explicitly through <see cref="SeedPendingReviewsForEvent"/>.
+    /// Marks the event completed. This is only the certificate-ledger demo and test fixture now; the
+    /// app completes events through the real <c>IEventLifecycleService</c>, and the real completion
+    /// hook creates the certificate reviews. Reviews for the demo ledger are seeded explicitly
+    /// through <see cref="SeedPendingReviewsForEvent"/>.
     /// </summary>
     public void MarkCompleted(int eventId)
     {
@@ -118,23 +118,6 @@ public sealed class DemoStore
             var record = new DemoAttendance(registrationId, eventId, memberName, studentNumber, recordedAt, method, null, null);
             _attendance[registrationId] = record;
             return record;
-        }
-    }
-
-    /// <summary>
-    /// The event's seeded attendance rows, newest first. The report overlay now reads real
-    /// attendance first and uses the store only to fill registrations without a real row; this
-    /// per-event read stays part of the demo seam until 8.13 removes the store.
-    /// </summary>
-    public IReadOnlyList<DemoAttendance> GetAttendanceForEvent(int eventId)
-    {
-        lock (_gate)
-        {
-            return _attendance.Values
-                .Where(record => record.EventId == eventId)
-                .OrderByDescending(record => record.RecordedAt)
-                .ThenBy(record => record.RegistrationId)
-                .ToList();
         }
     }
 
