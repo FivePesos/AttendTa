@@ -44,7 +44,7 @@ class, so a search for the id finds every line to delete.
 7. **Overlay only named fields.** Demo state may change only these fields of an existing real
    read, and only for records a demo command changed: the event status shown as Completed and
    the check-in open flag on the officer event list, member feed and event detail (M-04, M-09),
-   and the membership status on the Members list (M-15a, M-15b).
+   and the membership status on the Members list (M-15b).
    Nothing else from a real read is altered.
 8. **Same refusals as the real command.** Every demo command reloads the real record's current
    state and applies the real ticket's refusal rules, so an invalid action fails on screen the
@@ -58,7 +58,7 @@ class, so a search for the id finds every line to delete.
    | Invalidate attendance | A reason is given and the registration's certificate is not issued; a pending or approved review becomes not eligible with that reason | 4.6, 6.5 |
    | Approve or decline review | The review is pending and its attendance is valid; decline needs a reason | 6.6 |
    | Issue certificate | The review is approved, the event is Completed and no certificate is issued yet | 6.7 |
-   | Deactivate or reactivate a membership | A reason is given | 5.6, 5.7 |
+   | Reactivate a membership | A reason is given | 5.7 |
 
    A registration cancelled through the real service therefore stops its pass from scanning,
    and a cancelled event cannot be completed or opened for check-in.
@@ -105,7 +105,7 @@ into lettered rows.
 | M-13c | Report paged detail rows | Paged detail query | 7.4 | 7.3 | open |
 | M-14a | Account deactivation with reason (the Accounts list shows the new state) — `IAccountAccessCommands.DeactivateAsync`, `DemoAccountAccessCommands` | Account deactivation and cascade | 5.11 | 5.4 | removed |
 | M-14b | Account reactivation with reason — `IAccountAccessCommands.ReactivateAsync`, `DemoAccountAccessCommands` | Account reactivation | 5.11 | 5.5 | removed |
-| M-15a | Membership deactivation with reason (the Members list shows the new state) — `IMembershipAccessCommands.DeactivateAsync`, `DemoMembershipAccessCommands` | Membership deactivation and cascade | 5.11 | 5.6 | open |
+| M-15a | Membership deactivation with reason (the Members list shows the new state) — `IMembershipAccessCommands.DeactivateAsync`, `DemoMembershipAccessCommands` | Membership deactivation and cascade | 5.11 | 5.6 | removed |
 | M-15b | Membership reactivation with reason — `IMembershipAccessCommands.ReactivateAsync`, `DemoMembershipAccessCommands` | Membership reactivation | 5.11 | 5.7 | open |
 
 6.5 removes no row; its invalidation guard must be in place before 6.7 removes M-11a. 4.4
@@ -180,11 +180,15 @@ only on a Published event that is not demo-completed and whose start time has pa
 
 ## M-14a, M-14b, M-15a and M-15b — account and membership access detail (5.11)
 
-**M-14a and M-14b are removed.** 5.4 deleted the demo account deactivation and 5.5 deleted the demo
-account reactivation, so `DemoAccountAccessCommands` no longer exists and `DemoAccessRegistration`
-registers no account provider: both `IAccountAccessCommands` commands are the real
-`AccountAccessService`. The account list and its access dialog therefore read the real `users` row
-with no overlay. Only the membership rows (M-15a, M-15b) still have demo providers.
+**M-14a, M-14b and M-15a are removed.** 5.4 deleted the demo account deactivation, 5.5 deleted the
+demo account reactivation, and 5.6 deleted the demo membership deactivation, so
+`DemoAccountAccessCommands` and `UnavailableAccessCommands` no longer exist. `DemoAccessRegistration`
+registers no account provider and `DemoDataRegistration` registers no switch-off membership provider:
+both `IAccountAccessCommands` commands are the real `AccountAccessService`, and
+`IMembershipAccessCommands.DeactivateAsync` is the real `MembershipAccessService`. The account list
+and its access dialog therefore read the real `users` row with no overlay, and the Members list shows
+the real `members.membership_status_id` row after a deactivation. Only the membership reactivation
+row (M-15b) still has a demo provider.
 
 **Contracts and classes.** All demo code is in `ASI.Basecode.WebApp/DemoData/`; the contracts are
 in `ASI.Basecode.Services`.
@@ -195,10 +199,10 @@ in `ASI.Basecode.Services`.
 | Membership command contract `IMembershipAccessCommands` (`DeactivateAsync`, `ReactivateAsync`) | `ASI.Basecode.Services/Interfaces/IMembershipAccessCommands.cs` |
 | Dialog composition `IAccessDialogService` / `AccessDialogService` (real read + real 5.3 preview + last-admin count) | `ASI.Basecode.Services/Interfaces/IAccessDialogService.cs`, `ASI.Basecode.Services/Services/AccessDialogService.cs` |
 | Real account deactivation and reactivation (M-14a removed by 5.4, M-14b by 5.5) | `ASI.Basecode.Services/Services/AccountAccessService.cs` |
+| Real membership deactivation (M-15a removed by 5.6) | `ASI.Basecode.Services/Services/MembershipAccessService.cs` |
 | Overlay contract `IAccessStateOverlay` | `ASI.Basecode.WebApp/DemoData/IAccessStateOverlay.cs` |
-| Demo commands | `ASI.Basecode.WebApp/DemoData/DemoMembershipAccessCommands.cs` |
-| Switch-off membership commands (standard refusal) | `ASI.Basecode.WebApp/DemoData/UnavailableAccessCommands.cs` |
-| Demo overlay | `ASI.Basecode.WebApp/DemoData/DemoAccessStateOverlay.cs` |
+| Demo commands (M-15b only; deactivation delegates the real service) | `ASI.Basecode.WebApp/DemoData/DemoMembershipAccessCommands.cs` |
+| Demo overlay (M-15b only) | `ASI.Basecode.WebApp/DemoData/DemoAccessStateOverlay.cs` |
 | Switch-off overlay | `ASI.Basecode.WebApp/DemoData/NoOpAccessStateOverlay.cs` |
 | Access surface registration file | `ASI.Basecode.WebApp/DemoData/DemoAccessRegistration.cs` |
 
@@ -206,22 +210,28 @@ in `ASI.Basecode.Services`.
 runs in one transaction that locks the `users` row and appends one audit row: deactivation also takes
 the last-administrator application lock and cascades through `IRegistrationCancellationService`,
 while reactivation restores login access only and touches no registration, seat, QR token or
-certificate. Membership commands read and write `DemoStore.TryGetMembershipStatus` and
-`SetMembershipStatus`. Every demo command reloads the real row, then reads the effective state (the
-store value when a demo command already changed it) so the second step is not refused by the
-untouched SQL row. A blank reason is refused before any state changes; deactivating the last active
-Administrator is refused by the real command from
+certificate. Membership deactivation is the real `MembershipAccessService`: one transaction locks the
+member's `users` row, sets `members.membership_status_id` to inactive, cancels the member's upcoming
+registrations through `IRegistrationCancellationService` with the `MembershipDeactivated` cause, and
+appends one `member.membership_deactivated` audit row carrying the reason and the active→inactive
+status. It never takes the last-administrator lock and never changes `users.is_active`, so the linked
+account keeps signing in. Only membership reactivation reads and writes
+`DemoStore.TryGetMembershipStatus` and `SetMembershipStatus`; the demo command reloads the real row,
+then reads the effective state (the store value when a demo command already changed it) so the second
+step is not refused by the untouched SQL row. A blank reason is refused before any state changes, and
+the demo deactivation clears the store entry after the real write so no overlay can mask the SQL row.
+Deactivating the last active Administrator is refused by the real account command from
 `IAccountAdministrationRepository.CountActiveAdministratorsAsync`.
 
-**Seeded starting state.** None. Both lists open on the real rows; a changed membership status lasts
-until the app restarts.
+**Seeded starting state.** None. Both lists open on the real rows; a demo membership reactivation
+lasts until the app restarts.
 
 **Screens, real source and demo source.**
 
 | Screen | Real read / command | Demo source | Files |
 |---|---|---|---|
 | Accounts list | `IAccountAdministrationService.GetPageAsync`; `Deactivate`/`Reactivate` POST | none — the real row is authoritative | `Controllers/AdminAccountsController.cs`, `Views/AdminAccounts/Index.cshtml`, `_AccessActions.cshtml`, `_AccessDialog.cshtml` |
-| Members list | `IMemberService.GetPageAsync`; `Deactivate`/`Reactivate` POST | `IAccessStateOverlay` after the read; `IMembershipAccessCommands` | `Controllers/MemberController.cs`, `Views/Member/Index.cshtml`, `_AccessActions.cshtml`, `_AccessDialog.cshtml` |
+| Members list | `IMemberService.GetPageAsync`; `Deactivate`/`Reactivate` POST | `IAccessStateOverlay` after the read for a demo reactivation only; deactivation is real | `Controllers/MemberController.cs`, `Views/Member/Index.cshtml`, `_AccessActions.cshtml`, `_AccessDialog.cshtml` |
 
 The overlay changes only the membership status, and only for ids the store marks.
 Account access stays separate from membership eligibility: deactivating an account never changes
@@ -468,8 +478,13 @@ than continuing to regenerate documents (register rule 12).
   request is refused and a reactivated account can sign in again.
 - Deactivation applies the real last-active-Administrator rule; reactivation restores login access
   only and touches no registration, seat, QR token or certificate.
-- The Members status filter is applied in SQL before the demo overlay, so a membership a demo
-  command changed can still appear under the tab that matches its real status.
+- Membership deactivation is the real command: it writes `members.membership_status_id`, cancels the
+  member's upcoming registrations and appends `member.membership_deactivated`, while the linked
+  account keeps signing in. Only membership reactivation is still demo state.
+- A demo membership reactivation overlays the store while SQL stays inactive, so a real deactivation
+  afterwards is refused as "This membership is already inactive." until 5.7 makes reactivation real.
+- The Members status filter is applied in SQL before the demo overlay, so a membership the demo
+  reactivation changed can still appear under the tab that matches its real status.
 - Check-ins, review decisions and issued certificates last only until the app restarts; passes
   keep scanning.
 - A pass scanned in the demo is matched against the real `registrations.qr_token`, the same value
