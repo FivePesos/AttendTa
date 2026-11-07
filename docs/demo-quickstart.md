@@ -99,7 +99,7 @@ dotnet run --project "ASI.Basecode.WebApp\ASI.Basecode.WebApp.csproj" --no-build
 The startup log must say:
 
 ```text
-Demo data active (M-01, M-04, M-05, M-06, M-07). Check-in open event 3; ready to complete event 1.
+Demo data active (M-01, M-07). Ready to complete event 1.
 ```
 
 ## 7. Sign in

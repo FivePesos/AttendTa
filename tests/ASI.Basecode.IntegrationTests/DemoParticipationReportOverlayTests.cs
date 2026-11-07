@@ -143,6 +143,9 @@ public sealed class DemoParticipationReportOverlayTests
         public Task<int> CountMyRegistrationsAsync(int userId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<IReadOnlyList<MyEventRegistrationRow>> GetMyRegistrationsAsync(int userId, int skip, int take, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<int> CountConfirmedAsync(int eventId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<int> CountConfirmedLookupAsync(int eventId, string query, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<IReadOnlyList<ConfirmedLookupRow>> GetConfirmedLookupPageAsync(int eventId, string query, int skip, int take, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<string> GetConfirmedStudentNumberAsync(int eventId, int registrationId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<IReadOnlyList<MyPassRow>> GetMyPassRowsAsync(int userId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<OwnedPassRow> GetOwnedPassAsync(int registrationId, int userId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<int?> FindConfirmedRegistrationIdByTokenAsync(int eventId, string token, CancellationToken cancellationToken = default) => throw new NotSupportedException();
