@@ -5,33 +5,42 @@ using ASI.Basecode.Data.Interfaces;
 using ASI.Basecode.Data.Models.Lookups;
 using ASI.Basecode.Resources;
 using ASI.Basecode.Services.Interfaces;
+using ASI.Basecode.Services.Services;
 
 namespace ASI.Basecode.WebApp.DemoData;
 
 /// <summary>
-/// Demo membership access commands (register M-15a and M-15b). Every command reloads the real member
-/// and applies the same refusal rules 5.6 and 5.7 will, then changes only the in-memory store: no
-/// SQL row, no stored file and no Activity Log entry (register rules 4 and 8). Account access is
-/// never touched.
+/// Demo membership access commands (register M-15b only; M-15a was removed by 5.6). Deactivation is
+/// the real <see cref="MembershipAccessService"/> command, so it writes SQL, cancels the member's
+/// upcoming registrations and appends the audit row; the store entry is then cleared so no overlay
+/// masks the authoritative row. Reactivation stays demo-only: it reloads the real member, applies
+/// the same refusal rules 5.7 will, and changes only the in-memory store (register rules 4 and 8).
+/// Account access is never touched.
 /// </summary>
 public sealed class DemoMembershipAccessCommands : IMembershipAccessCommands
 {
     private readonly IMemberRepository _members;
     private readonly DemoStore _store;
     private readonly TimeProvider _timeProvider;
+    private readonly MembershipAccessService _membershipAccessService;
 
     public DemoMembershipAccessCommands(
         IMemberRepository members,
         DemoStore store,
-        TimeProvider timeProvider)
+        TimeProvider timeProvider,
+        MembershipAccessService membershipAccessService)
     {
         _members = members;
         _store = store;
         _timeProvider = timeProvider;
+        _membershipAccessService = membershipAccessService;
     }
 
-    public Task DeactivateAsync(int memberId, string reason, CancellationToken cancellationToken = default) =>
-        SetStatusAsync(memberId, MembershipStatusCode.Inactive, reason, cancellationToken);
+    public async Task DeactivateAsync(int memberId, string reason, CancellationToken cancellationToken = default)
+    {
+        await _membershipAccessService.DeactivateAsync(memberId, reason, cancellationToken);
+        _store.ClearMembershipStatus(memberId);
+    }
 
     public Task ReactivateAsync(int memberId, string reason, CancellationToken cancellationToken = default) =>
         SetStatusAsync(memberId, MembershipStatusCode.Active, reason, cancellationToken);

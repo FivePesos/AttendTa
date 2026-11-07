@@ -5,9 +5,10 @@ using ASI.Basecode.Services.ServiceModels;
 namespace ASI.Basecode.WebApp.DemoData;
 
 /// <summary>
-/// The demo access overlay (register M-15a and M-15b). Applied after the real read in the
-/// controller, never as a repository decorator, because demo state is not a SQL row (register
-/// rule 7). Only the membership status changes.
+/// The demo access overlay (register M-15b only; M-15a was removed by 5.6). Applied after the real
+/// read in the controller, never as a repository decorator, because demo state is not a SQL row
+/// (register rule 7). Only the membership status changes, and only for records the demo reactivation
+/// command changed; a real deactivation clears the store entry, so the SQL row shows through.
 /// </summary>
 public sealed class DemoAccessStateOverlay : IAccessStateOverlay
 {
