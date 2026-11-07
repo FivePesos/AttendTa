@@ -59,10 +59,15 @@ public sealed class CheckInFlowTests(SqlServerDatabaseFixture fixture) : IClassF
             Assert.DoesNotContain("qr", log.NewValues!, StringComparison.OrdinalIgnoreCase);
         }
 
-        var repeat = await scanner.ScanAsync(setup.EventId, setup.Token, ct);
+        await using var repeatContext = EventDraftTestSupport.Context(fixture.ConnectionString);
+        var (repeatScanner, _) = Services(repeatContext, setup.OfficerId, RoleCodes.Officer);
+        var repeat = await repeatScanner.ScanAsync(setup.EventId, setup.Token, ct);
 
         Assert.Equal(CheckInOutcomeViewModel.Repeat, repeat.Outcome);
         Assert.Equal(Now, repeat.RecordedAt);
+        // A repeat arrives as a separate request with a fresh context, so this reads the stored
+        // datetime2 rather than the tracked insert. The JSON must carry the UTC marker.
+        Assert.Equal(DateTimeKind.Utc, repeat.RecordedAt!.Value.Kind);
         Assert.Equal(MemberName, repeat.MemberName);
         Assert.Equal(setup.StudentNumber, repeat.StudentNumber);
 

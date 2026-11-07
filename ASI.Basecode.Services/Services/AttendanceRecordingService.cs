@@ -80,9 +80,13 @@ public sealed class AttendanceRecordingService(
                 registrationId,
                 memberName,
                 studentNumber,
-                current.RecordedAt);
+                AsUtc(current.RecordedAt));
         }
     }
+
+    // SQL datetime2 materializes as Unspecified. The stored value is UTC, and the JSON outcome must
+    // carry the UTC marker so the browser renders the same time for the first scan and the repeat.
+    private static DateTime AsUtc(DateTime value) => DateTime.SpecifyKind(value, DateTimeKind.Utc);
 
     private async Task<bool> StillEligibleForRepeatAsync(
         int eventId,
@@ -173,7 +177,7 @@ public sealed class AttendanceRecordingService(
                 registrationId,
                 user.Name,
                 member.StudentNumber,
-                current.RecordedAt);
+                AsUtc(current.RecordedAt));
         }
 
         var now = clock.GetUtcNow().UtcDateTime;
