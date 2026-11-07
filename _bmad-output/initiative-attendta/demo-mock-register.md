@@ -91,7 +91,7 @@ into lettered rows.
 | M-07 | Attendance invalidation with reason, and its effect on the review (rule 8) | Invalidation command | 4.11 | 4.6 | open |
 | M-08 | Member attendance history | Owner-scoped attendance query | 4.12 | 4.7 | open |
 | M-09 | Event completion command and the Completed status overlaid on event reads (rule 7) | Completion command | 1.14 | 3.12 | removed |
-| M-10a | Certificate reviews created at completion (a pending review for each valid check-in of a completed event) | Review creation hook | 6.12 | 6.4 | open |
+| M-10a | Certificate reviews created at completion (a pending review for each valid check-in of a completed event) | Review creation hook | 6.12 | 6.4 | removed (cd227f694fdf71d10504db4406d13a3694941cbb) |
 | M-10b | Review queue and the approve and decline decisions | Review queue and decisions | 6.12 | 6.6 | open |
 | M-11a | Certificate issuance (number from the demo store, nothing retained) | Issuance pipeline and retained file | 6.12 | 6.7 | open |
 | M-11b | Officer PDF view and download (rendered in memory with the real template) | Authorized download of the retained file | 6.12 | 6.8 | open |
@@ -425,6 +425,14 @@ All three classes live under `ASI.Basecode.WebApp/DemoData/`.
 | M-10b / removed by 6.6 | `DemoCertificateLedgerService.GetPageAsync` composes existing event and confirmed-registration repository reads with shared review state; `DecideAsync` reloads participation/event state and calls guarded `DemoStore.DecideCertificate`. Pending/valid attendance is required; decline needs a trimmed reason of 1–1,000 characters. Actor and time come from the authenticated request and server clock. |
 | M-11a / removed by 6.7 | `IssueAsync` requires completion, confirmation, valid attendance and approval, creates a unique `AT-<year>-<registrationId:D6>` number and snapshot, calls the real `RenderSnapshotAsync`, rechecks real participation, then atomically publishes via `DemoStore.PublishCertificate`. Invalidation and duplicate issues are rechecked inside the store gate. Render failure publishes nothing. No SQL, private storage or audit write occurs. |
 | M-11b / removed by 6.8 | `GetViewerAsync`/`GetPdfAsync` require Management and issued state; the controller streams `application/pdf` with no-store caching and an optional attachment name. A seeded issue renders its captured snapshot on first download, then reuses those bytes. No caller-supplied path is accepted. Replace with authorized retained-file retrieval, not current-data regeneration. |
+
+**M-10a removal (6.4).** 6.4 replaced the demo review creation with the real
+`CertificateReviewCompletionHandler`, registered as an `IEventCompletionHandler`. Inside the
+caller-owned completion transaction it inserts one `pending_approval` row per registration with
+Valid Attendance, stamped with the completing officer and the completion time, and skips a
+registration that already carries a certificate row. `DemoStore.MarkCompleted` no longer creates
+reviews; the demo ledger and its tests seed them explicitly through `SeedPendingReviewsForEvent`,
+so the demo screen is unchanged.
 
 **Seed and shared state.** The original seed's issued attendee now carries a snapshot of recipient,
 event title/start, number and issue time. All other valid check-ins receive pending reviews before
