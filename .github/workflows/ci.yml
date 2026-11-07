@@ -12,6 +12,13 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      # The integration suite builds many WebApplicationFactory hosts, and each host holds file
+      # watchers. The runner's default limit (128 inotify instances) is exhausted by the suite.
+      - name: Raise inotify limits
+        run: |
+          sudo sysctl -w fs.inotify.max_user_instances=1024
+          sudo sysctl -w fs.inotify.max_user_watches=524288
+
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
