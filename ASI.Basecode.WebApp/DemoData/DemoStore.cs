@@ -184,16 +184,37 @@ public sealed class DemoStore
     // M-11a: registration identity makes the number unique within the shared store.
     public string GetCertificateNumber(int registrationId, DateTime issuedAt) => $"AT-{issuedAt:yyyy}-{registrationId:D6}";
 
-    // M-10a: 6.4 replaces review creation with the real completion hook.
+    // M-10a: 4.3 hands review creation to real attendance; 6.4 replaces it with the completion hook.
     public void EnsureCertificateReviews(int eventId, DateTime now)
     {
         lock (_gate)
         {
-            foreach (var attendance in _attendance.Values.Where(row => row.EventId == eventId && row.IsValid))
-            {
-                _reviews.TryAdd(attendance.RegistrationId, new DemoCertificateReview(
-                    attendance.RegistrationId, eventId, CertificateStatusCode.PendingApproval, null, now));
-            }
+            EnsureCertificateReviewsCore(
+                eventId,
+                _attendance.Values.Where(row => row.EventId == eventId && row.IsValid).Select(row => row.RegistrationId),
+                now);
+        }
+    }
+
+    /// <summary>
+    /// M-10a hand-over (4.3): creates pending reviews for the event's real Valid Attendance rows.
+    /// Existing decisions are never overwritten.
+    /// </summary>
+    public void EnsureCertificateReviews(int eventId, IReadOnlyCollection<int> registrationIds, DateTime now)
+    {
+        ArgumentNullException.ThrowIfNull(registrationIds);
+        lock (_gate)
+        {
+            EnsureCertificateReviewsCore(eventId, registrationIds, now);
+        }
+    }
+
+    private void EnsureCertificateReviewsCore(int eventId, IEnumerable<int> registrationIds, DateTime now)
+    {
+        foreach (var registrationId in registrationIds)
+        {
+            _reviews.TryAdd(registrationId, new DemoCertificateReview(
+                registrationId, eventId, CertificateStatusCode.PendingApproval, null, now));
         }
     }
 

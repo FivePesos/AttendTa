@@ -13,10 +13,11 @@ using ASI.Basecode.Services.ServiceModels;
 
 namespace ASI.Basecode.WebApp.DemoData;
 
-// M-10a/M-10b/M-11a/M-11b: certificate surface adapters removed by 6.4/6.6/6.7/6.8 respectively.
+// M-10b/M-11a/M-11b: certificate surface adapters removed by 6.6/6.7/6.8. M-10a reads real Valid
+// Attendance from 4.3 and is removed by 6.4's real completion hook.
 public sealed class DemoCertificateLedgerService(
-    IEventRepository events, IRegistrationRepository registrations, DemoStore store,
-    DemoCertificateDocuments documents, ICurrentActor actor, TimeProvider clock) : ICertificateLedgerService
+    IEventRepository events, IRegistrationRepository registrations, IAttendanceRepository attendance,
+    DemoStore store, DemoCertificateDocuments documents, ICurrentActor actor, TimeProvider clock) : ICertificateLedgerService
 {
     public async Task<CertificateLedgerViewModel> GetPageAsync(int? eventId, CertificateLedgerTab tab, int? page,
         CancellationToken cancellationToken = default)
@@ -30,7 +31,9 @@ public sealed class DemoCertificateLedgerService(
         var rows = new List<CertificateLedgerRowViewModel>();
         if (selected != null)
         {
-            store.EnsureCertificateReviews(selected.EventId, clock.GetUtcNow().UtcDateTime);
+            // M-10a hand-over (4.3): reviews come from real Valid Attendance, not the demo store.
+            var validAttended = await attendance.GetValidAttendedRegistrationIdsAsync(selected.EventId, cancellationToken);
+            store.EnsureCertificateReviews(selected.EventId, validAttended, clock.GetUtcNow().UtcDateTime);
             var confirmed = await ReadRegistrationsAsync(selected.EventId, cancellationToken);
             foreach (var row in confirmed)
             {

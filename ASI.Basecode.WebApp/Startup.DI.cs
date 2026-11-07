@@ -52,6 +52,8 @@ namespace ASI.Basecode.WebApp
             this._services.AddScoped<IMemberEventService, MemberEventService>();
             this._services.AddScoped<IRegistrationCancellationService, RegistrationCancellationService>();
             this._services.AddScoped<IRegistrationReviewService, RegistrationReviewService>();
+            this._services.AddScoped<IAttendanceRecordingService, AttendanceRecordingService>();
+            this._services.AddScoped<ICheckInService, CheckInService>();
             this._services.AddScoped<ICertificateTracerService, CertificateTracerService>();
             this._services.AddScoped<IMyEventsService, MyEventsService>();
             this._services.AddScoped<IPassService, PassService>();
@@ -68,6 +70,7 @@ namespace ASI.Basecode.WebApp
             this._services.AddScoped<IVenueRepository, VenueRepository>();
             this._services.AddScoped<IEventRepository, EventRepository>();
             this._services.AddScoped<IRegistrationRepository, RegistrationRepository>();
+            this._services.AddScoped<IAttendanceRepository, AttendanceRepository>();
             this._services.AddScoped<IParticipationReportRepository, ParticipationReportRepository>();
 
             // Shared server-local storage for private images, certificates and renderer files.
