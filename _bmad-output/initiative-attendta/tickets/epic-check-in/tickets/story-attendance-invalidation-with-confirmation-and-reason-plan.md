@@ -3,15 +3,15 @@ title: 'Attendance invalidation with confirmation and reason'
 type: 'feature'
 ticket: '6'
 created: '2026-11-07'
-status: 'in-review'
+status: 'built'
 baseline_revision: '26815ee27223dd18d7f020c40bdb8abf77bff3fe'
 route: 'full'
 route_source: 'auto'
 risk: 'medium'
 review: 'quick'
 review_source: 'pinned'
-lenses_ran: []
-review_loop_iteration: 0
+lenses_ran: ['quick']
+review_loop_iteration: 1
 context:
   - '_bmad-output/initiative-attendta/demo-mock-register.md'
   - '_bmad-output/initiative-attendta/architecture-attendta/architecture-attendta.md'
@@ -102,11 +102,25 @@ _None — all three settled on 2026-11-07 and recorded as Decisions in the froze
 - Handlers run after the attendance lock and before `SaveChanges`, so a `Forbidden` throw rolls back the stamp and the audit together; an empty handler list commits. The audit payload is `EventId`, `RegistrationId`, `InvalidatedBy`, `InvalidatedAt` and `InvalidationReason`, and the entry's `Reason` carries the trimmed reason; no token or QR value is present.
 - The attendance row is retained and the registration status is untouched, so 4.3's existing invalidated rule refuses a later scan or manual check-in.
 - The M-13c overlay merges `IAttendanceRepository.GetForEventAsync` over the store map, so a real row wins for the same registration while seeded rows still fill the demo event. The merged map drives the valid count, rate, no-shows and breakdowns when it holds any row; otherwise the real SQL facts pass through.
-- `DemoStore.InvalidateAttendance` and `GetAttendanceForEvent` stay as the seed and test helpers; the app no longer calls them for invalidation.
+- `DemoStore.InvalidateAttendance` stays as the seed helper. `GetAttendanceForEvent` was left in place at merge time and has since been removed with the rest of the store's attendance reads by 7.3.
 
 ## Plan Change Log
 
+- 2026-11-07 review loopback 1 (bad_plan): the certificate ledger answered attendance validity from the demo store, so a real invalidation left the store row valid and an Officer could approve or issue against invalid attendance — a regression this ticket introduced when invalidation stopped writing the store. The plan should have carried the same real-over-store hand-over to `DemoCertificateLedgerService` that the report overlay got. KEEP: the transaction/lock/hook design, the audit vocabulary, the DI replacement, the M-07 deletion, the report overlay merge and the `AttendanceInvalidationFlowTests` coverage all worked and must survive re-derivation. The code fix landed on `dev` through 6.6's real attendance read in the ledger and 7.3's removal of the M-13c overlay, so no separate code change was re-derived here.
+
 ## Review Triage Log
+
+Review pass 1 (quick): 1 medium, 4 low, 1 false, 1 low folded into the medium.
+
+| # | Finding | Verdict | Route | Evidence |
+|---|---------|---------|-------|----------|
+| 1 | `DemoCertificateLedgerService` read attendance validity from the demo store, so a real invalidation was invisible and a stale review could be approved or issued | medium | bad_plan | `DemoCertificateLedgerService.cs:148` gated `RequireCurrentParticipationAsync` on `store.TryGetAttendance(...).IsValid` and `:38` read the same row for `AttendedAt`. Before this ticket `DemoAttendanceInvalidationService` invalidated the store row, so the gate refused; once invalidation wrote SQL only the store row stayed valid. Resolved on `dev` by 6.6, whose `RequireCurrentParticipationAsync` now reads `attendance.GetByRegistrationIdAsync` and refuses when `InvalidatedAt` is set. |
+| 2 | `DemoSeedService` startup log still named M-07 as active | low | patch | `DemoSeedService.cs:93` logged "M-01, M-07" while the register marked M-07 removed. `dev` now logs "M-01, M-11a". |
+| 3 | `DemoStore.GetAttendanceForEvent` was unreachable | low | patch | No caller after the overlay hand-over. 7.3 removed the store's attendance reads entirely, so the method is gone from `dev`. |
+| 4 | The overlay derived the rate and no-show figures from `report.ConfirmedCount` while building the map from `confirmed` | low | patch | `DemoParticipationReportService.cs:83` vs `:110,:114`. Moot on `dev`: 7.3 replaced the overlay with the real paged query and deleted the file. |
+| 5 | The overlay's `hasAttendance` switch suppressed real facts and dropped real breakdown membership | false | - | `validAttendees` was derived from the merged map over `confirmed`, and both breakdowns were computed from those same `validAttendees` (`:126-127`), so a real attendee with a real row was included. Only registrations with no attendance at all were excluded, which is the correct no-show rule. |
+| 6 | No real-SQL test for `GetForEventAsync` or the seeded-path merge | low | patch | The overlay case used `FakeAttendance`. The read is now covered by 6.6's ledger tests, which exercise the real `IAttendanceRepository` path. |
+| 7 | `DemoDataRegistration` comment understated the remaining demo surface | low | patch | Folded into finding 1; the comment is accurate once the ledger reads real attendance, which 6.6 delivered. |
 
 ## Design Notes
 
