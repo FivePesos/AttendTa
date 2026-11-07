@@ -107,11 +107,11 @@ public sealed class DemoParticipationReportService : IParticipationReportService
         var hasAttendance = attendance.Count > 0;
         var validAttendeeCount = hasAttendance ? validAttendees.Count : report.ValidAttendeeCount;
         var attendanceRate = hasAttendance
-            ? report.ConfirmedCount == 0 ? null : (decimal)validAttendees.Count / report.ConfirmedCount
+            ? confirmed.Count == 0 ? null : (decimal)validAttendees.Count / confirmed.Count
             : report.AttendanceRate;
         // No-shows are a completed-event fact; a cancelled event shows no figure at all.
         var noShowCount = hasAttendance
-            ? isFinal ? report.ConfirmedCount - validAttendeeCount : 0
+            ? isFinal ? confirmed.Count - validAttendeeCount : 0
             : report.NoShowCount;
 
         return new ParticipationReportViewModel

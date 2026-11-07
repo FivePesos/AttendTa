@@ -16,8 +16,8 @@ namespace ASI.Basecode.WebApp.DemoData;
 // M-10b/M-11a/M-11b: certificate surface adapters removed by 6.6/6.7/6.8 respectively. M-10a was
 // removed by 6.4: the real completion hook creates reviews, so this surface no longer creates them.
 public sealed class DemoCertificateLedgerService(
-    IEventRepository events, IRegistrationRepository registrations, DemoStore store,
-    DemoCertificateDocuments documents, ICurrentActor actor, TimeProvider clock) : ICertificateLedgerService
+    IEventRepository events, IRegistrationRepository registrations, IAttendanceRepository attendance,
+    DemoStore store, DemoCertificateDocuments documents, ICurrentActor actor, TimeProvider clock) : ICertificateLedgerService
 {
     public async Task<CertificateLedgerViewModel> GetPageAsync(int? eventId, CertificateLedgerTab tab, int? page,
         CancellationToken cancellationToken = default)
@@ -32,10 +32,12 @@ public sealed class DemoCertificateLedgerService(
         if (selected != null)
         {
             var confirmed = await ReadRegistrationsAsync(selected.EventId, cancellationToken);
+            var attendanceRows = await ReadAttendanceAsync(
+                selected.EventId, confirmed.Select(row => row.RegistrationId), cancellationToken);
             foreach (var row in confirmed)
             {
                 if (!store.TryGetReview(row.RegistrationId, out var review) || review.EventId != selected.EventId) continue;
-                store.TryGetAttendance(row.RegistrationId, out var attendance);
+                attendanceRows.TryGetValue(row.RegistrationId, out var attendance);
                 store.TryGetIssuedCertificate(row.RegistrationId, out var issue);
                 var (label, badge) = review.Status switch
                 {
@@ -145,7 +147,8 @@ public sealed class DemoCertificateLedgerService(
         var eventItem = await events.GetEventAsync(identity.EventId, cancellationToken);
         if (eventItem == null || !IsCompleted(eventItem.EventId, eventItem.EventStatusId))
             throw new DomainException(OutcomeCode.Invalid, "Certificates are available only for completed events.");
-        if (!store.TryGetAttendance(registrationId, out var attendance) || !attendance.IsValid || attendance.EventId != eventItem.EventId)
+        var attendanceRows = await ReadAttendanceAsync(eventItem.EventId, [registrationId], cancellationToken);
+        if (!attendanceRows.TryGetValue(registrationId, out var attendance) || !attendance.IsValid)
             throw new DomainException(OutcomeCode.Invalid, "Valid attendance is required for a certificate.");
         if (!store.TryGetReview(registrationId, out var review) || review.EventId != eventItem.EventId)
             throw new DomainException(OutcomeCode.NotFound, "Certificate review not found.");
@@ -154,6 +157,32 @@ public sealed class DemoCertificateLedgerService(
 
     private bool IsCompleted(int eventId, EventStatusCode status) => status == EventStatusCode.Completed
         || (status == EventStatusCode.Published && store.IsCompleted(eventId));
+
+    /// <summary>
+    /// The effective attendance for the event: the store's seeded rows fill only registrations
+    /// with no real row, so a real invalidation always wins (register rule 12).
+    /// </summary>
+    private async Task<IReadOnlyDictionary<int, AttendanceCell>> ReadAttendanceAsync(
+        int eventId, IEnumerable<int> registrationIds, CancellationToken cancellationToken)
+    {
+        var map = new Dictionary<int, AttendanceCell>();
+        foreach (var registrationId in registrationIds)
+        {
+            if (store.TryGetAttendance(registrationId, out var record) && record.EventId == eventId)
+            {
+                map[registrationId] = new AttendanceCell(record.RecordedAt, record.IsValid);
+            }
+        }
+
+        foreach (var row in await attendance.GetForEventAsync(eventId, cancellationToken))
+        {
+            map[row.RegistrationId] = new AttendanceCell(row.RecordedAt, row.IsValid);
+        }
+
+        return map;
+    }
+
+    private sealed record AttendanceCell(DateTime RecordedAt, bool IsValid);
 
     private async Task<IReadOnlyList<RegistrationReviewRow>> ReadRegistrationsAsync(int eventId, CancellationToken cancellationToken)
     {

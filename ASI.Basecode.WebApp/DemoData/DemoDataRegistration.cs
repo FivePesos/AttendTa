@@ -10,7 +10,8 @@ namespace ASI.Basecode.WebApp.DemoData;
 /// With the switch off it registers nothing beyond the certificate providers, so the normal screens
 /// are untouched. Check-in by scan, the manual lookup, attendance invalidation, both account
 /// commands and both membership commands are the real services registered by DI in both switch
-/// states.
+/// states. The certificate and participation-report surfaces keep their demo overlays, and both now
+/// merge the real attendance read over the store so a real row wins for the same registration.
 /// </summary>
 internal static class DemoDataRegistration
 {

@@ -162,12 +162,38 @@ public sealed class CertificateLedgerTests
         Assert.Equal(0, setup.Renderer.SampleCalls);
     }
 
+    [Fact]
+    public async Task RealInvalidatedAttendanceIsRefusedByTheDecisionAndIssuanceGate()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var setup = new Setup(2);
+        await setup.Service.GetPageAsync(7, CertificateLedgerTab.Eligibility, 1, ct);
+        await setup.Service.DecideAsync(1, true, null, ct);
+
+        // The store still holds valid rows; the real invalidated rows must win for both commands.
+        var realRecordedAt = Now.AddDays(-2).AddMinutes(5);
+        setup.RealAttendance.Add(new EventAttendanceRow(1, realRecordedAt, Now.AddMinutes(-1), "Pass could not be verified."));
+        setup.RealAttendance.Add(new EventAttendanceRow(2, realRecordedAt, Now.AddMinutes(-1), "Pass could not be verified."));
+
+        await Assert.ThrowsAsync<DomainException>(() => setup.Service.IssueAsync(1, ct));
+        Assert.False(setup.Store.IsCertificateIssued(1));
+
+        await Assert.ThrowsAsync<DomainException>(() => setup.Service.DecideAsync(2, true, null, ct));
+        Assert.True(setup.Store.TryGetReview(2, out var pending));
+        Assert.Equal(CertificateStatusCode.PendingApproval, pending.Status);
+
+        // The page read takes the real recorded time over the seeded one.
+        var page = await setup.Service.GetPageAsync(7, CertificateLedgerTab.Eligibility, 1, ct);
+        Assert.Equal(realRecordedAt, page.Rows.Single(row => row.RegistrationId == 1).AttendedAt);
+    }
+
     private sealed class Setup
     {
         public readonly DemoStore Store = new(Options.Create(new DemoDataOptions { TokenKey = "ledger-unit-key" }));
         public readonly FakeRenderer Renderer = new();
         public readonly Actor Actor = new();
         public readonly Event Event = new() { EventId = 7, Title = "Leadership Summit", StartsAt = Now.AddDays(-2), EventStatusId = EventStatusCode.Published };
+        public readonly List<EventAttendanceRow> RealAttendance = [];
         public readonly DemoCertificateLedgerService Service;
         public bool Confirmed = true;
 
@@ -190,13 +216,18 @@ public sealed class CertificateLedgerTests
                 nameof(IRegistrationRepository.DiscoverReviewAsync) => Task.FromResult(new RegistrationReviewIdentity(10, (int)args![0]!, 7)),
                 _ => throw new NotSupportedException(method.Name)
             });
+            var attendance = Proxy<IAttendanceRepository>((method, args) => method.Name switch
+            {
+                nameof(IAttendanceRepository.GetForEventAsync) => Task.FromResult<IReadOnlyList<EventAttendanceRow>>(RealAttendance),
+                _ => throw new NotSupportedException(method.Name)
+            });
             foreach (var row in rows) Store.RecordAttendance(row.RegistrationId, 7, row.MemberName, row.StudentNumber, Now.AddDays(-2), CheckInMethodCode.QrCode);
             if (invalidateBeforeCompletion) Store.InvalidateAttendance(count, "Attendance corrected.", Now);
             // The demo ledger no longer creates reviews at query time; seed them after invalidation
             // because the helper filters to valid attendance.
             Store.SeedPendingReviewsForEvent(7, Now);
             Store.MarkCompleted(7);
-            Service = new DemoCertificateLedgerService(events, registrations, Store, new DemoCertificateDocuments(Store, Renderer), Actor, new Clock());
+            Service = new DemoCertificateLedgerService(events, registrations, attendance, Store, new DemoCertificateDocuments(Store, Renderer), Actor, new Clock());
         }
     }
 

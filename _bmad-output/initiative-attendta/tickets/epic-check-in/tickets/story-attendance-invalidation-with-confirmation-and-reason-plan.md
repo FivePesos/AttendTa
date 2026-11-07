@@ -10,8 +10,8 @@ route_source: 'auto'
 risk: 'medium'
 review: 'quick'
 review_source: 'pinned'
-lenses_ran: []
-review_loop_iteration: 0
+lenses_ran: ['quick']
+review_loop_iteration: 1
 context:
   - '_bmad-output/initiative-attendta/demo-mock-register.md'
   - '_bmad-output/initiative-attendta/architecture-attendta/architecture-attendta.md'
@@ -63,7 +63,10 @@ context:
 - `ASI.Basecode.WebApp/Startup.DI.cs` — register `IAttendanceInvalidationService → AttendanceInvalidationService` beside `ICheckInService` (line 56). `AddDemoData` runs later, so its lines must go.
 - `ASI.Basecode.WebApp/DemoData/DemoDataRegistration.cs` — delete only the switch-off `UnavailableAttendanceInvalidationService` line and the `DemoCheckInRegistration` call; keep the `if (!enabled) return;` guard and the certificate/report registrations, or the store and seed stop registering with the switch off. Fix the stale comments there, in `DemoSeedService.cs:16-17` and in `DemoStore.cs:140-144`.
 - Delete `ASI.Basecode.WebApp/DemoData/DemoAttendanceInvalidationService.cs`, `UnavailableAttendanceInvalidationService.cs`, `DemoCheckInRegistration.cs`.
-- `ASI.Basecode.WebApp/DemoData/DemoParticipationReportService.cs` — M-13c hand-over: build the attendance map from `DemoStore.TryGetAttendance` as today, then overlay `IAttendanceRepository.GetForEventAsync` so a real row wins over a store row for the same registration. Keep the existing count/rate/no-show/breakdown derivation from that merged map, so the seeded demo event stays populated while a real invalidation shows. Keep `DemoStore` for `IsCompleted`.
+- `ASI.Basecode.WebApp/DemoData/DemoParticipationReportService.cs` — M-13c hand-over: build the attendance map from `DemoStore.TryGetAttendance` as today, then overlay `IAttendanceRepository.GetForEventAsync` so a real row wins over a store row for the same registration. Keep the existing count/rate/no-show/breakdown derivation from that merged map, so the seeded demo event stays populated while a real invalidation shows. Derive the rate and no-show figures from the same `confirmed` list the map is built from, not from `report.ConfirmedCount`. Keep `DemoStore` for `IsCompleted`.
+- `ASI.Basecode.WebApp/DemoData/DemoCertificateLedgerService.cs` — same hand-over for the still-open M-10b/M-11a rows: inject `IAttendanceRepository` and let a real attendance row win over a store row for the validity gate in `RequireCurrentParticipationAsync` (`:148`) and for `AttendedAt` in `GetPageAsync` (`:38`). Without it a real invalidation leaves the store row valid and an Officer can approve or issue against invalid attendance.
+- `ASI.Basecode.WebApp/DemoData/DemoSeedService.cs` — drop M-07 from the startup "Demo data active" log line; the register marks it removed.
+- `ASI.Basecode.WebApp/DemoData/DemoStore.cs` — delete the now-unreachable `GetAttendanceForEvent`; the report overlay reads `IAttendanceRepository.GetForEventAsync` and nothing else calls it.
 - `_bmad-output/initiative-attendta/demo-mock-register.md` — set M-07 to `removed` with the commit; update the M-05/M-06/M-07 removal paragraph and the M-13c hand-over and seeded-state paragraphs (lines ~99-100, 385-387, 396-404, 421-425) to say real attendance now overrides the store.
 - `tests/ASI.Basecode.IntegrationTests/AttendanceInvalidationFlowTests.cs` — new focused SQL smoke; reuse `CheckInFlowTests` seeding and service wiring.
 - `tests/ASI.Basecode.IntegrationTests/DemoParticipationReportOverlayTests.cs` — add a case where a real invalidated row overrides a seeded store row; the existing count assertions stay valid.
@@ -82,6 +85,10 @@ context:
 - [x] `DemoParticipationReportOverlayTests` — a real invalidated row overrides a seeded store row.
 - [x] `DemoCheckInWindowFlagTests` — invalidation resolves to the real service with the demo switch on and off.
 - [x] Demo register M-07 row and the M-13c paragraphs.
+- [x] `DemoCertificateLedgerService` hand-over - real attendance wins for the validity gate and `AttendedAt`.
+- [x] `DemoSeedService` log line and the unreachable `DemoStore.GetAttendanceForEvent`.
+- [x] `AttendanceInvalidationFlowTests` - assert the real `GetForEventAsync` read returns the invalidated row.
+- [x] `CertificateLedgerTests` - constructor takes the real attendance read; an invalidated real row is refused.
 
 **Acceptance Criteria:**
 - Given a valid attendance, when an Officer invalidates it with a reason, then the row is retained with `invalidated_at`, `invalidated_by` and the reason, and exactly one `attendance.invalidated` entry carries that reason.
@@ -102,11 +109,25 @@ _None — all three settled on 2026-11-07 and recorded as Decisions in the froze
 - Handlers run after the attendance lock and before `SaveChanges`, so a `Forbidden` throw rolls back the stamp and the audit together; an empty handler list commits. The audit payload is `EventId`, `RegistrationId`, `InvalidatedBy`, `InvalidatedAt` and `InvalidationReason`, and the entry's `Reason` carries the trimmed reason; no token or QR value is present.
 - The attendance row is retained and the registration status is untouched, so 4.3's existing invalidated rule refuses a later scan or manual check-in.
 - The M-13c overlay merges `IAttendanceRepository.GetForEventAsync` over the store map, so a real row wins for the same registration while seeded rows still fill the demo event. The merged map drives the valid count, rate, no-shows and breakdowns when it holds any row; otherwise the real SQL facts pass through.
-- `DemoStore.InvalidateAttendance` and `GetAttendanceForEvent` stay as the seed and test helpers; the app no longer calls them for invalidation.
+- `DemoStore.InvalidateAttendance` stays as the seed helper; `GetAttendanceForEvent` was deleted because the report overlay now reads `IAttendanceRepository.GetForEventAsync` and nothing else called it.
 
 ## Plan Change Log
 
+- 2026-11-07 review loopback 1 (bad_plan): the certificate ledger still answered attendance validity from the demo store, so a real invalidation left the store row valid and an Officer could approve or issue against invalid attendance — a regression this ticket introduced when invalidation stopped writing the store. Amended the Code Map and tasks to add the same real-over-store hand-over to `DemoCertificateLedgerService` that the report overlay already got. KEEP: the transaction/lock/hook design, the audit vocabulary, the DI replacement, the M-07 deletion, the report overlay merge and the `AttendanceInvalidationFlowTests` coverage all worked and must survive re-derivation. Also folded in three low findings: the `DemoSeedService` log still naming M-07, the unreachable `DemoStore.GetAttendanceForEvent`, and the overlay's mixed confirmed-count source.
+
 ## Review Triage Log
+
+Review pass 1 (quick): 1 medium, 4 low, 1 false, 1 low folded into the medium.
+
+| # | Finding | Verdict | Route | Evidence |
+|---|---------|---------|-------|----------|
+| 1 | `DemoCertificateLedgerService` reads attendance validity from the demo store, so a real invalidation is invisible and a stale review can be approved or issued | medium | bad_plan | `DemoCertificateLedgerService.cs:148` gates `RequireCurrentParticipationAsync` on `store.TryGetAttendance(...).IsValid` and `:38` reads the same row for `AttendedAt`. Before this change `DemoAttendanceInvalidationService` invalidated the store row, so the gate refused; now invalidation writes SQL only, so the store row stays valid and issuance is no longer blocked. Fixed by merging the real read over the store read, real wins. |
+| 2 | `DemoSeedService` startup log still names M-07 as active | low | patch | `DemoSeedService.cs:93` logs "M-01, M-07" while `demo-mock-register.md:91` marks M-07 removed. |
+| 3 | `DemoStore.GetAttendanceForEvent` is unreachable | low | patch | No caller in the solution; the overlay uses `IAttendanceRepository.GetForEventAsync`. Deleted. |
+| 4 | Overlay derives the rate and no-show figures from `report.ConfirmedCount` while building the map from `confirmed` | low | patch | `DemoParticipationReportService.cs:83` vs `:110,:114`. Both mean Confirmed today; use `confirmed.Count` so the derivation is self-consistent. |
+| 5 | The overlay's `hasAttendance` switch suppresses real facts and drops real breakdown membership | false | - | `validAttendees` is derived from the merged map over `confirmed`, and both breakdowns are computed from those same `validAttendees` (`:126-127`), so a real attendee with a real row is included. Only registrations with no attendance at all are excluded, which is the correct no-show rule. |
+| 6 | No real-SQL test for `GetForEventAsync` or the seeded-path merge | low | patch | The overlay case uses `FakeAttendance`; added a real-SQL assertion in `AttendanceInvalidationFlowTests` that the read returns the invalidated row. |
+| 7 | `DemoDataRegistration` comment understates the remaining demo surface | low | patch | Folded into finding 1: once the ledger reads real attendance the comment is accurate; updated it to name the merged read. |
 
 ## Design Notes
 
@@ -114,7 +135,7 @@ The transaction order and the hook placement are the whole design. Discovery run
 
 No event-status check is added: SPEC §11.1 allows a correction after completion, and the demo provider never checked it. The issued-certificate refusal belongs to 6.5's handler, which is why this ticket's own verify says invalidation commits with no handler registered.
 
-The overlay hand-over is required by register rule 12 and was explicitly left to 4.6 by the 4.3 plan ("the M-13c report overlay still reads the store until 4.6"). It is a merge, not a replacement: `DemoSeedService` writes its seeded check-ins only to the store, so a pure switch would empty the demo report that the register's seeded-state rule requires to stay populated. A real SQL row therefore wins over a store row for the same registration, and the store only fills registrations that have no real row. `DemoCertificateLedgerService` keeps reading the store until 6.5/6.7 replace that rule; that is a known temporary limitation, not this ticket's scope.
+The overlay hand-over is required by register rule 12 and was explicitly left to 4.6 by the 4.3 plan ("the M-13c report overlay still reads the store until 4.6"). It is a merge, not a replacement: `DemoSeedService` writes its seeded check-ins only to the store, so a pure switch would empty the demo report that the register's seeded-state rule requires to stay populated. A real SQL row therefore wins over a store row for the same registration, and the store only fills registrations that have no real row. The certificate ledger applies the same merge to its validity gate and `AttendedAt`, so a real invalidation now blocks approval and issuance; the store still supplies the seeded reviews and issues until 6.5/6.7 replace them.
 
 ## Verification
 

@@ -90,7 +90,7 @@ public sealed class DemoSeedService : IHostedService
             }
 
             _logger.LogInformation(
-                "Demo data active (M-01, M-07). Ready to complete event {ReadyToCompleteEventId}.",
+                "Demo data active (M-01). Ready to complete event {ReadyToCompleteEventId}.",
                 readyToComplete?.EventId);
         }
         catch (OperationCanceledException)

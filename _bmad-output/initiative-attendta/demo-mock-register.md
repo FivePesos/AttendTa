@@ -291,7 +291,7 @@ The M-01 `--demo-pass-token` switch and `DemoStore.GetPassToken` remain until 8.
 | Real scan provider (M-05 removed by 4.3) | `ASI.Basecode.Services/Services/CheckInService.cs`, `ASI.Basecode.Services/Services/AttendanceRecordingService.cs`, `ASI.Basecode.Data/Repositories/AttendanceRepository.cs` |
 | Real lookup and manual check-in provider (M-06 removed by 4.5) | `ASI.Basecode.Services/Services/CheckInLookupService.cs`, `ASI.Basecode.Data/Repositories/RegistrationRepository.cs` |
 | Real invalidation provider (M-07 removed by 4.6) | `ASI.Basecode.Services/Services/AttendanceInvalidationService.cs`, `ASI.Basecode.Services/Interfaces/IAttendanceInvalidationHandler.cs`, `ASI.Basecode.Data/Repositories/AttendanceRepository.cs` |
-| Store additions | `DemoStore.GetAttendanceForEvent`, `DemoAttendance.MemberName`/`StudentNumber` |
+| Store additions | `DemoAttendance.MemberName`/`StudentNumber` |
 | Screen, adapters and decoder | `Controllers/CheckInController.cs`, `Views/CheckIn/Index.cshtml`, `wwwroot/js/features/scanner.js`, `scanner-camera.js`, `scanner-manual.js`, `wwwroot/lib/jsqr/jsQR.js` (Apache-2.0, 1.4.0) |
 
 **What it composed (4.11).** The demo screen read the published event page, selected the first event

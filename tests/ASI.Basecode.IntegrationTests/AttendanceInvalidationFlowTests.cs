@@ -54,6 +54,16 @@ public sealed class AttendanceInvalidationFlowTests(SqlServerDatabaseFixture fix
             Assert.Equal(RegistrationStatusCode.Confirmed, registration.RegistrationStatusId);
         }
 
+        await using (var reader = EventDraftTestSupport.Context(fixture.ConnectionString))
+        {
+            var rows = await new AttendanceRepository(new UnitOfWork(reader)).GetForEventAsync(setup.EventId, ct);
+            var row = Assert.Single(rows);
+            Assert.Equal(setup.RegistrationId, row.RegistrationId);
+            Assert.Equal(Now, row.InvalidatedAt);
+            Assert.Equal(Reason, row.InvalidationReason);
+            Assert.False(row.IsValid);
+        }
+
         var observed = Assert.Single(handler.Contexts);
         Assert.Equal(setup.EventId, observed.EventId);
         Assert.Equal(setup.RegistrationId, observed.RegistrationId);
