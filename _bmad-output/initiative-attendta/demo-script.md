@@ -237,7 +237,8 @@ Sign in as `liza.fernandez@uc.edu.ph`.
 
 - **Member attendance history is real since 4.7.** `MyEventsService.GetAttendanceAsync` reads the
   owner-scoped SQL query, so a check-in made through the real scanner appears here. Seeded
-  demo-store check-ins still appear only on the scanner log and the report (register M-08 removed).
+  demo-store check-ins now feed the certificate-ledger demo only; the participation report reads
+  real SQL attendance since 7.3 (register M-08 and M-13c removed).
 - **Completion is live.** The demo completes Leadership Summit in O3 through the real 3.12
   service, so completion writes SQL and the Activity Log. A restart returns the scenario's
   events to their seeded status and resets the in-memory store.
