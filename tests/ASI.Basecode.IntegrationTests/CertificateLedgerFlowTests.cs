@@ -15,7 +15,7 @@ namespace ASI.Basecode.IntegrationTests;
 public sealed class CertificateLedgerFlowTests(SqlServerDatabaseFixture fixture) : IClassFixture<SqlServerDatabaseFixture>
 {
     [Fact]
-    public async Task OfficerCanReviewIssueAndViewWithRealRendererWithoutPersistingCertificateRows()
+    public async Task OfficerCanReviewIssueAndDownloadTheRetainedCertificateWithAnAuditRow()
     {
         var ct = TestContext.Current.CancellationToken;
         var password = Convert.ToHexString(RandomNumberGenerator.GetBytes(32)) + "aA1!";
@@ -80,7 +80,6 @@ public sealed class CertificateLedgerFlowTests(SqlServerDatabaseFixture fixture)
         Assert.Contains("Decline reason", html, StringComparison.Ordinal);
         Assert.DoesNotMatch("(?i)demo|mock|prototype|simulated|fixture", html);
         var token = await MemberEventTestSupport.AntiforgeryTokenAsync(client, "/Certificates", ct);
-        var store = enabled.Services.GetRequiredService<DemoStore>();
 
         using var playwright = await Playwright.CreateAsync();
         await using var browser = await playwright.Chromium.LaunchAsync(new() { Headless = true });
@@ -146,12 +145,24 @@ public sealed class CertificateLedgerFlowTests(SqlServerDatabaseFixture fixture)
         await PostAsync("Approve", registrationIds[1]);
         Assert.Contains("already been decided", await client.GetStringAsync("/Certificates", ct), StringComparison.Ordinal);
         await PostAsync("Issue", registrationIds[3]);
-        Assert.False(store.IsCertificateIssued(registrationIds[3]));
+        await using (var refused = MemberEventTestSupport.Context(fixture.ConnectionString))
+        {
+            var declined = await refused.Certificates.AsNoTracking()
+                .SingleAsync(row => row.RegistrationId == registrationIds[3], ct);
+            Assert.Equal(CertificateStatusCode.NotEligible, declined.CertificateStatusId);
+            Assert.Null(declined.FilePath);
+        }
         await page.Locator($"[data-certificate-open='issue-certificate'][data-id='{registrationIds[1]}']").ClickAsync();
         await page.ScreenshotAsync(new() { Path = Path.Combine(Path.GetTempPath(), "attendta-6-12-issue-desktop.png") });
         await page.Locator("#issue-certificate button[type='submit']").ClickAsync();
         await page.GetByText("Certificate issued. View it in the Issued Registry.", new() { Exact = true }).WaitForAsync();
-        Assert.True(store.IsCertificateIssued(registrationIds[1]));
+        await using (var issuedCheck = MemberEventTestSupport.Context(fixture.ConnectionString))
+        {
+            var issued = await issuedCheck.Certificates.AsNoTracking()
+                .SingleAsync(row => row.RegistrationId == registrationIds[1], ct);
+            Assert.Equal(CertificateStatusCode.Issued, issued.CertificateStatusId);
+            Assert.StartsWith("certificates/", issued.FilePath, StringComparison.Ordinal);
+        }
         var registry = await client.GetStringAsync("/Certificates?tab=issued", ct);
         Assert.Contains("Participant 2", registry, StringComparison.Ordinal);
         var viewer = await client.GetStringAsync($"/Certificates/Viewer/{registrationIds[1]}", ct);
@@ -174,8 +185,9 @@ public sealed class CertificateLedgerFlowTests(SqlServerDatabaseFixture fixture)
         // add and the decisions update the seeded rows in SQL.
         var certificates = await observer.Certificates.AsNoTracking().ToListAsync(ct);
         Assert.Equal(registrationIds.Count, certificates.Count);
-        Assert.Equal(CertificateStatusCode.Issued,
-            certificates.Single(row => row.RegistrationId == registrationIds[1]).CertificateStatusId);
+        var issuedCertificate = certificates.Single(row => row.RegistrationId == registrationIds[1]);
+        Assert.Equal(CertificateStatusCode.Issued, issuedCertificate.CertificateStatusId);
+        Assert.StartsWith("certificates/", issuedCertificate.FilePath, StringComparison.Ordinal);
         Assert.Equal(CertificateStatusCode.NotEligible,
             certificates.Single(row => row.RegistrationId == registrationIds[3]).CertificateStatusId);
         var logs = await observer.ActivityLogs.AsNoTracking().ToListAsync(ct);
@@ -183,8 +195,14 @@ public sealed class CertificateLedgerFlowTests(SqlServerDatabaseFixture fixture)
         Assert.Equal(eventItem.EventId, completion.EntityId);
         Assert.Single(logs, row => row.Action == AuditActions.CertificateApproved);
         Assert.Single(logs, row => row.Action == AuditActions.CertificateDeclined);
-        Assert.False(Directory.Exists(Path.Combine(factory.SetupRoot, "certificates"))
-            && Directory.EnumerateFiles(Path.Combine(factory.SetupRoot, "certificates"), "*", SearchOption.AllDirectories).Any());
+        var issuance = Assert.Single(logs, row => row.Action == AuditActions.CertificateIssued);
+        Assert.Equal(issuedCertificate.CertificateId, issuance.EntityId);
+        Assert.DoesNotContain("path", issuance.NewValues!, StringComparison.OrdinalIgnoreCase);
+        var certificateFiles = Directory.GetFiles(
+            Path.Combine(factory.SetupRoot, "certificates"), "*", SearchOption.AllDirectories);
+        var retained = Assert.Single(certificateFiles);
+        Assert.StartsWith("%PDF-",
+            System.Text.Encoding.ASCII.GetString(await File.ReadAllBytesAsync(retained, ct)), StringComparison.Ordinal);
         Assert.Equal(EventStatusCode.Completed, (await observer.Events.SingleAsync(row => row.EventId == eventItem.EventId, ct)).EventStatusId);
 
         async Task PostAsync(string action, int id, string reason = "")

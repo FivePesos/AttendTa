@@ -1,6 +1,4 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using ASI.Basecode.Data.Interfaces;
@@ -14,30 +12,24 @@ using ASI.Basecode.Services.Services;
 
 namespace ASI.Basecode.WebApp.DemoData;
 
-// M-10b removed by 6.6: the queue and both decisions are the real CertificateLedgerService. This
-// provider only overlays the still-demo issued state (M-11a) and keeps issuance/viewer (M-11a/M-11b).
+// M-10b removed by 6.6 and M-11a by 6.7: the queue, both decisions and issuance are the real
+// CertificateLedgerService. This provider only keeps M-11b's in-memory document for the seeded
+// issued row, which carries no retained file until 6.8 removes the row.
 public sealed class DemoCertificateLedgerService(
     CertificateLedgerService inner,
-    IEventRepository events,
     IRegistrationRepository registrations,
-    IAttendanceRepository attendance,
     ICertificateRepository certificates,
-    IUnitOfWork unitOfWork,
+    IPrivateFileStore files,
     DemoStore store,
     DemoCertificateDocuments documents,
-    ICurrentActor actor,
-    TimeProvider clock) : ICertificateLedgerService
+    ICurrentActor actor) : ICertificateLedgerService
 {
-    public async Task<CertificateLedgerViewModel> GetPageAsync(
+    public Task<CertificateLedgerViewModel> GetPageAsync(
         int? eventId,
         CertificateLedgerTab tab,
         int? page,
-        CancellationToken cancellationToken = default)
-    {
-        var read = await inner.ReadAsync(eventId, cancellationToken);
-        var rows = OverlayIssues(read.Rows);
-        return CertificateLedgerService.BuildPage(new CertificateLedgerRead(read.Selector, rows), tab, page);
-    }
+        CancellationToken cancellationToken = default) =>
+        inner.GetPageAsync(eventId, tab, page, cancellationToken);
 
     public Task DecideAsync(
         int registrationId,
@@ -46,133 +38,80 @@ public sealed class DemoCertificateLedgerService(
         CancellationToken cancellationToken = default) =>
         inner.DecideAsync(registrationId, approve, reason, cancellationToken);
 
-    public async Task IssueAsync(int registrationId, CancellationToken cancellationToken = default)
+    public Task IssueAsync(int registrationId, CancellationToken cancellationToken = default) =>
+        inner.IssueAsync(registrationId, cancellationToken);
+
+    public async Task<CertificateViewerViewModel> GetViewerAsync(
+        int registrationId,
+        CancellationToken cancellationToken = default)
     {
         RequireManagement();
-        var current = await RequireCurrentParticipationAsync(registrationId, cancellationToken);
-        if (store.IsCertificateIssued(registrationId))
-            throw new DomainException(OutcomeCode.Duplicate, "A certificate has already been issued.");
-        if (current.Status != CertificateStatusCode.Eligible)
-            throw new DomainException(OutcomeCode.Invalid, "Approve this review before issuing a certificate.");
-
-        var issuedAt = clock.GetUtcNow().UtcDateTime;
-        var snapshot = new CertificatePdfSnapshot(
-            current.MemberName,
-            current.Event.Title,
-            current.Event.StartsAt,
-            issuedAt,
-            store.GetCertificateNumber(registrationId, issuedAt));
-        var bytes = await documents.RenderAsync(snapshot, cancellationToken);
-        cancellationToken.ThrowIfCancellationRequested();
-
-        // The review and attendance may have changed while the PDF rendered; recheck before publish.
-        var recheck = await RequireCurrentParticipationAsync(registrationId, cancellationToken);
-        if (recheck.Status != CertificateStatusCode.Eligible)
-            throw new DomainException(OutcomeCode.Invalid, "Approve this review before issuing a certificate.");
-        store.PublishCertificate(registrationId, current.Event.EventId, snapshot, bytes, actor.UserId);
-
-        // The real invalidation handler refuses an issued certificate, so the SQL review must carry
-        // the issued state too; the store keeps only the still-demo document.
-        var certificate = await certificates.GetByRegistrationIdAsync(registrationId, cancellationToken);
-        if (certificate is not null)
+        var certificate = await RequireIssuedAsync(registrationId, cancellationToken);
+        var identity = await registrations.DiscoverReviewAsync(registrationId, cancellationToken);
+        if (identity is null)
         {
-            certificate.CertificateStatusId = CertificateStatusCode.Issued;
-            certificate.CertificateNumber = snapshot.CertificateNumber;
-            certificate.RecipientNameSnapshot = snapshot.RecipientName;
-            certificate.EventTitleSnapshot = snapshot.EventTitle;
-            certificate.EventStartsAtSnapshot = snapshot.EventStartsAt;
-            certificate.IssuedBy = actor.UserId;
-            certificate.IssuedAt = issuedAt;
-            certificate.UpdatedBy = actor.UserId;
-            certificate.UpdatedAt = issuedAt;
-            await unitOfWork.SaveChangesAsync(cancellationToken);
+            throw NotFound();
         }
-    }
 
-    public Task<CertificateViewerViewModel> GetViewerAsync(int registrationId, CancellationToken cancellationToken = default)
-    {
-        RequireManagement();
-        cancellationToken.ThrowIfCancellationRequested();
-        var issue = RequireIssue(registrationId);
-        return Task.FromResult(new CertificateViewerViewModel
+        return new CertificateViewerViewModel
         {
             CertificateId = registrationId,
-            EventId = issue.EventId,
-            MemberName = issue.Snapshot.RecipientName,
-            EventTitle = issue.Snapshot.EventTitle,
-            CertificateNumber = issue.CertificateNumber
-        });
+            EventId = identity.EventId,
+            MemberName = certificate.RecipientNameSnapshot,
+            EventTitle = certificate.EventTitleSnapshot,
+            CertificateNumber = certificate.CertificateNumber
+        };
     }
 
-    public Task<CertificateDocument> GetPdfAsync(int registrationId, CancellationToken cancellationToken = default)
+    public async Task<CertificateDocument> GetPdfAsync(
+        int registrationId,
+        CancellationToken cancellationToken = default)
     {
         RequireManagement();
-        return documents.GetPdfAsync(registrationId, cancellationToken);
-    }
+        var certificate = await RequireIssuedAsync(registrationId, cancellationToken);
 
-    private IReadOnlyList<CertificateLedgerRowViewModel> OverlayIssues(
-        IReadOnlyList<CertificateLedgerRowViewModel> rows)
-    {
-        var overlaid = new List<CertificateLedgerRowViewModel>(rows.Count);
-        foreach (var row in rows)
+        // Issued rows read the retained file; only the seeded row falls back to the in-memory document.
+        if (!string.IsNullOrWhiteSpace(certificate.FilePath))
         {
-            if (!store.TryGetIssuedCertificate(row.RegistrationId, out var issue) || issue.Snapshot is null)
-            {
-                overlaid.Add(row);
-                continue;
-            }
-
-            overlaid.Add(new CertificateLedgerRowViewModel
-            {
-                RegistrationId = row.RegistrationId,
-                MemberId = row.MemberId,
-                MemberName = issue.Snapshot.RecipientName ?? row.MemberName,
-                StudentNumber = row.StudentNumber,
-                EventTitle = issue.Snapshot.EventTitle ?? row.EventTitle,
-                AttendedAt = row.AttendedAt,
-                Status = CertificateStatusCode.Issued,
-                StatusLabel = "Issued",
-                StatusBadgeClass = "badge-completed",
-                CertificateNumber = issue.CertificateNumber,
-                IssuedAt = issue.IssuedAt,
-                Reason = null
-            });
+            return await ReadRetainedAsync(certificate, cancellationToken);
         }
 
-        return overlaid;
+        return await documents.GetPdfAsync(registrationId, cancellationToken);
     }
 
-    private DemoCertificateIssue RequireIssue(int registrationId)
+    private async Task<CertificateDocument> ReadRetainedAsync(Certificate certificate, CancellationToken cancellationToken)
     {
-        if (!store.TryGetIssuedCertificate(registrationId, out var issue) || issue.Snapshot == null)
-            throw new DomainException(OutcomeCode.NotFound, "Certificate not found.");
-        return issue;
+        try
+        {
+            await using var stream = await files.OpenReadAsync(certificate.FilePath, cancellationToken);
+            using var copy = new MemoryStream();
+            await stream.CopyToAsync(copy, cancellationToken);
+            return new CertificateDocument(copy.ToArray(), certificate.CertificateNumber);
+        }
+        catch (FileNotFoundException)
+        {
+            throw NotFound();
+        }
+        catch (DirectoryNotFoundException)
+        {
+            throw NotFound();
+        }
     }
 
-    private async Task<IssueContext> RequireCurrentParticipationAsync(
-        int registrationId,
-        CancellationToken cancellationToken)
+    private async Task<Certificate> RequireIssuedAsync(int registrationId, CancellationToken cancellationToken)
     {
-        var identity = await registrations.DiscoverReviewAsync(registrationId, cancellationToken);
-        if (identity == null || !await registrations.IsConfirmedAsync(registrationId, cancellationToken))
-            throw new DomainException(OutcomeCode.Invalid, "A confirmed registration is required for a certificate.");
+        var certificate = await certificates.GetByRegistrationIdAsync(registrationId, cancellationToken);
+        if (certificate is null || certificate.CertificateStatusId != CertificateStatusCode.Issued)
+        {
+            throw NotFound();
+        }
 
-        var eventItem = await events.GetEventAsync(identity.EventId, cancellationToken);
-        if (eventItem == null || eventItem.EventStatusId != EventStatusCode.Completed)
-            throw new DomainException(OutcomeCode.Invalid, "Certificates are available only for completed events.");
+        if (string.IsNullOrWhiteSpace(certificate.FilePath) && !store.TryGetIssuedCertificate(registrationId, out _))
+        {
+            throw NotFound();
+        }
 
-        var attendanceRow = await attendance.GetByRegistrationIdAsync(registrationId, cancellationToken);
-        if (attendanceRow == null || attendanceRow.InvalidatedAt is not null)
-            throw new DomainException(OutcomeCode.Invalid, "Valid attendance is required for a certificate.");
-
-        // The queue read is untracked, so the second check after rendering sees a decision made in
-        // another request rather than the cached entity.
-        var queue = await certificates.GetReviewQueueAsync(identity.EventId, cancellationToken);
-        var row = queue.FirstOrDefault(item => item.RegistrationId == registrationId);
-        if (row?.Status is null)
-            throw new DomainException(OutcomeCode.NotFound, "Certificate review not found.");
-
-        return new IssueContext(eventItem, row.Status.Value, row.MemberName);
+        return certificate;
     }
 
     private void RequireManagement()
@@ -181,5 +120,5 @@ public sealed class DemoCertificateLedgerService(
             throw new DomainException(OutcomeCode.Forbidden, "You do not have permission to manage certificates.");
     }
 
-    private sealed record IssueContext(Event Event, CertificateStatusCode Status, string MemberName);
+    private static DomainException NotFound() => new(OutcomeCode.NotFound, "Certificate not found.");
 }

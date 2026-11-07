@@ -33,4 +33,5 @@ public static class AuditActions
     public const string AttendanceInvalidated = "attendance.invalidated";
     public const string CertificateApproved = "certificate.approved";
     public const string CertificateDeclined = "certificate.declined";
+    public const string CertificateIssued = "certificate.issued";
 }

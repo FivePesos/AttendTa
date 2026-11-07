@@ -10,10 +10,10 @@ using Microsoft.Extensions.Options;
 namespace ASI.Basecode.WebApp.DemoData;
 
 /// <summary>
-/// The one in-memory demo store (register M-01). After 6.6 it holds only the demo pass token and the
-/// still-demo issued certificate documents (M-11a/M-11b); attendance and certificate reviews are real
-/// SQL rows. Nothing here touches SQL, the private file store or the Activity Log, and a restart
-/// clears the issued documents.
+/// The one in-memory demo store (register M-01). After 6.7 it holds only the demo pass token and the
+/// seeded issued certificate document (M-11b); issuance, attendance and certificate reviews are real
+/// SQL rows and issued PDFs are retained in the private file store. Nothing here touches SQL, the
+/// private file store or the Activity Log, and a restart clears the seeded document.
 /// </summary>
 public sealed class DemoStore
 {
@@ -58,25 +58,7 @@ public sealed class DemoStore
     /// <summary>The stable demo pass token for a real registration id.</summary>
     public string GetPassToken(int registrationId) => DerivePassToken(registrationId, _tokenKey);
 
-    // ---- Certificate issues (M-11a/M-11b) -----------------------------------
-
-    // M-11a: registration identity makes the number unique within the shared store.
-    public string GetCertificateNumber(int registrationId, DateTime issuedAt) => $"AT-{issuedAt:yyyy}-{registrationId:D6}";
-
-    // M-11a: publish only after successful rendering. The caller rechecks the real review, attendance
-    // and event state before calling; this gate only guarantees one document per registration.
-    public void PublishCertificate(int registrationId, int eventId, CertificatePdfSnapshot snapshot, byte[] pdf, int actorId)
-    {
-        lock (_gate)
-        {
-            if (_issues.ContainsKey(registrationId))
-                throw new DomainException(OutcomeCode.Duplicate, "A certificate has already been issued.");
-            if (pdf == null || pdf.Length == 0)
-                throw new DomainException(OutcomeCode.Invalid, "The certificate could not be rendered. Please try again.");
-            _issues[registrationId] = new DemoCertificateIssue(
-                registrationId, eventId, snapshot.CertificateNumber, snapshot.IssuedAt, snapshot, (byte[])pdf.Clone(), actorId);
-        }
-    }
+    // ---- Certificate issues (M-11b) -----------------------------------------
 
     // M-11b: a seeded issue is rendered once, then its original bytes are reused for this process lifetime.
     public DemoCertificateIssue AttachCertificateDocument(int registrationId, CertificatePdfSnapshot snapshot, byte[] pdf)
