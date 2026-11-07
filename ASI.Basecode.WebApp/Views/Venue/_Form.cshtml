@@ -1,6 +1,8 @@
 @model VenueViewModel
 @{
     var photoRequired = ViewData["PhotoRequired"] is true;
+    var photoReselect = ViewData["PhotoReselect"] is true;
+    var photoDescribedBy = photoReselect ? "photo-help photo-reselect photo-validation" : "photo-help photo-validation";
 }
 
 <fieldset>
@@ -40,8 +42,13 @@
     <legend>Photo</legend>
     <div class="field">
         <label for="photo" class="field-label">Venue photo @if (photoRequired) { <span class="required" aria-hidden="true">*</span> }</label>
-        <input id="photo" name="photo" aria-describedby="photo-help photo-validation" type="file" accept="image/png,image/jpeg" class="field-control" required="@(photoRequired ? "required" : null)" />
+        <input id="photo" name="photo" aria-describedby="@photoDescribedBy" type="file" accept="image/png,image/jpeg" class="field-control" required="@(photoRequired ? "required" : null)" />
         <small id="photo-help" class="muted">A JPEG or PNG photo up to 2 MiB is required when creating a venue. Select a new photo to replace the existing one.</small>
+        @if (photoReselect)
+        {
+            <small id="photo-reselect" class="field-hint" data-photo-reselect>Choose the photo again to replace the current photo; the previous selection was not kept after the failed save.</small>
+        }
+        <div class="record-dialog-preview" data-record-preview data-record-preview-alt="Preview of the selected venue photo" hidden></div>
         @Html.ValidationMessage("photo", null, new { id = "photo-validation", @class = "field-error" })
     </div>
 </fieldset>
