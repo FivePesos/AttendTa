@@ -221,9 +221,33 @@ public sealed class CertificateLedgerFlowTests(SqlServerDatabaseFixture fixture)
         }
         Assert.Equal(HttpStatusCode.OK, (await ownerClient.GetAsync($"/Certificates/Pdf/{registrationIds[1]}", ct)).StatusCode);
 
-        // A non-owner member and an unknown id receive the identical not-found.
-        Assert.Equal(HttpStatusCode.NotFound, (await memberClient.GetAsync($"/Certificates/Pdf/{registrationIds[1]}", ct)).StatusCode);
-        Assert.Equal(HttpStatusCode.NotFound, (await memberClient.GetAsync("/Certificates/Pdf/2147483647", ct)).StatusCode);
+        // A non-owner member and an unknown id receive the identical not-found: same status, same
+        // message, and the same page once the id in the retry link is normalised.
+        var nonOwner = await memberClient.GetAsync($"/Certificates/Pdf/{registrationIds[1]}", ct);
+        var unknown = await memberClient.GetAsync("/Certificates/Pdf/2147483647", ct);
+        Assert.Equal(HttpStatusCode.NotFound, nonOwner.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, unknown.StatusCode);
+        var nonOwnerBody = await nonOwner.Content.ReadAsStringAsync(ct);
+        var unknownBody = await unknown.Content.ReadAsStringAsync(ct);
+
+        // Compare the alert block itself: same message, same structure, and the only difference is
+        // the id in the retry link.
+        static string AlertBlock(string html) =>
+            System.Text.RegularExpressions.Regex.Match(
+                html,
+                "<div class=\"notice notice-error\" role=\"alert\">.*?</div>",
+                System.Text.RegularExpressions.RegexOptions.Singleline).Value;
+        var nonOwnerAlert = AlertBlock(nonOwnerBody).Replace(
+            $"/Certificates/Pdf/{registrationIds[1]}\"", "/Certificates/Pdf/{id}\"", StringComparison.Ordinal);
+        var unknownAlert = AlertBlock(unknownBody).Replace(
+            "/Certificates/Pdf/2147483647\"", "/Certificates/Pdf/{id}\"", StringComparison.Ordinal);
+        Assert.Contains("Certificate not found.", nonOwnerAlert, StringComparison.Ordinal);
+        Assert.Equal(nonOwnerAlert, unknownAlert);
+
+        // The viewer stays Management-only: a member never reaches the metadata page.
+        var memberViewer = await memberClient.GetAsync($"/Certificates/Viewer/{registrationIds[1]}", ct);
+        Assert.Equal(HttpStatusCode.Redirect, memberViewer.StatusCode);
+        Assert.Contains("AccessDenied", MemberEventTestSupport.LocationPath(memberViewer), StringComparison.Ordinal);
 
         await page.SetViewportSizeAsync(390, 900);
         await page.GotoAsync($"http://localhost/Certificates/Viewer/{registrationIds[1]}");
@@ -252,8 +276,14 @@ public sealed class CertificateLedgerFlowTests(SqlServerDatabaseFixture fixture)
             ? Directory.GetFiles(certificateDirectory, "*", SearchOption.AllDirectories)
             : Array.Empty<string>();
         var retained = Assert.Single(certificateFiles);
+        var retainedBytes = await File.ReadAllBytesAsync(retained, ct);
         Assert.StartsWith("%PDF-",
-            System.Text.Encoding.ASCII.GetString(await File.ReadAllBytesAsync(retained, ct)), StringComparison.Ordinal);
+            System.Text.Encoding.ASCII.GetString(retainedBytes), StringComparison.Ordinal);
+
+        // The served bytes are the retained file's bytes, not a re-render: both reads match the
+        // file on disk exactly.
+        Assert.Equal(retainedBytes, await pdf.Content.ReadAsByteArrayAsync(ct));
+        Assert.Equal(retainedBytes, await ownerPdf.Content.ReadAsByteArrayAsync(ct));
 
         // A stored key outside certificates/ is refused by the service before the store is asked.
         // The venue file exists on purpose: OpenReadAsync infers the area from the key, so without
