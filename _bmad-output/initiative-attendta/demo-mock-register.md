@@ -82,7 +82,7 @@ into lettered rows.
 
 | Id | Surface | Missing backend today | Added by | Removed by | State |
 |---|---|---|---|---|---|
-| M-01 | Demo seam: `DemoData:Enabled`, the startup database guard, `DemoData:TokenKey`, the demo store (pass tokens, attendance, certificate reviews and issues; the completed-state fixture serves only the M-10a/M-13b tests), the registration method and the start-up seed | — (infrastructure) | 1.14 | 8.13 | open |
+| M-01 | Demo seam: `DemoData:Enabled`, the startup database guard, `DemoData:TokenKey`, the demo store (pass tokens, attendance, certificate reviews and issues; the completed-state fixture serves only the M-10a/M-13b and participation-report overlay tests), the registration method and the start-up seed | — (infrastructure) | 1.14 | 8.13 | open |
 | M-02 | My Events: all of a member's registrations across events, with status and cutoff labels | Cross-event owner query (only per-event and upcoming-only reads exist) | 3.17 | 3.13 | removed |
 | M-03 | Pass card QR image and PNG download (rule 10 token, QR drawn by a locally served browser library) | QR library, token read, authorized PNG endpoint | 4.10 | 4.1 | removed |
 | M-04 | Check-in window open/close command, the shared control partial, and the open flag overlaid on event reads (rule 7) | Open/close command | 1.14 | 4.2 | removed (7f6ae2218e6bc9e74611c610287b11ffa7f19ec4) |
@@ -97,7 +97,7 @@ into lettered rows.
 | M-11b | Officer PDF view and download (rendered in memory with the real template) | Authorized download of the retained file | 6.12 | 6.8 | open |
 | M-12 | Member certificate history and download links - `IMyCertificatesService`, `DemoMyCertificatesService`, `UnavailableMyCertificatesService`; shared `DemoCertificateDocuments` | Owner-scoped certificate query | 6.13 | 6.9 | open |
 | M-13a | Report summary: status counts, Confirmed and Valid attendees, rate | Report summary queries | 7.4 | 7.1 | removed; demo attendance source remains under M-05/M-07 |
-| M-13b | Report no-shows and course/year breakdowns | No-show and distribution queries | 7.4 | 7.2 | open |
+| M-13b | Report no-shows and course/year breakdowns | No-show and distribution queries | 7.4 | 7.2 | removed; demo attendance source remains under M-05/M-07 |
 | M-13c | Report paged detail rows | Paged detail query | 7.4 | 7.3 | open |
 | M-14a | Account deactivation with reason (the Accounts list shows the new state) — `IAccountAccessCommands.DeactivateAsync`, `DemoAccountAccessCommands` | Account deactivation and cascade | 5.11 | 5.4 | removed |
 | M-14b | Account reactivation with reason — `IAccountAccessCommands.ReactivateAsync`, `DemoAccountAccessCommands` | Account reactivation | 5.11 | 5.5 | removed |
@@ -133,7 +133,7 @@ in `ASI.Basecode.Services`.
 | Shared check-in control and its model | `Views/Shared/_CheckInControl.cshtml`, `ASI.Basecode.Services/ServiceModels/CheckInControlViewModel.cs` |
 | Operator pass-token switch | `ASI.Basecode.WebApp/Program.cs` (`--demo-pass-token <registrationId>`) |
 
-**Store.** One singleton keyed by real ids: attendance by registration id, and certificate review and issue state. The check-in window is no longer store state after 4.2. `MarkCompleted` and `IsCompleted` remain only as the M-10a/M-13b test fixture; the app completes events through the real service. `InvalidateAttendance` requires a reason, is refused once a certificate is
+**Store.** One singleton keyed by real ids: attendance by registration id, and certificate review and issue state. The check-in window is no longer store state after 4.2. `MarkCompleted` and `IsCompleted` remain only as the M-10a/M-13b and participation-report overlay test fixture; the app completes events through the real service. `InvalidateAttendance` requires a reason, is refused once a certificate is
 issued, and turns a pending or approved review not eligible with that reason. `GetPassToken` is
 the lowercase hex HMAC-SHA256 of the invariant registration id under `DemoData:TokenKey`; the
 `--demo-pass-token` switch prints the same value and writes nothing.
@@ -340,6 +340,10 @@ correction, edit or delete control. Until 4.7 the tab shows its empty state.
 query instead of deleting a class.
 ## M-13a, M-13b and M-13c — participation report detail (7.4)
 
+**M-13a and M-13b are removed.** 7.1 replaced the summary computation and 7.2 replaced the no-show
+and breakdown computation with the real `ParticipationReportService` and
+`ParticipationReportRepository`. Only M-13c remains open until 7.3.
+
 **Contract and classes.** All demo code is in `ASI.Basecode.WebApp/DemoData/`; the contract is in
 `ASI.Basecode.Services`.
 
@@ -347,38 +351,43 @@ query instead of deleting a class.
 |---|---|
 | Read contract `IParticipationReportService.GetReportAsync(eventId, page, ct)` | `ASI.Basecode.Services/Interfaces/IParticipationReportService.cs` |
 | View model, row model, breakdown model and paging metadata | `ASI.Basecode.Services/ServiceModels/ParticipationReportViewModel.cs` |
-| Real summary service and repository | `ASI.Basecode.Services/Services/ParticipationReportService.cs`, `ASI.Basecode.Data/Repositories/ParticipationReportRepository.cs` |
-| Demo overlay provider (M-13b, M-13c and the M-05/M-07 attendance handover) | `ASI.Basecode.WebApp/DemoData/DemoParticipationReportService.cs` |
+| Real report service and repository (summary, no-shows and distributions) | `ASI.Basecode.Services/Services/ParticipationReportService.cs`, `ASI.Basecode.Data/Repositories/ParticipationReportRepository.cs` |
+| Demo overlay provider (M-13c and the M-05/M-07 attendance handover) | `ASI.Basecode.WebApp/DemoData/DemoParticipationReportService.cs` |
 | Reports surface registration file | `ASI.Basecode.WebApp/DemoData/DemoReportsRegistration.cs` |
 | Screen and styles | `Views/Reports/Participation.cshtml`, `Styles/features/reports.css` |
 
-**Real summary.** `ParticipationReportService` reads the selector options and selected event through
-`IEventRepository`, then reads the event summary from
-`ParticipationReportRepository.GetSummaryFactsAsync`, which composes `ParticipationFacts.SeatHolders`,
-`ValidAttendances` and `AttendanceRates` with `AsNoTracking`. The switch-off path uses the same real
-service; there is no empty provider.
+**Real report.** `ParticipationReportService` reads the selector options and selected event through
+`IEventRepository`, then reads the event summary, no-shows and attendee distribution from
+`ParticipationReportRepository`. `GetSummaryFactsAsync` composes `ParticipationFacts.SeatHolders`,
+`ValidAttendances` and `AttendanceRates`; `GetNoShowCountAsync` counts `ParticipationFacts.NoShows`
+(Completed-only, so a cancelled event returns zero); and `GetAttendeeDistributionAsync` groups valid
+attendees by `registrations.course_snapshot` and `year_level_snapshot` without joining `users` or
+`members`, so inactive history stays visible. All reads use `AsNoTracking`. The switch-off path uses
+the same real service; there is no empty provider.
 
 **Demo overlay.** `DemoParticipationReportService` calls the real service first, then composes
 `IRegistrationRepository.GetReviewQueueAsync` once per registration status (Pending, Confirmed,
-Waitlisted, Cancelled) to overlay the still-open M-13b/M-13c rows, breakdowns and no-shows.
-`RegistrationReviewRow` projects `course_snapshot` and `year_level_snapshot`, so the breakdowns read
-the signup snapshot rather than the member's current course. While M-05/M-07 remain open,
+Waitlisted, Cancelled) to overlay the still-open M-13c detail rows. While M-05/M-07 remain open,
 `DemoStore.TryGetAttendance` supplies check-ins and invalidations, and `DemoStore.GetAttendanceForEvent`
-drives the demo valid count and rate when it holds attendance for the event (rule 12).
-`DemoStore.IsCompleted(eventId)` remains only for the M-13b test fixture; the real Completed status
-now comes from SQL.
-Nothing is written. Because 7.3's paged query does not exist yet, the demo provider reads the whole
-event and slices the detail page in memory; the real read pages in SQL.
+drives the demo valid count, rate, no-shows and breakdowns when it holds attendance for the event
+(rule 12). When the store holds no attendance for the event, the real no-shows and snapshot
+breakdowns stand unchanged. `DemoStore.IsCompleted(eventId)` remains only as a test-only fallback
+used by the M-10a and participation-report overlay test fixtures; the real Completed status comes
+from SQL. Nothing is written. Because 7.3's paged query does not exist yet, the demo provider reads
+the whole event and slices the detail page in memory; the real read pages in SQL.
 
 - *M-13a summary* — served by `ParticipationReportService` and `ParticipationReportRepository` from
   the SQL dataset: status counts, Confirmed, Valid attendees and the unrounded Valid/Confirmed rate,
   N/A at zero Confirmed, "Not final" until the event is Completed, and N/A for a cancelled event.
   The demo store's attendance-derived valid count and rate only override this while M-05/M-07 remain
   open and the store holds attendance for the event.
-- *M-13b no-shows and breakdowns* — a No-show is a Confirmed registration without valid attendance,
-  counted only for a demo-completed, non-cancelled event; a cancelled event shows no figure. Course
-  and year breakdowns group valid attendees by their registration signup snapshot and show each
-  group's share of the valid attendees.
+- *M-13b no-shows and breakdowns* — removed by 7.2. `ParticipationReportRepository.GetNoShowCountAsync`
+  counts Confirmed registrations without valid attendance on a Completed event; pending, waitlisted
+  and cancelled rows are excluded, and a cancelled event shows no figure. `GetAttendeeDistributionAsync`
+  groups valid attendees by their registration signup snapshot, including inactive members, and the
+  service labels, orders and percentages each group's share of the valid attendees. While M-05/M-07
+  remain open, the demo store's attendance still overrides these values when it holds attendance for
+  the event (rule 12).
 - *M-13c detail rows* — every registration of the event, ordered by member name then registration
   id, 25 per page; totals and breakdowns are computed before the slice. Each row carries the
   registration status label/badge, the attendance label/badge (Checked in, Invalidated, No-show,
@@ -390,16 +399,16 @@ no-shows, breakdowns and rows agree with those check-ins. Before completion it s
 markers, as does the check-in-open event, and a cancelled event in the connected database shows
 counts and rows with no no-show figure. Fewer rows degrade gracefully; nothing is written.
 
-**Removal.** 7.1 has replaced the summary computation (M-13a) with `ParticipationReportService` and
-`ParticipationReportRepository`; 7.2 replaces the no-show and breakdown computation (M-13b) and 7.3
+**Removal.** 7.1 has replaced the summary computation (M-13a) and 7.2 the no-show and breakdown
+computation (M-13b) with `ParticipationReportService` and `ParticipationReportRepository`; 7.3
 replaces the paged detail read (M-13c) behind the same contract, so the screen does not change
 visibly. Each ticket sets its row to `removed` with the commit.
 
-**Hand-over (rule 12).** From the 4.3 commit (real check-in) and the 4.6 commit (real invalidation),
-the still-open M-13b/M-13c rows read the real attendance and invalidation source instead of
-`DemoStore.TryGetAttendance`, so the report keeps matching recorded attendance until 7.2/7.3 remove
-the rows. The demo provider is otherwise only the M-13b/M-13c overlay; the 7.1 summary always comes
-from the real service.
+**Hand-over (rule 12).** When 4.3 (real check-in) and 4.6 (real invalidation) land, the still-open
+M-13c row reads the real attendance and invalidation source instead of `DemoStore.TryGetAttendance`,
+so the report keeps matching recorded attendance until 7.3 removes the row. The demo provider is
+otherwise only the M-13c overlay; the summary, no-shows and breakdowns come from the real service
+unless the demo store holds attendance for the event (rule 12).
 
 ## M-10a, M-10b, M-11a and M-11b — certificate ledger (6.12)
 

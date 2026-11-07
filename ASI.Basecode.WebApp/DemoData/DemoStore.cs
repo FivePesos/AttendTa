@@ -74,8 +74,8 @@ public sealed class DemoStore
     }
 
     /// <summary>
-    /// Marks the event completed. This is only the M-10a/M-13b test fixture now; the app completes
-    /// events through the real <c>IEventLifecycleService</c>.
+    /// Marks the event completed. This is only the M-10a/M-13b and participation-report overlay
+    /// test fixture now; the app completes events through the real <c>IEventLifecycleService</c>.
     /// </summary>
     public void MarkCompleted(int eventId)
     {
