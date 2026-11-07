@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using ASI.Basecode.Data.Interfaces;
+using ASI.Basecode.Data.Models;
 using ASI.Basecode.Data.Models.Lookups;
 using ASI.Basecode.Data.Queries;
 using ASI.Basecode.Resources;
@@ -27,9 +28,9 @@ public sealed class RegistrationReviewService(IRegistrationRepository registrati
         return new PagedResult<RegistrationReviewRow>(rows, normalized, count);
     }
 
-    public Task ApproveAsync(int id, CancellationToken ct = default) => ExecuteAsync(id, null, 0, ct);
-    public Task DeclineAsync(int id, string reason, CancellationToken ct = default) => ExecuteAsync(id, reason, 1, ct);
-    public Task CancelAsync(int id, string reason, CancellationToken ct = default) => ExecuteAsync(id, reason, 2, ct);
+    public Task ApproveAsync(int id, CancellationToken ct = default) => ExecuteAsync(id, null, ReviewOperation.Approve, ct);
+    public Task DeclineAsync(int id, string reason, CancellationToken ct = default) => ExecuteAsync(id, reason, ReviewOperation.Decline, ct);
+    public Task CancelAsync(int id, string reason, CancellationToken ct = default) => ExecuteAsync(id, reason, ReviewOperation.Cancel, ct);
 
     public async Task PromoteNextAsync(int eventId, CancellationToken ct = default)
     {
@@ -38,9 +39,7 @@ public sealed class RegistrationReviewService(IRegistrationRepository registrati
         if (candidate == null) throw new DomainException(OutcomeCode.Invalid, "No eligible waitlisted registration to promote.");
         await unitOfWork.ExecuteInTransactionAsync(async token =>
         {
-            var user = await users.LockUserAsync(candidate.UserId, token);
-            var member = await members.GetMemberByUserIdAsync(candidate.UserId, token);
-            var eventItem = await events.LockEventAsync(candidate.EventId, token);
+            var (user, member, eventItem) = await LockOwnerAndEventAsync(candidate.UserId, candidate.EventId, token);
             var now = clock.GetUtcNow().UtcDateTime;
             var current = await registrations.DiscoverPromotionCandidateAsync(candidate.EventId, token);
             var row = await registrations.GetForCancellationAsync(candidate.RegistrationId, token);
@@ -69,30 +68,29 @@ public sealed class RegistrationReviewService(IRegistrationRepository registrati
         }, ct);
     }
 
-    private async Task ExecuteAsync(int id, string reason, int operation, CancellationToken ct)
+    private async Task ExecuteAsync(int id, string reason, ReviewOperation operation, CancellationToken ct)
     {
         var actorId = RequireManagement();
         var identity = await registrations.DiscoverReviewAsync(id, ct);
         if (identity == null) throw new DomainException(OutcomeCode.NotFound, "Registration not found.");
         await unitOfWork.ExecuteInTransactionAsync(async token =>
         {
-            var user = await users.LockUserAsync(identity.UserId, token);
-            var member = await members.GetMemberByUserIdAsync(identity.UserId, token);
-            var eventItem = await events.LockEventAsync(identity.EventId, token);
+            var (user, member, eventItem) = await LockOwnerAndEventAsync(identity.UserId, identity.EventId, token);
             var now = clock.GetUtcNow().UtcDateTime;
             var current = await registrations.DiscoverReviewAsync(id, token);
             var row = await registrations.GetForCancellationAsync(id, token);
             if (current != identity || row == null || row.MemberId != identity.MemberId || row.EventId != identity.EventId || user == null || member == null || member.MemberId != identity.MemberId || eventItem == null)
                 throw new DomainException(OutcomeCode.Stale, "Registration changed. Refresh and try again.");
-            if (operation != 2 && row.RegistrationStatusId != RegistrationStatusCode.Pending || operation == 2 && row.RegistrationStatusId is not (RegistrationStatusCode.Confirmed or RegistrationStatusCode.Waitlisted))
+            if ((operation != ReviewOperation.Cancel && row.RegistrationStatusId != RegistrationStatusCode.Pending)
+                || (operation == ReviewOperation.Cancel && row.RegistrationStatusId is not (RegistrationStatusCode.Confirmed or RegistrationStatusCode.Waitlisted)))
                 throw new DomainException(OutcomeCode.Stale, "Registration status changed. Refresh and try again.");
-            if (operation != 0 && string.IsNullOrWhiteSpace(reason))
+            if (operation != ReviewOperation.Approve && string.IsNullOrWhiteSpace(reason))
                 throw new DomainException(OutcomeCode.Invalid, "A reason is required.");
             if (eventItem.EventStatusId != EventStatusCode.Published)
                 throw new DomainException(OutcomeCode.Stale, "Event status changed. Refresh and try again.");
             if (ParticipationFacts.StartCutoffPassed(now).Compile()(eventItem))
                 throw new DomainException(OutcomeCode.CutoffPassed, "This event has already started.");
-            if (operation == 0)
+            if (operation == ReviewOperation.Approve)
             {
                 if (!ParticipationFacts.EligibleParticipant.Compile()(user, member))
                     throw new DomainException(OutcomeCode.Stale, "Member eligibility changed. Refresh and try again.");
@@ -117,13 +115,33 @@ public sealed class RegistrationReviewService(IRegistrationRepository registrati
                 if (await registrations.HasValidAttendanceAsync(id, token))
                     throw new DomainException(OutcomeCode.Stale, "A registration with valid attendance cannot be cancelled.");
                 var oldStatus = row.RegistrationStatusId;
-                if (operation == 1) { row.ReviewedBy = actorId; row.ReviewedAt = now; row.ReviewNotes = reason.Trim(); }
-                await cancellation.CancelRegistrationAsync(id, operation == 1 ? CancellationCause.Declined : CancellationCause.AdminCancelled, reason.Trim(), token);
-                audit.Append(new AuditEntry(operation == 1 ? AuditActions.RegistrationDeclined : AuditActions.RegistrationAdminCancelled,
+                if (operation == ReviewOperation.Decline) { row.ReviewedBy = actorId; row.ReviewedAt = now; row.ReviewNotes = reason.Trim(); }
+                await cancellation.CancelRegistrationAsync(id, operation == ReviewOperation.Decline ? CancellationCause.Declined : CancellationCause.AdminCancelled, reason.Trim(), token);
+                audit.Append(new AuditEntry(operation == ReviewOperation.Decline ? AuditActions.RegistrationDeclined : AuditActions.RegistrationAdminCancelled,
                     "registrations", id, reason.Trim(), new StatusValues(oldStatus.ToString()), new StatusValues(RegistrationStatusCode.Cancelled.ToString())));
             }
             await unitOfWork.SaveChangesAsync(token);
         }, ct);
+    }
+
+    /// <summary>
+    /// Locks the owner's users row, then the event row — AD-4 order, user before event — so
+    /// seat allocation and cancellation for that owner serialize against competing reviews.
+    /// The locked rows may be missing; the caller rechecks and reports <c>Stale</c>.
+    /// </summary>
+    private async Task<(User User, Member Member, Event Event)> LockOwnerAndEventAsync(int userId, int eventId, CancellationToken ct)
+    {
+        var user = await users.LockUserAsync(userId, ct);
+        var member = await members.GetMemberByUserIdAsync(userId, ct);
+        var eventItem = await events.LockEventAsync(eventId, ct);
+        return (user, member, eventItem);
+    }
+
+    private enum ReviewOperation
+    {
+        Approve,
+        Decline,
+        Cancel
     }
 
     private int RequireManagement()

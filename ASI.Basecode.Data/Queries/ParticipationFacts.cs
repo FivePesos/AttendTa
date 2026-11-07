@@ -66,13 +66,6 @@ public static class ParticipationFacts
         IQueryable<Event> events,
         IQueryable<EventType> eventTypes,
         IQueryable<Venue> venues,
-        DateTime nowUtc) =>
-        PublishableEventIdsCore(events, eventTypes, venues, nowUtc);
-
-    private static IQueryable<int> PublishableEventIdsCore(
-        IQueryable<Event> events,
-        IQueryable<EventType> eventTypes,
-        IQueryable<Venue> venues,
         DateTime nowUtc)
     {
         var eventItem = Expression.Parameter(typeof(Event), "eventItem");

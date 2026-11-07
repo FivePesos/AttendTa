@@ -146,11 +146,7 @@ namespace ASI.Basecode.Services.Services
 
             await _unitOfWork.ExecuteInTransactionAsync(async ct =>
             {
-                var discovered = await _events.GetEventAsync(model.EventId, ct);
-                if (discovered == null)
-                {
-                    throw new DomainException(OutcomeCode.NotFound, "Event not found.");
-                }
+                var discovered = await RequireEventAsync(model.EventId, ct);
 
                 // The controller replaces the posted status with its own read before invoking us.
                 if (discovered.EventStatusId != model.EventStatusId)
@@ -158,10 +154,9 @@ namespace ASI.Basecode.Services.Services
                     throw new DomainException(OutcomeCode.Stale, "The event changed while it was being edited.");
                 }
 
-                Venue venue = null;
                 if (discovered.EventStatusId == EventStatusCode.Draft)
                 {
-                    venue = await LockActiveReferencesAsync(model.TypeId, model.VenueId, ct);
+                    var venue = await LockActiveReferencesAsync(model.TypeId, model.VenueId, ct);
                     ValidateCapacity(model, venue);
                 }
                 else
@@ -169,16 +164,13 @@ namespace ASI.Basecode.Services.Services
                     await LockCoverReferencesAsync(discovered, ct);
                 }
 
-                var eventItem = await _events.LockEventAsync(model.EventId, ct);
-                if (eventItem == null)
-                {
-                    throw new DomainException(OutcomeCode.NotFound, "Event not found.");
-                }
-
-                if (eventItem.EventStatusId != discovered.EventStatusId || eventItem.TypeId != discovered.TypeId || eventItem.VenueId != discovered.VenueId)
-                {
-                    throw new DomainException(OutcomeCode.Stale, "The event changed while it was being edited.");
-                }
+                var eventItem = await LockEventAsync(
+                    model.EventId,
+                    locked => locked.EventStatusId == discovered.EventStatusId
+                              && locked.TypeId == discovered.TypeId
+                              && locked.VenueId == discovered.VenueId,
+                    "The event changed while it was being edited.",
+                    ct);
 
                 if (eventItem.EventStatusId is not (EventStatusCode.Draft or EventStatusCode.Published))
                 {
@@ -213,26 +205,17 @@ namespace ASI.Basecode.Services.Services
         public async Task PublishAsync(int eventId, CancellationToken cancellationToken = default)
         {
             var actorUserId = RequireManagementActor();
-            var discovered = await _events.GetEventAsync(eventId, cancellationToken);
-            if (discovered == null)
-            {
-                throw new DomainException(OutcomeCode.NotFound, "Event not found.");
-            }
+            var discovered = await RequireEventAsync(eventId, cancellationToken);
 
             await _unitOfWork.ExecuteInTransactionAsync(async ct =>
             {
                 var eventType = await _eventTypes.LockEventTypeAsync(discovered.TypeId, ct);
                 var venue = await _venues.LockVenueAsync(discovered.VenueId, ct);
-                var eventItem = await _events.LockEventAsync(eventId, ct);
-                if (eventItem == null)
-                {
-                    throw new DomainException(OutcomeCode.NotFound, "Event not found.");
-                }
-
-                if (eventItem.TypeId != discovered.TypeId || eventItem.VenueId != discovered.VenueId)
-                {
-                    throw new DomainException(OutcomeCode.Stale, "The event changed while it was being published.");
-                }
+                var eventItem = await LockEventAsync(
+                    eventId,
+                    locked => locked.TypeId == discovered.TypeId && locked.VenueId == discovered.VenueId,
+                    "The event changed while it was being published.",
+                    ct);
 
                 // Capture request time after all rows are locked so the deadline guard and persisted audit agree.
                 var now = _timeProvider.GetUtcNow().UtcDateTime;
@@ -263,11 +246,7 @@ namespace ASI.Basecode.Services.Services
         public async Task CancelAsync(int eventId, string reason, CancellationToken cancellationToken = default)
         {
             var actorUserId = RequireManagementActor();
-            var discovered = await _events.GetEventAsync(eventId, cancellationToken);
-            if (discovered == null)
-            {
-                throw new DomainException(OutcomeCode.NotFound, "Event not found.");
-            }
+            var discovered = await RequireEventAsync(eventId, cancellationToken);
 
             if (discovered.EventStatusId is not (EventStatusCode.Draft or EventStatusCode.Published))
             {
@@ -277,16 +256,11 @@ namespace ASI.Basecode.Services.Services
             await _unitOfWork.ExecuteInTransactionAsync(async ct =>
             {
                 // AD-4: event cancellation takes only the event lock.
-                var eventItem = await _events.LockEventAsync(eventId, ct);
-                if (eventItem == null)
-                {
-                    throw new DomainException(OutcomeCode.NotFound, "Event not found.");
-                }
-
-                if (eventItem.EventStatusId != discovered.EventStatusId)
-                {
-                    throw new DomainException(OutcomeCode.Stale, "The event changed while it was being cancelled.");
-                }
+                var eventItem = await LockEventAsync(
+                    eventId,
+                    locked => locked.EventStatusId == discovered.EventStatusId,
+                    "The event changed while it was being cancelled.",
+                    ct);
 
                 if (eventItem.EventStatusId is not (EventStatusCode.Draft or EventStatusCode.Published))
                 {
@@ -323,13 +297,7 @@ namespace ASI.Basecode.Services.Services
                 eventItem.CancelledBy = actorUserId;
                 eventItem.CancelledAt = now;
                 eventItem.CancellationReason = cancellationReason;
-                if (eventItem.IsCheckInOpen)
-                {
-                    eventItem.CheckInClosedBy = actorUserId;
-                    eventItem.CheckInClosedAt = now;
-                }
-
-                eventItem.IsCheckInOpen = false;
+                CloseCheckIn(eventItem, actorUserId, now);
                 eventItem.UpdatedBy = actorUserId;
                 eventItem.UpdatedAt = now;
                 await _events.UpdateEventAsync(eventItem, ct);
@@ -344,11 +312,7 @@ namespace ASI.Basecode.Services.Services
         public async Task CompleteAsync(int eventId, CancellationToken cancellationToken = default)
         {
             var actorUserId = RequireManagementActor();
-            var discovered = await _events.GetEventAsync(eventId, cancellationToken);
-            if (discovered == null)
-            {
-                throw new DomainException(OutcomeCode.NotFound, "Event not found.");
-            }
+            var discovered = await RequireEventAsync(eventId, cancellationToken);
 
             if (discovered.EventStatusId != EventStatusCode.Published)
             {
@@ -358,16 +322,11 @@ namespace ASI.Basecode.Services.Services
             await _unitOfWork.ExecuteInTransactionAsync(async ct =>
             {
                 // AD-4: completion takes only the event lock.
-                var eventItem = await _events.LockEventAsync(eventId, ct);
-                if (eventItem == null)
-                {
-                    throw new DomainException(OutcomeCode.NotFound, "Event not found.");
-                }
-
-                if (eventItem.EventStatusId != discovered.EventStatusId)
-                {
-                    throw new DomainException(OutcomeCode.Stale, "The event changed while it was being completed.");
-                }
+                var eventItem = await LockEventAsync(
+                    eventId,
+                    locked => locked.EventStatusId == discovered.EventStatusId,
+                    "The event changed while it was being completed.",
+                    ct);
 
                 if (eventItem.EventStatusId != EventStatusCode.Published)
                 {
@@ -388,13 +347,7 @@ namespace ASI.Basecode.Services.Services
                 eventItem.EventStatusId = EventStatusCode.Completed;
                 eventItem.CompletedBy = actorUserId;
                 eventItem.CompletedAt = now;
-                if (eventItem.IsCheckInOpen)
-                {
-                    eventItem.CheckInClosedBy = actorUserId;
-                    eventItem.CheckInClosedAt = now;
-                }
-
-                eventItem.IsCheckInOpen = false;
+                CloseCheckIn(eventItem, actorUserId, now);
                 eventItem.UpdatedBy = actorUserId;
                 eventItem.UpdatedAt = now;
                 await _events.UpdateEventAsync(eventItem, ct);
@@ -417,11 +370,7 @@ namespace ASI.Basecode.Services.Services
         public async Task SetCheckInWindowAsync(int eventId, bool open, CancellationToken cancellationToken = default)
         {
             var actorUserId = RequireManagementActor();
-            var discovered = await _events.GetEventAsync(eventId, cancellationToken);
-            if (discovered == null)
-            {
-                throw new DomainException(OutcomeCode.NotFound, "Event not found.");
-            }
+            var discovered = await RequireEventAsync(eventId, cancellationToken);
 
             if (discovered.EventStatusId != EventStatusCode.Published)
             {
@@ -438,16 +387,11 @@ namespace ASI.Basecode.Services.Services
             await _unitOfWork.ExecuteInTransactionAsync(async ct =>
             {
                 // AD-4: the check-in window takes only the event lock.
-                var eventItem = await _events.LockEventAsync(eventId, ct);
-                if (eventItem == null)
-                {
-                    throw new DomainException(OutcomeCode.NotFound, "Event not found.");
-                }
-
-                if (eventItem.EventStatusId != discovered.EventStatusId)
-                {
-                    throw new DomainException(OutcomeCode.Stale, "The event changed while its check-in window was being updated.");
-                }
+                var eventItem = await LockEventAsync(
+                    eventId,
+                    locked => locked.EventStatusId == discovered.EventStatusId,
+                    "The event changed while its check-in window was being updated.",
+                    ct);
 
                 if (eventItem.IsCheckInOpen != discovered.IsCheckInOpen)
                 {
@@ -502,11 +446,7 @@ namespace ASI.Basecode.Services.Services
         public async Task<EventCoverViewModel> GetCoverManagementAsync(int eventId, CancellationToken cancellationToken = default)
         {
             RequireManagementActor();
-            var eventItem = await _events.GetEventAsync(eventId, cancellationToken);
-            if (eventItem == null)
-            {
-                throw new DomainException(OutcomeCode.NotFound, "Event not found.");
-            }
+            var eventItem = await RequireEventAsync(eventId, cancellationToken);
 
             return new EventCoverViewModel
             {
@@ -562,11 +502,7 @@ namespace ASI.Basecode.Services.Services
                 throw new DomainException(OutcomeCode.Invalid, "Choose a JPEG or PNG cover image.", "cover");
             }
 
-            var discovered = await _events.GetEventAsync(eventId, cancellationToken);
-            if (discovered == null)
-            {
-                throw new DomainException(OutcomeCode.NotFound, "Event not found.");
-            }
+            var discovered = await RequireEventAsync(eventId, cancellationToken);
 
             string newPath = null;
             string oldPath = null;
@@ -577,11 +513,7 @@ namespace ASI.Basecode.Services.Services
                 await _unitOfWork.ExecuteInTransactionAsync(async ct =>
                 {
                     await LockCoverReferencesAsync(discovered, ct);
-                    var eventItem = await _events.LockEventAsync(eventId, ct);
-                    if (eventItem == null)
-                    {
-                        throw new DomainException(OutcomeCode.NotFound, "Event not found.");
-                    }
+                    var eventItem = await LockEventAsync(eventId, ct);
 
                     EnsureSameCoverReferences(discovered, eventItem);
                     if (eventItem.EventStatusId is not (EventStatusCode.Draft or EventStatusCode.Published))
@@ -615,21 +547,13 @@ namespace ASI.Basecode.Services.Services
         public async Task RemoveDraftCoverAsync(int eventId, CancellationToken cancellationToken = default)
         {
             var actorUserId = RequireManagementActor();
-            var discovered = await _events.GetEventAsync(eventId, cancellationToken);
-            if (discovered == null)
-            {
-                throw new DomainException(OutcomeCode.NotFound, "Event not found.");
-            }
+            var discovered = await RequireEventAsync(eventId, cancellationToken);
 
             string oldPath = null;
             await _unitOfWork.ExecuteInTransactionAsync(async ct =>
             {
                 await LockCoverReferencesAsync(discovered, ct);
-                var eventItem = await _events.LockEventAsync(eventId, ct);
-                if (eventItem == null)
-                {
-                    throw new DomainException(OutcomeCode.NotFound, "Event not found.");
-                }
+                var eventItem = await LockEventAsync(eventId, ct);
 
                 EnsureSameCoverReferences(discovered, eventItem);
                 if (eventItem.EventStatusId != EventStatusCode.Draft)
@@ -704,6 +628,62 @@ namespace ASI.Basecode.Services.Services
             }
 
             return ActorUserId();
+        }
+
+        private async Task<Event> RequireEventAsync(int eventId, CancellationToken cancellationToken)
+        {
+            var eventItem = await _events.GetEventAsync(eventId, cancellationToken);
+            if (eventItem == null)
+            {
+                throw new DomainException(OutcomeCode.NotFound, "Event not found.");
+            }
+
+            return eventItem;
+        }
+
+        /// <summary>
+        /// Locks the event row inside the caller's transaction and refuses a missing event.
+        /// </summary>
+        private async Task<Event> LockEventAsync(int eventId, CancellationToken cancellationToken)
+        {
+            var eventItem = await _events.LockEventAsync(eventId, cancellationToken);
+            if (eventItem == null)
+            {
+                throw new DomainException(OutcomeCode.NotFound, "Event not found.");
+            }
+
+            return eventItem;
+        }
+
+        /// <summary>
+        /// Locks the event row and reports <c>Stale</c> when <paramref name="stillCurrent"/>
+        /// rejects the freshly locked row, so a concurrent change is refused instead of applied.
+        /// Must run inside the caller's transaction, which is what makes the lock meaningful.
+        /// </summary>
+        private async Task<Event> LockEventAsync(
+            int eventId,
+            Func<Event, bool> stillCurrent,
+            string staleMessage,
+            CancellationToken cancellationToken)
+        {
+            var eventItem = await LockEventAsync(eventId, cancellationToken);
+            if (!stillCurrent(eventItem))
+            {
+                throw new DomainException(OutcomeCode.Stale, staleMessage);
+            }
+
+            return eventItem;
+        }
+
+        private static void CloseCheckIn(Event eventItem, int actorUserId, DateTime now)
+        {
+            if (eventItem.IsCheckInOpen)
+            {
+                eventItem.CheckInClosedBy = actorUserId;
+                eventItem.CheckInClosedAt = now;
+            }
+
+            eventItem.IsCheckInOpen = false;
         }
 
         private async Task LockCoverReferencesAsync(Event discovered, CancellationToken cancellationToken)

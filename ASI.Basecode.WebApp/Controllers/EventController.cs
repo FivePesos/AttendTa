@@ -81,17 +81,7 @@ namespace ASI.Basecode.WebApp.Controllers
                     : RedirectToRoute(EventIndexRoute);
 
         [HttpGet]
-        public async Task<IActionResult> Cover(int id, CancellationToken cancellationToken)
-        {
-            try
-            {
-                return View(await _eventService.GetCoverManagementAsync(id, cancellationToken));
-            }
-            catch (DomainException exception) when (exception.Outcome == OutcomeCode.NotFound)
-            {
-                return NotFound();
-            }
-        }
+        public Task<IActionResult> Cover(int id, CancellationToken cancellationToken) => CoverViewAsync(id, cancellationToken);
 
         [HttpPost]
         public async Task<IActionResult> UploadCover(int id, IFormFile cover, CancellationToken cancellationToken)
@@ -161,8 +151,7 @@ namespace ASI.Basecode.WebApp.Controllers
             var model = await _eventService.GetEventAsync(id, cancellationToken);
             if (model == null)
             {
-                TempData["ErrorMessage"] = "Event not found.";
-                return RedirectToRoute(EventIndexRoute);
+                return EventNotFoundResult();
             }
 
             if (model.EventStatusId is not (EventStatusCode.Draft or EventStatusCode.Published))
@@ -210,64 +199,28 @@ namespace ASI.Basecode.WebApp.Controllers
         [HttpPost]
         public async Task<IActionResult> Publish(int id, CancellationToken cancellationToken)
         {
-            try
-            {
-                await _eventService.PublishAsync(id, cancellationToken);
-                TempData["SuccessMessage"] = "Event published.";
-            }
-            catch (DomainException exception)
-            {
-                TempData["ErrorMessage"] = exception.Message;
-            }
-
+            await TryRunAsync(ct => _eventService.PublishAsync(id, ct), "Event published.", cancellationToken);
             return RedirectToRoute(EventIndexRoute);
         }
 
         [HttpPost]
         public async Task<IActionResult> OpenCheckIn(int id, CancellationToken cancellationToken, bool dossier = false, string returnUrl = null)
         {
-            try
-            {
-                await _eventService.SetCheckInWindowAsync(id, true, cancellationToken);
-                TempData["SuccessMessage"] = "Check-in opened.";
-            }
-            catch (DomainException exception)
-            {
-                TempData["ErrorMessage"] = exception.Message;
-            }
-
+            await TryRunAsync(ct => _eventService.SetCheckInWindowAsync(id, true, ct), "Check-in opened.", cancellationToken);
             return StateReturn(id, dossier, returnUrl);
         }
 
         [HttpPost]
         public async Task<IActionResult> CloseCheckIn(int id, CancellationToken cancellationToken, bool dossier = false, string returnUrl = null)
         {
-            try
-            {
-                await _eventService.SetCheckInWindowAsync(id, false, cancellationToken);
-                TempData["SuccessMessage"] = "Check-in closed.";
-            }
-            catch (DomainException exception)
-            {
-                TempData["ErrorMessage"] = exception.Message;
-            }
-
+            await TryRunAsync(ct => _eventService.SetCheckInWindowAsync(id, false, ct), "Check-in closed.", cancellationToken);
             return StateReturn(id, dossier, returnUrl);
         }
 
         [HttpPost]
         public async Task<IActionResult> Complete(int id, CancellationToken cancellationToken, bool dossier = false)
         {
-            try
-            {
-                await _eventService.CompleteAsync(id, cancellationToken);
-                TempData["SuccessMessage"] = "Event completed.";
-            }
-            catch (DomainException exception)
-            {
-                TempData["ErrorMessage"] = exception.Message;
-            }
-
+            await TryRunAsync(ct => _eventService.CompleteAsync(id, ct), "Event completed.", cancellationToken);
             return StateReturn(id, dossier);
         }
 
@@ -295,8 +248,7 @@ namespace ASI.Basecode.WebApp.Controllers
             var model = await _eventService.GetEventAsync(id, cancellationToken);
             if (model == null)
             {
-                TempData["ErrorMessage"] = "Event not found.";
-                return RedirectToRoute(EventIndexRoute);
+                return EventNotFoundResult();
             }
 
             if (model.EventStatusId is not (EventStatusCode.Draft or EventStatusCode.Published))
@@ -322,16 +274,7 @@ namespace ASI.Basecode.WebApp.Controllers
                 return await CancelViewAsync(model, cancellationToken);
             }
 
-            try
-            {
-                await _eventService.CancelAsync(model.EventId, model.Reason, cancellationToken);
-                TempData["SuccessMessage"] = "Event cancelled.";
-            }
-            catch (DomainException exception)
-            {
-                TempData["ErrorMessage"] = exception.Message;
-            }
-
+            await TryRunAsync(ct => _eventService.CancelAsync(model.EventId, model.Reason, ct), "Event cancelled.", cancellationToken);
             return RedirectToRoute(EventIndexRoute);
         }
 
@@ -340,8 +283,7 @@ namespace ASI.Basecode.WebApp.Controllers
             var current = await _eventService.GetEventAsync(model.EventId, cancellationToken);
             if (current == null)
             {
-                TempData["ErrorMessage"] = "Event not found.";
-                return RedirectToRoute(EventIndexRoute);
+                return EventNotFoundResult();
             }
 
             model.Title = current.Title;
@@ -354,6 +296,25 @@ namespace ASI.Basecode.WebApp.Controllers
         {
             model.FormOptions = await _eventService.GetFormOptionsAsync(cancellationToken);
             return model;
+        }
+
+        private async Task TryRunAsync(Func<CancellationToken, Task> command, string successMessage, CancellationToken cancellationToken)
+        {
+            try
+            {
+                await command(cancellationToken);
+                TempData["SuccessMessage"] = successMessage;
+            }
+            catch (DomainException exception)
+            {
+                TempData["ErrorMessage"] = exception.Message;
+            }
+        }
+
+        private IActionResult EventNotFoundResult()
+        {
+            TempData["ErrorMessage"] = "Event not found.";
+            return RedirectToRoute(EventIndexRoute);
         }
 
         private async Task<IActionResult> CoverViewAsync(int id, CancellationToken cancellationToken)
@@ -394,35 +355,25 @@ namespace ASI.Basecode.WebApp.Controllers
                 return HandleDomainException(exception, model, nameof(Index));
             }
 
-            model.FormOptions = await _eventService.GetFormOptionsAsync(cancellationToken);
-            return HandleDomainException(exception, model);
+            return HandleDomainException(exception, await WithOptionsAsync(model, cancellationToken));
         }
 
         // Form controls post Asia/Manila wall-clock values; SQL stores UTC.
-        private static void ToUtc(EventViewModel model)
+        private static void ConvertTimes(EventViewModel model, Func<DateTime, DateTime> converter)
         {
             if (model.StartsAt != default)
             {
-                model.StartsAt = ManilaTimeFormatter.ToUtc(model.StartsAt);
+                model.StartsAt = converter(model.StartsAt);
             }
 
             if (model.RegistrationDeadline != default)
             {
-                model.RegistrationDeadline = ManilaTimeFormatter.ToUtc(model.RegistrationDeadline);
+                model.RegistrationDeadline = converter(model.RegistrationDeadline);
             }
         }
 
-        private static void ToManila(EventViewModel model)
-        {
-            if (model.StartsAt != default)
-            {
-                model.StartsAt = ManilaTimeFormatter.ToLocal(model.StartsAt);
-            }
+        private static void ToUtc(EventViewModel model) => ConvertTimes(model, ManilaTimeFormatter.ToUtc);
 
-            if (model.RegistrationDeadline != default)
-            {
-                model.RegistrationDeadline = ManilaTimeFormatter.ToLocal(model.RegistrationDeadline);
-            }
-        }
+        private static void ToManila(EventViewModel model) => ConvertTimes(model, ManilaTimeFormatter.ToLocal);
     }
 }

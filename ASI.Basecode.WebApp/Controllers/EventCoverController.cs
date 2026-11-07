@@ -41,13 +41,9 @@ public sealed class EventCoverController : ControllerBase<EventCoverController>
             var cover = await _eventService.OpenCoverAsync(id, cancellationToken);
             return File(cover.Content, cover.ContentType, enableRangeProcessing: false);
         }
-        catch (DomainException exception) when (exception.Outcome == OutcomeCode.NotFound)
+        catch (DomainException exception) when (exception.Outcome is OutcomeCode.NotFound or OutcomeCode.Forbidden)
         {
-            return NotFound();
-        }
-        catch (DomainException exception) when (exception.Outcome == OutcomeCode.Forbidden)
-        {
-            return Forbid();
+            return exception.Outcome == OutcomeCode.NotFound ? NotFound() : Forbid();
         }
     }
 }

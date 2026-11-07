@@ -44,7 +44,6 @@ namespace ASI.Basecode.WebApp.Mvc
             this._httpContextAccessor = httpContextAccessor;
             this._configuration = configuration;
             this._logger = loggerFactory.CreateLogger<TController>();
-            this._configuration = configuration;
             this._mapper = mapper;
         }
 

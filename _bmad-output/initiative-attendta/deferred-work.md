@@ -31,3 +31,12 @@
   summary: With demo data off, an issued certificate cannot be viewed or downloaded until 6.8.
   status: deferred
   evidence: `CertificateLedgerService.GetViewerAsync` and `GetPdfAsync` still refuse as not-found, so 6.7 can issue a certificate that no non-demo user can open. The demo provider serves the retained file, so the demo is unaffected. Accepted by the project owner because 6.8 is the next integration ticket and implements the real owner-or-Management viewer/PDF.
+
+## Deferred from: code review of story-refactor-sweep-plan (2026-11-07)
+
+- source_plan: `_bmad-output/initiative-attendta/tickets/epic-events-registration/tickets/story-refactor-sweep-plan.md`
+  summary: `ParticipationFacts.PublishableEventIds` builds a correlated projection (`venueIds` selects `eventItem.EventId` from a `Venue`-typed lambda) that is correct only because the keys are unique FKs, and it carries no comment.
+  evidence: Code review of PR #204 (2026-11-07). The body is unchanged context in that diff — only the pass-through wrapper was removed — so the readability hazard predates the sweep and was deferred rather than patched.
+- source_plan: `_bmad-output/initiative-attendta/tickets/epic-events-registration/tickets/story-refactor-sweep-plan.md`
+  summary: No findings ledger backs the "concrete deferred findings" that the 3.14 refactor sweep closed.
+  evidence: Code review of PR #204 (2026-11-07). None of the eleven findings appears in this file, the epic memlog, or any sibling plan's deferrals; the sweep's own plan is their only enumeration, so closure cannot be checked against a record that predates the change. Recording future findings here is what makes the next sweep verifiable.
