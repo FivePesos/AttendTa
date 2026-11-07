@@ -5,8 +5,9 @@ using System.Threading.Tasks;
 namespace ASI.Basecode.Services.Interfaces
 {
     /// <summary>
-    /// Participant-facing event browsing and registration submission. Any authenticated role may
-    /// browse; registration additionally requires an eligible member profile.
+    /// Participant-facing event browsing, registration submission and member self-cancellation.
+    /// Any authenticated role may browse; registration additionally requires an eligible member
+    /// profile. Cancellation withdraws the actor's own registration before the Event Start Cutoff.
     /// </summary>
     public interface IMemberEventService
     {

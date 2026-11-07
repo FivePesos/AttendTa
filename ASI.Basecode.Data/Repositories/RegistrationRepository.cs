@@ -19,7 +19,7 @@ public sealed class RegistrationRepository : BaseRepository, IRegistrationReposi
     }
 
     public Task<bool> IsConfirmedAsync(int registrationId, CancellationToken cancellationToken = default) =>
-        GetDbSet<Registration>().AnyAsync(
+        GetDbSet<Registration>().AsNoTracking().AnyAsync(
             registration => registration.RegistrationId == registrationId
                 && registration.RegistrationStatusId == RegistrationStatusCode.Confirmed,
             cancellationToken);

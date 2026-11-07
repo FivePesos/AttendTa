@@ -5,9 +5,8 @@ using System.Threading.Tasks;
 namespace ASI.Basecode.Services.Interfaces;
 
 /// <summary>
-/// The member Participation History reads. Registrations and attendance each use a real
-/// owner-scoped cross-event query behind the same contract, so the controller and views do not
-/// change.
+/// The member Participation History reads: the actor's own registrations and attendance records,
+/// each from one owner-scoped cross-event query paged at the shared page size.
 /// </summary>
 public interface IMyEventsService
 {

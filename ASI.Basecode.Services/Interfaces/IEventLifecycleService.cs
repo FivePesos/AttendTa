@@ -5,7 +5,10 @@ using System.Threading.Tasks;
 
 namespace ASI.Basecode.Services.Interfaces
 {
-    /// <summary>Draft Event creation, draft editing, and the Management event list.</summary>
+    /// <summary>
+    /// Management event lifecycle: the event list, draft creation and editing, publish, cancel,
+    /// complete, the check-in window, and cover management.
+    /// </summary>
     public interface IEventLifecycleService
     {
         Task<PagedResult<EventViewModel>> GetPageAsync(int? pageNumber, CancellationToken cancellationToken = default);
