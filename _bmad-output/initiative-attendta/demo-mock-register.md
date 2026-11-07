@@ -89,7 +89,7 @@ into lettered rows.
 | M-05 | Check-in by scan: outcome (success, repeat, invalid, closed) and the attendance record | Validation engine and attendance write | 4.11 | 4.3 | removed |
 | M-06 | Manual lookup of confirmed participants by name or student number, and manual check-in | Registration-scoped search and manual check-in | 4.11 | 4.5 | removed (ff06123) |
 | M-07 | Attendance invalidation with reason, and its effect on the review (rule 8) | Invalidation command | 4.11 | 4.6 | removed (6a82840) |
-| M-08 | Member attendance history | Owner-scoped attendance query | 4.12 | 4.7 | removed |
+| M-08 | Member attendance history | Owner-scoped attendance query | 4.12 | 4.7 | removed (d3edd37) |
 | M-09 | Event completion command and the Completed status overlaid on event reads (rule 7) | Completion command | 1.14 | 3.12 | removed |
 | M-10a | Certificate reviews created at completion (a pending review for each valid check-in of a completed event) | Review creation hook | 6.12 | 6.4 | removed (cd227f694fdf71d10504db4406d13a3694941cbb) |
 | M-10b | Review queue and the approve and decline decisions | Review queue and decisions | 6.12 | 6.6 | open |
@@ -357,8 +357,8 @@ method label comes from `CheckInMethodDisplay`. Nothing is written.
 `EmptyMyEventsService` and `DemoMyEventsRegistration`, and kept `GetAttendanceAsync` on the real
 `MyEventsService` returning an empty page. 4.7 replaced that method with the real owner-scoped
 query; no demo class, provider or registration line remained to delete, so the row needed no
-code removal beyond the method body. The implementation commit sha is recorded in a follow-up
-docs commit, as 4.6 did for M-07.
+code removal beyond the method body. Removed in `d3edd37`; the sha is recorded here in the
+follow-up docs commit, as 4.6 did for M-07.
 
 ## M-13a, M-13b and M-13c — participation report detail (7.4)
 
