@@ -21,7 +21,6 @@ public sealed class DemoStore
 {
     private readonly object _gate = new();
     private readonly string _tokenKey;
-    private readonly HashSet<int> _checkInOpenEventIds = new();
     private readonly HashSet<int> _completedEventIds = new();
     private readonly Dictionary<int, DemoAttendance> _attendance = new();
     private readonly Dictionary<int, DemoCertificateReview> _reviews = new();
@@ -64,15 +63,7 @@ public sealed class DemoStore
     /// <summary>The stable demo pass token for a real registration id.</summary>
     public string GetPassToken(int registrationId) => DerivePassToken(registrationId, _tokenKey);
 
-    // ---- Event check-in window and completion state -------------------------
-
-    public bool IsCheckInOpen(int eventId)
-    {
-        lock (_gate)
-        {
-            return _checkInOpenEventIds.Contains(eventId);
-        }
-    }
+    // ---- Event completion state ---------------------------------------------
 
     public bool IsCompleted(int eventId)
     {
@@ -82,32 +73,15 @@ public sealed class DemoStore
         }
     }
 
-    public void SetCheckInOpen(int eventId, bool open)
-    {
-        lock (_gate)
-        {
-            if (open)
-            {
-                _checkInOpenEventIds.Add(eventId);
-            }
-            else
-            {
-                _checkInOpenEventIds.Remove(eventId);
-            }
-        }
-    }
-
     /// <summary>
-    /// Marks the event completed and closes its check-in window. This is only the M-10a and
-    /// participation-report overlay test fixture now; the app completes events through the real
-    /// <c>IEventLifecycleService</c>.
+    /// Marks the event completed. This is only the M-10a/M-13b and participation-report overlay
+    /// test fixture now; the app completes events through the real <c>IEventLifecycleService</c>.
     /// </summary>
     public void MarkCompleted(int eventId)
     {
         lock (_gate)
         {
             _completedEventIds.Add(eventId);
-            _checkInOpenEventIds.Remove(eventId);
             EnsureCertificateReviews(eventId, DateTime.UtcNow);
         }
     }

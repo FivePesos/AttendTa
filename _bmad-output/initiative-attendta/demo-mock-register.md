@@ -82,10 +82,10 @@ into lettered rows.
 
 | Id | Surface | Missing backend today | Added by | Removed by | State |
 |---|---|---|---|---|---|
-| M-01 | Demo seam: `DemoData:Enabled`, the startup database guard, `DemoData:TokenKey`, the demo store (event check-in state, pass tokens, attendance, certificate reviews and issues; the completed-state fixture serves only the M-10a and participation-report overlay tests), the registration method and the start-up seed | — (infrastructure) | 1.14 | 8.13 | open |
+| M-01 | Demo seam: `DemoData:Enabled`, the startup database guard, `DemoData:TokenKey`, the demo store (pass tokens, attendance, certificate reviews and issues; the completed-state fixture serves only the M-10a/M-13b and participation-report overlay tests), the registration method and the start-up seed | — (infrastructure) | 1.14 | 8.13 | open |
 | M-02 | My Events: all of a member's registrations across events, with status and cutoff labels | Cross-event owner query (only per-event and upcoming-only reads exist) | 3.17 | 3.13 | removed |
 | M-03 | Pass card QR image and PNG download (rule 10 token, QR drawn by a locally served browser library) | QR library, token read, authorized PNG endpoint | 4.10 | 4.1 | removed |
-| M-04 | Check-in window open/close command, the shared control partial, and the open flag overlaid on event reads (rule 7) | Open/close command | 1.14 | 4.2 | open |
+| M-04 | Check-in window open/close command, the shared control partial, and the open flag overlaid on event reads (rule 7) | Open/close command | 1.14 | 4.2 | removed (7f6ae2218e6bc9e74611c610287b11ffa7f19ec4) |
 | M-05 | Check-in by scan: outcome (success, repeat, invalid, closed) and the attendance record | Validation engine and attendance write | 4.11 | 4.3 | open |
 | M-06 | Manual lookup of confirmed participants by name or student number, and manual check-in | Registration-scoped search and manual check-in | 4.11 | 4.5 | open |
 | M-07 | Attendance invalidation with reason, and its effect on the review (rule 8) | Invalidation command | 4.11 | 4.6 | open |
@@ -125,22 +125,15 @@ in `ASI.Basecode.Services`.
 
 | Piece | File |
 |---|---|
-| Command contract `IEventStateCommands` (`OpenCheckInAsync`, `CloseCheckInAsync`) | `ASI.Basecode.Services/Interfaces/IEventStateCommands.cs` |
-| Overlay contract `IEventStateOverlay` | `ASI.Basecode.WebApp/DemoData/IEventStateOverlay.cs` |
 | Options (`Enabled`, `AllowDatabase`, `TokenKey`) | `ASI.Basecode.WebApp/DemoData/DemoDataOptions.cs` |
 | Startup guard | `ASI.Basecode.WebApp/DemoData/DemoDataStartupGuard.cs` |
 | In-memory store and its records | `ASI.Basecode.WebApp/DemoData/DemoStore.cs` |
 | Start-up seed (`IHostedService`) | `ASI.Basecode.WebApp/DemoData/DemoSeedService.cs` |
-| Demo commands | `ASI.Basecode.WebApp/DemoData/DemoEventStateCommands.cs` |
-| Switch-off commands (standard refusal) | `ASI.Basecode.WebApp/DemoData/UnavailableEventStateCommands.cs` |
-| Demo overlay | `ASI.Basecode.WebApp/DemoData/DemoEventStateOverlay.cs` |
-| Switch-off overlay | `ASI.Basecode.WebApp/DemoData/NoOpEventStateOverlay.cs` |
 | One registration method | `ASI.Basecode.WebApp/DemoData/DemoDataRegistration.cs` |
-| Events surface registration file | `ASI.Basecode.WebApp/DemoData/DemoEventsRegistration.cs` |
 | Shared check-in control and its model | `Views/Shared/_CheckInControl.cshtml`, `ASI.Basecode.Services/ServiceModels/CheckInControlViewModel.cs` |
 | Operator pass-token switch | `ASI.Basecode.WebApp/Program.cs` (`--demo-pass-token <registrationId>`) |
 
-**Store.** One singleton keyed by real ids: check-in-open event ids, attendance by registration id, and certificate review and issue state. `MarkCompleted` and `IsCompleted` remain only as the M-10a and participation-report overlay test fixture; the app completes events through the real service. `InvalidateAttendance` requires a reason, is refused once a certificate is
+**Store.** One singleton keyed by real ids: attendance by registration id, and certificate review and issue state. The check-in window is no longer store state after 4.2. `MarkCompleted` and `IsCompleted` remain only as the M-10a/M-13b and participation-report overlay test fixture; the app completes events through the real service. `InvalidateAttendance` requires a reason, is refused once a certificate is
 issued, and turns a pending or approved review not eligible with that reason. `GetPassToken` is
 the lowercase hex HMAC-SHA256 of the invariant registration id under `DemoData:TokenKey`; the
 `--demo-pass-token` switch prints the same value and writes nothing.
@@ -155,7 +148,7 @@ and `IRegistrationRepository.GetReviewQueueAsync(Confirmed)`; it never writes.
   first remaining valid check-in has an issued certificate (`AT-<year>-<registrationId:D6>`), the
   second is pending review, and the third is declined (not eligible with a review reason). Fewer
   registrations degrade in that order.
-- *Check-in open* — the next published event not used above, with the store's check-in window open.
+- *Check-in open* — removed by 4.2; the officer opens the real window for the next published event from the Event list.
 - Fewer rows degrade gracefully: missing scenarios are skipped and the active register ids are
   logged at start-up. No SQL row, stored file or Activity Log entry is written.
 
@@ -163,16 +156,29 @@ and `IRegistrationRepository.GetReviewQueueAsync(Confirmed)`; it never writes.
 
 | Screen | Real read / command | Demo source | Files |
 |---|---|---|---|
-| Officer event list | `IEventLifecycleService.GetPageAsync`; `OpenCheckIn`/`CloseCheckIn` POST (`IEventStateCommands`); `Complete` POST (`IEventLifecycleService.CompleteAsync`) | `IEventStateOverlay` after the read | `Controllers/EventController.cs`, `Views/Event/Index.cshtml` |
-| Member event feed | `IMemberEventService.GetFeedAsync` | `IEventStateOverlay` after the read | `Controllers/MemberEventsController.cs`, `Views/MemberEvents/Index.cshtml` |
-| Member event detail | `IMemberEventService.GetDetailAsync` | `IEventStateOverlay` after the read | `Controllers/MemberEventsController.cs`, `Views/MemberEvents/Details.cshtml` |
-| Check-in control | — | Posts to `IEventStateCommands` | `Views/Shared/_CheckInControl.cshtml` (reused by 3.16 and 4.11) |
+| Officer event list | `IEventLifecycleService.GetPageAsync`; `OpenCheckIn`/`CloseCheckIn` POST (`IEventLifecycleService.SetCheckInWindowAsync`); `Complete` POST (`IEventLifecycleService.CompleteAsync`) | none — the real event row is authoritative | `Controllers/EventController.cs`, `Views/Event/Index.cshtml` |
+| Member event feed | `IMemberEventService.GetFeedAsync` | none — the real `events.is_check_in_open` row is authoritative | `Controllers/MemberEventsController.cs`, `Views/MemberEvents/Index.cshtml` |
+| Member event detail | `IMemberEventService.GetDetailAsync` | none — the real `events.is_check_in_open` row is authoritative | `Controllers/MemberEventsController.cs`, `Views/MemberEvents/Details.cshtml` |
+| Check-in control | `IEventLifecycleService.SetCheckInWindowAsync` | none — posts the real command | `Views/Shared/_CheckInControl.cshtml` (reused by 3.16 and 4.11) |
 
-The overlay changes only `IsCheckInOpen`, and only for ids the store marks. Real reads run first; a
-failing real read is never replaced by demo data. Refusal rules: open/close check-in only on a
-Published event. Completion is the real `EventLifecycleService.CompleteAsync` (Management only,
+Check-in state is the real `events.is_check_in_open` column; no overlay changes an event read. The
+officer list renders the opener or closer name and Manila time from the real actor/time columns,
+while the dossier and scanner keep the badge-only control. Refusal rules: open/close check-in only
+on a Published event. Completion is the real `EventLifecycleService.CompleteAsync` (Management only,
 Published only, at or after the start) and the Completed label comes from SQL, so the member feed
 and detail read Published or Completed events and no overlay hides the real completion.
+
+**M-04 removal (4.2).** 4.2 replaced the demo command and overlay with the real
+`IEventLifecycleService.SetCheckInWindowAsync`. It locks the event, refuses draft, cancelled and
+completed events, refuses an already-open or already-closed window, reports `Stale` when the status
+changed before the lock and `Invalid` when the flag changed, then sets `is_check_in_open` and the
+opener or closer actor/time columns and appends one `event.check_in_opened` or
+`event.check_in_closed` row in the same transaction. `IEventStateCommands`, `IEventStateOverlay`,
+their demo and switch-off providers and `DemoEventsRegistration` are deleted. The officer list
+renders "Opened by <name> · <Manila time>" or "Closed by <name> · <Manila time>"; the dossier and
+scanner keep their badge-only control. Hand-over (register rule 12): `DemoCheckInService` and
+`DemoCheckInLookupService` remain the M-05/M-06 providers until 4.3 and 4.5, but they now read
+`events.is_check_in_open` from the real event projection, and the seed no longer opens a window.
 
 ## M-14a, M-14b, M-15a and M-15b — account and membership access detail (5.11)
 
