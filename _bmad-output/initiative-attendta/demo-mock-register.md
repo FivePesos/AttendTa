@@ -101,7 +101,7 @@ into lettered rows.
 | M-10b | Review queue and the approve and decline decisions | Review queue and decisions | 6.12 | 6.6 | open |
 | M-11a | Certificate issuance (number from the demo store, nothing retained) | Issuance pipeline and retained file | 6.12 | 6.7 | open |
 | M-11b | Officer PDF view and download (rendered in memory with the real template) | Authorized download of the retained file | 6.12 | 6.8 | open |
-| M-12 | Member certificate history and download links | Owner-scoped certificate query | 6.13 | 6.9 | open |
+| M-12 | Member certificate history and download links - `IMyCertificatesService`, `DemoMyCertificatesService`, `UnavailableMyCertificatesService`; shared `DemoCertificateDocuments` | Owner-scoped certificate query | 6.13 | 6.9 | open |
 | M-13a | Report summary: status counts, Confirmed and Valid attendees, rate | Report summary queries | 7.4 | 7.1 | removed; demo attendance source remains under M-05/M-07 |
 | M-13b | Report no-shows and course/year breakdowns | No-show and distribution queries | 7.4 | 7.2 | open |
 | M-13c | Report paged detail rows | Paged detail query | 7.4 | 7.3 | open |
@@ -416,6 +416,41 @@ snapshot values or rendered bytes.
 `Views/CertificateLedger/Index.cshtml`, `Views/CertificateLedger/Viewer.cshtml`,
 `Styles/features/certificate-ledger.css` and `wwwroot/js/features/certificate-ledger.js`.
 The selector, pager, shared shell and member-history slot remain unchanged. There is no bulk action.
+
+## M-12 — member certificate history (6.13)
+
+**Contract and registration.** `ASI.Basecode.Services/Interfaces/IMyCertificatesService.cs`
+provides `GetPageAsync` and `GetPdfAsync`. `DemoCertificatesRegistration.cs` uses `TryAddScoped`
+to register `DemoMyCertificatesService` only with the central switch on, preserving a real
+provider registered first. With the switch off, `UnavailableMyCertificatesService` returns an
+empty page and the same not-found refusal for documents.
+
+**Read composition and states.** The provider composes the actor's real non-cancelled event ids,
+`IRegistrationRepository.GetMemberRegistrationAsync`, and `IEventRepository.CountAsync` /
+`GetPageAsync` for event titles and schedules. Confirmed registrations are joined to the same
+`DemoStore` reviews and issues that 6.12 updates. Pending, eligible, declined (with reason), issued,
+and unavailable (no review or missing issued snapshot) are displayed. Ordering is event start
+descending then registration id descending, at the shared page size of 25. The existing My Events
+certificate action and pager remain independent of Registrations and Attendance.
+
+**Documents and ownership.** Every member PDF request reloads `DiscoverReviewAsync` and compares
+its real `UserId` to `ICurrentActor.UserId` before accessing an issued snapshot. Unknown ids and
+other owners receive the same not-found response. The Member policy retains the normal per-request
+active-account cookie validation; membership status does not block historical access.
+`DemoCertificateDocuments` is the one shared snapshot render/cache path for ledger and member reads:
+it calls the real `RenderSnapshotAsync`, attaches seeded bytes in process memory once, and returns
+the original bytes thereafter. View streams inline `application/pdf`; Download uses an attachment
+name based on the certificate number. Responses use no-store caching. No SQL, private-file or
+Activity Log writes occur.
+
+**Seed and removal.** No additional seed or store is introduced. M-01 / 6.12's issued, pending,
+declined and invalidated attendee scenarios appear only to their actual owners; officer approval
+and issuance are reflected on the next member read. A confirmed registration without a review
+shows unavailable, and a member without confirmed registrations gets the empty state. 6.9 replaces
+the member provider with its real owner-scoped query and retained-document access, deletes the
+switch-off member provider and registration lines, and marks M-12 removed. When 6.8 replaces the
+officer document adapter first, M-12 must be handed over to the retained-document source rather
+than continuing to regenerate documents (register rule 12).
 
 ## Known limits of the demo
 

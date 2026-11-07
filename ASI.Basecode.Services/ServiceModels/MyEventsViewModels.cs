@@ -226,13 +226,19 @@ public sealed class MyEventsCertificatesTabViewModel : MyEventsTabPage
             : new MyEventsCertificatesTabViewModel(page.Items, page.PageNumber, page.TotalCount);
 }
 
-/// <summary>One issued certificate in the member history.</summary>
+public enum MyCertificateState { Unavailable, Pending, Eligible, Declined, Issued }
+
+/// <summary>One certificate review or issued document in the member history.</summary>
 public sealed class MyEventCertificateRowViewModel
 {
     public int CertificateId { get; init; }
     public int EventId { get; init; }
     public string EventTitle { get; init; }
+    public DateTime StartsAt { get; init; }
+    public MyCertificateState State { get; init; }
+    public string Reason { get; init; }
+    public bool HasDocument { get; init; }
     public string CertificateNumber { get; init; }
-    public DateTime IssuedAt { get; init; }
+    public DateTime? IssuedAt { get; init; }
     public string DownloadUrl { get; init; }
 }

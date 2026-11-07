@@ -193,7 +193,7 @@ public sealed class CertificateLedgerTests
             foreach (var row in rows) Store.RecordAttendance(row.RegistrationId, 7, row.MemberName, row.StudentNumber, Now.AddDays(-2), CheckInMethodCode.QrCode);
             if (invalidateBeforeCompletion) Store.InvalidateAttendance(count, "Attendance corrected.", Now);
             Store.MarkCompleted(7);
-            Service = new DemoCertificateLedgerService(events, registrations, Store, Renderer, Actor, new Clock());
+            Service = new DemoCertificateLedgerService(events, registrations, Store, new DemoCertificateDocuments(Store, Renderer), Actor, new Clock());
         }
     }
 
