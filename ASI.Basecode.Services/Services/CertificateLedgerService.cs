@@ -23,7 +23,9 @@ namespace ASI.Basecode.Services.Services;
 /// <c>certificate.approved</c> or <c>certificate.declined</c> audit entry before the commit.
 /// Issuance renders and promotes the PDF outside every lock, then rechecks every fact under the same
 /// locks and commits the issued row with one <c>certificate.issued</c> audit entry; a failed commit
-/// deletes the file it created. Document retrieval is 6.8, so it refuses until that ticket lands.
+/// deletes the file it created. Document retrieval (6.8) keeps the viewer Management-only and lets
+/// the PDF route admit Management or the registration's owner; both require an issued row with a
+/// retained <c>certificates/</c> file and stream those bytes without regenerating them.
 /// </summary>
 public sealed class CertificateLedgerService(
     IEventRepository events,
@@ -50,6 +52,11 @@ public sealed class CertificateLedgerService(
     private const string EventNotCompletedMessage = "Certificates are available only for completed events.";
     private const string ChangedMessage = "This review's certificate details changed. Reload the ledger and try again.";
     private const string RenderFailedMessage = "The certificate could not be rendered. Please try again.";
+
+    // A stored certificate key must stay inside the certificates area. The store's segment and
+    // descendant checks are the real containment barrier; this prefix is an area hint that refuses
+    // a corrupt file_path before the store is asked.
+    private const string CertificateKeyPrefix = "certificates/";
 
     public async Task<CertificateLedgerViewModel> GetPageAsync(
         int? eventId,
@@ -247,16 +254,34 @@ public sealed class CertificateLedgerService(
         }
     }
 
-    public Task<CertificateViewerViewModel> GetViewerAsync(int registrationId, CancellationToken cancellationToken = default)
+    public async Task<CertificateViewerViewModel> GetViewerAsync(int registrationId, CancellationToken cancellationToken = default)
     {
         RequireManagement();
-        return Task.FromException<CertificateViewerViewModel>(NotFound());
+        var (certificate, identity) = await RequireIssuedDocumentAsync(registrationId, cancellationToken);
+
+        return new CertificateViewerViewModel
+        {
+            CertificateId = registrationId,
+            EventId = identity.EventId,
+            MemberName = certificate.RecipientNameSnapshot,
+            EventTitle = certificate.EventTitleSnapshot,
+            CertificateNumber = certificate.CertificateNumber
+        };
     }
 
-    public Task<CertificateDocument> GetPdfAsync(int registrationId, CancellationToken cancellationToken = default)
+    public async Task<CertificateDocument> GetPdfAsync(int registrationId, CancellationToken cancellationToken = default)
     {
-        RequireManagement();
-        return Task.FromException<CertificateDocument>(NotFound());
+        var actorUserId = RequireAuthenticated();
+        var (certificate, identity) = await RequireIssuedDocumentAsync(registrationId, cancellationToken);
+
+        // Management may read any issued row; a member may read only their own. A non-owner and an
+        // unknown id both surface the identical not-found.
+        if (!IsManagement() && identity.UserId != actorUserId)
+        {
+            throw NotFound();
+        }
+
+        return await ReadRetainedAsync(certificate, cancellationToken);
     }
 
     private async Task DecideInsideTransactionAsync(
@@ -455,6 +480,54 @@ public sealed class CertificateLedgerService(
         }
     }
 
+    /// <summary>
+    /// Resolves the registration's owner and its issued certificate row, and requires a retained
+    /// <c>certificates/</c> key. Every refusal is the same not-found, so a caller cannot tell an
+    /// unknown id from an unissued row or a row whose file is missing.
+    /// </summary>
+    private async Task<(Certificate Certificate, RegistrationReviewIdentity Identity)> RequireIssuedDocumentAsync(
+        int registrationId,
+        CancellationToken cancellationToken)
+    {
+        var identity = await registrations.DiscoverReviewAsync(registrationId, cancellationToken);
+        if (identity is null)
+        {
+            throw NotFound();
+        }
+
+        var certificate = await certificates.GetByRegistrationIdAsync(registrationId, cancellationToken);
+        if (certificate is null
+            || certificate.CertificateStatusId != CertificateStatusCode.Issued
+            || string.IsNullOrWhiteSpace(certificate.FilePath)
+            || !certificate.FilePath.StartsWith(CertificateKeyPrefix, StringComparison.Ordinal))
+        {
+            throw NotFound();
+        }
+
+        return (certificate, identity);
+    }
+
+    /// <summary>
+    /// Streams the retained PDF. A missing, unreadable or unsafe stored key is a controlled
+    /// not-found, never an unhandled 500.
+    /// </summary>
+    private async Task<CertificateDocument> ReadRetainedAsync(
+        Certificate certificate,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await using var stream = await files.OpenReadAsync(certificate.FilePath, cancellationToken);
+            using var copy = new MemoryStream();
+            await stream.CopyToAsync(copy, cancellationToken);
+            return new CertificateDocument(copy.ToArray(), certificate.CertificateNumber);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidDataException or ArgumentException)
+        {
+            throw NotFound();
+        }
+    }
+
     private static CertificateLedgerRowViewModel Map(CertificateReviewQueueRow row, string eventTitle)
     {
         var (label, badge) = row.Status switch
@@ -486,6 +559,17 @@ public sealed class CertificateLedgerService(
 
     private int RequireManagement()
     {
+        var userId = RequireAuthenticated();
+        if (!IsManagement())
+        {
+            throw new DomainException(OutcomeCode.Forbidden, "Access denied.");
+        }
+
+        return userId;
+    }
+
+    private int RequireAuthenticated()
+    {
         if (!actor.IsAuthenticated)
         {
             throw new DomainException(OutcomeCode.Forbidden, "Access denied.");
@@ -501,15 +585,17 @@ public sealed class CertificateLedgerService(
             throw new DomainException(OutcomeCode.Forbidden, "Access denied.");
         }
 
-        if (userId <= 0
-            || (!string.Equals(actor.Role, RoleCodes.Admin, StringComparison.Ordinal)
-                && !string.Equals(actor.Role, RoleCodes.Officer, StringComparison.Ordinal)))
+        if (userId <= 0)
         {
             throw new DomainException(OutcomeCode.Forbidden, "Access denied.");
         }
 
         return userId;
     }
+
+    private bool IsManagement() =>
+        string.Equals(actor.Role, RoleCodes.Admin, StringComparison.Ordinal)
+        || string.Equals(actor.Role, RoleCodes.Officer, StringComparison.Ordinal);
 
     private static DomainException NotFound() => new(OutcomeCode.NotFound, "Certificate not found.");
 

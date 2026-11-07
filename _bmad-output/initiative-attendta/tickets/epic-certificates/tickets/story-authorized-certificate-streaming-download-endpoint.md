@@ -16,7 +16,7 @@ tracker_status: backlog
 
 ## Description
 
-Delivers R6 through a GET action that takes a certificate id and never a path, admits the owner (matching ActorUserId) or any caller with the Management policy, lets inactive memberships through, relies on the AD-8 session check that refuses inactive Accounts, and streams the file_path read through IPrivateFileStore.OpenReadAsync after a containment check as application/pdf.
+R6 is demo-only: the officer viewer and PDF are served by `DemoCertificateLedgerService` from an in-memory document, while the real `CertificateLedgerService` refuses every request, so with demo data off an issued certificate cannot be viewed or downloaded. This delivers R6 through a GET action that takes a certificate id and never a path, admits the owner (matching ActorUserId) or any caller with the Management policy, lets inactive memberships through, relies on the AD-8 session check that refuses inactive Accounts, and streams the file_path read through IPrivateFileStore.OpenReadAsync after a containment check as application/pdf.
 
 ## Requirements
 
@@ -31,7 +31,7 @@ Verify: The owner and a Management user each download an issued certificate as a
 
 ## Delivery (2026-11-06)
 
-- The endpoint serves the 6.12 viewer/download affordance and 6.13 history link through one authorized route; it does not build a second screen or change presentation. Demo downloads do not close the functional issue.
+- The endpoint serves the 6.12 viewer/download affordance and 6.13 history link through one authorized route; it does not build a second screen or change presentation. The one visible change is the seeded issued row, which has no retained file: its officer viewer and PDF become a controlled 404. Demo downloads do not close the functional issue.
 - Development check: build plus a focused owner/Management/not-found smoke; existing CI unchanged. Missing important test authoring is 8.5 (#78), combined final execution 8.4 (#77), manual 8.6–8.8.
 - Backend-only: no per-ticket design critique or polish requirement; frontend design lives only in the separate slices 6.12/6.13/7.4 and finale 8.12.
 - Per-request permission, identical not-found responses, inactive-Account refusal and path containment stay final acceptance even while test authoring is deferred.

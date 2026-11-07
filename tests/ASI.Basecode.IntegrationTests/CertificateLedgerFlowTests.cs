@@ -52,13 +52,19 @@ public sealed class CertificateLedgerFlowTests(SqlServerDatabaseFixture fixture)
         });
         using var client = enabled.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
         using var anonymous = enabled.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
-        Assert.Equal(HttpStatusCode.Redirect, (await anonymous.GetAsync("/Certificates", ct)).StatusCode);
-        Assert.Equal(HttpStatusCode.Redirect, (await anonymous.GetAsync($"/Certificates/Pdf/{registrationIds[0]}", ct)).StatusCode);
+        var anonymousLedger = await anonymous.GetAsync("/Certificates", ct);
+        Assert.Equal(HttpStatusCode.Redirect, anonymousLedger.StatusCode);
+        Assert.StartsWith("/Account/Login", MemberEventTestSupport.LocationPath(anonymousLedger), StringComparison.Ordinal);
+        var anonymousPdf = await anonymous.GetAsync($"/Certificates/Pdf/{registrationIds[0]}", ct);
+        Assert.Equal(HttpStatusCode.Redirect, anonymousPdf.StatusCode);
+        Assert.StartsWith("/Account/Login", MemberEventTestSupport.LocationPath(anonymousPdf), StringComparison.Ordinal);
         await MemberEventTestSupport.SignInAsync(client, email, password, ct);
         using var memberClient = enabled.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
         await MemberEventTestSupport.SignInAsync(memberClient, memberEmail, password, ct);
         Assert.Contains("AccessDenied", MemberEventTestSupport.LocationPath(await memberClient.GetAsync("/Certificates", ct)), StringComparison.Ordinal);
-        Assert.Contains("AccessDenied", MemberEventTestSupport.LocationPath(await memberClient.GetAsync($"/Certificates/Pdf/{registrationIds[0]}", ct)), StringComparison.Ordinal);
+        // The PDF route admits members; this seeded row has no retained file yet, so the not-found
+        // comes from the missing document, not an ownership refusal.
+        Assert.Equal(HttpStatusCode.NotFound, (await memberClient.GetAsync($"/Certificates/Pdf/{registrationIds[0]}", ct)).StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsync("/CertificateLedger/Approve",
             new FormUrlEncodedContent(new Dictionary<string, string> { ["id"] = registrationIds[1].ToString() }), ct)).StatusCode);
 
@@ -176,17 +182,14 @@ public sealed class CertificateLedgerFlowTests(SqlServerDatabaseFixture fixture)
         Assert.StartsWith("%PDF-", System.Text.Encoding.ASCII.GetString(await pdf.Content.ReadAsByteArrayAsync(ct)), StringComparison.Ordinal);
         var download = await client.GetAsync($"/Certificates/Pdf/{registrationIds[1]}?download=true", ct);
         Assert.Equal("attachment", download.Content.Headers.ContentDisposition!.DispositionType);
+        Assert.Equal($"AT-2026-{registrationIds[1]:D6}.pdf", download.Content.Headers.ContentDisposition.FileName!.Trim('"'));
         Assert.Equal(await pdf.Content.ReadAsByteArrayAsync(ct), await download.Content.ReadAsByteArrayAsync(ct));
         Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"/Certificates/Pdf/{registrationIds[3]}", ct)).StatusCode);
 
-        // The seeded issued row has no retained file; its officer viewer and PDF must still work
-        // through the in-memory document fallback (M-11b, removed by 6.8).
-        var seededViewer = await client.GetStringAsync($"/Certificates/Viewer/{registrationIds[0]}", ct);
-        Assert.Contains("Download PDF", seededViewer, StringComparison.Ordinal);
-        var seededPdf = await client.GetAsync($"/Certificates/Pdf/{registrationIds[0]}", ct);
-        Assert.Equal(HttpStatusCode.OK, seededPdf.StatusCode);
-        Assert.StartsWith("%PDF-",
-            System.Text.Encoding.ASCII.GetString(await seededPdf.Content.ReadAsByteArrayAsync(ct)), StringComparison.Ordinal);
+        // The seeded issued row has no retained file, so the officer viewer and PDF are a
+        // controlled not-found now that M-11b is removed (6.8).
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"/Certificates/Viewer/{registrationIds[0]}", ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"/Certificates/Pdf/{registrationIds[0]}", ct)).StatusCode);
 
         // The member history was handed over to the real issued row and its retained file.
         using var ownerClient = enabled.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
@@ -197,6 +200,54 @@ public sealed class CertificateLedgerFlowTests(SqlServerDatabaseFixture fixture)
         Assert.Equal(HttpStatusCode.OK, memberPdf.StatusCode);
         Assert.StartsWith("%PDF-",
             System.Text.Encoding.ASCII.GetString(await memberPdf.Content.ReadAsByteArrayAsync(ct)), StringComparison.Ordinal);
+
+        // The shared Pdf route admits the owner: same bytes as the officer read, and download=true
+        // is an attachment named with the certificate number.
+        var ownerPdf = await ownerClient.GetAsync($"/Certificates/Pdf/{registrationIds[1]}", ct);
+        Assert.Equal(HttpStatusCode.OK, ownerPdf.StatusCode);
+        Assert.Equal("application/pdf", ownerPdf.Content.Headers.ContentType!.MediaType);
+        Assert.True(ownerPdf.Headers.CacheControl!.NoStore);
+        Assert.Equal(await pdf.Content.ReadAsByteArrayAsync(ct), await ownerPdf.Content.ReadAsByteArrayAsync(ct));
+        var ownerDownload = await ownerClient.GetAsync($"/Certificates/Pdf/{registrationIds[1]}?download=true", ct);
+        Assert.Equal("attachment", ownerDownload.Content.Headers.ContentDisposition!.DispositionType);
+        Assert.Equal($"AT-2026-{registrationIds[1]:D6}.pdf", ownerDownload.Content.Headers.ContentDisposition.FileName!.Trim('"'));
+
+        // An inactive membership does not block the owner's download (R6).
+        await using (var membership = MemberEventTestSupport.Context(fixture.ConnectionString))
+        {
+            var owner = await membership.Users.SingleAsync(row => row.UserId == memberEmails[1], ct);
+            (await membership.Members.SingleAsync(row => row.UserId == owner.Id, ct)).MembershipStatusId = MembershipStatusCode.Inactive;
+            await membership.SaveChangesAsync(ct);
+        }
+        Assert.Equal(HttpStatusCode.OK, (await ownerClient.GetAsync($"/Certificates/Pdf/{registrationIds[1]}", ct)).StatusCode);
+
+        // A non-owner member and an unknown id receive the identical not-found: same status, same
+        // message, and the same page once the id in the retry link is normalised.
+        var nonOwner = await memberClient.GetAsync($"/Certificates/Pdf/{registrationIds[1]}", ct);
+        var unknown = await memberClient.GetAsync("/Certificates/Pdf/2147483647", ct);
+        Assert.Equal(HttpStatusCode.NotFound, nonOwner.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, unknown.StatusCode);
+        var nonOwnerBody = await nonOwner.Content.ReadAsStringAsync(ct);
+        var unknownBody = await unknown.Content.ReadAsStringAsync(ct);
+
+        // Compare the alert block itself: same message, same structure, and the only difference is
+        // the id in the retry link.
+        static string AlertBlock(string html) =>
+            System.Text.RegularExpressions.Regex.Match(
+                html,
+                "<div class=\"notice notice-error\" role=\"alert\">.*?</div>",
+                System.Text.RegularExpressions.RegexOptions.Singleline).Value;
+        var nonOwnerAlert = AlertBlock(nonOwnerBody).Replace(
+            $"/Certificates/Pdf/{registrationIds[1]}\"", "/Certificates/Pdf/{id}\"", StringComparison.Ordinal);
+        var unknownAlert = AlertBlock(unknownBody).Replace(
+            "/Certificates/Pdf/2147483647\"", "/Certificates/Pdf/{id}\"", StringComparison.Ordinal);
+        Assert.Contains("Certificate not found.", nonOwnerAlert, StringComparison.Ordinal);
+        Assert.Equal(nonOwnerAlert, unknownAlert);
+
+        // The viewer stays Management-only: a member never reaches the metadata page.
+        var memberViewer = await memberClient.GetAsync($"/Certificates/Viewer/{registrationIds[1]}", ct);
+        Assert.Equal(HttpStatusCode.Redirect, memberViewer.StatusCode);
+        Assert.Contains("AccessDenied", MemberEventTestSupport.LocationPath(memberViewer), StringComparison.Ordinal);
 
         await page.SetViewportSizeAsync(390, 900);
         await page.GotoAsync($"http://localhost/Certificates/Viewer/{registrationIds[1]}");
@@ -225,14 +276,54 @@ public sealed class CertificateLedgerFlowTests(SqlServerDatabaseFixture fixture)
             ? Directory.GetFiles(certificateDirectory, "*", SearchOption.AllDirectories)
             : Array.Empty<string>();
         var retained = Assert.Single(certificateFiles);
+        var retainedBytes = await File.ReadAllBytesAsync(retained, ct);
         Assert.StartsWith("%PDF-",
-            System.Text.Encoding.ASCII.GetString(await File.ReadAllBytesAsync(retained, ct)), StringComparison.Ordinal);
+            System.Text.Encoding.ASCII.GetString(retainedBytes), StringComparison.Ordinal);
+
+        // The served bytes are the retained file's bytes, not a re-render: both reads match the
+        // file on disk exactly.
+        Assert.Equal(retainedBytes, await pdf.Content.ReadAsByteArrayAsync(ct));
+        Assert.Equal(retainedBytes, await ownerPdf.Content.ReadAsByteArrayAsync(ct));
+
+        // A stored key outside certificates/ is refused by the service before the store is asked.
+        // The venue file exists on purpose: OpenReadAsync infers the area from the key, so without
+        // the prefix refusal these PNG bytes would be streamed as application/pdf.
+        var venueImage = Path.Combine(factory.SetupRoot, "uploads", "venues", "not-a-certificate.png");
+        Directory.CreateDirectory(Path.GetDirectoryName(venueImage)!);
+        await File.WriteAllBytesAsync(venueImage, [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A], ct);
+        await using (var tampered = MemberEventTestSupport.Context(fixture.ConnectionString))
+        {
+            (await tampered.Certificates.SingleAsync(row => row.RegistrationId == registrationIds[1], ct)).FilePath =
+                "uploads/venues/not-a-certificate.png";
+            await tampered.SaveChangesAsync(ct);
+        }
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"/Certificates/Pdf/{registrationIds[1]}", ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await ownerClient.GetAsync($"/Certificates/Pdf/{registrationIds[1]}", ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"/Certificates/Viewer/{registrationIds[1]}", ct)).StatusCode);
+        await using (var restored = MemberEventTestSupport.Context(fixture.ConnectionString))
+        {
+            (await restored.Certificates.SingleAsync(row => row.RegistrationId == registrationIds[1], ct)).FilePath =
+                issuedCertificate.FilePath;
+            await restored.SaveChangesAsync(ct);
+        }
+        File.Delete(venueImage);
 
         // A retained file missing on disk is a controlled not-found, not an unhandled 500.
         File.Delete(retained);
         Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"/Certificates/Pdf/{registrationIds[1]}", ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await ownerClient.GetAsync($"/Certificates/Pdf/{registrationIds[1]}", ct)).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await ownerClient.GetAsync($"/MyEvents/Certificates/{registrationIds[1]}/Pdf", ct)).StatusCode);
         Assert.Equal(EventStatusCode.Completed, (await observer.Events.SingleAsync(row => row.EventId == eventItem.EventId, ct)).EventStatusId);
+
+        // An inactive account is refused by the AD-8 cookie check: the next request is a sign-in redirect.
+        await using (var account = MemberEventTestSupport.Context(fixture.ConnectionString))
+        {
+            (await account.Users.SingleAsync(row => row.UserId == memberEmails[1], ct)).IsActive = false;
+            await account.SaveChangesAsync(ct);
+        }
+        var inactiveAccountPdf = await ownerClient.GetAsync($"/Certificates/Pdf/{registrationIds[1]}", ct);
+        Assert.Equal(HttpStatusCode.Redirect, inactiveAccountPdf.StatusCode);
+        Assert.StartsWith("/Account/Login", MemberEventTestSupport.LocationPath(inactiveAccountPdf), StringComparison.Ordinal);
 
         async Task PostAsync(string action, int id, string reason = "")
         {

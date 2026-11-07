@@ -10,8 +10,8 @@ using Microsoft.Extensions.Options;
 namespace ASI.Basecode.WebApp.DemoData;
 
 /// <summary>
-/// The one in-memory demo store (register M-01). After 6.7 it holds only the demo pass token and the
-/// seeded issued certificate document (M-11b); issuance, attendance and certificate reviews are real
+/// The one in-memory demo store (register M-01). After 6.8 it holds only the demo pass token and the
+/// seeded issued certificate document (M-12); issuance, attendance and certificate reviews are real
 /// SQL rows and issued PDFs are retained in the private file store. Nothing here touches SQL, the
 /// private file store or the Activity Log, and a restart clears the seeded document.
 /// </summary>
@@ -58,9 +58,9 @@ public sealed class DemoStore
     /// <summary>The stable demo pass token for a real registration id.</summary>
     public string GetPassToken(int registrationId) => DerivePassToken(registrationId, _tokenKey);
 
-    // ---- Certificate issues (M-11b) -----------------------------------------
+    // ---- Certificate issues (M-12) -----------------------------------------
 
-    // M-11b: a seeded issue is rendered once, then its original bytes are reused for this process lifetime.
+    // M-12: a seeded issue is rendered once, then its original bytes are reused for this process lifetime.
     public DemoCertificateIssue AttachCertificateDocument(int registrationId, CertificatePdfSnapshot snapshot, byte[] pdf)
     {
         lock (_gate)

@@ -213,7 +213,7 @@ public sealed class CertificateReviewDecisionTests(SqlServerDatabaseFixture fixt
     }
 
     [Fact]
-    public void ApplicationRegistersTheRealLedgerAndTheDemoOverrideOnlyWhenEnabled()
+    public void ApplicationRegistersTheRealLedgerAndTheDemoRegistrationNeverReplacesIt()
     {
         using var factory = new AttendTaWebApplicationFactory(fixture.ConnectionString);
         using (var scope = factory.Services.CreateScope())
@@ -222,15 +222,23 @@ public sealed class CertificateReviewDecisionTests(SqlServerDatabaseFixture fixt
                 scope.ServiceProvider.GetRequiredService<ICertificateLedgerService>());
         }
 
-        // The demo switch replaces the real descriptor. Assert that without building a second host:
-        // every host holds file watchers, and the CI runner's inotify budget is small.
+        // M-11b is removed by 6.8: with the switch on, the demo file registers only M-12's member
+        // history and its shared document reader, never a ledger override. Assert that without
+        // building a second host: every host holds file watchers, and the CI runner's inotify
+        // budget is small.
         var services = new ServiceCollection();
-        services.AddScoped<CertificateLedgerService>();
-        services.AddScoped<ICertificateLedgerService>(provider => provider.GetRequiredService<CertificateLedgerService>());
         DemoCertificatesRegistration.AddCertificates(services, enabled: true);
+        Assert.DoesNotContain(services, descriptor => descriptor.ServiceType == typeof(ICertificateLedgerService));
         Assert.Contains(services, descriptor =>
-            descriptor.ServiceType == typeof(ICertificateLedgerService)
-            && descriptor.ImplementationType == typeof(DemoCertificateLedgerService));
+            descriptor.ServiceType == typeof(IMyCertificatesService)
+            && descriptor.ImplementationType == typeof(DemoMyCertificatesService));
+
+        var unavailable = new ServiceCollection();
+        DemoCertificatesRegistration.AddCertificates(unavailable, enabled: false);
+        Assert.DoesNotContain(unavailable, descriptor => descriptor.ServiceType == typeof(ICertificateLedgerService));
+        Assert.Contains(unavailable, descriptor =>
+            descriptor.ServiceType == typeof(IMyCertificatesService)
+            && descriptor.ImplementationType == typeof(UnavailableMyCertificatesService));
     }
 
     private static CertificateLedgerService Service(
