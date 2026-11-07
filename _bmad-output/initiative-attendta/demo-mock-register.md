@@ -89,7 +89,7 @@ into lettered rows.
 | Id | Surface | Missing backend today | Added by | Removed by | State |
 |---|---|---|---|---|---|
 | M-01 | Demo seam: `DemoData:Enabled`, the startup database guard, `DemoData:TokenKey`, the demo store (event check-in and completed state, pass tokens, attendance, certificate reviews and issues, account and membership status), the registration method and the start-up seed | — (infrastructure) | 1.14 | 8.13 | open |
-| M-02 | My Events: all of a member's registrations across events, with status and cutoff labels | Cross-event owner query (only per-event and upcoming-only reads exist) | 3.17 | 3.13 | open |
+| M-02 | My Events: all of a member's registrations across events, with status and cutoff labels | Cross-event owner query (only per-event and upcoming-only reads exist) | 3.17 | 3.13 | removed |
 | M-03 | Pass card QR image and PNG download (rule 10 token, QR drawn by a locally served browser library) | QR library, token read, authorized PNG endpoint | 4.10 | 4.1 | open |
 | M-04 | Check-in window open/close command, the shared control partial, and the open flag overlaid on event reads (rule 7) | Open/close command | 1.14 | 4.2 | open |
 | M-05 | Check-in by scan: outcome (success, repeat, invalid, closed) and the attendance record | Validation engine and attendance write | 4.11 | 4.3 | open |
@@ -220,24 +220,15 @@ The overlay changes only the account and membership status, and only for ids the
 Account access stays separate from membership eligibility: deactivating an account never changes
 the member's status, and deactivating a membership never changes the linked account.
 
-## M-02 — demo seam detail (3.17)
+## M-02 — demo seam detail (3.17, removed by 3.13)
 
-**Contract and classes.** The contract is in `ASI.Basecode.Services`; the providers are in
-`ASI.Basecode.WebApp/DemoData/`.
-
-| Piece | File |
-|---|---|
-| Read contract `IMyEventsService.GetRegistrationsAsync` | `ASI.Basecode.Services/Interfaces/IMyEventsService.cs` |
-| Demo provider (composes `IRegistrationRepository.DiscoverOpenEventIdsForUserAsync`, `GetMemberRegistrationAsync`, `IEventRepository.CountAsync` and `GetPageAsync`) | `ASI.Basecode.WebApp/DemoData/DemoMyEventsService.cs` |
-| Switch-off provider (empty page) | `ASI.Basecode.WebApp/DemoData/EmptyMyEventsService.cs` |
-| My Events surface registration file | `ASI.Basecode.WebApp/DemoData/DemoMyEventsRegistration.cs` |
-
-**What it composes.** The actor's open event ids, each event's own registration row, and one event
-page for title, type, venue, start and status. Cards are ordered newest start first and paged at 25
-in memory; the status label and badge come from `RegistrationStatusDisplay`, and the "View event"
-link appears only for a published event. Nothing is written. Cancelled registrations are absent
-because `DiscoverOpenEventIdsForUserAsync` excludes them; 3.13's real query replaces this provider
-and its per-event reads.
+**Removed.** 3.13 deleted the demo and switch-off providers and their surface registration file.
+The tab now reads `IMyEventsService.GetRegistrationsAsync`, implemented by the real
+`MyEventsService` over `IRegistrationRepository.CountMyRegistrationsAsync` and
+`GetMyRegistrationsAsync`: one owner-scoped cross-event query ordered newest start first and paged
+at 25 in SQL. It includes every stored status, including Cancelled and registrations on
+non-published events, resolves the label and badge through `RegistrationStatusDisplay`, and shows
+the "View event" link only for a published event. Nothing is written.
 
 ## M-03 — pass card QR image and PNG download detail (4.10)
 
@@ -305,31 +296,25 @@ provider and its line in `DemoCheckInRegistration.cs`, and the screen keeps its 
 
 ## M-08 — demo seam detail (4.12)
 
-**Contract and classes.** The contract stays in `ASI.Basecode.Services`; the providers are in
-`ASI.Basecode.WebApp/DemoData/`.
+**Contract and classes.** The contract is in `ASI.Basecode.Services`; the provider is
+`ASI.Basecode.Services/Services/MyEventsService.cs`, whose `GetAttendanceAsync` returns an empty
+attendance page until 4.7.
 
 | Piece | File |
 |---|---|
 | Read contract `IMyEventsService.GetAttendanceAsync` | `ASI.Basecode.Services/Interfaces/IMyEventsService.cs` |
 | Method label rule `CheckInMethodDisplay` | `ASI.Basecode.Services/ServiceModels/CheckInMethodDisplay.cs` |
-| Demo provider (composes `IRegistrationRepository.DiscoverOpenEventIdsForUserAsync`, `GetMemberRegistrationAsync`, `IEventRepository.CountAsync` and `GetPageAsync`, and `DemoStore.TryGetAttendance`) | `ASI.Basecode.WebApp/DemoData/DemoMyEventsService.cs` |
-| Switch-off provider (empty page) | `ASI.Basecode.WebApp/DemoData/EmptyMyEventsService.cs` |
-| My Events surface registration file | `ASI.Basecode.WebApp/DemoData/DemoMyEventsRegistration.cs` |
+| Real provider (returns an empty page until 4.7) | `ASI.Basecode.Services/Services/MyEventsService.cs` |
 
-**What it composes.** The actor's non-cancelled event ids (completed events included), each event's
-own registration row, one event page for the titles, and the store's attendance keyed by the real
-registration id. Rows are ordered newest recorded first and paged at 25 in memory; the method label
-comes from `CheckInMethodDisplay` and the valid and invalidated badges are the partial's own
-rendering. `AttendanceId` carries the registration id because the store keeps one attendance per
-registration; 4.7's real query returns the real `attendance_id` behind the same contract. Nothing
-is written, and the tab is read-only: no check-in, correction, edit or delete control. With
-`DemoData:Enabled` off the switch-off provider returns an empty page and the tab shows its empty
-state.
+**What it composes.** 3.13 removed the M-02 demo and switch-off providers and kept
+`MyEventsService.GetAttendanceAsync` as an empty page. 4.7 replaces that method with the real
+owner-scoped attendance query behind the same contract. The tab stays read-only: no check-in,
+correction, edit or delete control. Until 4.7 the tab shows its empty state.
 
-**Hand-over to 3.13 (register rule 12).** M-08 shares `DemoMyEventsService` and
-`EmptyMyEventsService` with M-02. When 3.13 removes M-02's provider classes it must keep
-`GetAttendanceAsync` — returning an empty page — so the attendance read survives until 4.7 lands;
-4.7 then replaces that method with the real owner-scoped query instead of deleting a class.
+**Hand-over to 4.7 (register rule 12).** 3.13 removed M-02's `DemoMyEventsService`,
+`EmptyMyEventsService` and `DemoMyEventsRegistration`, and kept `GetAttendanceAsync` on the real
+`MyEventsService` returning an empty page. 4.7 replaces that method with the real owner-scoped
+query instead of deleting a class.
 ## M-13a, M-13b and M-13c — participation report detail (7.4)
 
 **Contract and classes.** All demo code is in `ASI.Basecode.WebApp/DemoData/`; the contract is in

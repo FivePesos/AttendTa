@@ -96,7 +96,7 @@ public sealed class DemoSeedService : IHostedService
             }
 
             _logger.LogInformation(
-                "Demo data active (M-01, M-02, M-04, M-05, M-06, M-07, M-08, M-09). Check-in open event {CheckInOpenEventId}; "
+                "Demo data active (M-01, M-04, M-05, M-06, M-07, M-09). Check-in open event {CheckInOpenEventId}; "
                 + "ready to complete event {ReadyToCompleteEventId}; completed event {CompletedEventId}.",
                 checkInOpen?.EventId,
                 readyToComplete?.EventId,
