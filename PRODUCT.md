@@ -30,6 +30,7 @@ Used by a University of Cebu student organization on a laptop at the door and on
 - Event Type create/edit uses a centered keyboard-operable record dialog with retained server validation; standalone form routes remain available.
 - Events move through draft, published, completed, and cancelled states with capacity, deadline, and venue checks.
 - Officers open an event dossier from Events to review metadata, confirmed capacity and paged status rosters, make explicit registration decisions, and confirm check-in and lifecycle changes in contextual dialogs.
+- Failed dossier registration decisions retain the participant/registration context and entered reason for correction; review-queue failures stay within their original workflow.
 - Registrations are pending, confirmed, waitlisted, or cancelled; seat allocation is transactional.
 - Attendance is recorded by QR or manual lookup; certificates are issued one at a time from an eligibility review.
 - Participation reports are per event and include attendance rate, no-shows, and course/year distribution.
