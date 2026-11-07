@@ -641,6 +641,9 @@ namespace ASI.Basecode.Services.Services
             return eventItem;
         }
 
+        /// <summary>
+        /// Locks the event row inside the caller's transaction and refuses a missing event.
+        /// </summary>
         private async Task<Event> LockEventAsync(int eventId, CancellationToken cancellationToken)
         {
             var eventItem = await _events.LockEventAsync(eventId, cancellationToken);
@@ -652,6 +655,11 @@ namespace ASI.Basecode.Services.Services
             return eventItem;
         }
 
+        /// <summary>
+        /// Locks the event row and reports <c>Stale</c> when <paramref name="stillCurrent"/>
+        /// rejects the freshly locked row, so a concurrent change is refused instead of applied.
+        /// Must run inside the caller's transaction, which is what makes the lock meaningful.
+        /// </summary>
         private async Task<Event> LockEventAsync(
             int eventId,
             Func<Event, bool> stillCurrent,

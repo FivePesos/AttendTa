@@ -10,12 +10,64 @@ route_source: 'auto'
 risk: 'low'
 review: 'quick'
 review_source: 'pinned'
-lenses_ran: []
+lenses_ran: ['quick']
 review_loop_iteration: 0
 followup_review_recommended: false
-context: ['docs/CODING_STANDARDS.md']
+context: ['AGENTS.md', 'docs/CODING_STANDARDS.md', '_bmad-output/initiative-attendta/architecture-attendta/architecture-attendta.md']
 warnings: []
-deferred: []
+deferred:
+  - summary: >-
+      Rename `IRegistrationRepository.GetForCancellationAsync` to `GetForUpdateAsync` and
+      `DiscoverReviewAsync`/`RegistrationReviewIdentity` to identity naming.
+    evidence: |-
+      The names no longer match what they return: `GetForCancellationAsync` is used by review
+      approve, decline, promotion and cancellation, and `DiscoverReviewAsync` is used by
+      attendance recording, attendance invalidation and the certificate ledger. Deferred because
+      the rename touches public repository members and six test fakes.
+    severity: low
+  - summary: >-
+      Delete the template scaffolding left in `ControllerBase` (UserId, UserName, Supervisor,
+      ClientId, ClientSystemId, ClientSystemName, ClientUserRole, HandleExceptionLog).
+    evidence: |-
+      No in-repo consumer, and the claim getters null-reference on a missing claim, but the base
+      class is shared by every controller, so removal is a separate change.
+    severity: low
+  - summary: >-
+      De-duplicate the `EventRepository` list and detail projections into two query builders.
+    evidence: |-
+      The published-only and published-or-completed reads repeat the same joins and projections.
+      Deferred because the generated SQL changes shape and the change is not a controller, service
+      or contract finding.
+    severity: low
+  - summary: >-
+      Extract the `MyEventsService` paging boilerplate and move its row mapping onto AutoMapper.
+    evidence: |-
+      The service hand-maps two row types that AutoMapper already handles for its sibling, and
+      repeats the same five-step paging shape twice. Deferred because it needs a constructor
+      change and its own verification.
+    severity: low
+  - summary: >-
+      Remove `RegistrationRepository.GetOpenForEventAsync`'s redundant in-memory status filter.
+    evidence: |-
+      The SQL filter (`!= Cancelled`) and the in-memory `Open(...)` re-filter select the same set
+      because `RegistrationStatusCode` has exactly four members. Deferred because it sits on the
+      cancellation read path the ticket freezes.
+    severity: low
+  - summary: >-
+      Comment `ParticipationFacts.PublishableEventIds`' correlated projection.
+    evidence: |-
+      Code review of PR #204. The body is unchanged context in that diff; the `venueIds` selector
+      projects `eventItem.EventId` from a `Venue`-typed lambda and is correct only because the keys
+      are unique FKs. Pre-existing.
+    location: >-
+      ASI.Basecode.Data/Queries/ParticipationFacts.cs:65-89
+    severity: low
+  - summary: >-
+      Record backend findings in a ledger so the next sweep's closure can be verified.
+    evidence: |-
+      Code review of PR #204. No record of the eleven findings predates the change; the sweep's own
+      plan is their only enumeration. Pre-existing process gap.
+    severity: low
 ---
 
 <intent-contract>
@@ -80,13 +132,14 @@ deferred: []
 
 ## Implementation Notes
 
-- Eleven files changed, 173 insertions and 244 deletions; no test, Razor, CSS or demo-seam file was touched.
+- Eleven code files changed, 173 insertions and 244 deletions; no test, Razor, CSS or demo-seam file was touched. The twelfth entry in the commit is this plan document, whose size grows as this record is written, so the plan is never counted in the code figures.
 - `EventLifecycleService` now has `RequireEventAsync`, two `LockEventAsync` overloads and `CloseCheckIn`. Each call site keeps its own stale predicate and its verbatim `Stale` message, so the guard order and wording are unchanged. The two cover commands use the null-check-only overload and keep `EnsureSameCoverReferences`, which throws rather than returning a bool.
 - `RegistrationReviewService` uses `ReviewOperation` instead of `0/1/2`; the status guard is now parenthesized, which is the only readability change with a semantic shape. `LockOwnerAndEventAsync` preserves the AD-4 `user → event` lock order. Both identity comparisons stay inline because they use different record types.
 - `EventController` gained `TryRunAsync`, `EventNotFoundResult` and `ConvertTimes`; `Cover` delegates to `CoverViewAsync`; `HandleAsync` reuses `WithOptionsAsync`. `CancelFromDossier` keeps its own dossier `TempData` handling because it deliberately does not set `TempData["ErrorMessage"]`.
 - `RegistrationReviewController` now takes `CancellationToken` on all five actions and threads it through `Decide`, matching every sibling controller.
-- Deliberately not done (recorded, not silently dropped): renaming `GetForCancellationAsync`/`DiscoverReviewAsync`, deleting the template scaffolding in `ControllerBase`, `EventRepository` projection de-duplication, `MyEventsService` AutoMapper/paging extraction, and `GetOpenForEventAsync`'s redundant in-memory filter. Each is either a public-member rename, outside the event/registration surface, or touches the cancellation read path the ticket freezes.
-- Verification: `dotnet build ASI.Basecode.sln --configuration Release -warnaserror` → 0 warnings, 0 errors. Services suite → 310 passed, 0 failed, 0 skipped. Focused integration filter → 111 passed, 0 failed, 0 skipped. Additional `EventCover` run for the matrix's cover row → 5 passed, 0 failed, 0 skipped. `git diff --stat` shows only the eleven planned files.
+- Deliberately not done (recorded, not silently dropped): renaming `GetForCancellationAsync`/`DiscoverReviewAsync`, deleting the template scaffolding in `ControllerBase`, `EventRepository` projection de-duplication, `MyEventsService` AutoMapper/paging extraction, and `GetOpenForEventAsync`'s redundant in-memory filter. Each is either a public-member rename, outside the event/registration surface, or touches the cancellation read path the ticket freezes. The first five are recorded in this plan's `deferred:` frontmatter.
+- Scope note (code review, 2026-11-07): three edited files sit outside the ticket's named controller/service/contract layers — `ParticipationFacts.cs` (query layer), `RegistrationRepository.cs` (data layer) and `ControllerBase.cs` (shared MVC base). They are kept deliberately: each is a one-line dead-code or no-op removal, none can change behaviour, and reverting them would re-introduce the dead weight the sweep exists to remove.
+- Verification: `dotnet build ASI.Basecode.sln --configuration Release -warnaserror` → 0 warnings, 0 errors. Services suite → 310 passed, 0 failed, 0 skipped. Focused integration regression over every affected class in one run → 118 passed, 0 failed, 0 skipped. Earlier runs during the work were successive and overlapped, so only this combined figure is authoritative. Only the eleven code files are in the change set; the twelfth stat entry is this plan.
 - An untracked `_bmad-output/initiative-attendta/tickets/epic-check-in/tickets/story-refactor-sweep-plan.md` (ticket `9`, created during this run by another session) was left untouched and is not part of this change.
 
 ## Plan Change Log
@@ -136,8 +189,42 @@ Status: built
 **Verification.**
 - `dotnet build ASI.Basecode.sln --configuration Release -warnaserror` → 0 warnings, 0 errors (run before and after the review patch).
 - `dotnet test tests/ASI.Basecode.Services.Tests/ASI.Basecode.Services.Tests.csproj --configuration Release --no-build` → 310 passed, 0 failed, 0 skipped.
-- Focused integration run with `ATTENDTA_TEST_SQL` at LocalDB `master` over the plan's filter plus `EventCover` → 115 passed, 0 failed, 0 skipped.
+- Focused integration regression over every affected class in one run with `ATTENDTA_TEST_SQL` at LocalDB `master` → 118 passed, 0 failed, 0 skipped. Earlier partial runs were successive and overlapped; this combined figure is authoritative.
 - Matrix audit: all five matrix rows are covered by tests that ran and passed — missing/stale event by the lifecycle and draft-flow classes, review decisions by the review and promotion classes, refused event POSTs by the publication/cancellation/completion HTTP flows, and cover read/upload by the cover flow and cover service classes.
-- `git diff HEAD --stat` → 12 files, 279 insertions, 244 deletions (11 code files plus this plan).
+- `git diff HEAD --stat` → the eleven code files are 173 insertions and 244 deletions; the twelfth entry is this plan document, which is not a code change and is excluded from that figure.
 
 **Residual risks.** The whole integration suite was not run; 8.4 owns that combined run. An untracked `_bmad-output/initiative-attendta/tickets/epic-check-in/tickets/story-refactor-sweep-plan.md` (ticket `9`) was present during the run from another session and was left untouched and uncommitted.
+
+## Code Review
+
+### 2026-11-07 — Code review of story-refactor-sweep-plan
+
+**Code review complete.** 0 `decision-needed`, 7 `patch`, 2 `defer`, 15 rejected.
+
+- [x] [Review][Patch] Sweep reaches outside the ticket's named layers [ASI.Basecode.Data/Queries/ParticipationFacts.cs, ASI.Basecode.Data/Repositories/RegistrationRepository.cs, ASI.Basecode.WebApp/Mvc/ControllerBase.cs] — resolved 2026-11-07: keep all three (all behaviour-neutral dead-weight removals) and record the scope note in this plan.
+- [x] [Review][Patch] The extracted lock helpers dropped the invariants their neighbours document [ASI.Basecode.Services/Services/RegistrationReviewService.cs:127]
+- [x] [Review][Patch] The plan's verification record carries unreconciled numbers [story-refactor-sweep-plan.md]
+- [x] [Review][Patch] Plan deferrals exist only in prose [story-refactor-sweep-plan.md]
+- [x] [Review][Patch] Plan `context:` omits the docs whose rules it enforces [story-refactor-sweep-plan.md]
+- [x] [Review][Patch] Plan `lenses_ran` was never updated [story-refactor-sweep-plan.md]
+- [x] [Review][Patch] `AsNoTracking()` on an existence query is a no-op [ASI.Basecode.Data/Repositories/RegistrationRepository.cs:21]
+- [x] [Review][Defer] ParticipationFacts' correlated projection is uncommented and reads as a bug [ASI.Basecode.Data/Queries/ParticipationFacts.cs:65-89] — deferred: pre-existing; the body is unchanged context in this diff, only the pass-through wrapper was removed.
+- [x] [Review][Defer] No prior findings ledger backs "concrete deferred findings" — deferred: pre-existing; no record of these eleven findings predates the change, and this plan is their only enumeration.
+
+**Rejected (15).**
+
+- `false` — IMemberEventService summary omits two cancellation preconditions: the interface's own method doc already states "for a published event strictly before the Event Start Cutoff", and a member row is implied by "the actor's own registration".
+- `false` — IEventLifecycleService summary claims a management-only contract: it enumerates management operations and says "cover management"; `OpenCoverAsync` is a cover read, so the sentence neither lists it nor asserts it is management-gated.
+- `false` — LockOwnerAndEventAsync declares a non-nullable tuple its callers null-check: nullable annotations are disabled in the Services project, so the tuple types carry no non-null contract.
+- `false` — CloseCheckIn and SetCheckInWindowAsync are two close implementations: `SetCheckInWindowAsync` already refused when `IsCheckInOpen == open`, so its else branch is the same operation with the guard hoisted.
+- `false` — EventCoverController's merged filter re-tests the outcome: the filter and the ternary are adjacent and exhaustive over the two admitted outcomes; no reachable state routes a third.
+- `false` — EventController cover path still has three NotFound copies: `Cover` delegates and contains no branch; the two remaining are one expression in two methods serving different call paths.
+- `false` — RegistrationReviewController uses `= default` where EventController does not: `Index`'s preceding parameters are optional, so C# requires the token to be optional too (CS1737 otherwise).
+- `false` — Matrix omits the Forbidden path: `OpenCoverAsync` returns Forbidden only for a role that is neither management nor Member, and the seeded role lookup has exactly those three.
+- `false` — `risk: 'low'` understates the blast radius: the ticket's own frontmatter sets `risk: low`, the plan may not go below it, and the investigation shows nothing that raises it.
+- `false` — TryRunAsync does not catch OperationCanceledException: the five actions caught only `DomainException` before the change too, so nothing previously handled is unhandled now.
+- `false` — Under the observable-contract reading the diff closes zero contract findings: that is a description, not a defect; the ticket requires the observable contract to be preserved.
+- `false` — The tests are invariant witnesses, not closure witnesses: the ticket explicitly forbids new test authoring here, so invariant witnesses are the intended instrument.
+- `false` — The "focused affected regression" bar is self-defined: the ticket names the check without defining it; selecting the affected classes is the implementer's job.
+- `low` — ExecuteAsync keeps an implicit else over the enum: the private enum has three members and no fourth is planned; converting the guard-dense method to a switch is more than a direct correction.
+- `low` — Triage log abandons the house format: a plan-file log format is rarely visible and reformatting it is more than a direct correction.

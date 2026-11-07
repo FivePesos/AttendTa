@@ -124,6 +124,11 @@ public sealed class RegistrationReviewService(IRegistrationRepository registrati
         }, ct);
     }
 
+    /// <summary>
+    /// Locks the owner's users row, then the event row — AD-4 order, user before event — so
+    /// seat allocation and cancellation for that owner serialize against competing reviews.
+    /// The locked rows may be missing; the caller rechecks and reports <c>Stale</c>.
+    /// </summary>
     private async Task<(User User, Member Member, Event Event)> LockOwnerAndEventAsync(int userId, int eventId, CancellationToken ct)
     {
         var user = await users.LockUserAsync(userId, ct);

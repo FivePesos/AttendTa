@@ -24,3 +24,9 @@
 - source_plan: `_bmad-output/initiative-attendta/tickets/epic-check-in/tickets/story-member-attendance-view-on-my-events-plan.md`
   summary: `MyEventsController.Attendance` (and `Registrations`) lacks the `ResponseCache(NoStore)` attribute that the sibling `Certificates` action carries.
   evidence: `docs/CODING_STANDARDS.md` §5 asks sensitive responses to use the agreed no-store policy, and `Certificates` sets `NoStore = true` while `Attendance` and `Registrations` do not. The gap predates 4.7 and the approved intent freezes the controller action, so it is recorded rather than patched; no cache leak was demonstrated.
+- source_plan: `_bmad-output/initiative-attendta/tickets/epic-events-registration/tickets/story-refactor-sweep-plan.md`
+  summary: `ParticipationFacts.PublishableEventIds` builds a correlated projection (`venueIds` selects `eventItem.EventId` from a `Venue`-typed lambda) that is correct only because the keys are unique FKs, and it carries no comment.
+  evidence: Code review of PR #204 (2026-11-07). The body is unchanged context in that diff — only the pass-through wrapper was removed — so the readability hazard predates the sweep and was deferred rather than patched.
+- source_plan: `_bmad-output/initiative-attendta/tickets/epic-events-registration/tickets/story-refactor-sweep-plan.md`
+  summary: No findings ledger backs the "concrete deferred findings" that the 3.14 refactor sweep closed.
+  evidence: Code review of PR #204 (2026-11-07). None of the eleven findings appears in this file, the epic memlog, or any sibling plan's deferrals; the sweep's own plan is their only enumeration, so closure cannot be checked against a record that predates the change. Recording future findings here is what makes the next sweep verifiable.
