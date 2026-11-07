@@ -295,6 +295,13 @@ requires a reason, checks that the registration belongs to the event, refuses an
 and leaves a pending or approved review not eligible with that reason. Searching or viewing never
 records. Nothing writes SQL, a stored file or the Activity Log.
 
+**Scanner follow-up (#138, after PR #170).** Form-post scan and manual check-in results now
+survive the redirect as an event-scoped, server-rendered outcome panel (identity, student number,
+original time and refusal text), including without JavaScript. The camera adapter discards and
+stops streams from permission requests superseded by a mode change or page exit. Lookup table
+text uses an explicit dark foreground on its white rows. M-05/M-06/M-07 retain the same contracts,
+providers, shared store and removal owners; these changes add no demo state or real writes.
+
 **Removal (4.3, 4.5, 4.6).** 4.3 replaces `ICheckInService`, 4.5 replaces
 `ICheckInLookupService`, and 4.6 replaces `IAttendanceInvalidationService`; each deletes its
 provider and its line in `DemoCheckInRegistration.cs`, and the screen keeps its shape.

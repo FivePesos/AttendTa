@@ -3,15 +3,16 @@ title: 'Frontend door scanner manual lookup and attendance dialogs'
 type: 'feature'
 ticket: '11'
 created: '2026-11-07'
-status: 'in-review'
+status: 'built'
 baseline_revision: '0f71b770004f81ea6cf796aacb02defef83b6422'
 route: 'full'
 route_source: 'auto'
 risk: 'medium'
-review: ''
-review_source: ''
+review: 'none'
+review_source: 'pinned'
 lenses_ran: []
 review_loop_iteration: 0
+followup_review_recommended: false
 context:
   - '_bmad-output/initiative-attendta/demo-mock-register.md'
   - 'docs/DESIGN.md'
@@ -168,3 +169,66 @@ context:
 - Try an unknown token, a wrong-event token, a closed window, a denied camera and a cancelled registration; expect the matching outcomes and no new attendance.
 - Look up by name and student number; confirm searching alone records nothing; check in; invalidate with a reason; confirm re-check-in and issued-certificate refusals.
 - Check 390px/1440px keyboard use and no visible demo wording.
+
+## Auto Run Result
+
+### #138 follow-up — 2026-11-07
+
+**Starting revision:** `e99a7b8b7bfc5caec1ac013147b9c5d293470c9d`.
+The initial implementation is already merged by PR #170, merge revision
+`4f5720948b01ccd72364c20e8c0c187c92723b35`. This pass reused it and fixed three observed gaps.
+Claim `demo-138-gpt-agent-20261107` was posted to #138, assigned to the authenticated GitHub user,
+and re-read; there was no earlier competing claim.
+
+**Implemented / files changed:**
+- `Controllers/CheckInController.cs`: carry an event-scoped serialized outcome through
+  POST/redirect/GET for form-post scans and manual check-ins, including domain refusals.
+- `Views/CheckIn/Index.cshtml`: render that outcome with name, student number, original Manila
+  time and message, using the existing outcome styles. It remains readable on the page without
+  a timer and works without JavaScript.
+- `wwwroot/js/features/scanner-camera.js`: gate repeated starts while permission is pending;
+  invalidate late continuations on mode change/page exit and stop every superseded stream track.
+- `Styles/features/check-in.css` and compiled `wwwroot/css/app.css`: fix unreadable inherited
+  white participant text on the lookup table's white rows.
+- `PRODUCT.md` and the M-05/M-06/M-07 register detail: document the scanner interaction and
+  unchanged provider/integration boundaries.
+
+**Review:** none; no review lenses or subagents launched. Per-ticket critique/polish remain
+deferred by the demo rescope. This follow-up uses the owner's current minimal verification
+instructions instead of the original plan's broad service/integration test commands above;
+no automated test suite was added.
+
+**Verification actually performed:**
+- `dotnet build -m:1 -nr:false -p:UseSharedCompilation=false`: succeeded, 0 warnings / 0 errors.
+- `npm --prefix ASI.Basecode.WebApp ci`: succeeded, 0 vulnerabilities.
+- `npm --prefix ASI.Basecode.WebApp run css:build`: succeeded.
+- `npm --prefix ASI.Basecode.WebApp run test:js`: existing test 1/1 passed.
+- Impeccable mechanical detector on the changed view/styles: `[]` findings.
+- `git diff --check`: passed.
+- Focused Playwright smoke used the installed `msedge` channel with `DemoData__Enabled=true`,
+  an actual Officer cookie and a newly created isolated LocalDB database
+  `AttendTa_IT_cdb13800e85b420d9fc372e88e900138` from the canonical schema. It was dropped in
+  cleanup; no shared database was modified. Password and token secrets were generated in process
+  and never committed.
+- Passed browser interactions: delayed camera permission resolved after switching modes stops
+  its track and never attaches the stream; denied camera shows the unavailable outcome; keyboard
+  arrow navigation switches tabs; valid pass-code check-in shows identity; repeat retains the
+  original time with one log row; unknown code refuses; manual search alone records nothing;
+  explicit manual Check in shows a persistent identity/student-number/time panel after 5.5 seconds.
+- Passed existing guards through the HTTP surface: blank invalidation reason refused; issued
+  certificate refused; invalidated attendance refuses re-check-in; cancellation through the real
+  member self-cancellation endpoint makes the original pass invalid; shared close control makes
+  subsequent scans return closed. No-JavaScript form-post scan renders a persistent closed panel.
+- Rendered desktop (1440px) and phone (390px) screenshots were inspected: participant identity is
+  readable, result panel remains visible, no document-level horizontal overflow. Invalidation
+  dialog focuses the reason field and Escape closes it. No browser page errors were observed.
+- Local smoke scripts/screenshots/logs are ignored under `artifacts/scanner-138/`, not part of
+  the deliverable. The initial smoke found the white-on-white table and a smoke-only URL typo;
+  both were corrected before the successful run.
+
+**Remaining human checks / limits:** a real laptop camera reading a displayed or printed 4.10 QR
+pass was not exercised (the permission lifecycle was controlled in-browser). The complete Verify
+line, full keyboard-only journey, rehearsal critique/polish and integrated backend verification
+remain scheduled acceptance work. Peer approval and current PR CI are merge gates; this run does
+not close #138 or merge the follow-up PR. Existing in-memory demo persistence and the documented
+500-row candidate limit are unchanged.

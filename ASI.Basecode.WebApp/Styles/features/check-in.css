@@ -26,6 +26,7 @@
   .scanner-window .scanner-panel > .muted,
   .scanner-window .scanner-panel > .empty-state { color: #cbd5e1; }
   .scanner-window .scanner-panel .table-scroll { margin-top: 1rem; }
+  .scanner-window .scanner-panel .data-table { color: #0f172a; }
   .scanner-window .scanner-panel .table-scroll .muted { color: #475569; }
 
   .scanner-result { margin-top: 1rem; }

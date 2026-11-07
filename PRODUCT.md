@@ -33,6 +33,7 @@ Used by a University of Cebu student organization on a laptop at the door and on
 - Failed dossier registration decisions retain the participant/registration context and entered reason for correction; review-queue failures stay within their original workflow.
 - Registrations are pending, confirmed, waitlisted, or cancelled; seat allocation is transactional.
 - Attendance is recorded by QR or manual lookup; certificates are issued one at a time from an eligibility review.
+- The door scanner keeps scan and explicit manual check-in outcomes visible with participant identity and the original check-in time. Camera permission failure offers pass-code and manual alternatives; leaving camera mode cancels pending camera startup.
 - Participation reports are per event and include attendance rate, no-shows, and course/year distribution.
 - No hard deletes. Activity logs are append-only. Passwords are stored only as Argon2id hashes.
 - The MVP is a light-theme web application; there is no dark mode, native app, or offline mode.
