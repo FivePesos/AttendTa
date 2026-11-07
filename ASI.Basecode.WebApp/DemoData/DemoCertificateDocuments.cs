@@ -7,7 +7,7 @@ using ASI.Basecode.Services.ServiceModels;
 
 namespace ASI.Basecode.WebApp.DemoData;
 
-// M-11b/M-12: one document path for ledger and owner reads. Callers authorize before invoking it.
+// M-12: one document path for the seeded member-history document. Callers authorize before invoking it.
 public sealed class DemoCertificateDocuments(DemoStore store, ICertificatePdfRenderer renderer)
 {
     public async Task<CertificateDocument> GetPdfAsync(int registrationId, CancellationToken cancellationToken)

@@ -14,7 +14,6 @@ using Microsoft.Extensions.Logging;
 
 namespace ASI.Basecode.WebApp.Controllers;
 
-[Authorize(Policy = Policies.Management)]
 public sealed class CertificateLedgerController : ControllerBase<CertificateLedgerController>
 {
     private readonly ICertificateLedgerService _ledger;
@@ -31,6 +30,7 @@ public sealed class CertificateLedgerController : ControllerBase<CertificateLedg
 
     [HttpGet]
     [Route("Certificates")]
+    [Authorize(Policy = Policies.Management)]
     public async Task<IActionResult> Index(int? eventId, string tab = null, int? page = null)
     {
         var activeTab = string.Equals(tab, "issued", StringComparison.OrdinalIgnoreCase)
@@ -56,6 +56,7 @@ public sealed class CertificateLedgerController : ControllerBase<CertificateLedg
 
     [HttpGet]
     [Route("Certificates/Viewer/{id:int}")]
+    [Authorize(Policy = Policies.Management)]
     [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
     public async Task<IActionResult> Viewer(int id)
     {
@@ -65,6 +66,7 @@ public sealed class CertificateLedgerController : ControllerBase<CertificateLedg
 
     [HttpGet]
     [Route("Certificates/Pdf/{id:int}")]
+    [Authorize]
     [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
     public async Task<IActionResult> Pdf(int id, bool download = false)
     {
@@ -79,14 +81,17 @@ public sealed class CertificateLedgerController : ControllerBase<CertificateLedg
     }
 
     [HttpPost, ValidateAntiForgeryToken]
+    [Authorize(Policy = Policies.Management)]
     public Task<IActionResult> Approve(int id, int? eventId, string tab, int? page) =>
         Command(() => _ledger.DecideAsync(id, true, null, HttpContext.RequestAborted), eventId, tab, page, "Certificate eligibility approved.");
 
     [HttpPost, ValidateAntiForgeryToken]
+    [Authorize(Policy = Policies.Management)]
     public Task<IActionResult> Decline(int id, string reason, int? eventId, string tab, int? page) =>
         Command(() => _ledger.DecideAsync(id, false, reason, HttpContext.RequestAborted), eventId, tab, page, "Certificate eligibility declined.");
 
     [HttpPost, ValidateAntiForgeryToken]
+    [Authorize(Policy = Policies.Management)]
     public Task<IActionResult> Issue(int id, int? eventId, string tab, int? page) =>
         Command(() => _ledger.IssueAsync(id, HttpContext.RequestAborted), eventId, tab, page, "Certificate issued. View it in the Issued Registry.");
 

@@ -18,9 +18,9 @@ namespace ASI.Basecode.WebApp.DemoData;
 /// M-01; 6.6 hand-over). The ready-to-complete event stays Published in SQL so the demo completes it
 /// live through the real service, whose completion hook then finds the seeded reviews and leaves
 /// them untouched. Existing attendance and decisions are never overwritten, so a restart keeps them.
-/// The still-demo issued document (M-11b) is seeded into <see cref="DemoStore"/> only when the real
-/// review is approved. Missing rows are logged, not fatal, so the app still starts on a sparse
-/// database.
+/// The still-demo issued document (M-12) is seeded into <see cref="DemoStore"/> only when the first
+/// valid attendee's real review is already issued and the store has no document for it. Missing
+/// rows are logged, not fatal, so the app still starts on a sparse database.
 /// </summary>
 public sealed class DemoSeedService : IHostedService
 {
@@ -109,7 +109,7 @@ public sealed class DemoSeedService : IHostedService
                 cancellationToken);
 
             _logger.LogInformation(
-                "Demo data active (M-01, M-11b). Ready to complete event {ReadyToCompleteEventId}.",
+                "Demo data active (M-01, M-12). Ready to complete event {ReadyToCompleteEventId}.",
                 readyToComplete.EventId);
         }
         catch (OperationCanceledException)
@@ -264,7 +264,7 @@ public sealed class DemoSeedService : IHostedService
             await unitOfWork.SaveChangesAsync(cancellationToken);
         }
 
-        // M-11b: the issued document is still demo state. Seed it only when the real review is
+        // M-12: the issued document is still demo state. Seed it only when the real review is
         // issued, so a decision made in an earlier session is never overwritten.
         if (valid.Count >= 1
             && known[valid[0].RegistrationId].CertificateStatusId == CertificateStatusCode.Issued
