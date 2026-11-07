@@ -4,27 +4,31 @@ using System.Threading.Tasks;
 using ASI.Basecode.Data.Interfaces;
 using ASI.Basecode.Data.Models;
 using ASI.Basecode.Resources;
-using ASI.Basecode.Resources.Constants;
 using ASI.Basecode.Services.Interfaces;
+using ASI.Basecode.Services.Services;
 
 namespace ASI.Basecode.WebApp.DemoData;
 
 /// <summary>
-/// Demo account access commands (register M-14a and M-14b). Every command reloads the real account
-/// and applies the same refusal rules 5.4 and 5.5 will, then changes only the in-memory store: no
-/// SQL row, no stored file and no Activity Log entry (register rules 4 and 8).
+/// Demo account access commands (register M-14b). Deactivation is already the real command (M-14a was
+/// removed by 5.4): this wrapper delegates to <see cref="AccountAccessService"/> and clears any demo
+/// status entry an earlier demo reactivation left behind. Reactivation remains in-memory until 5.5
+/// replaces it (register rules 4 and 8).
 /// </summary>
 public sealed class DemoAccountAccessCommands : IAccountAccessCommands
 {
+    private readonly AccountAccessService _accountAccessService;
     private readonly IAccountAdministrationRepository _accounts;
     private readonly DemoStore _store;
     private readonly TimeProvider _timeProvider;
 
     public DemoAccountAccessCommands(
+        AccountAccessService accountAccessService,
         IAccountAdministrationRepository accounts,
         DemoStore store,
         TimeProvider timeProvider)
     {
+        _accountAccessService = accountAccessService;
         _accounts = accounts;
         _store = store;
         _timeProvider = timeProvider;
@@ -32,20 +36,8 @@ public sealed class DemoAccountAccessCommands : IAccountAccessCommands
 
     public async Task DeactivateAsync(int accountId, string reason, CancellationToken cancellationToken = default)
     {
-        RequireReason(reason);
-        var account = await RequireAccountAsync(accountId, cancellationToken);
-        if (!IsActive(account))
-        {
-            throw new DomainException(OutcomeCode.Invalid, "This account is already inactive.");
-        }
-
-        if (string.Equals(account.RoleCode, RoleCodes.Admin, StringComparison.Ordinal)
-            && await _accounts.CountActiveAdministratorsAsync(cancellationToken) <= 1)
-        {
-            throw new DomainException(OutcomeCode.Invalid, "The last active Administrator cannot be deactivated.");
-        }
-
-        _store.SetAccountActive(account.AccountId, false, reason, _timeProvider.GetUtcNow().UtcDateTime);
+        await _accountAccessService.DeactivateAsync(accountId, reason, cancellationToken);
+        _store.ClearAccountStatus(accountId);
     }
 
     public async Task ReactivateAsync(int accountId, string reason, CancellationToken cancellationToken = default)
@@ -62,7 +54,7 @@ public sealed class DemoAccountAccessCommands : IAccountAccessCommands
 
     /// <summary>
     /// Refuses a blank reason before any state check, so the reason refusal wins over the
-    /// already-inactive and last-administrator refusals.
+    /// already-active and already-inactive refusals.
     /// </summary>
     private static void RequireReason(string reason)
     {
