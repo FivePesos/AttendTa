@@ -82,10 +82,10 @@ into lettered rows.
 
 | Id | Surface | Missing backend today | Added by | Removed by | State |
 |---|---|---|---|---|---|
-| M-01 | Demo seam: `DemoData:Enabled`, the startup database guard, `DemoData:TokenKey`, the demo store (event check-in state, pass tokens, attendance, certificate reviews and issues; the completed-state fixture serves only the M-10a/M-13b tests), the registration method and the start-up seed | — (infrastructure) | 1.14 | 8.13 | open |
+| M-01 | Demo seam: `DemoData:Enabled`, the startup database guard, `DemoData:TokenKey`, the demo store (pass tokens, attendance, certificate reviews and issues; the completed-state fixture serves only the M-10a/M-13b tests), the registration method and the start-up seed | — (infrastructure) | 1.14 | 8.13 | open |
 | M-02 | My Events: all of a member's registrations across events, with status and cutoff labels | Cross-event owner query (only per-event and upcoming-only reads exist) | 3.17 | 3.13 | removed |
 | M-03 | Pass card QR image and PNG download (rule 10 token, QR drawn by a locally served browser library) | QR library, token read, authorized PNG endpoint | 4.10 | 4.1 | removed |
-| M-04 | Check-in window open/close command, the shared control partial, and the open flag overlaid on event reads (rule 7) | Open/close command | 1.14 | 4.2 | removed (7f6ae22) |
+| M-04 | Check-in window open/close command, the shared control partial, and the open flag overlaid on event reads (rule 7) | Open/close command | 1.14 | 4.2 | removed (7f6ae2218e6bc9e74611c610287b11ffa7f19ec4) |
 | M-05 | Check-in by scan: outcome (success, repeat, invalid, closed) and the attendance record | Validation engine and attendance write | 4.11 | 4.3 | open |
 | M-06 | Manual lookup of confirmed participants by name or student number, and manual check-in | Registration-scoped search and manual check-in | 4.11 | 4.5 | open |
 | M-07 | Attendance invalidation with reason, and its effect on the review (rule 8) | Invalidation command | 4.11 | 4.6 | open |
@@ -125,18 +125,11 @@ in `ASI.Basecode.Services`.
 
 | Piece | File |
 |---|---|
-| Command contract `IEventStateCommands` (`OpenCheckInAsync`, `CloseCheckInAsync`) | `ASI.Basecode.Services/Interfaces/IEventStateCommands.cs` |
-| Overlay contract `IEventStateOverlay` | `ASI.Basecode.WebApp/DemoData/IEventStateOverlay.cs` |
 | Options (`Enabled`, `AllowDatabase`, `TokenKey`) | `ASI.Basecode.WebApp/DemoData/DemoDataOptions.cs` |
 | Startup guard | `ASI.Basecode.WebApp/DemoData/DemoDataStartupGuard.cs` |
 | In-memory store and its records | `ASI.Basecode.WebApp/DemoData/DemoStore.cs` |
 | Start-up seed (`IHostedService`) | `ASI.Basecode.WebApp/DemoData/DemoSeedService.cs` |
-| Demo commands | `ASI.Basecode.WebApp/DemoData/DemoEventStateCommands.cs` |
-| Switch-off commands (standard refusal) | `ASI.Basecode.WebApp/DemoData/UnavailableEventStateCommands.cs` |
-| Demo overlay | `ASI.Basecode.WebApp/DemoData/DemoEventStateOverlay.cs` |
-| Switch-off overlay | `ASI.Basecode.WebApp/DemoData/NoOpEventStateOverlay.cs` |
 | One registration method | `ASI.Basecode.WebApp/DemoData/DemoDataRegistration.cs` |
-| Events surface registration file | `ASI.Basecode.WebApp/DemoData/DemoEventsRegistration.cs` |
 | Shared check-in control and its model | `Views/Shared/_CheckInControl.cshtml`, `ASI.Basecode.Services/ServiceModels/CheckInControlViewModel.cs` |
 | Operator pass-token switch | `ASI.Basecode.WebApp/Program.cs` (`--demo-pass-token <registrationId>`) |
 
@@ -163,14 +156,15 @@ and `IRegistrationRepository.GetReviewQueueAsync(Confirmed)`; it never writes.
 
 | Screen | Real read / command | Demo source | Files |
 |---|---|---|---|
-| Officer event list | `IEventLifecycleService.GetPageAsync`; `OpenCheckIn`/`CloseCheckIn` POST (`IEventStateCommands`); `Complete` POST (`IEventLifecycleService.CompleteAsync`) | `IEventStateOverlay` after the read | `Controllers/EventController.cs`, `Views/Event/Index.cshtml` |
-| Member event feed | `IMemberEventService.GetFeedAsync` | `IEventStateOverlay` after the read | `Controllers/MemberEventsController.cs`, `Views/MemberEvents/Index.cshtml` |
-| Member event detail | `IMemberEventService.GetDetailAsync` | `IEventStateOverlay` after the read | `Controllers/MemberEventsController.cs`, `Views/MemberEvents/Details.cshtml` |
-| Check-in control | — | Posts to `IEventStateCommands` | `Views/Shared/_CheckInControl.cshtml` (reused by 3.16 and 4.11) |
+| Officer event list | `IEventLifecycleService.GetPageAsync`; `OpenCheckIn`/`CloseCheckIn` POST (`IEventLifecycleService.SetCheckInWindowAsync`); `Complete` POST (`IEventLifecycleService.CompleteAsync`) | none — the real event row is authoritative | `Controllers/EventController.cs`, `Views/Event/Index.cshtml` |
+| Member event feed | `IMemberEventService.GetFeedAsync` | none — the real `events.is_check_in_open` row is authoritative | `Controllers/MemberEventsController.cs`, `Views/MemberEvents/Index.cshtml` |
+| Member event detail | `IMemberEventService.GetDetailAsync` | none — the real `events.is_check_in_open` row is authoritative | `Controllers/MemberEventsController.cs`, `Views/MemberEvents/Details.cshtml` |
+| Check-in control | `IEventLifecycleService.SetCheckInWindowAsync` | none — posts the real command | `Views/Shared/_CheckInControl.cshtml` (reused by 3.16 and 4.11) |
 
-The overlay changes only `IsCheckInOpen`, and only for ids the store marks. Real reads run first; a
-failing real read is never replaced by demo data. Refusal rules: open/close check-in only on a
-Published event. Completion is the real `EventLifecycleService.CompleteAsync` (Management only,
+Check-in state is the real `events.is_check_in_open` column; no overlay changes an event read. The
+officer list renders the opener or closer name and Manila time from the real actor/time columns,
+while the dossier and scanner keep the badge-only control. Refusal rules: open/close check-in only
+on a Published event. Completion is the real `EventLifecycleService.CompleteAsync` (Management only,
 Published only, at or after the start) and the Completed label comes from SQL, so the member feed
 and detail read Published or Completed events and no overlay hides the real completion.
 
