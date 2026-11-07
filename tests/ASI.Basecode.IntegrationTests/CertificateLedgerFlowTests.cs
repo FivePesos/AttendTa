@@ -255,8 +255,12 @@ public sealed class CertificateLedgerFlowTests(SqlServerDatabaseFixture fixture)
         Assert.StartsWith("%PDF-",
             System.Text.Encoding.ASCII.GetString(await File.ReadAllBytesAsync(retained, ct)), StringComparison.Ordinal);
 
-        // A stored key outside certificates/ is refused by the service before the store is asked,
-        // so a corrupt file_path cannot open a venue or event image.
+        // A stored key outside certificates/ is refused by the service before the store is asked.
+        // The venue file exists on purpose: OpenReadAsync infers the area from the key, so without
+        // the prefix refusal these PNG bytes would be streamed as application/pdf.
+        var venueImage = Path.Combine(factory.SetupRoot, "uploads", "venues", "not-a-certificate.png");
+        Directory.CreateDirectory(Path.GetDirectoryName(venueImage)!);
+        await File.WriteAllBytesAsync(venueImage, [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A], ct);
         await using (var tampered = MemberEventTestSupport.Context(fixture.ConnectionString))
         {
             (await tampered.Certificates.SingleAsync(row => row.RegistrationId == registrationIds[1], ct)).FilePath =
@@ -272,6 +276,7 @@ public sealed class CertificateLedgerFlowTests(SqlServerDatabaseFixture fixture)
                 issuedCertificate.FilePath;
             await restored.SaveChangesAsync(ct);
         }
+        File.Delete(venueImage);
 
         // A retained file missing on disk is a controlled not-found, not an unhandled 500.
         File.Delete(retained);
