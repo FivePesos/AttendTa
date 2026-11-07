@@ -122,23 +122,6 @@ public sealed class DemoStore
     }
 
     /// <summary>
-    /// The event's seeded attendance rows, newest first. The report overlay now reads real
-    /// attendance first and uses the store only to fill registrations without a real row; this
-    /// per-event read stays part of the demo seam until 8.13 removes the store.
-    /// </summary>
-    public IReadOnlyList<DemoAttendance> GetAttendanceForEvent(int eventId)
-    {
-        lock (_gate)
-        {
-            return _attendance.Values
-                .Where(record => record.EventId == eventId)
-                .OrderByDescending(record => record.RecordedAt)
-                .ThenBy(record => record.RegistrationId)
-                .ToList();
-        }
-    }
-
-    /// <summary>
     /// Invalidates a seeded attendance with a reason. The app invalidates through the real
     /// <c>IAttendanceInvalidationService</c>; this helper only builds the start-up seed and the
     /// demo tests. Refused when the registration's certificate is already issued; otherwise a

@@ -8,9 +8,9 @@ baseline_revision: '911f69a1a4eadf7995f843f4b464a726567d9103'
 route: 'full'
 route_source: 'auto'
 risk: 'low'
-review: ''
-review_source: ''
-lenses_ran: []
+review: 'quick'
+review_source: 'pinned'
+lenses_ran: [quick]
 review_loop_iteration: 0
 followup_review_recommended: false
 context:
@@ -106,6 +106,19 @@ deferred: []
 
 ## Review Triage Log
 
+### 2026-11-07 — Review pass
+- verdicts: 9 findings — high 0, medium 1, low 8, false 0, maybe-false 0
+- findings:
+  - `[medium]` `[patch]` `demo-script.md` beat O10 and the 7.4 coverage row still expected the seeded store check-ins — O10 now states the real post-7.3 figures and a presenter note says the seeded check-ins feed the certificate ledger only.
+  - `[low]` `[defer]` `demo-rehearsal-findings.md` 7.4 evidence is no longer reproducible — historical rehearsal record; 8.15/8.12 own the demo docs, so recorded rather than rewritten.
+  - `[low]` `[patch]` `IAttendanceRepository.GetForEventAsync` and `EventAttendanceRow` had no callers after the overlay deletion — removed both and their docs.
+  - `[low]` `[patch]` `DemoStore.GetAttendanceForEvent` comment described the deleted report overlay — removed the unused method and comment.
+  - `[low]` `[patch]` `ParticipationReportViewModel.EventStatusId` doc claimed a demo-completed event reads as Completed — corrected to the SQL status.
+  - `[low]` `[patch]` service/repository class summaries claimed the detail rows come from canonical facts — reworded to separate the fact reads from the table-joined detail reads.
+  - `[low]` `[patch]` `deferred-work.md` participation-report items were resolved by 7.3 — marked resolved with `04157b3`.
+  - `[low]` `[patch]` `ParticipationReportRepositoryTests` class summary omitted detail paging — updated.
+  - `[low]` `[patch]` `CompletedEventMapsSummaryFactsAndLeavesDetailFieldsEmpty` no longer described the behaviour — renamed.
+
 ## Design Notes
 
 - The repository counts and pages the same event-scoped `Registration` set; the count is the pager's `TotalCount`, so the summary reads stay independent of the page.
@@ -118,3 +131,25 @@ deferred: []
 - `dotnet build` — 0 warnings, 0 errors.
 - `dotnet test tests/ASI.Basecode.Services.Tests/ASI.Basecode.Services.Tests.csproj` — 310/310 pass, including the new paging, page-normalization and label tests.
 - `$env:ATTENDTA_TEST_SQL = "Server=(localdb)\MSSQLLocalDB;Database=master;Trusted_Connection=True;TrustServerCertificate=True"; dotnet test tests/ASI.Basecode.IntegrationTests/ASI.Basecode.IntegrationTests.csproj` — 400/400 pass, including the new 26-row paging smoke.
+
+## Auto Run Result
+
+Implemented real paged participant detail rows: `ParticipationReportRepository` now counts and pages the event's registrations in SQL, ordered by participant name then `registration_id`, and `ParticipationReportService` maps them with the existing status/attendance labels. The demo report provider and its registration are deleted, so the real service answers the report in both switch states.
+
+**Files changed**
+- `ASI.Basecode.Data/Interfaces/IParticipationReportRepository.cs` — added the count/page contract and `ParticipationReportDetailRow`.
+- `ASI.Basecode.Data/Repositories/ParticipationReportRepository.cs` — counted, ordered SQL page with a left-joined attendance row.
+- `ASI.Basecode.Services/Services/ParticipationReportService.cs` — page normalization and row mapping.
+- `ASI.Basecode.Services/Interfaces/IParticipationReportService.cs` — doc now says 7.1–7.3 are real.
+- `ASI.Basecode.Data/Interfaces/IAttendanceRepository.cs`, `ASI.Basecode.Data/Repositories/AttendanceRepository.cs` — removed the now-unused event attendance read.
+- `ASI.Basecode.WebApp/DemoData/DemoParticipationReportService.cs`, `DemoReportsRegistration.cs` — deleted.
+- `ASI.Basecode.WebApp/DemoData/DemoDataRegistration.cs`, `DemoStore.cs`, `ASI.Basecode.WebApp/Controllers/ReportsController.cs`, `ASI.Basecode.Services/ServiceModels/ParticipationReportViewModel.cs` — comments aligned with the real read.
+- `_bmad-output/initiative-attendta/demo-mock-register.md`, `demo-script.md`, `deferred-work.md` — M-13c removed and the stale report claims corrected.
+- `tests/ASI.Basecode.Services.Tests/ParticipationReportServiceTests.cs`, `tests/ASI.Basecode.IntegrationTests/ParticipationReportRepositoryTests.cs` — paging, normalization, label and SQL boundary coverage; `DemoParticipationReportOverlayTests.cs` deleted.
+
+**Review findings:** 9 total — 8 patches applied (1 medium, 7 low), 1 deferred (low, historical rehearsal record), 0 rejected. Follow-up review not recommended: no high finding was patched and only one medium.
+
+**Verification:** `dotnet build` 0 warnings/0 errors; Services tests 310/310; report integration tests 2/2.
+
+**Residual risks:** the demo host's report now reflects real SQL attendance only, so the seeded Leadership Summit store check-ins no longer populate it (documented in the demo script); name ordering depends on the SQL Server collation, which is case-insensitive on the schema's default collation.
+

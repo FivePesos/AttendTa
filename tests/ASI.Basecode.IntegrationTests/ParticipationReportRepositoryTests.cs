@@ -8,9 +8,10 @@ using Xunit;
 namespace ASI.Basecode.IntegrationTests;
 
 /// <summary>
-/// Focused SQL smoke for the report's no-show and signup-snapshot distribution reads: Confirmed
-/// registrations without valid attendance are no-shows only on a completed event, and the
-/// distribution groups the signup snapshots even when the member is now inactive.
+/// Focused SQL smoke for the report's reads: Confirmed registrations without valid attendance are
+/// no-shows only on a completed event, the distribution groups the signup snapshots even when the
+/// member is now inactive, and the detail rows page by participant name then registration id with
+/// stable boundaries.
 /// </summary>
 public sealed class ParticipationReportRepositoryTests(SqlServerDatabaseFixture fixture) : IClassFixture<SqlServerDatabaseFixture>
 {

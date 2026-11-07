@@ -15,7 +15,7 @@ namespace ASI.Basecode.Services.Tests;
 public sealed class ParticipationReportServiceTests
 {
     [Fact]
-    public async Task CompletedEventMapsSummaryFactsAndLeavesDetailFieldsEmpty()
+    public async Task CompletedEventMapsSummaryFactsAndEmptyRepositoryReturnsNoRows()
     {
         var events = new FakeEvents { EventItem = Event(1, EventStatusCode.Completed) };
         events.Items.Add(new EventListItem { EventId = 1, Title = "Completed" });

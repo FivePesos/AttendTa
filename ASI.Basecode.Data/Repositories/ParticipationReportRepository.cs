@@ -13,8 +13,10 @@ using Microsoft.EntityFrameworkCore;
 namespace ASI.Basecode.Data.Repositories;
 
 /// <summary>
-/// Read-only participation report repository. Each read composes the canonical facts; it filters
-/// before counting, so the values cover the full event dataset rather than a page.
+/// Read-only participation report repository. The summary, no-show and distribution reads compose
+/// the canonical facts; the detail reads join the event's registrations to their member and
+/// attendance. Each read filters before counting, so the values cover the full event dataset rather
+/// than a page.
 /// </summary>
 public sealed class ParticipationReportRepository : BaseRepository, IParticipationReportRepository
 {

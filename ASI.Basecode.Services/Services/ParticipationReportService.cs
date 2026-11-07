@@ -13,8 +13,9 @@ namespace ASI.Basecode.Services.Services;
 
 /// <summary>
 /// Real per-event participation report read. The selector and event header come from the event
-/// repository; the summary, no-shows, attendee distributions and paged detail rows come from the
-/// canonical participation facts. Summary values cover the full dataset; only the detail rows move
+/// repository; the summary, no-shows and attendee distributions come from the canonical
+/// participation facts, and the paged detail rows come from the event's registrations joined to
+/// their member and attendance. Summary values cover the full dataset; only the detail rows move
 /// with the requested page.
 /// </summary>
 public sealed class ParticipationReportService : IParticipationReportService
