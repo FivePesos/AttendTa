@@ -126,7 +126,7 @@ context:
 
 | Finding | Verdict | Route | Evidence / action |
 |---|---|---|---|
-| `demo-mock-register.md:96` — M-11a reads `removed (pending commit)` instead of a commit | low | patch | Verified: the row must carry the removing commit for 8.11's check. Set to `removed (ee822e7)` after the implementation commit. |
+| `demo-mock-register.md:96` — M-11a reads `removed (pending commit)` instead of a commit | low | patch | Verified: the row must carry the removing commit for 8.11's check. Set to `removed (58cffca)` after the implementation commit. |
 | `CertificateLedgerService.cs:63-67,105` — XML docs still describe the demo overlay | low | patch | Verified: `DemoCertificateLedgerService.GetPageAsync` now delegates straight to `inner`, so the overlay text is stale. Reworded both summaries to the real paged read. |
 | `DemoCertificatesRegistration.cs:7-8` — header comment still says the provider overlays the issued state and lists M-11a | low | patch | Verified: the overlay was deleted. Reworded to the remaining M-11b viewer/PDF role. |
 | `DemoSeedService.cs:21,112,267` — seeded document still labelled M-11a | low | patch | Verified: after 6.7 that document is the remaining M-11b state. Relabelled the summary, log line and seed comment. |

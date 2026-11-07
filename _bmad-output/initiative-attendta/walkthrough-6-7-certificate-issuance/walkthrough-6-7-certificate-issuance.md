@@ -90,5 +90,5 @@ Thirteen focused tests with a fake renderer and a real temporary-rooted private 
 
 Status: done · changed during review
 
-- [demo-mock-register.md:96](../demo-mock-register.md#L96) — M-11a marked removed at `ee822e7`; M-11b text corrected to the retained-file read.
+- [demo-mock-register.md:96](../demo-mock-register.md#L96) — M-11a marked removed at `58cffca`; M-11b text corrected to the retained-file read.
 - [story-transactional-certificate-issuance-pipeline-and-audit-plan.md](../tickets/epic-certificates/tickets/story-transactional-certificate-issuance-pipeline-and-audit-plan.md) — implementation notes, review triage and design notes.

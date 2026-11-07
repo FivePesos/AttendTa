@@ -72,3 +72,12 @@ Session: unavailable · Timestamp: 2026-11-08T00:22:00+08:00
 - Result: PR #206 is open against `dev` and mergeable; CI pending.
 - Evidence: https://github.com/rainyDayssss/AttendTa/pull/206
 - Open: peer approval and green CI before merge.
+
+## 9 — Wrap-up — branch rebased onto upstream/dev
+
+Session: unavailable · Timestamp: 2026-11-08T00:35:00+08:00
+
+- Action: Rebased the branch onto `upstream/dev` so the PR carries only the four 6.7 commits and no earlier commit by the second account.
+- Result: Commit ids remapped: `58cffca` (implementation), `3e2b011` (triage and register), `634309b` (review patches), `1861ff0` (walkthrough notes). The M-11a row and the narrative now point at `58cffca`; earlier entries in this log keep their original ids as history.
+- Evidence: `git log --oneline upstream/dev..HEAD`.
+- Open: force-push and CI.
