@@ -93,4 +93,30 @@ public sealed class AttendanceRepository : BaseRepository, IAttendanceRepository
             .OrderBy(registrationId => registrationId)
             .ToListAsync(cancellationToken);
     }
+
+    public Task<int> CountMyAttendanceAsync(int userId, CancellationToken cancellationToken = default) =>
+        (from attendance in GetDbSet<Attendance>().AsNoTracking()
+         join registration in GetDbSet<Registration>().AsNoTracking() on attendance.RegistrationId equals registration.RegistrationId
+         join member in GetDbSet<Member>().AsNoTracking() on registration.MemberId equals member.MemberId
+         where member.UserId == userId
+         select attendance.AttendanceId).CountAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<MyAttendanceRow>> GetMyAttendanceAsync(int userId, int skip, int take, CancellationToken cancellationToken = default) =>
+        await (from attendance in GetDbSet<Attendance>().AsNoTracking()
+               join registration in GetDbSet<Registration>().AsNoTracking() on attendance.RegistrationId equals registration.RegistrationId
+               join member in GetDbSet<Member>().AsNoTracking() on registration.MemberId equals member.MemberId
+               join eventItem in GetDbSet<Event>().AsNoTracking() on registration.EventId equals eventItem.EventId
+               where member.UserId == userId
+               orderby attendance.RecordedAt descending, attendance.AttendanceId descending
+               select new MyAttendanceRow(
+                   attendance.AttendanceId,
+                   eventItem.EventId,
+                   eventItem.Title,
+                   attendance.RecordedAt,
+                   attendance.CheckInMethodId,
+                   attendance.InvalidatedAt,
+                   attendance.InvalidationReason))
+            .Skip(skip)
+            .Take(take)
+            .ToListAsync(cancellationToken);
 }
