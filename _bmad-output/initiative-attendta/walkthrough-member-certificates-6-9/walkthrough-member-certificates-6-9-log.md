@@ -138,3 +138,12 @@ Session: unavailable · Timestamp: 2026-11-08T12:16:53+08:00
 - Result: Block 5 lists `PRODUCT.md:42`, the register's M-12 row at `:98` and removal detail at `:488`, the plan, and this walkthrough pair. Suggested move: Wrap-up; last block.
 - Evidence: [narrative](walkthrough-member-certificates-6-9.md).
 - Open: Block 5 awaits the reviewer; the F2/F4/F5 patches remain uncommitted.
+
+## 13 — Wrap-up: review complete, committed and pushed
+
+Session: unavailable · Timestamp: 2026-11-08T12:18:55+08:00
+
+- Action: Reviewer accepted Block 5 and chose the wrap-up follow-through. Committed the work in two commits on the PR branch: `3722b98` "fix(certificates): [BMAD 6.9] make the DI exclusion assertions real" and `f4283ad` "docs(walkthrough): [BMAD 6.9] finish the member certificate history walkthrough". Pushed to `feature/69-real-member-certificate-links`.
+- Result: PR #210 updated; its head is now `f4283ad`. CI for the new head was queued at the time of closing. The app on http://localhost:5199 was left running. All five blocks accepted; review complete.
+- Evidence: [narrative](walkthrough-member-certificates-6-9.md); https://github.com/rainyDayssss/AttendTa/pull/210.
+- Open: CI result on `f4283ad`; PR review and merge.

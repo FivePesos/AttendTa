@@ -4,7 +4,7 @@ Target: PR #210, head commit `787fd61` — *feat(certificates): [BMAD 6.9] serve
 
 Ticket: [story-member-certificate-download-links-in-my-events.md](../tickets/epic-certificates/tickets/story-member-certificate-download-links-in-my-events.md) · Plan: [story-member-certificate-download-links-in-my-events-plan.md](../tickets/epic-certificates/tickets/story-member-certificate-download-links-in-my-events-plan.md)
 
-Review status: **In progress — Blocks 1–4 accepted; Block 5 (periphery) current.**
+Review status: **Review complete — all five blocks accepted.**
 
 ---
 
@@ -72,7 +72,7 @@ The download path is deliberately thin. `GetPdfAsync` runs the member guard and 
 
 ## Block 5 — Periphery
 
-- [ ] Current · not yet accepted
+- [x] Accepted · unchanged during review
 
 - [PRODUCT.md](../../../PRODUCT.md#L42) — the member certificate line now states the real owner-scoped history and the issued-plus-retained-file rule in both switch states.
 - [demo-mock-register.md](../demo-mock-register.md#L98) — M-12's row is marked removed at `d16feed`.
