@@ -566,9 +566,6 @@ public sealed class CertificateIssuanceTests(SqlServerDatabaseFixture fixture) :
 
     private sealed class FakePdfRenderer(byte[]? bytes = null) : ICertificatePdfRenderer
     {
-        public Task<byte[]> RenderSampleAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(PdfBytes());
-
         public Task<byte[]> RenderSnapshotAsync(CertificatePdfSnapshot snapshot, CancellationToken cancellationToken = default) =>
             Task.FromResult(bytes ?? PdfBytes());
 
@@ -577,18 +574,12 @@ public sealed class CertificateIssuanceTests(SqlServerDatabaseFixture fixture) :
 
     private sealed class FailingPdfRenderer : ICertificatePdfRenderer
     {
-        public Task<byte[]> RenderSampleAsync(CancellationToken cancellationToken = default) =>
-            Task.FromException<byte[]>(new IOException("The renderer failed."));
-
         public Task<byte[]> RenderSnapshotAsync(CertificatePdfSnapshot snapshot, CancellationToken cancellationToken = default) =>
             Task.FromException<byte[]>(new IOException("The renderer failed."));
     }
 
     private sealed class MutatingPdfRenderer(Func<Task> mutate) : ICertificatePdfRenderer
     {
-        public Task<byte[]> RenderSampleAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(FakePdfRenderer.PdfBytes());
-
         public async Task<byte[]> RenderSnapshotAsync(CertificatePdfSnapshot snapshot, CancellationToken cancellationToken = default)
         {
             await mutate();

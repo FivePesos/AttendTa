@@ -13,7 +13,6 @@ public sealed record CertificateTemplateViewModel(
     string RecipientSizeClass,
     string EventSizeClass,
     string NumberSizeClass,
-    bool IsDevelopmentSample,
     string SignatoryName,
     string SignatoryTitle,
     string SignatureDataUri);

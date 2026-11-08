@@ -375,7 +375,6 @@ public sealed class CertificateReviewDecisionTests(SqlServerDatabaseFixture fixt
 
     private sealed class UnusedPdfRenderer : ICertificatePdfRenderer
     {
-        public Task<byte[]> RenderSampleAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<byte[]> RenderSnapshotAsync(CertificatePdfSnapshot snapshot, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }
 

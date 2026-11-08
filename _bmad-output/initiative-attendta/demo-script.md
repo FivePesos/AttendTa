@@ -13,8 +13,8 @@ door pass, an officer scans the pass at the door, the event is completed, certif
 reviewed and issued, the member downloads the PDF, and the per-event report shows who
 registered, who attended, and who earned a certificate.
 
-The demo build runs with `ASPNETCORE_ENVIRONMENT=Production` so the development certificate
-tracer and its watermarked sample are not reachable. Demo data is on only through the
+The demo build runs with `ASPNETCORE_ENVIRONMENT=Production`, so no development-only surface is
+reachable. Demo data is on only through the
 `DemoData__Enabled` switch; the committed `appsettings*.json` keeps it off.
 
 ## 2. Pre-flight (do this once on the demo machine)
@@ -131,11 +131,10 @@ If it says "Demo data seeded nothing", the connected database has no events; re-
 scenario seed. If the app refuses to start, read the stderr reason: the database name must be
 `AttendTa_Demo` or exactly `DemoData__AllowDatabase`, and `DemoData__TokenKey` must be set.
 
-Confirm the development-only surfaces are not reachable. Sign in as an Administrator first,
-then open `/CertificateTracer` and submit the tracer form (or POST `/CertificateTracer/Trace`
-with the page's `RequestVerificationToken`). Both must return 404. An unauthenticated request
-is challenged by the Management policy before the action runs, so the 404 check needs the
-authenticated session.
+Confirm the retired development-only surfaces are not reachable. Sign in as an Administrator
+first, then request `/CertificateTracer` (both the page and a POST to `/CertificateTracer/Trace`).
+An authenticated caller gets 404 from both, because no route matches. An anonymous request is
+challenged by the app-wide fallback policy and redirected to `/Account/Login` before routing.
 
 ### 2.5 Sign-in accounts
 
