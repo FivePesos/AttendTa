@@ -18,9 +18,9 @@ namespace ASI.Basecode.WebApp.DemoData;
 /// M-01; 6.6 hand-over). The ready-to-complete event stays Published in SQL so the demo completes it
 /// live through the real service, whose completion hook then finds the seeded reviews and leaves
 /// them untouched. Existing attendance and decisions are never overwritten, so a restart keeps them.
-/// The still-demo issued document (M-12) is seeded into <see cref="DemoStore"/> only when this run
-/// marks the first valid attendee's review Issued and the store has no document for it. Missing
-/// rows are logged, not fatal, so the app still starts on a sparse database.
+/// The issued review is a real SQL row with no retained file, so its document is a controlled
+/// not-found for both the officer ledger and the member history. Missing rows are logged, not fatal,
+/// so the app still starts on a sparse database.
 /// </summary>
 public sealed class DemoSeedService : IHostedService
 {
@@ -29,18 +29,15 @@ public sealed class DemoSeedService : IHostedService
     private const string DeclinedReason = "Attendance did not meet the participation requirement.";
 
     private readonly IServiceScopeFactory _scopeFactory;
-    private readonly DemoStore _store;
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<DemoSeedService> _logger;
 
     public DemoSeedService(
         IServiceScopeFactory scopeFactory,
-        DemoStore store,
         TimeProvider timeProvider,
         ILogger<DemoSeedService> logger)
     {
         _scopeFactory = scopeFactory;
-        _store = store;
         _timeProvider = timeProvider;
         _logger = logger;
     }
@@ -109,7 +106,7 @@ public sealed class DemoSeedService : IHostedService
                 cancellationToken);
 
             _logger.LogInformation(
-                "Demo data active (M-01, M-12). Ready to complete event {ReadyToCompleteEventId}.",
+                "Demo data active (M-01). Ready to complete event {ReadyToCompleteEventId}.",
                 readyToComplete.EventId);
         }
         catch (OperationCanceledException)
@@ -262,25 +259,6 @@ public sealed class DemoSeedService : IHostedService
         {
             await certificates.AddRangeAsync(staged, cancellationToken);
             await unitOfWork.SaveChangesAsync(cancellationToken);
-        }
-
-        // M-12: the issued document is still demo state. Seed it only when the real review is
-        // issued, so a decision made in an earlier session is never overwritten.
-        if (valid.Count >= 1
-            && known[valid[0].RegistrationId].CertificateStatusId == CertificateStatusCode.Issued
-            && !_store.IsCertificateIssued(valid[0].RegistrationId))
-        {
-            _store.SeedIssuedCertificate(
-                valid[0].RegistrationId,
-                eventItem.EventId,
-                issuedNumber,
-                issuedAt,
-                new CertificatePdfSnapshot(
-                    valid[0].MemberName,
-                    eventItem.Title,
-                    eventItem.StartsAt,
-                    issuedAt,
-                    issuedNumber));
         }
     }
 

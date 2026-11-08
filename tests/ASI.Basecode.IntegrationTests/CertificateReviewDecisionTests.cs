@@ -17,8 +17,9 @@ namespace ASI.Basecode.IntegrationTests;
 
 /// <summary>
 /// Focused SQL coverage for 6.6: the real review queue, both decisions, the single audit entry, every
-/// refusal in the ticket matrix, in-memory paging at 25, and the DI hand-over that keeps the demo
-/// provider only when the switch is on.
+/// refusal in the ticket matrix, and in-memory paging at 25. The DI check also asserts that the real
+/// ledger and the real member history resolve and that no demo provider replaces either one after
+/// 6.8 and 6.9 removed M-11b and M-12.
 /// </summary>
 public sealed class CertificateReviewDecisionTests(SqlServerDatabaseFixture fixture) : IClassFixture<SqlServerDatabaseFixture>
 {
@@ -213,32 +214,27 @@ public sealed class CertificateReviewDecisionTests(SqlServerDatabaseFixture fixt
     }
 
     [Fact]
-    public void ApplicationRegistersTheRealLedgerAndTheDemoRegistrationNeverReplacesIt()
+    public void ApplicationRegistersTheRealLedgerAndMemberHistoryInBothSwitchStates()
     {
         using var factory = new AttendTaWebApplicationFactory(fixture.ConnectionString);
         using (var scope = factory.Services.CreateScope())
         {
             Assert.IsType<CertificateLedgerService>(
                 scope.ServiceProvider.GetRequiredService<ICertificateLedgerService>());
+            Assert.IsType<MyCertificatesService>(
+                scope.ServiceProvider.GetRequiredService<IMyCertificatesService>());
         }
 
-        // M-11b is removed by 6.8: with the switch on, the demo file registers only M-12's member
-        // history and its shared document reader, never a ledger override. Assert that without
-        // building a second host: every host holds file watchers, and the CI runner's inotify
-        // budget is small.
-        var services = new ServiceCollection();
-        DemoCertificatesRegistration.AddCertificates(services, enabled: true);
-        Assert.DoesNotContain(services, descriptor => descriptor.ServiceType == typeof(ICertificateLedgerService));
-        Assert.Contains(services, descriptor =>
-            descriptor.ServiceType == typeof(IMyCertificatesService)
-            && descriptor.ImplementationType == typeof(DemoMyCertificatesService));
-
-        var unavailable = new ServiceCollection();
-        DemoCertificatesRegistration.AddCertificates(unavailable, enabled: false);
-        Assert.DoesNotContain(unavailable, descriptor => descriptor.ServiceType == typeof(ICertificateLedgerService));
-        Assert.Contains(unavailable, descriptor =>
-            descriptor.ServiceType == typeof(IMyCertificatesService)
-            && descriptor.ImplementationType == typeof(UnavailableMyCertificatesService));
+        // M-12 is removed by 6.9: the demo registration no longer touches either certificate
+        // contract, so no demo provider can replace the real ones with the switch on or off.
+        // The scan has to look in the WebApp assembly, where the demo namespace lives.
+        var demoTypes = typeof(DemoDataRegistration).Assembly.GetTypes();
+        Assert.DoesNotContain(demoTypes, type =>
+            type.Namespace == typeof(DemoDataRegistration).Namespace
+            && typeof(ICertificateLedgerService).IsAssignableFrom(type));
+        Assert.DoesNotContain(demoTypes, type =>
+            type.Namespace == typeof(DemoDataRegistration).Namespace
+            && typeof(IMyCertificatesService).IsAssignableFrom(type));
     }
 
     private static CertificateLedgerService Service(

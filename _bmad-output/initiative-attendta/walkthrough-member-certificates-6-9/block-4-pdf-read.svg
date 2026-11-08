@@ -1,0 +1,85 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="790" viewBox="0 0 1040 790" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#4b5563"/>
+    </marker>
+    <marker id="arrowRed" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#b91c1c"/>
+    </marker>
+  </defs>
+
+  <rect width="1040" height="790" fill="#f8fafc"/>
+
+  <text x="70" y="46" font-size="22" font-weight="600" fill="#0f172a">Member certificate PDF read — 6.9</text>
+  <text x="70" y="70" font-size="13" fill="#64748b">Only what the linked code does. One request, two authorization layers, one refusal shape.</text>
+
+  <!-- Happy path -->
+  <g>
+    <rect x="70" y="96" width="470" height="66" rx="10" fill="#ffffff" stroke="#94a3b8" stroke-width="1.5"/>
+    <text x="90" y="124" font-size="15" font-weight="600" fill="#0f172a">MyCertificatesController.Pdf</text>
+    <text x="90" y="146" font-size="12.5" fill="#475569">[Authorize(Policy = Policies.Member)] — officers never reach the service</text>
+
+    <rect x="70" y="196" width="470" height="76" rx="10" fill="#ffffff" stroke="#94a3b8" stroke-width="1.5"/>
+    <text x="90" y="224" font-size="15" font-weight="600" fill="#0f172a">MyCertificatesService.GetPdfAsync</text>
+    <text x="90" y="244" font-size="12.5" fill="#475569">RequireMember(): authenticated · UserId &gt; 0 · role = member</text>
+    <text x="90" y="262" font-size="12.5" fill="#475569">otherwise DomainException(Forbidden)</text>
+
+    <rect x="70" y="306" width="470" height="72" rx="10" fill="#ffffff" stroke="#94a3b8" stroke-width="1.5"/>
+    <text x="90" y="334" font-size="15" font-weight="600" fill="#0f172a">CertificateLedgerService.GetPdfAsync</text>
+    <text x="90" y="354" font-size="12.5" fill="#475569">RequireAuthenticated() — the ledger re-checks on every request</text>
+
+    <rect x="70" y="412" width="470" height="104" rx="10" fill="#ffffff" stroke="#94a3b8" stroke-width="1.5"/>
+    <text x="90" y="440" font-size="15" font-weight="600" fill="#0f172a">RequireIssuedDocumentAsync(id)</text>
+    <text x="90" y="460" font-size="12.5" fill="#475569">1. DiscoverReviewAsync(id) → owner resolved from the id itself</text>
+    <text x="90" y="478" font-size="12.5" fill="#475569">2. certificate row is Issued and FilePath starts with certificates/</text>
+    <text x="90" y="496" font-size="12.5" fill="#475569">3. !IsManagement() and identity.UserId == actorUserId</text>
+
+    <rect x="70" y="550" width="470" height="72" rx="10" fill="#ffffff" stroke="#94a3b8" stroke-width="1.5"/>
+    <text x="90" y="578" font-size="15" font-weight="600" fill="#0f172a">ReadRetainedAsync</text>
+    <text x="90" y="598" font-size="12.5" fill="#475569">streams the retained file — never regenerated</text>
+
+    <rect x="70" y="656" width="470" height="66" rx="10" fill="#ecfdf5" stroke="#059669" stroke-width="1.5"/>
+    <text x="90" y="684" font-size="15" font-weight="600" fill="#065f46">200 application/pdf</text>
+    <text x="90" y="704" font-size="12.5" fill="#047857">bytes + certificate number, Cache-Control: no-store</text>
+  </g>
+
+  <!-- Arrows down the happy path -->
+  <g stroke="#4b5563" stroke-width="1.6" fill="none" marker-end="url(#arrow)">
+    <line x1="305" y1="162" x2="305" y2="194"/>
+    <line x1="305" y1="272" x2="305" y2="304"/>
+    <line x1="305" y1="378" x2="305" y2="410"/>
+    <line x1="305" y1="516" x2="305" y2="548"/>
+    <line x1="305" y1="622" x2="305" y2="654"/>
+  </g>
+
+  <!-- Refusal sink -->
+  <rect x="650" y="306" width="330" height="316" rx="12" fill="#fef2f2" stroke="#b91c1c" stroke-width="1.6"/>
+  <text x="672" y="338" font-size="15" font-weight="600" fill="#7f1d1d">DomainException(NotFound)</text>
+  <text x="672" y="362" font-size="12.5" fill="#991b1b">Every branch below throws the same</text>
+  <text x="672" y="380" font-size="12.5" fill="#991b1b">exception with the same message.</text>
+
+  <text x="672" y="414" font-size="13" font-weight="600" fill="#7f1d1d">404 + one message</text>
+  <text x="672" y="434" font-size="12" fill="#991b1b">"This certificate is unavailable or</text>
+  <text x="672" y="450" font-size="12" fill="#991b1b">you do not have access to it."</text>
+
+  <text x="672" y="486" font-size="13" font-weight="600" fill="#7f1d1d">Identical for</text>
+  <text x="672" y="506" font-size="12" fill="#991b1b">· another member's registration id</text>
+  <text x="672" y="522" font-size="12" fill="#991b1b">· an unknown id</text>
+  <text x="672" y="538" font-size="12" fill="#991b1b">· a row that is not Issued</text>
+  <text x="672" y="554" font-size="12" fill="#991b1b">· a blank or unsafe retained key</text>
+  <text x="672" y="570" font-size="12" fill="#991b1b">· a missing file on disk</text>
+
+  <text x="672" y="600" font-size="12" fill="#7f1d1d">A non-member gets 403 with the same copy,</text>
+  <text x="672" y="616" font-size="12" fill="#7f1d1d">but the member policy stops them first.</text>
+
+  <!-- Refusal arrows -->
+  <g stroke="#b91c1c" stroke-width="1.5" fill="none" marker-end="url(#arrowRed)" stroke-dasharray="5 4">
+    <path d="M 540 234 C 596 234 610 300 648 330"/>
+    <path d="M 540 342 C 590 342 610 350 648 360"/>
+    <path d="M 540 464 C 590 464 610 430 648 412"/>
+    <path d="M 540 586 C 590 586 610 500 648 470"/>
+  </g>
+
+  <text x="70" y="756" font-size="12" fill="#64748b">Sources: MyCertificatesService.cs:100-131 · CertificateLedgerService.cs:272-285, 488-529 · MyCertificatesController.cs:17, 29-57</text>
+  <text x="70" y="774" font-size="12" fill="#64748b">The guard's Forbidden is unreachable through the controller because the member policy runs first.</text>
+</svg>
