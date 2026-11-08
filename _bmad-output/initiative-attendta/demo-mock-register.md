@@ -95,7 +95,7 @@ into lettered rows.
 | M-10b | Review queue and the approve and decline decisions | Review queue and decisions | 6.12 | 6.6 | removed |
 | M-11a | Certificate issuance (number from the demo store, nothing retained) | Issuance pipeline and retained file | 6.12 | 6.7 | removed (58cffca) |
 | M-11b | Officer PDF view and download (authorized retained-file retrieval) | Authorized download of the retained file | 6.12 | 6.8 | removed (124ef29) |
-| M-12 | Member certificate history and download links - `IMyCertificatesService`, `DemoMyCertificatesService`, `UnavailableMyCertificatesService`; shared `DemoCertificateDocuments` (its only remaining consumer after M-11b) | Owner-scoped certificate query | 6.13 | 6.9 | removed (pending commit) |
+| M-12 | Member certificate history and download links - `IMyCertificatesService`, `DemoMyCertificatesService`, `UnavailableMyCertificatesService`; shared `DemoCertificateDocuments` (its only remaining consumer after M-11b) | Owner-scoped certificate query | 6.13 | 6.9 | removed (d16feed) |
 | M-13a | Report summary: status counts, Confirmed and Valid attendees, rate | Report summary queries | 7.4 | 7.1 | removed |
 | M-13b | Report no-shows and course/year breakdowns | No-show and distribution queries | 7.4 | 7.2 | removed |
 | M-13c | Report paged detail rows | Paged detail query | 7.4 | 7.3 | removed (04157b3) |
