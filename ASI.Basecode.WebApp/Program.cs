@@ -1,11 +1,9 @@
 ﻿using System;
 using System.Diagnostics;
-using System.Globalization;
 using ASI.Basecode.Data;
 using ASI.Basecode.Services.Interfaces;
 using ASI.Basecode.Services.Security;
 using ASI.Basecode.WebApp;
-using ASI.Basecode.WebApp.DemoData;
 using ASI.Basecode.WebApp.Extensions.Configuration;
 using ASI.Basecode.WebApp.Hotspot;
 using Microsoft.AspNetCore.Builder;
@@ -14,7 +12,6 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
 const string HashPasswordArgument = "--hash-password";
-const string DemoPassTokenArgument = "--demo-pass-token";
 
 if (Array.IndexOf(args, "--demo-readiness") >= 0)
 {
@@ -63,29 +60,6 @@ if (Array.IndexOf(args, HotspotCertificateCommand.Argument) >= 0)
 }
 
 var appBuilder = WebApplication.CreateBuilder(args);
-
-var demoPassTokenIndex = Array.IndexOf(args, DemoPassTokenArgument);
-if (demoPassTokenIndex >= 0)
-{
-    if (demoPassTokenIndex + 1 >= args.Length
-        || !int.TryParse(args[demoPassTokenIndex + 1], NumberStyles.Integer, CultureInfo.InvariantCulture, out var registrationId)
-        || registrationId <= 0)
-    {
-        Console.Error.WriteLine($"Usage: {DemoPassTokenArgument} <registrationId>");
-        return 2;
-    }
-
-    var tokenKey = appBuilder.Configuration[DemoDataOptions.SectionName + ":TokenKey"];
-    if (string.IsNullOrWhiteSpace(tokenKey))
-    {
-        Console.Error.WriteLine("DemoData:TokenKey is required.");
-        return 2;
-    }
-
-    // Only the derived token goes to stdout so an operator can compare it across restarts.
-    Console.Out.WriteLine(DemoStore.DerivePassToken(registrationId, tokenKey));
-    return 0;
-}
 
 // PLAIN ENGLISH: The next block is optional. When the demo host turns on "Hotspot" mode, the app
 // serves HTTPS on the hotspot address so phones can use the camera. When it is off (the normal

@@ -23,9 +23,11 @@ public sealed class CertificateRepository : BaseRepository, ICertificateReposito
         var validAttendance = ParticipationFacts.ValidAttendances(GetDbSet<Attendance>().AsNoTracking());
         var certificates = GetDbSet<Certificate>().AsNoTracking();
 
-        // Valid Attendance is the canonical fact; a registration already carrying any certificate row
-        // is left untouched so the unique registration index is never reached.
-        return await (from registration in GetDbSet<Registration>().AsNoTracking()
+        // Valid Attendance is the canonical fact, and only a Confirmed seat is a certificate
+        // candidate: a cancelled or waitlisted registration with an old attendance row never gets a
+        // review. A registration already carrying any certificate row is left untouched so the unique
+        // registration index is never reached.
+        return await (from registration in ParticipationFacts.SeatHolders(GetDbSet<Registration>().AsNoTracking())
                       join attendance in validAttendance on registration.RegistrationId equals attendance.RegistrationId
                       where registration.EventId == eventId
                             && !certificates.Any(certificate => certificate.RegistrationId == registration.RegistrationId)

@@ -14,8 +14,8 @@ reviewed and issued, the member downloads the PDF, and the per-event report show
 registered, who attended, and who earned a certificate.
 
 The demo build runs with `ASPNETCORE_ENVIRONMENT=Production`, so no development-only surface is
-reachable. Demo data is on only through the
-`DemoData__Enabled` switch; the committed `appsettings*.json` keeps it off.
+reachable. Every screen reads the real services and the seeded SQL rows; there is no demo data
+switch and no in-process state.
 
 ## 2. Pre-flight (do this once on the demo machine)
 
@@ -100,14 +100,11 @@ shows a broken image only when the file is absent.
 
 ### 2.4 Environment and start
 
-Set the values in the process environment, not in a tracked file. The token key and the
-passwords are local secrets; never commit them.
+Set the values in the process environment, not in a tracked file. The passwords are local
+secrets; never commit them.
 
 ```powershell
 $env:ASPNETCORE_ENVIRONMENT = "Production"
-$env:DemoData__Enabled = "true"
-$env:DemoData__AllowDatabase = "AttendTaMVP_Test"   # or AttendTa_Demo
-$env:DemoData__TokenKey = "<local random secret>"
 $env:ConnectionStrings__DefaultConnection = "Server=(localdb)\MSSQLLocalDB;Database=AttendTaMVP_Test;Trusted_Connection=True;MultipleActiveResultSets=true;TrustServerCertificate=True"
 $env:Common__SetupRoot = "<private setup root>"
 $env:ASPNETCORE_URLS = "http://localhost:5080"      # add an HTTPS binding on the demo host
@@ -121,15 +118,9 @@ cd ASI.Basecode.WebApp; npm run css:build; cd ..
 dotnet run --project "ASI.Basecode.WebApp\ASI.Basecode.WebApp.csproj" --no-build
 ```
 
-The start-up log must show:
-
-```
-Demo data active (M-01, M-07). Ready to complete event 2.
-```
-
-If it says "Demo data seeded nothing", the connected database has no events; re-run the
-scenario seed. If the app refuses to start, read the stderr reason: the database name must be
-`AttendTa_Demo` or exactly `DemoData__AllowDatabase`, and `DemoData__TokenKey` must be set.
+The app starts normally and serves the seeded starting state. If the starting state is empty,
+re-run the scenario seed; if the app refuses to start, read the stderr reason — the connection
+string and `Common:SetupRoot` must be set.
 
 Confirm the retired development-only surfaces are not reachable. Sign in as an Administrator
 first, then request `/CertificateTracer` (both the page and a POST to `/CertificateTracer/Trace`).
@@ -166,8 +157,9 @@ refusal.
 - Event types: Seminar, Outreach, Meeting, Competition, General Assembly, Training.
 - Accounts: 1 Administrator, 1 Officer, 8 member accounts (Liza plus seven participants).
 - Pending account request: Camille Torres, `UC-2026-0110`.
-- The demo store starts empty for check-ins, reviews, and issues; the seed fills it from the
-  real rows above. A restart resets the store; the SQL rows and pass tokens do not change.
+- The seeded starting state is the SQL rows above: check-ins, certificate reviews and issued
+  documents are created live through the real services, so a restart keeps every row and pass
+  token unchanged.
 
 ## 4. Administrator beats
 
@@ -181,7 +173,7 @@ Sign in as `maria.dizon@uc.edu.ph`. The Home page shows the Administrator shortc
 | A4 | Master data | `/EventType` → New Event Type; `/Venue` → New Venue; `/Member` → Edit | Each centered dialog loads its fields and Cancel/Save; no placeholder copy | Dialogs are single-column and fit the viewport |
 | A5 | Create and publish | `/Event` → Create draft event → fill → Save draft → Cover → upload a JPEG/PNG → Publish | Draft appears; "Event cover updated."; "Event published." | Form fields stack; the cover upload is reachable |
 | A6 | Access changes | `/admin/accounts` → Preview deactivation; Deactivate; `/Member` → Deactivate | Preview lists affected registrations; the dialog shows the consequence and a required reason; the admin row shows the last-active-Administrator block | Dialogs fit; the last-admin explanation is readable |
-| A7 | Activity log | `/admin/auditlogs` | Newest first; the real account-request approval and member creation appear; demo-store check-ins/certificates do not | Table scrolls; timestamps stay readable |
+| A7 | Activity log | `/admin/auditlogs` | Newest first; the real account-request approval, member creation, check-ins, certificate decisions and issuance all appear | Table scrolls; timestamps stay readable |
 
 Note for A5: publishing requires a cover image. The create form saves a draft; the Events list
 publishes it after the cover upload. The refusal message is generic if the cover is missing.
@@ -203,14 +195,12 @@ Sign in as `rafael.santos@uc.edu.ph`.
 | O9 | Certificate issue and PDF | Eligibility Review → Issue certificate → Issued Registry → View PDF | "Certificate issued."; the registry lists the new number; the landscape A4 PDF opens with the configured signatory | Viewer is usable; the download link is reachable |
 | O10 | Report | `/Reports/Participation?eventId=1` and `?eventId=2` | Event 1 (completed in O3): 8 confirmed, 0 valid, 0%, 8 no-shows, no course/year breakdowns, every row "No-show"; Event 2 (cancelled): no final rate and no no-shows | Summary cards stack; tables scroll |
 
-The report reads real SQL attendance only since 7.3. The seeded demo-store check-ins for
-Leadership Summit feed the certificate ledger, not the report, so O10 shows no valid attendees
-and every confirmed row as a no-show.
+The report reads real SQL attendance, so it reflects the check-ins recorded through the real
+scanner and manual lookup. The seeded Leadership Summit has no check-ins, so O10 shows no valid
+attendees and every confirmed row as a no-show unless one is recorded on event 1 first.
 
-The member's pass token for Founders' Week can be read from the pass page. The operator can
-also print the same value with
-`dotnet run --project "ASI.Basecode.WebApp\ASI.Basecode.WebApp.csproj" --no-build -- --demo-pass-token <registrationId>`
-under the same `DemoData__TokenKey`.
+The member's door pass and its token are read from the pass page; the token is the
+registration's stored `qr_token`.
 
 ## 6. Member beats
 
@@ -239,22 +229,19 @@ Sign in as `liza.fernandez@uc.edu.ph`.
 
 ## 8. Known limits
 
-- **Member attendance history is real since 4.7.** `MyEventsService.GetAttendanceAsync` reads the
-  owner-scoped SQL query, so a check-in made through the real scanner appears here. Seeded
-  demo-store check-ins now feed the certificate-ledger demo only; the participation report reads
-  real SQL attendance since 7.3 (register M-08 and M-13c removed).
-- **Completion is live.** The demo completes Leadership Summit in O3 through the real 3.12
-  service, so completion writes SQL and the Activity Log. A restart returns the scenario's
-  events to their seeded status and resets the in-memory store.
-- **The Activity Log records real service actions only.** Demo-store check-ins, certificate
-  decisions, and issuance do not write SQL or the Activity Log (register rule 4). The
-  account-request approval, member creation, and event completion are real and do appear.
-- **The demo store resets on restart.** Check-ins, reviews, and issued documents last only for
-  the process lifetime; a completed event stays completed in SQL. Passes keep scanning because
-  the token is the HMAC of the registration id under `DemoData__TokenKey`.
+- **Member attendance history is real.** `MyEventsService.GetAttendanceAsync` reads the
+  owner-scoped SQL query, so a check-in made through the real scanner appears here, and the
+  participation report reads the same SQL attendance.
+- **Completion is live.** The demo completes Leadership Summit in O3 through the real completion
+  service, so completion writes SQL and the Activity Log.
+- **The Activity Log records every real service action.** Check-ins, invalidations, certificate
+  decisions and issuance each write their own audit row, as do the account-request approval,
+  member creation and event completion.
+- **Every write is durable.** Check-ins, reviews and issued documents are SQL rows and the issued
+  PDF is retained in the private file store, so a restart keeps them.
 - **Publishing requires a cover.** The create form saves a draft; add a cover from the Events
   list, then publish. The generic refusal message does not name the missing cover.
-- **A pass scanned in the demo uses the rule-10 HMAC token**, not `registrations.qr_token`.
+- **A scanned pass uses the registration's stored `qr_token`.**
 - **`--demo-readiness` needs a provisioned host.** On an unprovisioned machine the runtime SQL
   identity and localhost login checks fail; 8.14 owns host provisioning and evidence.
 

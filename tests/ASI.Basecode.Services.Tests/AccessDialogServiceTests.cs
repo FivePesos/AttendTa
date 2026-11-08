@@ -234,19 +234,19 @@ public class AccessDialogServiceTests
             return member;
         }
 
-        public MemberRecord GetMemberRecord(int memberId) =>
-            _members.FirstOrDefault(member => member.MemberId == memberId)!;
+        public Task<MemberRecord> GetMemberRecordAsync(int memberId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(_members.FirstOrDefault(member => member.MemberId == memberId)!);
 
         public IQueryable<MemberRecord> GetMemberRecords() => _members.AsQueryable();
         public Task<int> CountAsync(string search, string status, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<IReadOnlyList<MemberRecord>> GetPageAsync(string search, string status, int skip, int take, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<MemberRecord> GetMemberRecordByUserIdAsync(int userId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<Member> GetMemberByUserIdAsync(int userId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Member GetMember(int memberId) => throw new NotSupportedException();
+        public Task<Member> GetMemberAsync(int memberId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task AddMemberAsync(Member member, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task UpdateMemberAsync(Member member, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public bool UserHasMemberProfile(int userId) => throw new NotSupportedException();
-        public bool StudentNumberExists(string studentNumber, int? excludeId = null) => throw new NotSupportedException();
+        public Task<bool> UserHasMemberProfileAsync(int userId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<bool> StudentNumberExistsAsync(string studentNumber, int? excludeId = null, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }
 
     private sealed class RecordingCancellation : IRegistrationCancellationService

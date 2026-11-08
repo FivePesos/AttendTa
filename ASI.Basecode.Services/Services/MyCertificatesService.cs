@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using ASI.Basecode.Data.Interfaces;
 using ASI.Basecode.Data.Models.Lookups;
+using ASI.Basecode.Data.Queries;
 using ASI.Basecode.Resources;
 using ASI.Basecode.Resources.Constants;
 using ASI.Basecode.Services.Interfaces;
@@ -46,7 +47,7 @@ public sealed class MyCertificatesService(
             }
 
             var registration = await registrations.GetMemberRegistrationAsync(eventId, userId, cancellationToken);
-            if (registration is null || registration.Status != RegistrationStatusCode.Confirmed)
+            if (registration is null || !ParticipationFacts.HoldsSeat(registration.Status))
             {
                 continue;
             }

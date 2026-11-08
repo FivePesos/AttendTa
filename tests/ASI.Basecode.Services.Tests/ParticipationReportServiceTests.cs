@@ -14,14 +14,25 @@ namespace ASI.Basecode.Services.Tests;
 
 public sealed class ParticipationReportServiceTests
 {
+    private static readonly DateTime CheckedInAt = new(2026, 3, 10, 9, 0, 0, DateTimeKind.Utc);
+
     [Fact]
-    public async Task CompletedEventMapsSummaryFactsAndEmptyRepositoryReturnsNoRows()
+    public async Task CompletedEventDerivesEveryPanelFromOneSnapshot()
     {
         var events = new FakeEvents { EventItem = Event(1, EventStatusCode.Completed) };
         events.Items.Add(new EventListItem { EventId = 1, Title = "Completed" });
         events.Items.Add(new EventListItem { EventId = 2, Title = "Other" });
-        var summary = new FakeReportFacts(new ParticipationReportSummaryFacts(2, 5, 1, 3, 4, 0.8m));
-        var service = new ParticipationReportService(events, summary);
+        var snapshot = new FakeSnapshot();
+        snapshot.Rows.Add(DetailRow(1, "Attended A", checkedInAt: CheckedInAt, course: "BSIT", yearLevel: 1));
+        snapshot.Rows.Add(DetailRow(2, "Attended B", checkedInAt: CheckedInAt, course: "bsit", yearLevel: 1));
+        snapshot.Rows.Add(DetailRow(3, "Attended C", checkedInAt: CheckedInAt, course: "BSED", yearLevel: 3));
+        snapshot.Rows.Add(DetailRow(4, "Attended D", checkedInAt: CheckedInAt, course: "   ", yearLevel: 2));
+        snapshot.Rows.Add(DetailRow(5, "Invalidated", checkedInAt: CheckedInAt, invalidated: true));
+        snapshot.Rows.Add(DetailRow(6, "Absent"));
+        snapshot.Rows.Add(DetailRow(7, "Pending", status: RegistrationStatusCode.Pending));
+        snapshot.Rows.Add(DetailRow(8, "Waitlisted", status: RegistrationStatusCode.Waitlisted));
+        snapshot.Rows.Add(DetailRow(9, "Cancelled", status: RegistrationStatusCode.Cancelled));
+        var service = new ParticipationReportService(events, snapshot);
 
         var report = await service.GetReportAsync(1, null, TestContext.Current.CancellationToken);
 
@@ -31,67 +42,30 @@ public sealed class ParticipationReportServiceTests
         Assert.Equal("Completed", report.EventStatusLabel);
         Assert.Equal("badge-completed", report.EventStatusBadgeClass);
         Assert.True(report.IsFinal);
-        Assert.Equal(2, report.PendingCount);
-        Assert.Equal(5, report.ConfirmedCount);
+        Assert.Equal(1, report.PendingCount);
+        Assert.Equal(6, report.ConfirmedCount);
         Assert.Equal(1, report.WaitlistedCount);
-        Assert.Equal(3, report.CancelledCount);
+        Assert.Equal(1, report.CancelledCount);
         Assert.Equal(4, report.ValidAttendeeCount);
-        Assert.Equal(0.8m, report.AttendanceRate);
-        Assert.Equal(0, report.NoShowCount);
-        Assert.Empty(report.Rows);
-        Assert.Empty(report.CourseBreakdown);
-        Assert.Empty(report.YearBreakdown);
-        Assert.Equal(1, report.PageNumber);
-        Assert.Equal(0, report.TotalCount);
+        Assert.Equal(4m / 6m, report.AttendanceRate);
+        Assert.Equal(2, report.NoShowCount);
+        Assert.Equal(9, report.TotalCount);
         Assert.Equal(2, report.Selector.Options.Count);
         Assert.Equal(1, report.Selector.SelectedEventId);
-        Assert.Equal(1, summary.Calls);
-        Assert.Equal(1, summary.NoShowCalls);
-        Assert.Equal(1, summary.DistributionCalls);
-        Assert.Equal(1, summary.LastEventId);
-    }
-
-    [Fact]
-    public async Task CompletedEventMapsNoShowsAndSignupSnapshotBreakdowns()
-    {
-        var events = new FakeEvents { EventItem = Event(1, EventStatusCode.Completed) };
-        events.Items.Add(new EventListItem { EventId = 1, Title = "Completed" });
-        var courses = new[]
-        {
-            new CourseDistributionRow("BSIT", 2),
-            new CourseDistributionRow("bsit", 1),
-            new CourseDistributionRow("BSED", 1),
-            new CourseDistributionRow("   ", 1)
-        };
-        var years = new[]
-        {
-            new YearDistributionRow(1, 2),
-            new YearDistributionRow(3, 1),
-            new YearDistributionRow(0, 1),
-            new YearDistributionRow(1, 1)
-        };
-        var summary = new FakeReportFacts(
-            new ParticipationReportSummaryFacts(0, 5, 0, 0, 5, 1m),
-            1,
-            courses,
-            years);
-        var service = new ParticipationReportService(events, summary);
-
-        var report = await service.GetReportAsync(1, null, TestContext.Current.CancellationToken);
-
-        Assert.Equal(1, report.NoShowCount);
-        Assert.Equal(1, summary.NoShowCalls);
-        Assert.Equal(1, summary.DistributionCalls);
 
         // Course labels are trimmed and grouped case-insensitively, largest share first then label.
         Assert.Equal(new[] { "BSIT", "BSED", "Unspecified" }, report.CourseBreakdown.Select(row => row.Label));
-        Assert.Equal(new[] { 3, 1, 1 }, report.CourseBreakdown.Select(row => row.Count));
-        Assert.Equal(new[] { 60, 20, 20 }, report.CourseBreakdown.Select(row => row.Percent));
+        Assert.Equal(new[] { 2, 1, 1 }, report.CourseBreakdown.Select(row => row.Count));
+        Assert.Equal(new[] { 50, 25, 25 }, report.CourseBreakdown.Select(row => row.Percent));
 
-        // Year labels order by the snapshot year, with an unspecified year first.
-        Assert.Equal(new[] { "Unspecified", "Year 1", "Year 3" }, report.YearBreakdown.Select(row => row.Label));
-        Assert.Equal(new[] { 1, 3, 1 }, report.YearBreakdown.Select(row => row.Count));
-        Assert.Equal(new[] { 20, 60, 20 }, report.YearBreakdown.Select(row => row.Percent));
+        // Year labels order by the snapshot year; the schema forbids a zero year.
+        Assert.Equal(new[] { "Year 1", "Year 2", "Year 3" }, report.YearBreakdown.Select(row => row.Label));
+        Assert.Equal(new[] { 2, 1, 1 }, report.YearBreakdown.Select(row => row.Count));
+        Assert.Equal(new[] { 50, 25, 25 }, report.YearBreakdown.Select(row => row.Percent));
+
+        // The panels agree by construction: one snapshot read feeds all of them.
+        Assert.Equal(1, snapshot.Calls);
+        Assert.Equal(1, snapshot.LastEventId);
     }
 
     [Fact]
@@ -99,13 +73,15 @@ public sealed class ParticipationReportServiceTests
     {
         var events = new FakeEvents { EventItem = Event(1, EventStatusCode.Completed) };
         events.Items.Add(new EventListItem { EventId = 1, Title = "Empty" });
-        var service = new ParticipationReportService(
-            events,
-            new FakeReportFacts(new ParticipationReportSummaryFacts(0, 2, 0, 0, 0, 0m), 2));
+        var snapshot = new FakeSnapshot();
+        snapshot.Rows.Add(DetailRow(1, "Absent A"));
+        snapshot.Rows.Add(DetailRow(2, "Absent B"));
+        var service = new ParticipationReportService(events, snapshot);
 
         var report = await service.GetReportAsync(1, null, TestContext.Current.CancellationToken);
 
         Assert.Equal(2, report.NoShowCount);
+        Assert.Equal(0m, report.AttendanceRate);
         Assert.Empty(report.CourseBreakdown);
         Assert.Empty(report.YearBreakdown);
     }
@@ -118,15 +94,17 @@ public sealed class ParticipationReportServiceTests
     {
         var events = new FakeEvents { EventItem = Event(1, status) };
         events.Items.Add(new EventListItem { EventId = 1, Title = "Event" });
-        var service = new ParticipationReportService(
-            events,
-            new FakeReportFacts(new ParticipationReportSummaryFacts(0, 2, 0, 0, 1, 0.5m)));
+        var snapshot = new FakeSnapshot();
+        snapshot.Rows.Add(DetailRow(1, "Attended", checkedInAt: CheckedInAt));
+        snapshot.Rows.Add(DetailRow(2, "Absent"));
+        var service = new ParticipationReportService(events, snapshot);
 
         var report = await service.GetReportAsync(1, null, TestContext.Current.CancellationToken);
 
         Assert.False(report.IsFinal);
         Assert.Equal(status, report.EventStatusId);
         Assert.Equal(0.5m, report.AttendanceRate);
+        Assert.Equal(0, report.NoShowCount);
     }
 
     [Fact]
@@ -134,9 +112,7 @@ public sealed class ParticipationReportServiceTests
     {
         var events = new FakeEvents { EventItem = Event(1, EventStatusCode.Completed) };
         events.Items.Add(new EventListItem { EventId = 1, Title = "Empty" });
-        var service = new ParticipationReportService(
-            events,
-            new FakeReportFacts(new ParticipationReportSummaryFacts(0, 0, 0, 0, 0, null)));
+        var service = new ParticipationReportService(events, new FakeSnapshot());
 
         var report = await service.GetReportAsync(1, null, TestContext.Current.CancellationToken);
 
@@ -147,12 +123,12 @@ public sealed class ParticipationReportServiceTests
     }
 
     [Fact]
-    public async Task NoSelectionReturnsSelectorAndEmptyReportWithoutReadingFacts()
+    public async Task NoSelectionReturnsSelectorAndEmptyReportWithoutReadingTheSnapshot()
     {
         var events = new FakeEvents();
         events.Items.Add(new EventListItem { EventId = 1, Title = "First" });
-        var summary = new FakeReportFacts(new ParticipationReportSummaryFacts(0, 0, 0, 0, 0, null));
-        var service = new ParticipationReportService(events, summary);
+        var snapshot = new FakeSnapshot();
+        var service = new ParticipationReportService(events, snapshot);
 
         var report = await service.GetReportAsync(null, 2, TestContext.Current.CancellationToken);
 
@@ -162,17 +138,17 @@ public sealed class ParticipationReportServiceTests
         Assert.Single(report.Selector.Options);
         Assert.Null(report.Selector.SelectedEventId);
         Assert.False(events.EventLookupUsed);
-        Assert.Equal(0, summary.Calls);
+        Assert.Equal(0, snapshot.Calls);
         Assert.Empty(report.Rows);
     }
 
     [Fact]
-    public async Task UnknownEventReturnsSelectorAndEmptyReportWithoutReadingFacts()
+    public async Task UnknownEventReturnsSelectorAndEmptyReportWithoutReadingTheSnapshot()
     {
         var events = new FakeEvents();
         events.Items.Add(new EventListItem { EventId = 1, Title = "First" });
-        var summary = new FakeReportFacts(new ParticipationReportSummaryFacts(0, 0, 0, 0, 0, null));
-        var service = new ParticipationReportService(events, summary);
+        var snapshot = new FakeSnapshot();
+        var service = new ParticipationReportService(events, snapshot);
 
         var report = await service.GetReportAsync(99, null, TestContext.Current.CancellationToken);
 
@@ -180,7 +156,7 @@ public sealed class ParticipationReportServiceTests
         Assert.Single(report.Selector.Options);
         Assert.Null(report.Selector.SelectedEventId);
         Assert.True(events.EventLookupUsed);
-        Assert.Equal(0, summary.Calls);
+        Assert.Equal(0, snapshot.Calls);
     }
 
     [Theory]
@@ -191,32 +167,45 @@ public sealed class ParticipationReportServiceTests
     {
         var events = new FakeEvents { EventItem = Event(1, EventStatusCode.Completed) };
         events.Items.Add(new EventListItem { EventId = 1, Title = "Paged" });
-        var service = new ParticipationReportService(
-            events,
-            new FakeReportFacts(new ParticipationReportSummaryFacts(1, 6, 2, 3, 5, 5m / 6m)));
+        var snapshot = new FakeSnapshot();
+        for (var index = 1; index <= 26; index++)
+        {
+            snapshot.Rows.Add(index switch
+            {
+                <= 5 => DetailRow(index, $"Attended {index:D2}", checkedInAt: CheckedInAt),
+                6 => DetailRow(index, "Absent"),
+                7 => DetailRow(index, "Pending", status: RegistrationStatusCode.Pending),
+                <= 9 => DetailRow(index, $"Waitlisted {index:D2}", status: RegistrationStatusCode.Waitlisted),
+                _ => DetailRow(index, $"Cancelled {index:D2}", status: RegistrationStatusCode.Cancelled)
+            });
+        }
+
+        var service = new ParticipationReportService(events, snapshot);
 
         var report = await service.GetReportAsync(1, page, TestContext.Current.CancellationToken);
 
         Assert.Equal(1, report.PendingCount);
         Assert.Equal(6, report.ConfirmedCount);
         Assert.Equal(2, report.WaitlistedCount);
-        Assert.Equal(3, report.CancelledCount);
+        Assert.Equal(17, report.CancelledCount);
         Assert.Equal(5, report.ValidAttendeeCount);
         Assert.Equal(5m / 6m, report.AttendanceRate);
+        Assert.Equal(1, report.NoShowCount);
+        Assert.Equal(26, report.TotalCount);
     }
 
     [Fact]
-    public async Task DetailRowsPageInRepositoryOrderWhileTotalsStayFullDataset()
+    public async Task DetailRowsPageInSnapshotOrderWhileTotalsStayFullDataset()
     {
         var events = new FakeEvents { EventItem = Event(1, EventStatusCode.Completed) };
         events.Items.Add(new EventListItem { EventId = 1, Title = "Paged" });
-        var facts = new FakeReportFacts(new ParticipationReportSummaryFacts(0, 26, 0, 0, 20, 20m / 26m));
+        var snapshot = new FakeSnapshot();
         for (var index = 1; index <= 26; index++)
         {
-            facts.DetailRows.Add(DetailRow(index, $"Participant {index:D2}"));
+            snapshot.Rows.Add(DetailRow(index, $"Participant {index:D2}", checkedInAt: CheckedInAt));
         }
 
-        var service = new ParticipationReportService(events, facts);
+        var service = new ParticipationReportService(events, snapshot);
 
         var first = await service.GetReportAsync(1, 1, TestContext.Current.CancellationToken);
 
@@ -224,8 +213,6 @@ public sealed class ParticipationReportServiceTests
         Assert.Equal(26, first.TotalCount);
         Assert.Equal(25, first.Rows.Count);
         Assert.Equal(Enumerable.Range(1, 25), first.Rows.Select(row => row.RegistrationId));
-        Assert.Equal(0, facts.LastSkip);
-        Assert.Equal(PageRequest.FixedPageSize, facts.LastTake);
 
         var second = await service.GetReportAsync(1, 2, TestContext.Current.CancellationToken);
 
@@ -233,7 +220,6 @@ public sealed class ParticipationReportServiceTests
         Assert.Equal(26, second.TotalCount);
         var lastRow = Assert.Single(second.Rows);
         Assert.Equal(26, lastRow.RegistrationId);
-        Assert.Equal(PageRequest.FixedPageSize, facts.LastSkip);
 
         // No row is repeated or skipped across the boundary.
         Assert.Empty(first.Rows.Select(row => row.RegistrationId)
@@ -241,31 +227,32 @@ public sealed class ParticipationReportServiceTests
 
         // The summary still covers the full dataset on both pages.
         Assert.Equal(26, second.ConfirmedCount);
-        Assert.Equal(20, second.ValidAttendeeCount);
-        Assert.Equal(20m / 26m, second.AttendanceRate);
+        Assert.Equal(26, second.ValidAttendeeCount);
+        Assert.Equal(1m, second.AttendanceRate);
+        Assert.Equal(0, second.NoShowCount);
     }
 
     [Theory]
-    [InlineData(null, 1, 0)]
-    [InlineData(0, 1, 0)]
-    [InlineData(-4, 1, 0)]
-    [InlineData(9, 2, 25)]
-    public async Task InvalidPageRequestsNormalizeToTheFirstOrLastPage(int? page, int expectedPage, int expectedSkip)
+    [InlineData(null, 1, 1)]
+    [InlineData(0, 1, 1)]
+    [InlineData(-4, 1, 1)]
+    [InlineData(9, 2, 26)]
+    public async Task InvalidPageRequestsNormalizeToTheFirstOrLastPage(int? page, int expectedPage, int expectedFirstRegistrationId)
     {
         var events = new FakeEvents { EventItem = Event(1, EventStatusCode.Completed) };
         events.Items.Add(new EventListItem { EventId = 1, Title = "Paged" });
-        var facts = new FakeReportFacts(new ParticipationReportSummaryFacts(0, 26, 0, 0, 20, 20m / 26m));
+        var snapshot = new FakeSnapshot();
         for (var index = 1; index <= 26; index++)
         {
-            facts.DetailRows.Add(DetailRow(index, $"Participant {index:D2}"));
+            snapshot.Rows.Add(DetailRow(index, $"Participant {index:D2}", checkedInAt: CheckedInAt));
         }
 
-        var service = new ParticipationReportService(events, facts);
+        var service = new ParticipationReportService(events, snapshot);
 
         var report = await service.GetReportAsync(1, page, TestContext.Current.CancellationToken);
 
         Assert.Equal(expectedPage, report.PageNumber);
-        Assert.Equal(expectedSkip, facts.LastSkip);
+        Assert.Equal(expectedFirstRegistrationId, report.Rows[0].RegistrationId);
         Assert.Equal(26, report.TotalCount);
         Assert.Equal(expectedPage == 2 ? 1 : 25, report.Rows.Count);
     }
@@ -273,17 +260,16 @@ public sealed class ParticipationReportServiceTests
     [Fact]
     public async Task DetailRowsMapStatusAndAttendanceLabelsForACompletedEvent()
     {
-        var now = new DateTime(2026, 3, 10, 9, 0, 0, DateTimeKind.Utc);
         var events = new FakeEvents { EventItem = Event(1, EventStatusCode.Completed) };
         events.Items.Add(new EventListItem { EventId = 1, Title = "Completed" });
-        var facts = new FakeReportFacts(new ParticipationReportSummaryFacts(0, 3, 1, 1, 1, 1m / 3m));
-        facts.DetailRows.Add(DetailRow(1, "Checked", checkedInAt: now));
-        facts.DetailRows.Add(DetailRow(2, "Invalidated", checkedInAt: now, invalidated: true));
-        facts.DetailRows.Add(DetailRow(3, "Absent"));
-        facts.DetailRows.Add(DetailRow(4, "Pending", status: RegistrationStatusCode.Pending));
-        facts.DetailRows.Add(DetailRow(5, "Cancelled", status: RegistrationStatusCode.Cancelled, checkedInAt: now));
+        var snapshot = new FakeSnapshot();
+        snapshot.Rows.Add(DetailRow(1, "Checked", checkedInAt: CheckedInAt));
+        snapshot.Rows.Add(DetailRow(2, "Invalidated", checkedInAt: CheckedInAt, invalidated: true));
+        snapshot.Rows.Add(DetailRow(3, "Absent"));
+        snapshot.Rows.Add(DetailRow(4, "Pending", status: RegistrationStatusCode.Pending));
+        snapshot.Rows.Add(DetailRow(5, "Cancelled", status: RegistrationStatusCode.Cancelled, checkedInAt: CheckedInAt));
 
-        var service = new ParticipationReportService(events, facts);
+        var service = new ParticipationReportService(events, snapshot);
 
         var report = await service.GetReportAsync(1, null, TestContext.Current.CancellationToken);
 
@@ -294,7 +280,7 @@ public sealed class ParticipationReportServiceTests
         Assert.False(checkedIn.IsNoShow);
         Assert.Equal("Checked in", checkedIn.AttendanceLabel);
         Assert.Equal("badge-open", checkedIn.AttendanceBadgeClass);
-        Assert.Equal(now, checkedIn.CheckedInAt);
+        Assert.Equal(CheckedInAt, checkedIn.CheckedInAt);
         Assert.Equal("Confirmed", checkedIn.StatusLabel);
         Assert.Equal("badge-open", checkedIn.StatusBadgeClass);
 
@@ -303,7 +289,7 @@ public sealed class ParticipationReportServiceTests
         Assert.True(invalidated.IsNoShow);
         Assert.Equal("Invalidated", invalidated.AttendanceLabel);
         Assert.Equal("badge-inactive", invalidated.AttendanceBadgeClass);
-        Assert.Equal(now, invalidated.CheckedInAt);
+        Assert.Equal(CheckedInAt, invalidated.CheckedInAt);
 
         var absent = report.Rows[2];
         Assert.False(absent.Attended);
@@ -332,10 +318,9 @@ public sealed class ParticipationReportServiceTests
     {
         var events = new FakeEvents { EventItem = Event(1, EventStatusCode.Published) };
         events.Items.Add(new EventListItem { EventId = 1, Title = "Published" });
-        var facts = new FakeReportFacts(new ParticipationReportSummaryFacts(0, 1, 0, 0, 0, 0m));
-        facts.DetailRows.Add(DetailRow(1, "Waiting"));
-
-        var service = new ParticipationReportService(events, facts);
+        var snapshot = new FakeSnapshot();
+        snapshot.Rows.Add(DetailRow(1, "Waiting"));
+        var service = new ParticipationReportService(events, snapshot);
 
         var report = await service.GetReportAsync(1, null, TestContext.Current.CancellationToken);
 
@@ -348,21 +333,19 @@ public sealed class ParticipationReportServiceTests
     }
 
     [Fact]
-    public async Task EmptyEventReturnsNoRowsAndSkipsTheDetailRead()
+    public async Task EmptyEventReturnsNoRowsFromTheSameSnapshotRead()
     {
         var events = new FakeEvents { EventItem = Event(1, EventStatusCode.Completed) };
         events.Items.Add(new EventListItem { EventId = 1, Title = "Empty" });
-        var facts = new FakeReportFacts(new ParticipationReportSummaryFacts(0, 0, 0, 0, 0, null));
-
-        var service = new ParticipationReportService(events, facts);
+        var snapshot = new FakeSnapshot();
+        var service = new ParticipationReportService(events, snapshot);
 
         var report = await service.GetReportAsync(1, 3, TestContext.Current.CancellationToken);
 
         Assert.Empty(report.Rows);
         Assert.Equal(0, report.TotalCount);
         Assert.Equal(1, report.PageNumber);
-        Assert.Equal(1, facts.CountDetailCalls);
-        Assert.Equal(0, facts.DetailPageCalls);
+        Assert.Equal(1, snapshot.Calls);
     }
 
     private static ParticipationReportDetailRow DetailRow(
@@ -374,7 +357,15 @@ public sealed class ParticipationReportServiceTests
         string course = "BSIT",
         int yearLevel = 1,
         string studentNumber = "S-0001") =>
-        new(registrationId, memberName, studentNumber, course, yearLevel, status, checkedInAt, invalidated);
+        new(
+            registrationId,
+            memberName,
+            studentNumber,
+            course,
+            yearLevel,
+            status,
+            checkedInAt,
+            invalidated ? CheckedInAt.AddMinutes(1) : null);
 
     private static Event Event(int eventId, EventStatusCode status) => new()
     {
@@ -384,62 +375,19 @@ public sealed class ParticipationReportServiceTests
         EventStatusId = status
     };
 
-    private sealed class FakeReportFacts(
-        ParticipationReportSummaryFacts facts,
-        int noShowCount = 0,
-        IReadOnlyList<CourseDistributionRow>? courses = null,
-        IReadOnlyList<YearDistributionRow>? years = null) : IParticipationReportRepository
+    private sealed class FakeSnapshot : IParticipationReportRepository
     {
-        public List<ParticipationReportDetailRow> DetailRows { get; } = [];
+        public List<ParticipationReportDetailRow> Rows { get; } = [];
         public int Calls { get; private set; }
-        public int NoShowCalls { get; private set; }
-        public int DistributionCalls { get; private set; }
-        public int CountDetailCalls { get; private set; }
-        public int DetailPageCalls { get; private set; }
         public int? LastEventId { get; private set; }
-        public int? LastSkip { get; private set; }
-        public int? LastTake { get; private set; }
 
-        public Task<ParticipationReportSummaryFacts> GetSummaryFactsAsync(int eventId, CancellationToken cancellationToken = default)
+        public Task<IReadOnlyList<ParticipationReportDetailRow>> GetSnapshotAsync(
+            int eventId,
+            CancellationToken cancellationToken = default)
         {
             Calls++;
             LastEventId = eventId;
-            return Task.FromResult(facts);
-        }
-
-        public Task<int> GetNoShowCountAsync(int eventId, CancellationToken cancellationToken = default)
-        {
-            NoShowCalls++;
-            LastEventId = eventId;
-            return Task.FromResult(noShowCount);
-        }
-
-        public Task<ParticipationReportDistributionFacts> GetAttendeeDistributionAsync(int eventId, CancellationToken cancellationToken = default)
-        {
-            DistributionCalls++;
-            LastEventId = eventId;
-            return Task.FromResult(new ParticipationReportDistributionFacts(courses ?? [], years ?? []));
-        }
-
-        public Task<int> CountDetailRowsAsync(int eventId, CancellationToken cancellationToken = default)
-        {
-            CountDetailCalls++;
-            LastEventId = eventId;
-            return Task.FromResult(DetailRows.Count);
-        }
-
-        public Task<IReadOnlyList<ParticipationReportDetailRow>> GetDetailPageAsync(
-            int eventId,
-            int skip,
-            int take,
-            CancellationToken cancellationToken = default)
-        {
-            DetailPageCalls++;
-            LastEventId = eventId;
-            LastSkip = skip;
-            LastTake = take;
-            return Task.FromResult<IReadOnlyList<ParticipationReportDetailRow>>(
-                DetailRows.Skip(skip).Take(take).ToList());
+            return Task.FromResult<IReadOnlyList<ParticipationReportDetailRow>>(Rows.ToList());
         }
     }
 

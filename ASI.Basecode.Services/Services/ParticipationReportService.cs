@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using ASI.Basecode.Data.Interfaces;
 using ASI.Basecode.Data.Models;
 using ASI.Basecode.Data.Models.Lookups;
+using ASI.Basecode.Data.Queries;
 using ASI.Basecode.Services.Interfaces;
 using ASI.Basecode.Services.ServiceModels;
 
@@ -13,10 +14,10 @@ namespace ASI.Basecode.Services.Services;
 
 /// <summary>
 /// Real per-event participation report read. The selector and event header come from the event
-/// repository; the summary, no-shows and attendee distributions come from the canonical
-/// participation facts, and the paged detail rows come from the event's registrations joined to
-/// their member and attendance. Summary values cover the full dataset; only the detail rows move
-/// with the requested page.
+/// repository; the summary, no-shows, attendee distributions and the paged detail rows all come from
+/// one materialized snapshot of the event's registrations, so every panel agrees even while
+/// attendance changes. Summary values cover the full dataset; only the detail rows move with the
+/// requested page.
 /// </summary>
 public sealed class ParticipationReportService : IParticipationReportService
 {
@@ -51,23 +52,23 @@ public sealed class ParticipationReportService : IParticipationReportService
             return new ParticipationReportViewModel { Selector = selector };
         }
 
-        var facts = await _reports.GetSummaryFactsAsync(eventItem.EventId, cancellationToken);
-        var noShowCount = await _reports.GetNoShowCountAsync(eventItem.EventId, cancellationToken);
-        var distribution = await _reports.GetAttendeeDistributionAsync(eventItem.EventId, cancellationToken);
+        // One snapshot read: every registration of the event with its member, signup snapshots and
+        // attendance. The summary, no-shows, distribution and the page slice are all computed from
+        // these rows, so the panels cannot disagree while attendance changes.
+        var snapshot = await _reports.GetSnapshotAsync(eventItem.EventId, cancellationToken);
         var status = eventItem.EventStatusId;
         var isFinal = status == EventStatusCode.Completed;
 
+        var confirmedCount = snapshot.Count(row => ParticipationFacts.HoldsSeat(row.Status));
+        var attendees = snapshot.Where(IsValidAttendee).ToList();
+
         // The count is the pager's total, so it covers the full dataset and never depends on the page.
-        var totalCount = await _reports.CountDetailRowsAsync(eventItem.EventId, cancellationToken);
         var pageRequest = new PageRequest(page);
-        var pageNumber = pageRequest.NormalizePageNumber(totalCount);
-        var rows = totalCount == 0
-            ? Array.Empty<ParticipationReportDetailRow>()
-            : await _reports.GetDetailPageAsync(
-                eventItem.EventId,
-                pageRequest.GetOffset(pageNumber),
-                PageRequest.FixedPageSize,
-                cancellationToken);
+        var pageNumber = pageRequest.NormalizePageNumber(snapshot.Count);
+        var rows = snapshot
+            .Skip(pageRequest.GetOffset(pageNumber))
+            .Take(PageRequest.FixedPageSize)
+            .ToList();
 
         return new ParticipationReportViewModel
         {
@@ -79,25 +80,36 @@ public sealed class ParticipationReportService : IParticipationReportService
             EventStatusLabel = EventStatusDisplay.Label(status),
             EventStatusBadgeClass = EventStatusDisplay.BadgeClass(status),
             IsFinal = isFinal,
-            PendingCount = facts.PendingCount,
-            ConfirmedCount = facts.ConfirmedCount,
-            WaitlistedCount = facts.WaitlistedCount,
-            CancelledCount = facts.CancelledCount,
-            ValidAttendeeCount = facts.ValidAttendeeCount,
-            AttendanceRate = facts.AttendanceRate,
-            NoShowCount = noShowCount,
+            PendingCount = snapshot.Count(row => row.Status == RegistrationStatusCode.Pending),
+            ConfirmedCount = confirmedCount,
+            WaitlistedCount = snapshot.Count(row => row.Status == RegistrationStatusCode.Waitlisted),
+            CancelledCount = snapshot.Count(row => row.Status == RegistrationStatusCode.Cancelled),
+            ValidAttendeeCount = attendees.Count,
+            AttendanceRate = confirmedCount == 0 ? null : (decimal)attendees.Count / confirmedCount,
+            // A no-show is a Confirmed seat with no valid attendance, and only a completed event has
+            // a final answer.
+            NoShowCount = isFinal ? confirmedCount - attendees.Count : 0,
             Rows = rows.Select(row => ToRow(row, isFinal)).ToList(),
-            CourseBreakdown = CourseBreakdown(distribution.Courses),
-            YearBreakdown = YearBreakdown(distribution.Years),
+            CourseBreakdown = CourseBreakdown(attendees),
+            YearBreakdown = YearBreakdown(attendees),
             PageNumber = pageNumber,
-            TotalCount = totalCount
+            TotalCount = snapshot.Count
         };
     }
 
+    /// <summary>
+    /// A valid attendee holds a Confirmed seat and has a non-invalidated attendance row. Both facts
+    /// come from the canonical <see cref="ParticipationFacts"/> predicates.
+    /// </summary>
+    private static bool IsValidAttendee(ParticipationReportDetailRow row) =>
+        ParticipationFacts.HoldsSeat(row.Status)
+        && row.CheckedInAt is not null
+        && ParticipationFacts.IsValidAttendance(row.InvalidatedAt);
+
     private static ParticipationReportRowViewModel ToRow(ParticipationReportDetailRow row, bool isFinal)
     {
-        var isConfirmed = row.Status == RegistrationStatusCode.Confirmed;
-        var hasValidAttendance = row.CheckedInAt is not null && !row.IsAttendanceInvalidated;
+        var isConfirmed = ParticipationFacts.HoldsSeat(row.Status);
+        var hasValidAttendance = row.CheckedInAt is not null && ParticipationFacts.IsValidAttendance(row.InvalidatedAt);
         var isNoShow = isFinal && isConfirmed && !hasValidAttendance;
         var (attendanceLabel, attendanceBadge) = Attendance(row, isConfirmed, isNoShow);
 
@@ -141,15 +153,15 @@ public sealed class ParticipationReportService : IParticipationReportService
             : ("Checked in", "badge-open");
     }
 
-    private static IReadOnlyList<ParticipationBreakdownItemViewModel> CourseBreakdown(IReadOnlyList<CourseDistributionRow> rows)
+    private static IReadOnlyList<ParticipationBreakdownItemViewModel> CourseBreakdown(IReadOnlyList<ParticipationReportDetailRow> attendees)
     {
-        var total = rows.Sum(row => row.Count);
+        var total = attendees.Count;
 
-        return rows
+        return attendees
             .GroupBy(
                 row => string.IsNullOrWhiteSpace(row.Course) ? "Unspecified" : row.Course.Trim(),
                 StringComparer.OrdinalIgnoreCase)
-            .Select(group => new { Label = group.Key, Count = group.Sum(row => row.Count) })
+            .Select(group => new { Label = group.Key, Count = group.Count() })
             .OrderByDescending(item => item.Count)
             .ThenBy(item => item.Label, StringComparer.OrdinalIgnoreCase)
             .Select(item => new ParticipationBreakdownItemViewModel
@@ -161,19 +173,20 @@ public sealed class ParticipationReportService : IParticipationReportService
             .ToList();
     }
 
-    private static IReadOnlyList<ParticipationBreakdownItemViewModel> YearBreakdown(IReadOnlyList<YearDistributionRow> rows)
+    private static IReadOnlyList<ParticipationBreakdownItemViewModel> YearBreakdown(IReadOnlyList<ParticipationReportDetailRow> attendees)
     {
-        var total = rows.Sum(row => row.Count);
+        var total = attendees.Count;
 
-        return rows
+        return attendees
             .GroupBy(row => row.YearLevel)
             .OrderBy(group => group.Key)
             .Select(group =>
             {
-                var count = group.Sum(row => row.Count);
+                var count = group.Count();
                 return new ParticipationBreakdownItemViewModel
                 {
-                    Label = group.Key > 0 ? $"Year {group.Key}" : "Unspecified",
+                    // registrations.year_level_snapshot has a CHECK (> 0), so the year is always known.
+                    Label = $"Year {group.Key}",
                     Count = count,
                     Percent = Share(count, total)
                 };

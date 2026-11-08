@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using ASI.Basecode.Data.Interfaces;
 using ASI.Basecode.Data.Models;
 using ASI.Basecode.Data.Models.Lookups;
+using ASI.Basecode.Data.Queries;
 using ASI.Basecode.Resources;
 using ASI.Basecode.Resources.Constants;
 using ASI.Basecode.Services.Interfaces;
@@ -31,6 +32,7 @@ public sealed class CertificateLedgerService(
     IEventRepository events,
     ICertificateRepository certificates,
     IRegistrationRepository registrations,
+    IAttendanceRepository attendance,
     IUserRepository users,
     IUnitOfWork unitOfWork,
     ICurrentActor actor,
@@ -160,7 +162,7 @@ public sealed class CertificateLedgerService(
         var actorUserId = RequireManagement();
 
         // Discovery outside the transaction; every fact is re-read after the locks are taken.
-        var identity = await registrations.DiscoverReviewAsync(registrationId, cancellationToken);
+        var identity = await registrations.DiscoverIdentityAsync(registrationId, cancellationToken);
         if (identity is null)
         {
             throw new DomainException(OutcomeCode.NotFound, NotFoundMessage);
@@ -177,7 +179,7 @@ public sealed class CertificateLedgerService(
 
         // Discovery and every pre-check run outside the locks. Rendering and file I/O must not hold a
         // transaction (AD-4), so each fact is re-read after the locks are taken.
-        var identity = await registrations.DiscoverReviewAsync(registrationId, cancellationToken);
+        var identity = await registrations.DiscoverIdentityAsync(registrationId, cancellationToken);
         if (identity is null)
         {
             throw new DomainException(OutcomeCode.NotFound, NotFoundMessage);
@@ -289,13 +291,13 @@ public sealed class CertificateLedgerService(
         bool approve,
         string reason,
         int actorUserId,
-        RegistrationReviewIdentity identity,
+        RegistrationIdentity identity,
         CancellationToken cancellationToken)
     {
         // AD-4 lock order: the participant's users row, then the event. The certificate row has no
         // lock method and is written only while the event lock is held.
         await users.LockUserAsync(identity.UserId, cancellationToken);
-        await events.LockEventAsync(identity.EventId, cancellationToken);
+        var eventItem = await events.LockEventAsync(identity.EventId, cancellationToken);
 
         var certificate = await certificates.GetByRegistrationIdAsync(registrationId, cancellationToken);
         if (certificate is null)
@@ -303,10 +305,19 @@ public sealed class CertificateLedgerService(
             throw new DomainException(OutcomeCode.NotFound, NotFoundMessage);
         }
 
-        // A changed candidate is the single Stale refusal: already decided or no longer attended.
-        if (certificate.CertificateStatusId != CertificateStatusCode.PendingApproval)
+        // One certificate rule: a Confirmed seat with valid attendance on a completed event, whose
+        // review is still pending. The refusal names the fact that actually failed.
+        var registration = await registrations.GetForUpdateAsync(registrationId, cancellationToken);
+        var attendanceRow = await attendance.GetByRegistrationIdAsync(registrationId, cancellationToken);
+        if (!ParticipationFacts.IsCertificateEligible(
+                registration, attendanceRow, certificate, CertificateStatusCode.PendingApproval, eventItem))
         {
-            throw new DomainException(OutcomeCode.Stale, AlreadyDecidedMessage);
+            var message = certificate.CertificateStatusId != CertificateStatusCode.PendingApproval
+                ? AlreadyDecidedMessage
+                : !ParticipationFacts.HoldsSeat(registration)
+                    ? ChangedMessage
+                    : AttendanceInvalidMessage;
+            throw new DomainException(OutcomeCode.Stale, message);
         }
 
         // The reason is validated inside the transaction, so no state is committed without it.
@@ -322,11 +333,6 @@ public sealed class CertificateLedgerService(
             {
                 throw new DomainException(OutcomeCode.Invalid, ReasonTooLongMessage, "reason");
             }
-        }
-
-        if (!await registrations.HasValidAttendanceAsync(registrationId, cancellationToken))
-        {
-            throw new DomainException(OutcomeCode.Stale, AttendanceInvalidMessage);
         }
 
         var now = clock.GetUtcNow().UtcDateTime;
@@ -356,7 +362,7 @@ public sealed class CertificateLedgerService(
 
     private async Task IssueInsideTransactionAsync(
         int registrationId,
-        RegistrationReviewIdentity identity,
+        RegistrationIdentity identity,
         CertificatePdfSnapshot snapshot,
         string issuerName,
         string filePath,
@@ -380,10 +386,13 @@ public sealed class CertificateLedgerService(
         }
 
         // A decision or invalidation that landed while the PDF rendered is the single Stale refusal.
-        if (certificate.CertificateStatusId != CertificateStatusCode.Eligible
-            || eventItem is null
-            || eventItem.EventStatusId != EventStatusCode.Completed
-            || !await registrations.HasValidAttendanceAsync(registrationId, cancellationToken))
+        // The shared certificate rule covers the seat, valid attendance, approved review and completed
+        // event; a missing event row is refused before the rule can treat it as "already known".
+        var registration = await registrations.GetForUpdateAsync(registrationId, cancellationToken);
+        var attendanceRow = await attendance.GetByRegistrationIdAsync(registrationId, cancellationToken);
+        if (eventItem is null
+            || !ParticipationFacts.IsCertificateEligible(
+                registration, attendanceRow, certificate, CertificateStatusCode.Eligible, eventItem))
         {
             throw new DomainException(OutcomeCode.Stale, ChangedMessage);
         }
@@ -485,11 +494,11 @@ public sealed class CertificateLedgerService(
     /// <c>certificates/</c> key. Every refusal is the same not-found, so a caller cannot tell an
     /// unknown id from an unissued row or a row whose file is missing.
     /// </summary>
-    private async Task<(Certificate Certificate, RegistrationReviewIdentity Identity)> RequireIssuedDocumentAsync(
+    private async Task<(Certificate Certificate, RegistrationIdentity Identity)> RequireIssuedDocumentAsync(
         int registrationId,
         CancellationToken cancellationToken)
     {
-        var identity = await registrations.DiscoverReviewAsync(registrationId, cancellationToken);
+        var identity = await registrations.DiscoverIdentityAsync(registrationId, cancellationToken);
         if (identity is null)
         {
             throw NotFound();

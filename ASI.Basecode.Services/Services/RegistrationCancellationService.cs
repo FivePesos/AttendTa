@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using ASI.Basecode.Data.Interfaces;
 using ASI.Basecode.Data.Models;
 using ASI.Basecode.Data.Models.Lookups;
+using ASI.Basecode.Data.Queries;
 using ASI.Basecode.Resources;
 using ASI.Basecode.Resources.Constants;
 using ASI.Basecode.Services.Interfaces;
@@ -19,7 +20,7 @@ public sealed class RegistrationCancellationService(IRegistrationRepository regi
     public async Task CancelRegistrationAsync(int registrationId, CancellationCause cause, string reason, CancellationToken cancellationToken = default)
     {
         var actorId = Validate(cause, reason);
-        var row = await registrations.GetForCancellationAsync(registrationId, cancellationToken);
+        var row = await registrations.GetForUpdateAsync(registrationId, cancellationToken);
         if (row != null) Cancel(row, cause, reason, actorId, clock.GetUtcNow().UtcDateTime);
         await unitOfWork.SaveChangesAsync(cancellationToken);
     }
@@ -44,7 +45,7 @@ public sealed class RegistrationCancellationService(IRegistrationRepository regi
             var rows = await registrations.GetUpcomingForUserAsync(userId, now, eventId, cancellationToken);
             foreach (var candidate in rows)
             {
-                var row = await registrations.GetForCancellationAsync(candidate.RegistrationId, cancellationToken);
+                var row = await registrations.GetForUpdateAsync(candidate.RegistrationId, cancellationToken);
                 if (row != null) Cancel(row, cause, reason, actorId, now);
             }
         }
@@ -68,7 +69,7 @@ public sealed class RegistrationCancellationService(IRegistrationRepository regi
 
     private void Cancel(Registration row, CancellationCause cause, string reason, int actorId, DateTime now)
     {
-        if (row.RegistrationStatusId is not (RegistrationStatusCode.Pending or RegistrationStatusCode.Confirmed or RegistrationStatusCode.Waitlisted)) return;
+        if (!ParticipationFacts.IsOpenRegistration(row.RegistrationStatusId)) return;
         var oldStatus = row.RegistrationStatusId;
         var storedReason = string.IsNullOrWhiteSpace(reason) ? "Member requested cancellation" : reason.Trim();
         row.RegistrationStatusId = RegistrationStatusCode.Cancelled;

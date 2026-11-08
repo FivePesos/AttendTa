@@ -15,19 +15,18 @@
    member credential. Nothing here stores or logs a plaintext password or the hash.
 
    The starting state is two published events and one cancelled event:
-     - Leadership Summit 2026   started, eight confirmed registrations (the demo seed
-                                marks it ready to complete and seeds its attendance,
-                                certificate reviews and issued certificate; the presenter
-                                completes it live through the real 3.12 service)
+     - Leadership Summit 2026   started, eight confirmed registrations (the presenter
+                                completes it live through the real service, then reviews
+                                and issues certificates from the real ledger)
      - Community Outreach Drive cancelled, its registrations cancelled (shows the
                                 cancelled state and the completion refusal)
      - Founders' Week Assembly  upcoming, three confirmed and one pending registration
-                                (the demo seed opens its check-in window)
+                                (the officer opens its check-in window through the real
+                                command)
 
-   The demo store (ASI.Basecode.WebApp/DemoData) reads these rows at start-up and never
-   writes SQL, a private file or the Activity Log. Venue photos and event covers are
-   copied into Common:SetupRoot by the pre-flight in
-   _bmad-output/initiative-attendta/demo-script.md.
+   The application reads these rows through its real repositories; this script writes
+   only SQL. Venue photos and event covers are copied into Common:SetupRoot by the
+   pre-flight in _bmad-output/initiative-attendta/demo-script.md.
 */
 SET NOCOUNT ON;
 SET XACT_ABORT ON;

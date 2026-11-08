@@ -42,7 +42,7 @@ public sealed class RegistrationReviewService(IRegistrationRepository registrati
             var (user, member, eventItem) = await LockOwnerAndEventAsync(candidate.UserId, candidate.EventId, token);
             var now = clock.GetUtcNow().UtcDateTime;
             var current = await registrations.DiscoverPromotionCandidateAsync(candidate.EventId, token);
-            var row = await registrations.GetForCancellationAsync(candidate.RegistrationId, token);
+            var row = await registrations.GetForUpdateAsync(candidate.RegistrationId, token);
             if (current != candidate || row == null || row.MemberId != candidate.MemberId || row.EventId != candidate.EventId
                 || user == null || member == null || member.MemberId != candidate.MemberId || eventItem == null)
                 throw new DomainException(OutcomeCode.Stale, "The waitlist changed. Refresh and try again.");
@@ -71,14 +71,14 @@ public sealed class RegistrationReviewService(IRegistrationRepository registrati
     private async Task ExecuteAsync(int id, string reason, ReviewOperation operation, CancellationToken ct)
     {
         var actorId = RequireManagement();
-        var identity = await registrations.DiscoverReviewAsync(id, ct);
+        var identity = await registrations.DiscoverIdentityAsync(id, ct);
         if (identity == null) throw new DomainException(OutcomeCode.NotFound, "Registration not found.");
         await unitOfWork.ExecuteInTransactionAsync(async token =>
         {
             var (user, member, eventItem) = await LockOwnerAndEventAsync(identity.UserId, identity.EventId, token);
             var now = clock.GetUtcNow().UtcDateTime;
-            var current = await registrations.DiscoverReviewAsync(id, token);
-            var row = await registrations.GetForCancellationAsync(id, token);
+            var current = await registrations.DiscoverIdentityAsync(id, token);
+            var row = await registrations.GetForUpdateAsync(id, token);
             if (current != identity || row == null || row.MemberId != identity.MemberId || row.EventId != identity.EventId || user == null || member == null || member.MemberId != identity.MemberId || eventItem == null)
                 throw new DomainException(OutcomeCode.Stale, "Registration changed. Refresh and try again.");
             if ((operation != ReviewOperation.Cancel && row.RegistrationStatusId != RegistrationStatusCode.Pending)

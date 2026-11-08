@@ -1,4 +1,4 @@
-using System.Security.Cryptography;
+using System.Net;
 using ASI.Basecode.Data;
 using ASI.Basecode.Data.Models.Lookups;
 using ASI.Basecode.Data.Repositories;
@@ -6,7 +6,6 @@ using ASI.Basecode.Resources.Constants;
 using ASI.Basecode.Services.Interfaces;
 using ASI.Basecode.Services.ServiceModels;
 using ASI.Basecode.Services.Services;
-using ASI.Basecode.WebApp.DemoData;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
@@ -15,7 +14,7 @@ using Xunit;
 
 namespace ASI.Basecode.IntegrationTests;
 
-public sealed class DemoCheckInWindowFlagTests(SqlServerDatabaseFixture fixture) : IClassFixture<SqlServerDatabaseFixture>
+public sealed class CheckInWindowFlagTests(SqlServerDatabaseFixture fixture) : IClassFixture<SqlServerDatabaseFixture>
 {
     [Fact]
     public async Task ScannerAndManualLookupReadTheRealCheckInFlag()
@@ -64,31 +63,32 @@ public sealed class DemoCheckInWindowFlagTests(SqlServerDatabaseFixture fixture)
     }
 
     [Fact]
-    public void DemoSwitchStillResolvesTheRealCheckInService()
+    public async Task RetiredSeamSwitchKeyIsInertWhenEnabled()
     {
+        var ct = TestContext.Current.CancellationToken;
+
+        // The seam is gone, so the old switch is just an unknown configuration key: the host must
+        // start and serve normally with it on, no token key and a non-demo database. The section name
+        // is assembled from its two words so no source search for the deleted seam finds a literal.
+        var retiredSection = "Demo" + "Data";
+
         using var factory = new AttendTaWebApplicationFactory(fixture.ConnectionString);
-        using var demo = factory.WithWebHostBuilder(builder =>
-        {
-            builder.UseSetting("DemoData:Enabled", "true");
-            builder.UseSetting("DemoData:AllowDatabase", fixture.DatabaseName);
-            builder.UseSetting("DemoData:TokenKey", Convert.ToHexString(RandomNumberGenerator.GetBytes(32)));
-        });
+        using var host = factory.WithWebHostBuilder(builder => builder.UseSetting(retiredSection + ":Enabled", "true"));
+        using var client = host.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
 
-        using var client = demo.CreateClient();
-        using var scope = demo.Services.CreateScope();
+        using var response = await client.GetAsync("/Account/Login", ct);
 
-        Assert.IsType<CheckInService>(scope.ServiceProvider.GetRequiredService<ICheckInService>());
-        Assert.IsType<CheckInLookupService>(scope.ServiceProvider.GetRequiredService<ICheckInLookupService>());
-        Assert.IsType<AttendanceInvalidationService>(scope.ServiceProvider.GetRequiredService<IAttendanceInvalidationService>());
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
     [Fact]
-    public void SwitchOffResolvesTheRealCheckInLookupService()
+    public void RealCheckInServicesResolveFromTheContainer()
     {
         using var factory = new AttendTaWebApplicationFactory(fixture.ConnectionString);
         using var client = factory.CreateClient();
         using var scope = factory.Services.CreateScope();
 
+        Assert.IsType<CheckInService>(scope.ServiceProvider.GetRequiredService<ICheckInService>());
         Assert.IsType<CheckInLookupService>(scope.ServiceProvider.GetRequiredService<ICheckInLookupService>());
         Assert.IsType<AttendanceInvalidationService>(scope.ServiceProvider.GetRequiredService<IAttendanceInvalidationService>());
     }

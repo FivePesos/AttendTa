@@ -168,6 +168,12 @@ namespace ASI.Basecode.WebApp.Controllers
             }
             catch (DomainException exception)
             {
+                // A refused refresh is not a crash: the account disappeared between the failed POST
+                // and this read. Keep the message and leave a trace of why the form was abandoned.
+                _logger.LogWarning(
+                    "Role form refresh failed for account {AccountId} ({ExceptionType}).",
+                    model.AccountId,
+                    exception.GetType().Name);
                 TempData["ErrorMessage"] = exception.Message;
                 return false;
             }

@@ -71,11 +71,26 @@ public interface IRegistrationRepository
 
     Task AddAsync(Registration registration, CancellationToken cancellationToken = default);
 
-    Task<Registration> GetForCancellationAsync(int registrationId, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Reads the registration fresh for a write inside the caller's transaction: the tracked row is
+    /// refreshed from the database, or the snapshot is attached when nothing tracks it. The persisted
+    /// status stays authoritative for idempotence.
+    /// </summary>
+    Task<Registration> GetForUpdateAsync(int registrationId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Reads every open (Pending, Confirmed or Waitlisted) registration of the event as a tracked row
+    /// ready for a write, ordered by registration id.
+    /// </summary>
     Task<IReadOnlyList<Registration>> GetOpenForEventAsync(int eventId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<int>> DiscoverOpenEventIdsForUserAsync(int userId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<UpcomingRegistrationRow>> GetUpcomingForUserAsync(int userId, DateTime nowUtc, int? eventId = null, CancellationToken cancellationToken = default);
-    Task<RegistrationReviewIdentity> DiscoverReviewAsync(int registrationId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Reads the registration's owner and event identity, or <c>null</c> when the registration does not
+    /// exist. Callers use it to discover the write scope before taking locks and re-read it after.
+    /// </summary>
+    Task<RegistrationIdentity> DiscoverIdentityAsync(int registrationId, CancellationToken cancellationToken = default);
     Task<RegistrationPromotionCandidate> DiscoverPromotionCandidateAsync(int eventId, CancellationToken cancellationToken = default);
     Task<bool> HasEligibleWaitlistAsync(int eventId, CancellationToken cancellationToken = default);
     Task<bool> HasValidAttendanceAsync(int registrationId, CancellationToken cancellationToken = default);
@@ -91,7 +106,7 @@ public interface IRegistrationRepository
 
 public sealed record UpcomingRegistrationRow(int RegistrationId, int EventId, string EventTitle, DateTime StartsAt);
 public sealed record MemberRegistrationRow(int RegistrationId, int MemberId, int EventId, ASI.Basecode.Data.Models.Lookups.RegistrationStatusCode Status);
-public sealed record RegistrationReviewIdentity(int UserId, int MemberId, int EventId);
+public sealed record RegistrationIdentity(int UserId, int MemberId, int EventId);
 public sealed record RegistrationPromotionCandidate(int RegistrationId, int UserId, int MemberId, int EventId, DateTime? ReviewedAt);
 public sealed record MyEventRegistrationRow(int RegistrationId, int EventId, string EventTitle, string TypeName, string VenueName, DateTime StartsAt, ASI.Basecode.Data.Models.Lookups.EventStatusCode EventStatusId, ASI.Basecode.Data.Models.Lookups.RegistrationStatusCode Status);
 public sealed record MyPassRow(int RegistrationId, int EventId, string EventTitle, string EventTypeName, string VenueName, DateTime StartsAt, string HolderName, string StudentNumber, string QrToken);

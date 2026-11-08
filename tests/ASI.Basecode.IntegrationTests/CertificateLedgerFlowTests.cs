@@ -1,9 +1,10 @@
 using System.Net;
 using System.Security.Cryptography;
+using ASI.Basecode.Data;
+using ASI.Basecode.Data.Models;
 using ASI.Basecode.Data.Models.Lookups;
+using ASI.Basecode.Data.Repositories;
 using ASI.Basecode.Resources.Constants;
-using ASI.Basecode.WebApp.DemoData;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -43,15 +44,11 @@ public sealed class CertificateLedgerFlowTests(SqlServerDatabaseFixture fixture)
                 eventItem.EventId, member.MemberId, RegistrationStatusCode.Confirmed, officer.Id, ct);
             registrationIds.Add(registration.RegistrationId);
         }
+        await SeedAttendanceAndReviewsAsync(eventItem, officer.Id, registrationIds, ct);
+
         await using var factory = new AttendTaWebApplicationFactory(fixture.ConnectionString);
-        using var enabled = factory.WithWebHostBuilder(builder =>
-        {
-            builder.UseSetting("DemoData:Enabled", "true");
-            builder.UseSetting("DemoData:AllowDatabase", new Microsoft.Data.SqlClient.SqlConnectionStringBuilder(fixture.ConnectionString).InitialCatalog);
-            builder.UseSetting("DemoData:TokenKey", Convert.ToHexString(RandomNumberGenerator.GetBytes(32)));
-        });
-        using var client = enabled.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
-        using var anonymous = enabled.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        using var anonymous = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
         var anonymousLedger = await anonymous.GetAsync("/Certificates", ct);
         Assert.Equal(HttpStatusCode.Redirect, anonymousLedger.StatusCode);
         Assert.StartsWith("/Account/Login", MemberEventTestSupport.LocationPath(anonymousLedger), StringComparison.Ordinal);
@@ -59,7 +56,7 @@ public sealed class CertificateLedgerFlowTests(SqlServerDatabaseFixture fixture)
         Assert.Equal(HttpStatusCode.Redirect, anonymousPdf.StatusCode);
         Assert.StartsWith("/Account/Login", MemberEventTestSupport.LocationPath(anonymousPdf), StringComparison.Ordinal);
         await MemberEventTestSupport.SignInAsync(client, email, password, ct);
-        using var memberClient = enabled.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        using var memberClient = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
         await MemberEventTestSupport.SignInAsync(memberClient, memberEmail, password, ct);
         Assert.Contains("AccessDenied", MemberEventTestSupport.LocationPath(await memberClient.GetAsync("/Certificates", ct)), StringComparison.Ordinal);
         // The PDF route admits members; this seeded row has no retained file yet, so the not-found
@@ -68,9 +65,8 @@ public sealed class CertificateLedgerFlowTests(SqlServerDatabaseFixture fixture)
         Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsync("/CertificateLedger/Approve",
             new FormUrlEncodedContent(new Dictionary<string, string> { ["id"] = registrationIds[1].ToString() }), ct)).StatusCode);
 
-        // The test seeds this event as Published; the demo seed populates its attendance and
-        // certificate data, and the demo completes it live through the real service, which is what
-        // makes it appear in the certificate ledger.
+        // The test seeds this event as Published with its attendance and reviews; completing it
+        // through the real service is what makes it appear in the certificate ledger.
         var completeToken = await MemberEventTestSupport.AntiforgeryTokenAsync(client, "/Event", ct);
         using (var completed = await client.PostAsync($"/Event/Complete?id={eventItem.EventId}",
             new FormUrlEncodedContent(new Dictionary<string, string>
@@ -187,12 +183,12 @@ public sealed class CertificateLedgerFlowTests(SqlServerDatabaseFixture fixture)
         Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"/Certificates/Pdf/{registrationIds[3]}", ct)).StatusCode);
 
         // The seeded issued row has no retained file, so the officer viewer and PDF are a
-        // controlled not-found now that M-11b is removed (6.8).
+        // controlled not-found.
         Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"/Certificates/Viewer/{registrationIds[0]}", ct)).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"/Certificates/Pdf/{registrationIds[0]}", ct)).StatusCode);
 
         // The member history was handed over to the real issued row and its retained file.
-        using var ownerClient = enabled.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        using var ownerClient = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
         await MemberEventTestSupport.SignInAsync(ownerClient, memberEmails[1], password, ct);
         var memberHistory = await ownerClient.GetStringAsync("/MyEvents/Certificates", ct);
         Assert.Contains($"AT-2026-{registrationIds[1]:D6}", memberHistory, StringComparison.Ordinal);
@@ -254,8 +250,8 @@ public sealed class CertificateLedgerFlowTests(SqlServerDatabaseFixture fixture)
         await page.ScreenshotAsync(new() { Path = Path.Combine(Path.GetTempPath(), "attendta-6-12-certificate-viewer-phone.png"), FullPage = true });
         await page.CloseAsync();
         await using var observer = MemberEventTestSupport.Context(fixture.ConnectionString);
-        // The demo seed writes real attendance and reviews, so the completion hook finds nothing to
-        // add and the decisions update the seeded rows in SQL.
+        // The seeded reviews already exist, so the completion hook finds nothing to add and the
+        // decisions update the seeded rows in SQL.
         var certificates = await observer.Certificates.AsNoTracking().ToListAsync(ct);
         Assert.Equal(registrationIds.Count, certificates.Count);
         var issuedCertificate = certificates.Single(row => row.RegistrationId == registrationIds[1]);
@@ -336,5 +332,96 @@ public sealed class CertificateLedgerFlowTests(SqlServerDatabaseFixture fixture)
             }), ct);
             Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
         }
+    }
+
+    /// <summary>
+    /// Seeds the attendance and certificate-review rows the ledger reads, through the real
+    /// repositories. The last attendee's check-in is invalidated, the third valid attendee's review
+    /// is declined and the first valid attendee's review is issued without a retained file, so the
+    /// officer ledger opens with every state the flow exercises.
+    /// </summary>
+    private async Task SeedAttendanceAndReviewsAsync(
+        Event eventItem,
+        int officerId,
+        IReadOnlyList<int> registrationIds,
+        CancellationToken cancellationToken)
+    {
+        const string invalidatedReason = "Pass could not be verified at the door.";
+        const string declinedReason = "Attendance did not meet the participation requirement.";
+
+        await using var context = MemberEventTestSupport.Context(fixture.ConnectionString);
+        var unitOfWork = new UnitOfWork(context);
+        var attendance = new AttendanceRepository(unitOfWork);
+        var certificates = new CertificateRepository(unitOfWork);
+
+        var invalidatedRegistrationId = registrationIds[^1];
+        var attendanceByRegistration = new Dictionary<int, Attendance>();
+        for (var index = 0; index < registrationIds.Count; index++)
+        {
+            var registrationId = registrationIds[index];
+            var row = new Attendance
+            {
+                RegistrationId = registrationId,
+                CheckInMethodId = CheckInMethodCode.QrCode,
+                RecordedBy = officerId,
+                RecordedAt = eventItem.StartsAt.AddMinutes(5 + index)
+            };
+            if (registrationId == invalidatedRegistrationId)
+            {
+                row.InvalidatedBy = officerId;
+                row.InvalidatedAt = eventItem.StartsAt.AddHours(1);
+                row.InvalidationReason = invalidatedReason;
+            }
+
+            await attendance.AddAsync(row, cancellationToken);
+            attendanceByRegistration[registrationId] = row;
+        }
+
+        var staged = new List<Certificate>(registrationIds.Count);
+        var known = new Dictionary<int, Certificate>(registrationIds.Count);
+        foreach (var registrationId in registrationIds)
+        {
+            var certificate = new Certificate
+            {
+                RegistrationId = registrationId,
+                CertificateStatusId = CertificateStatusCode.PendingApproval,
+                CreatedBy = officerId,
+                CreatedAt = eventItem.StartsAt.AddHours(2)
+            };
+            staged.Add(certificate);
+            known[registrationId] = certificate;
+        }
+
+        var invalidated = known[invalidatedRegistrationId];
+        invalidated.CertificateStatusId = CertificateStatusCode.NotEligible;
+        invalidated.ReviewNotes = invalidatedReason;
+        invalidated.UpdatedBy = officerId;
+        invalidated.UpdatedAt = eventItem.StartsAt.AddHours(1);
+
+        var valid = registrationIds.Where(id => attendanceByRegistration[id].InvalidatedAt is null).ToList();
+        var declined = known[valid[2]];
+        declined.CertificateStatusId = CertificateStatusCode.NotEligible;
+        declined.ReviewNotes = declinedReason;
+        declined.ReviewedBy = officerId;
+        declined.ReviewedAt = eventItem.StartsAt.AddHours(3);
+        declined.UpdatedBy = officerId;
+        declined.UpdatedAt = eventItem.StartsAt.AddHours(3);
+
+        var issued = known[valid[0]];
+        var issuedAt = eventItem.StartsAt.AddDays(1);
+        issued.CertificateStatusId = CertificateStatusCode.Issued;
+        issued.CertificateNumber = $"AT-{issuedAt:yyyy}-{valid[0]:D6}";
+        issued.RecipientNameSnapshot = "Participant 1";
+        issued.EventTitleSnapshot = eventItem.Title;
+        issued.EventStartsAtSnapshot = eventItem.StartsAt;
+        issued.ReviewedBy = officerId;
+        issued.ReviewedAt = eventItem.StartsAt.AddHours(2);
+        issued.IssuedBy = officerId;
+        issued.IssuedAt = issuedAt;
+        issued.UpdatedBy = officerId;
+        issued.UpdatedAt = issuedAt;
+
+        await certificates.AddRangeAsync(staged, cancellationToken);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
     }
 }

@@ -6,7 +6,6 @@ using ASI.Basecode.Services.Security;
 using ASI.Basecode.Services.Services;
 using ASI.Basecode.WebApp.Certificates;
 using ASI.Basecode.WebApp.Authentication;
-using ASI.Basecode.WebApp.DemoData;
 using ASI.Basecode.WebApp.Rendering;
 using ASI.Basecode.WebApp.Storage;
 using Microsoft.AspNetCore.Http;
@@ -106,10 +105,6 @@ namespace ASI.Basecode.WebApp
 
             // Current request actor for service-layer authorization and audit.
             this._services.AddScoped<ICurrentActor, HttpCurrentActor>();
-
-            // Demo data seam. The switch is off in committed settings; the startup guard has already
-            // refused a wrong database before this runs.
-            this._services.AddDemoData(this.Configuration);
 
             this._services.AddHttpClient();
         }

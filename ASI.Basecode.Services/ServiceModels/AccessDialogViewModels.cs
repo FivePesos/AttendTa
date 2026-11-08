@@ -74,6 +74,6 @@ public sealed class MembershipAccessViewModel
         UserId = member.UserId,
         FullName = member.FullName,
         StudentNumber = member.StudentNumber,
-        IsActive = member.Status == "active"
+        IsActive = string.Equals(member.Status, "active", StringComparison.OrdinalIgnoreCase)
     };
 }

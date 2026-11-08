@@ -87,20 +87,14 @@ Keep secrets in the process environment, never in a tracked file.
 
 ```powershell
 $env:ASPNETCORE_ENVIRONMENT = "Production"
-$env:DemoData__Enabled = "true"
-$env:DemoData__AllowDatabase = "AttendTaMVP_Test"   # or AttendTa_Demo
-$env:DemoData__TokenKey = "<local random secret>"
 $env:ConnectionStrings__DefaultConnection = "Server=(localdb)\MSSQLLocalDB;Database=AttendTaMVP_Test;Trusted_Connection=True;MultipleActiveResultSets=true;TrustServerCertificate=True"
 $env:Common__SetupRoot = "<private setup root>"
 $env:ASPNETCORE_URLS = "http://localhost:5089"
 dotnet run --project "ASI.Basecode.WebApp\ASI.Basecode.WebApp.csproj" --no-build
 ```
 
-The startup log must say:
-
-```text
-Demo data active (M-01, M-07). Ready to complete event 1.
-```
+The app starts normally; the seeded accounts, events and registrations are the starting
+state the presenter works from.
 
 ## 7. Sign in
 
@@ -118,10 +112,9 @@ certificate review/issue/download, the report, access changes and the Activity L
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| `Demo data refuses to start` | The connected database is not `AttendTa_Demo` and not `DemoData__AllowDatabase`, or `DemoData__TokenKey` is missing | Fix the database name or set the key |
-| `Demo data seeded nothing` | The connected database has no published events | Re-run the scenario seed |
+| `ConnectionStrings:DefaultConnection is not configured` | The process environment does not carry the connection string | Set `ConnectionStrings__DefaultConnection` before starting |
 | Camera shows "not available" | No camera, permission denied, or the page is not on `https://` or `localhost` | Use the Pass code or Manual lookup tab; serve HTTPS for phones |
-| A demo change disappeared | The in-memory store resets on restart | Restart the scenario or re-run the seed |
+| The starting state is empty | The scenario seed did not run, or it ran against another database | Re-run the scenario seed in step 4 |
 
 ## Reset
 

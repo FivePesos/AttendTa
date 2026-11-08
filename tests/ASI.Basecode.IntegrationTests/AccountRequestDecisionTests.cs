@@ -540,7 +540,7 @@ public sealed class AccountRequestDecisionTests(SqlServerDatabaseFixture fixture
     private sealed class UserInsertRaceRepository(IUserRepository inner, Func<User, CancellationToken, Task> insertWinner) : IUserRepository
     {
         private int inserted;
-        public IQueryable<User> GetUsers() => inner.GetUsers();
+        public Task<IReadOnlyList<User>> GetUsersAsync(CancellationToken cancellationToken = default) => inner.GetUsersAsync(cancellationToken);
         public Task<User?> GetByEmailAsync(string email, CancellationToken cancellationToken = default) => inner.GetByEmailAsync(email, cancellationToken);
         public Task<User?> GetByIdAsync(int userId, CancellationToken cancellationToken = default) => inner.GetByIdAsync(userId, cancellationToken);
         public Task<User?> LockUserAsync(int userId, CancellationToken cancellationToken = default) => inner.LockUserAsync(userId, cancellationToken);
@@ -563,12 +563,12 @@ public sealed class AccountRequestDecisionTests(SqlServerDatabaseFixture fixture
         public IQueryable<MemberRecord> GetMemberRecords() => inner.GetMemberRecords();
         public Task<int> CountAsync(string search, string status, CancellationToken cancellationToken = default) => inner.CountAsync(search, status, cancellationToken);
         public Task<IReadOnlyList<MemberRecord>> GetPageAsync(string search, string status, int skip, int take, CancellationToken cancellationToken = default) => inner.GetPageAsync(search, status, skip, take, cancellationToken);
-        public MemberRecord? GetMemberRecord(int memberId) => inner.GetMemberRecord(memberId);
+        public Task<MemberRecord?> GetMemberRecordAsync(int memberId, CancellationToken cancellationToken = default) => inner.GetMemberRecordAsync(memberId, cancellationToken);
         public Task<MemberRecord?> GetMemberRecordByUserIdAsync(int userId, CancellationToken cancellationToken = default) => inner.GetMemberRecordByUserIdAsync(userId, cancellationToken);
         public Task<Member?> GetMemberByUserIdAsync(int userId, CancellationToken cancellationToken = default) => inner.GetMemberByUserIdAsync(userId, cancellationToken);
-        public Member? GetMember(int memberId) => inner.GetMember(memberId);
-        public bool UserHasMemberProfile(int userId) => inner.UserHasMemberProfile(userId);
-        public bool StudentNumberExists(string studentNumber, int? excludeId = null) => inner.StudentNumberExists(studentNumber, excludeId);
+        public Task<Member?> GetMemberAsync(int memberId, CancellationToken cancellationToken = default) => inner.GetMemberAsync(memberId, cancellationToken);
+        public Task<bool> UserHasMemberProfileAsync(int userId, CancellationToken cancellationToken = default) => inner.UserHasMemberProfileAsync(userId, cancellationToken);
+        public Task<bool> StudentNumberExistsAsync(string studentNumber, int? excludeId = null, CancellationToken cancellationToken = default) => inner.StudentNumberExistsAsync(studentNumber, excludeId, cancellationToken);
         public Task UpdateMemberAsync(Member member, CancellationToken cancellationToken = default) => inner.UpdateMemberAsync(member, cancellationToken);
 
         public async Task AddMemberAsync(Member member, CancellationToken cancellationToken = default)

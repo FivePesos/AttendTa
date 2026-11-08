@@ -8,7 +8,6 @@ using ASI.Basecode.Resources.Constants;
 using ASI.Basecode.Services.Interfaces;
 using ASI.Basecode.Services.ServiceModels;
 using ASI.Basecode.Services.Services;
-using ASI.Basecode.WebApp.DemoData;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
@@ -18,8 +17,7 @@ namespace ASI.Basecode.IntegrationTests;
 /// <summary>
 /// Focused SQL coverage for 6.6: the real review queue, both decisions, the single audit entry, every
 /// refusal in the ticket matrix, and in-memory paging at 25. The DI check also asserts that the real
-/// ledger and the real member history resolve and that no demo provider replaces either one after
-/// 6.8 and 6.9 removed M-11b and M-12.
+/// ledger and the real member history resolve from the container.
 /// </summary>
 public sealed class CertificateReviewDecisionTests(SqlServerDatabaseFixture fixture) : IClassFixture<SqlServerDatabaseFixture>
 {
@@ -214,7 +212,7 @@ public sealed class CertificateReviewDecisionTests(SqlServerDatabaseFixture fixt
     }
 
     [Fact]
-    public void ApplicationRegistersTheRealLedgerAndMemberHistoryInBothSwitchStates()
+    public void ApplicationRegistersTheRealLedgerAndMemberHistory()
     {
         using var factory = new AttendTaWebApplicationFactory(fixture.ConnectionString);
         using (var scope = factory.Services.CreateScope())
@@ -224,17 +222,6 @@ public sealed class CertificateReviewDecisionTests(SqlServerDatabaseFixture fixt
             Assert.IsType<MyCertificatesService>(
                 scope.ServiceProvider.GetRequiredService<IMyCertificatesService>());
         }
-
-        // M-12 is removed by 6.9: the demo registration no longer touches either certificate
-        // contract, so no demo provider can replace the real ones with the switch on or off.
-        // The scan has to look in the WebApp assembly, where the demo namespace lives.
-        var demoTypes = typeof(DemoDataRegistration).Assembly.GetTypes();
-        Assert.DoesNotContain(demoTypes, type =>
-            type.Namespace == typeof(DemoDataRegistration).Namespace
-            && typeof(ICertificateLedgerService).IsAssignableFrom(type));
-        Assert.DoesNotContain(demoTypes, type =>
-            type.Namespace == typeof(DemoDataRegistration).Namespace
-            && typeof(IMyCertificatesService).IsAssignableFrom(type));
     }
 
     private static CertificateLedgerService Service(
@@ -249,6 +236,7 @@ public sealed class CertificateReviewDecisionTests(SqlServerDatabaseFixture fixt
             new EventRepository(unitOfWork),
             new CertificateRepository(unitOfWork),
             new RegistrationRepository(unitOfWork),
+            new AttendanceRepository(unitOfWork),
             new UserRepository(unitOfWork),
             unitOfWork,
             actor,

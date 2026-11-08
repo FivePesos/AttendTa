@@ -11,6 +11,13 @@ public enum MyEventsTab
     Certificates
 }
 
+/// <summary>AutoMapper item keys shared by the Participation History maps.</summary>
+public static class MyEventsMappingItems
+{
+    /// <summary>True when the event's start cutoff has passed for the row being mapped.</summary>
+    public const string CutoffPassed = "cutoffPassed";
+}
+
 /// <summary>
 /// Host contract for the member Participation History screen. Each tab owns its own model so a
 /// surface ticket changes only the tab it owns.

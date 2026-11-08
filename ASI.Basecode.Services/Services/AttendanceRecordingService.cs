@@ -49,7 +49,7 @@ public sealed class AttendanceRecordingService(
         var actorUserId = ManagementActorGuard.RequireUserId(actor);
 
         // Discovery outside the transaction; every fact is rechecked after the locks are taken.
-        var identity = await registrations.DiscoverReviewAsync(registrationId, cancellationToken);
+        var identity = await registrations.DiscoverIdentityAsync(registrationId, cancellationToken);
         if (identity is null || identity.EventId != eventId)
         {
             return AttendanceRecordingResult.Invalid(InvalidPassMessage);
@@ -67,7 +67,7 @@ public sealed class AttendanceRecordingService(
             // failing the operator; the unique registration index is the final guard. A registration
             // that is no longer confirmed or eligible is still refused, so the refusal wins.
             var current = await attendance.GetByRegistrationIdAsync(registrationId, cancellationToken);
-            if (current is null || current.InvalidatedAt is not null
+            if (current is null || !ParticipationFacts.IsValidAttendance(current)
                 || !await StillEligibleForRepeatAsync(eventId, registrationId, identity, cancellationToken))
             {
                 return AttendanceRecordingResult.Invalid(InvalidPassMessage);
@@ -91,10 +91,10 @@ public sealed class AttendanceRecordingService(
     private async Task<bool> StillEligibleForRepeatAsync(
         int eventId,
         int registrationId,
-        RegistrationReviewIdentity identity,
+        RegistrationIdentity identity,
         CancellationToken cancellationToken)
     {
-        var registration = await registrations.GetForCancellationAsync(registrationId, cancellationToken);
+        var registration = await registrations.GetForUpdateAsync(registrationId, cancellationToken);
         var eventItem = await events.GetEventAsync(eventId, cancellationToken);
         var user = await users.GetByIdAsync(identity.UserId, cancellationToken);
         var member = await members.GetMemberByUserIdAsync(identity.UserId, cancellationToken);
@@ -102,7 +102,7 @@ public sealed class AttendanceRecordingService(
         return registration is not null
                && registration.EventId == eventId
                && registration.MemberId == identity.MemberId
-               && registration.RegistrationStatusId == RegistrationStatusCode.Confirmed
+               && ParticipationFacts.HoldsSeat(registration)
                && eventItem is not null
                && eventItem.EventStatusId == EventStatusCode.Published
                && eventItem.IsCheckInOpen
@@ -117,7 +117,7 @@ public sealed class AttendanceRecordingService(
         int registrationId,
         CheckInMethodCode method,
         int actorUserId,
-        RegistrationReviewIdentity identity,
+        RegistrationIdentity identity,
         CancellationToken cancellationToken)
     {
         // AD-4 lock order: the participant's users row, then the event, then the attendance row.
@@ -131,7 +131,7 @@ public sealed class AttendanceRecordingService(
             current = await attendance.LockAttendanceAsync(current.AttendanceId, cancellationToken);
         }
 
-        var registration = await registrations.GetForCancellationAsync(registrationId, cancellationToken);
+        var registration = await registrations.GetForUpdateAsync(registrationId, cancellationToken);
         var member = await members.GetMemberByUserIdAsync(identity.UserId, cancellationToken);
 
         if (registration is null
@@ -153,7 +153,7 @@ public sealed class AttendanceRecordingService(
             return AttendanceRecordingResult.Closed(WindowClosedMessage);
         }
 
-        if (registration.RegistrationStatusId != RegistrationStatusCode.Confirmed)
+        if (!ParticipationFacts.HoldsSeat(registration))
         {
             return AttendanceRecordingResult.Invalid(NotConfirmedMessage);
         }
@@ -166,7 +166,7 @@ public sealed class AttendanceRecordingService(
         if (current is not null)
         {
             // The refusal checks above win over the repeat: an invalidated row is never a repeat.
-            if (current.InvalidatedAt is not null)
+            if (!ParticipationFacts.IsValidAttendance(current))
             {
                 return AttendanceRecordingResult.Invalid(InvalidatedMessage);
             }

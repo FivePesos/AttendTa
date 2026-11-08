@@ -44,9 +44,10 @@ namespace ASI.Basecode.Data.Repositories
                    };
         }
 
-        public MemberRecord GetMemberRecord(int memberId)
+        public Task<MemberRecord> GetMemberRecordAsync(int memberId, CancellationToken cancellationToken = default)
         {
-            return this.GetMemberRecords().FirstOrDefault(member => member.MemberId == memberId);
+            return this.GetMemberRecords()
+                .FirstOrDefaultAsync(member => member.MemberId == memberId, cancellationToken);
         }
 
         public Task<int> CountAsync(string search, string status, CancellationToken cancellationToken = default) =>
@@ -94,9 +95,10 @@ namespace ASI.Basecode.Data.Repositories
                 .SingleOrDefaultAsync(member => member.UserId == userId, cancellationToken);
         }
 
-        public Member GetMember(int memberId)
+        public Task<Member> GetMemberAsync(int memberId, CancellationToken cancellationToken = default)
         {
-            return this.GetDbSet<Member>().FirstOrDefault(m => m.MemberId == memberId);
+            return this.GetDbSet<Member>()
+                .FirstOrDefaultAsync(member => member.MemberId == memberId, cancellationToken);
         }
 
         public Task AddMemberAsync(Member member, CancellationToken cancellationToken = default)
@@ -115,15 +117,17 @@ namespace ASI.Basecode.Data.Repositories
             return Task.CompletedTask;
         }
 
-        public bool UserHasMemberProfile(int userId)
+        public Task<bool> UserHasMemberProfileAsync(int userId, CancellationToken cancellationToken = default)
         {
-            return this.GetDbSet<Member>().Any(m => m.UserId == userId);
+            return this.GetDbSet<Member>().AnyAsync(member => member.UserId == userId, cancellationToken);
         }
 
-        public bool StudentNumberExists(string studentNumber, int? excludeId = null)
+        public Task<bool> StudentNumberExistsAsync(string studentNumber, int? excludeId = null, CancellationToken cancellationToken = default)
         {
-            return this.GetDbSet<Member>().Any(m => m.StudentNumber == studentNumber &&
-                                                     (!excludeId.HasValue || m.MemberId != excludeId.Value));
+            return this.GetDbSet<Member>().AnyAsync(
+                member => member.StudentNumber == studentNumber
+                          && (!excludeId.HasValue || member.MemberId != excludeId.Value),
+                cancellationToken);
         }
     }
 }

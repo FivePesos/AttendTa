@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using ASI.Basecode.Data.Interfaces;
+using ASI.Basecode.Data.Queries;
 using ASI.Basecode.Resources;
 using ASI.Basecode.Resources.Constants;
 using ASI.Basecode.Services.Interfaces;
@@ -45,7 +46,7 @@ public sealed class AttendanceInvalidationService(
         var actorUserId = ManagementActorGuard.RequireUserId(actor);
 
         // Discovery outside the transaction; every fact is re-read after the locks are taken.
-        var identity = await registrations.DiscoverReviewAsync(registrationId, cancellationToken);
+        var identity = await registrations.DiscoverIdentityAsync(registrationId, cancellationToken);
         if (identity is null || identity.EventId != eventId)
         {
             throw new DomainException(OutcomeCode.NotFound, NotFoundMessage);
@@ -61,7 +62,7 @@ public sealed class AttendanceInvalidationService(
         int registrationId,
         string reason,
         int actorUserId,
-        RegistrationReviewIdentity identity,
+        RegistrationIdentity identity,
         CancellationToken cancellationToken)
     {
         // AD-4 lock order: the participant's users row, then the event, then the attendance row.
@@ -93,7 +94,7 @@ public sealed class AttendanceInvalidationService(
         }
 
         // A repeat writes nothing, so the first reason and its audit entry survive.
-        if (row.InvalidatedAt is not null)
+        if (!ParticipationFacts.IsValidAttendance(row))
         {
             throw new DomainException(OutcomeCode.Invalid, AlreadyInvalidatedMessage);
         }

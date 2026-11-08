@@ -1,5 +1,4 @@
 using System.Net;
-using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using ASI.Basecode.Data;
 using ASI.Basecode.Data.Interfaces;
@@ -10,7 +9,6 @@ using ASI.Basecode.Resources;
 using ASI.Basecode.Resources.Constants;
 using ASI.Basecode.Services.Interfaces;
 using ASI.Basecode.Services.Services;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -265,36 +263,30 @@ public sealed class AdminMembershipDeactivationTests : IClassFixture<SqlServerDa
     }
 
     [Fact]
-    public async Task DemoSwitchOnUsesTheRealCommandAndShowsTheInactiveBadge()
+    public async Task DeactivationThroughTheEndpointUsesTheRealCommandAndShowsTheInactiveBadge()
     {
         var ct = TestContext.Current.CancellationToken;
-        var actor = await SeedUserAsync(RoleCode.Admin, "demo-deactivate-actor", ct);
-        var target = await SeedUserAsync(RoleCode.Member, "demo-deactivate-target", ct);
+        var actor = await SeedUserAsync(RoleCode.Admin, "deactivate-actor", ct);
+        var target = await SeedUserAsync(RoleCode.Member, "deactivate-target", ct);
         var member = await MemberEventTestSupport.SeedMemberAsync(fixture.ConnectionString, target.Id, MembershipStatusCode.Active, ct);
         var (typeId, venueId) = await MemberEventTestSupport.SeedReferencesAsync(fixture.ConnectionString, actor.Id, ct);
 
         var start = new DateTime(2099, 8, 1, 0, 0, 0, DateTimeKind.Utc);
         var eventItem = await MemberEventTestSupport.SeedEventAsync(fixture.ConnectionString, actor.Id, typeId, venueId,
-            EventStatusCode.Published, start, start.AddDays(-1), 20, null, "Demo Deactivation Event", ct);
+            EventStatusCode.Published, start, start.AddDays(-1), 20, null, "Deactivation Event", ct);
         var registration = await MemberEventTestSupport.SeedRegistrationAsync(fixture.ConnectionString, eventItem.EventId, member.MemberId, RegistrationStatusCode.Confirmed, actor.Id, ct);
         await SetQrTokenAsync(registration.RegistrationId, new string('d', 64), ct);
 
-        using var demoFactory = new AttendTaWebApplicationFactory(fixture.ConnectionString);
-        using var demoHost = demoFactory.WithWebHostBuilder(builder =>
-        {
-            builder.UseSetting("DemoData:Enabled", "true");
-            builder.UseSetting("DemoData:TokenKey", Convert.ToHexString(RandomNumberGenerator.GetBytes(32)));
-            builder.UseSetting("DemoData:AllowDatabase", fixture.DatabaseName);
-        });
-        using var demoClient = CreateClient(demoHost);
+        using var factory = new AttendTaWebApplicationFactory(fixture.ConnectionString);
+        using var client = CreateClient(factory);
 
-        using (var scope = demoHost.Services.CreateScope())
+        using (var scope = factory.Services.CreateScope())
         {
             Assert.IsType<MembershipAccessService>(scope.ServiceProvider.GetRequiredService<IMembershipAccessCommands>());
         }
 
-        await MemberEventTestSupport.SignInAsync(demoClient, actor.UserId, password, ct);
-        using (var response = await DeactivateThroughEndpointAsync(demoClient, member.MemberId, "Demo switch deactivation.", ct))
+        await MemberEventTestSupport.SignInAsync(client, actor.UserId, password, ct);
+        using (var response = await DeactivateThroughEndpointAsync(client, member.MemberId, "Deactivation through the endpoint.", ct))
         {
             Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
         }
@@ -313,7 +305,7 @@ public sealed class AdminMembershipDeactivationTests : IClassFixture<SqlServerDa
             Assert.Null(registrationAfter.QrToken);
         }
 
-        var page = await demoClient.GetStringAsync($"/Member?search={Uri.EscapeDataString(member.StudentNumber)}", ct);
+        var page = await client.GetStringAsync($"/Member?search={Uri.EscapeDataString(member.StudentNumber)}", ct);
         var row = MemberRow(page, member.MemberId);
         Assert.Contains("badge-inactive", row, StringComparison.Ordinal);
         Assert.Contains(">Inactive<", row, StringComparison.Ordinal);

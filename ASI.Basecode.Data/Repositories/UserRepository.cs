@@ -3,8 +3,9 @@ using ASI.Basecode.Data.Models;
 using ASI.Basecode.Data.Models.Lookups;
 using Basecode.Data.Repositories;
 using Microsoft.EntityFrameworkCore;
-using System.Linq;
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -17,9 +18,9 @@ namespace ASI.Basecode.Data.Repositories
 
         }
 
-        public IQueryable<User> GetUsers()
+        public async Task<IReadOnlyList<User>> GetUsersAsync(CancellationToken cancellationToken = default)
         {
-            return this.GetDbSet<User>();
+            return await this.GetDbSet<User>().ToListAsync(cancellationToken);
         }
 
         public Task<User> GetByEmailAsync(string email, CancellationToken cancellationToken = default)
