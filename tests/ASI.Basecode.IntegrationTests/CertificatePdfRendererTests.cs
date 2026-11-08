@@ -9,7 +9,6 @@ using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Options;
 using System.Diagnostics;
@@ -217,19 +216,12 @@ public sealed class CertificatePdfRendererTests(SqlServerDatabaseFixture fixture
     private static AttendTaWebApplicationFactory CreateFactory(
         string connectionString,
         string environmentName,
-        ICertificatePdfRenderer? renderer = null,
         Action<CertificateSignatoryOptions>? configureSignatoryOptions = null)
     {
         var factory = new AttendTaWebApplicationFactory(connectionString, environmentName: environmentName)
         {
             ConfigureServicesForTesting = services =>
             {
-                if (renderer is not null)
-                {
-                    services.RemoveAll<ICertificatePdfRenderer>();
-                    services.AddSingleton<ICertificatePdfRenderer>(renderer);
-                }
-
                 if (configureSignatoryOptions is not null)
                 {
                     services.PostConfigure(configureSignatoryOptions);
