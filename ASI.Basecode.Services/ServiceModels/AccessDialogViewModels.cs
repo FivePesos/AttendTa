@@ -24,7 +24,7 @@ public sealed class AccountAccessViewModel
     public string RoleLabel { get; init; }
 
     /// <summary>The account's real <c>users.is_active</c> state, set when the dialog is composed.</summary>
-    public bool IsActive { get; set; }
+    public bool IsActive { get; init; }
 
     /// <summary>True when this active Administrator is the only active Administrator.</summary>
     public bool IsLastActiveAdministrator { get; init; }
@@ -32,8 +32,6 @@ public sealed class AccountAccessViewModel
     /// <summary>The real upcoming registrations a deactivation would cancel.</summary>
     public IReadOnlyList<UpcomingRegistrationPreview> AffectedRegistrations { get; init; } =
         Array.Empty<UpcomingRegistrationPreview>();
-
-    public static AccountAccessViewModel Empty(int accountId = 0) => new() { AccountId = accountId };
 
     public static AccountAccessViewModel For(AccountSummaryViewModel account) => new()
     {
@@ -63,14 +61,12 @@ public sealed class MembershipAccessViewModel
 
     public string StudentNumber { get; init; }
 
-    /// <summary>Settable so the demo overlay can show the state a command changed (register rule 7).</summary>
-    public bool IsActive { get; set; }
+    /// <summary>The member's real membership status, set when the dialog is composed.</summary>
+    public bool IsActive { get; init; }
 
     /// <summary>The real upcoming registrations a deactivation would affect.</summary>
     public IReadOnlyList<UpcomingRegistrationPreview> AffectedRegistrations { get; init; } =
         Array.Empty<UpcomingRegistrationPreview>();
-
-    public static MembershipAccessViewModel Empty(int memberId = 0) => new() { MemberId = memberId };
 
     public static MembershipAccessViewModel For(MemberViewModel member) => new()
     {

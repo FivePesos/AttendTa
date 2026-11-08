@@ -39,6 +39,8 @@ public sealed class AccessDialogService : IAccessDialogService
         }
 
         var isAdministrator = string.Equals(account.RoleCode, RoleCodes.Admin, StringComparison.Ordinal);
+        // Best-effort display read: the count is not taken under the last-administrator lock, so it
+        // can be stale. The write path re-checks it under the lock before a demotion or deactivation.
         var isLastActiveAdministrator = account.IsActive
             && isAdministrator
             && await _accountAdministrationRepository.CountActiveAdministratorsAsync(cancellationToken) <= 1;

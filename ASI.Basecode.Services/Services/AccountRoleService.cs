@@ -17,8 +17,6 @@ namespace ASI.Basecode.Services.Services;
 /// </summary>
 public sealed class AccountRoleService : IAccountRoleService
 {
-    private const int ReasonMaxLength = 1000;
-
     private readonly IAccountAdministrationRepository _accountAdministrationRepository;
     private readonly IUserRepository _userRepository;
     private readonly IUnitOfWork _unitOfWork;
@@ -45,7 +43,7 @@ public sealed class AccountRoleService : IAccountRoleService
     /// <inheritdoc />
     public async Task<ChangeAccountRoleViewModel> GetRoleChangeAsync(int accountId, CancellationToken cancellationToken = default)
     {
-        RequireAdministratorActor();
+        AdministrationCommandGuards.RequireAdministrator(_currentActor);
 
         var account = await _accountAdministrationRepository.GetAccountAsync(accountId, cancellationToken);
         if (account is null)
@@ -72,9 +70,9 @@ public sealed class AccountRoleService : IAccountRoleService
     {
         ArgumentNullException.ThrowIfNull(model);
 
-        var actorUserId = RequireAdministratorActor();
+        var actorUserId = AdministrationCommandGuards.RequireAdministrator(_currentActor);
         var requestedRole = RequiredRole(model.RoleCode);
-        var reason = RequiredReason(model.Reason);
+        var reason = AdministrationCommandGuards.RequiredReason(model.Reason, nameof(ChangeAccountRoleViewModel.Reason));
 
         await _unitOfWork.ExecuteInTransactionAsync(async ct =>
         {
@@ -156,47 +154,6 @@ public sealed class AccountRoleService : IAccountRoleService
             RoleCodes.Admin => RoleCode.Admin,
             _ => throw new DomainException(OutcomeCode.Invalid, "Select a valid role.", nameof(ChangeAccountRoleViewModel.RoleCode))
         };
-
-    private static string RequiredReason(string reason)
-    {
-        var normalized = reason?.Trim();
-        if (string.IsNullOrWhiteSpace(normalized))
-        {
-            throw new DomainException(OutcomeCode.Invalid, "A reason is required.", nameof(ChangeAccountRoleViewModel.Reason));
-        }
-
-        if (normalized.Length > ReasonMaxLength)
-        {
-            throw new DomainException(OutcomeCode.Invalid, "The reason must be 1000 characters or fewer.", nameof(ChangeAccountRoleViewModel.Reason));
-        }
-
-        return normalized;
-    }
-
-    private int RequireAdministratorActor()
-    {
-        if (!_currentActor.IsAuthenticated)
-        {
-            throw new DomainException(OutcomeCode.Forbidden, "Access denied.");
-        }
-
-        int userId;
-        try
-        {
-            userId = _currentActor.UserId;
-        }
-        catch (InvalidOperationException)
-        {
-            throw new DomainException(OutcomeCode.Forbidden, "Access denied.");
-        }
-
-        if (userId <= 0 || !string.Equals(_currentActor.Role, RoleCodes.Admin, StringComparison.Ordinal))
-        {
-            throw new DomainException(OutcomeCode.Forbidden, "Access denied.");
-        }
-
-        return userId;
-    }
 
     private sealed record RoleAuditValues(string RoleCode) : IAuditValues;
 }
