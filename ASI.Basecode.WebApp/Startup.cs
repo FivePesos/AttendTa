@@ -1,6 +1,7 @@
 ﻿using ASI.Basecode.Data;
 using ASI.Basecode.WebApp.DemoData;
 using ASI.Basecode.WebApp.Extensions.Configuration;
+using ASI.Basecode.WebApp.Hotspot;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting;
@@ -143,7 +144,17 @@ namespace ASI.Basecode.WebApp
                 }
             });
 
-            this._app.UseHttpsRedirection();
+            // PLAIN ENGLISH: In hotspot mode the phone must use HTTPS, but the laptop's own
+            // readiness check still uses HTTP. We skip the automatic HTTP-to-HTTPS redirect so that
+            // check keeps working.
+            // Hotspot mode serves HTTPS directly on the hotspot adapter IP. Redirecting the loopback
+            // HTTP readiness endpoint would present a certificate that may not name 127.0.0.1, so
+            // the redirect stays off while hotspot HTTPS is on.
+            if (!HotspotHttpsOptions.FromConfiguration(this.Configuration).Enabled)
+            {
+                this._app.UseHttpsRedirection();
+            }
+
             this._app.UseStaticFiles();
 
             // Localization

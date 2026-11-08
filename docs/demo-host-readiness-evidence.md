@@ -41,7 +41,11 @@ Never paste connection strings, passwords, hashes, API keys, or unredacted logs 
 | 7 | Localhost login | App running under the service identity returns HTTP 200 for `http://127.0.0.1:<port>/Account/Login` without following redirects | BLOCKED | App not running on a demo host |
 | 8 | Argon2 benchmark | `--hash-password-env` elapsed milliseconds recorded with `m=19456 KiB, t=2, p=1`; disposable secret and hash discarded | BLOCKED | Built app not deployed; benchmark not run |
 | 9 | Runtime and secrets | Service environment protected; runtime identity matches the check; setup secrets cleared after use | BLOCKED | No service identity or protected environment configured |
-| 10 | Host/address/certificate decision | Named owner records the host, bind address, and certificate approach; phone scanning remains story 8.2 | BLOCKED | Decision owner not named |
+| 10 | Host/address/certificate decision | Named owner records the host, bind address, and certificate approach; phone scanning remains story 8.2 | BLOCKED | Decision owner not named; mechanism recorded in `docs/hotspot-https.md` (local root CA, direct Kestrel HTTPS on the hotspot adapter IP, HTTP loopback for readiness); real host address, certificate and phone evidence still missing |
+
+The Q2 mechanism is recorded in `docs/hotspot-https.md` with its dated checklist in
+`docs/hotspot-https-evidence.md`. The host address, certificate thumbprints and phone scan results
+remain `BLOCKED` until a real host run exists; a recorded mechanism is not host evidence.
 
 ## Disconnected run
 

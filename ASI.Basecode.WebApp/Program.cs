@@ -7,6 +7,7 @@ using ASI.Basecode.Services.Security;
 using ASI.Basecode.WebApp;
 using ASI.Basecode.WebApp.DemoData;
 using ASI.Basecode.WebApp.Extensions.Configuration;
+using ASI.Basecode.WebApp.Hotspot;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
@@ -56,6 +57,11 @@ if (hashPasswordIndex >= 0)
     return 0;
 }
 
+if (Array.IndexOf(args, HotspotCertificateCommand.Argument) >= 0)
+{
+    return HotspotCertificateCommand.Run(args, Console.Out, Console.Error);
+}
+
 var appBuilder = WebApplication.CreateBuilder(args);
 
 var demoPassTokenIndex = Array.IndexOf(args, DemoPassTokenArgument);
@@ -81,7 +87,25 @@ if (demoPassTokenIndex >= 0)
     return 0;
 }
 
-appBuilder.WebHost.UseIISIntegration();
+// PLAIN ENGLISH: The next block is optional. When the demo host turns on "Hotspot" mode, the app
+// serves HTTPS on the hotspot address so phones can use the camera. When it is off (the normal
+// development case), the app starts exactly as before.
+// Hotspot mode binds HTTPS directly on the hotspot adapter IP and keeps HTTP on 127.0.0.1 for
+// the readiness check. It is off unless the host enables it, so the default startup is unchanged.
+HotspotHttpsOptions hotspotOptions;
+try
+{
+    hotspotOptions = HotspotHttpsOptions.FromConfiguration(appBuilder.Configuration);
+    if (hotspotOptions.Enabled)
+    {
+        HotspotHttps.Apply(appBuilder.WebHost, hotspotOptions);
+    }
+}
+catch (InvalidOperationException exception)
+{
+    Console.Error.WriteLine(exception.Message);
+    return 1;
+}
 
 appBuilder.Logging
     .AddConfiguration(appBuilder.Configuration.GetLoggingSection())
