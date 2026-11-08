@@ -133,8 +133,9 @@ scenario seed. If the app refuses to start, read the stderr reason: the database
 
 Confirm the retired development-only surfaces are not reachable. Sign in as an Administrator
 first, then request `/CertificateTracer` (both the page and a POST to `/CertificateTracer/Trace`).
-An authenticated caller gets 404 from both, because no route matches. An anonymous request is
-challenged by the app-wide fallback policy and redirected to `/Account/Login` before routing.
+An authenticated caller gets 404 from both, because no route matches. An anonymous request matches
+no endpoint either, so the app-wide fallback policy challenges it and redirects to
+`/Account/Login`.
 
 ### 2.5 Sign-in accounts
 

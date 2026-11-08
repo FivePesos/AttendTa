@@ -124,3 +124,55 @@ Quick lens, 2026-11-08. Every reported item is listed, including the ones the re
 | 13 | The promoted signatory section's indentation and closing markup | false | — | The reviewer checked the resulting file and found the section renders at the surrounding indentation with the page closing correctly; the six official facts cover it. |
 | 14 | The three issuance fakes compile with only `RenderSnapshotAsync` | false | — | The reviewer confirmed the sibling-class call to `PdfBytes()` resolves and `UnusedPdfRenderer` keeps compiling. |
 | 15 | The follow-up handoff's line-53 rename | false | — | Only that bullet changed, which is the one authorized exception to the no-past-plan-edits rule. |
+
+## Code Review
+
+### 2026-11-08
+
+**Code review complete.** 0 `decision-needed`, 1 `patch`, 0 `defer`, 41 rejected.
+
+- [x] [Review][Patch] demo-script says the anonymous redirect happens "before routing" [_bmad-output/initiative-attendta/demo-script.md:137]
+
+**Rejected**
+
+- R1 `false` — plan matrix, acceptance criterion 2 and the handoff all say an authenticated member gets 404; the older `/Account/AccessDenied` wording lives only in the frozen elicitation record.
+- R2 `low` — the member case is required by the matrix row; removing it would weaken the acceptance criterion.
+- R3 `false` — the plan's verification line states the expected 7 (six official-template facts plus the route fact).
+- R4 `false` — the comment says "before any PDF is produced" and never claims startup validation.
+- R5 `false` — the view file is deleted; git tracks no empty directory.
+- R6 `false` — "promotes it into" names the promotion; the old text never mentioned `temporary` either.
+- R7 `false` — the sentence is scoped to rendering; a seeded row without a retained file is not a rendered certificate.
+- R9 `false` — historical register row; the plan adjudicated the `DemoCertificateDocuments` clause as accurate history.
+- R10 `low` — the handler mutates inside the transaction, so the tracked read is correct; ledger bookkeeping only.
+- R11 `false` — the Code Map names both call sites explicitly.
+- R12 `low` — the comment remains accurate about why the read carries full rows; cosmetic.
+- R13 `low` — the loop keeps its shape; only the attached row type changes.
+- R14 `low` — pre-existing factory shape, not introduced by this change.
+- R15 `low` — plan bookkeeping already adjudicated by triage row 8.
+- R16 `false` — `using System.Text.RegularExpressions;` is at line 20 and the build is clean.
+- R17 `false` — the seeded user carries `RoleCode.Member`; a missing route never reads a member profile.
+- R18 `false` — the controller is deleted from the assembly, so no environment can serve the route.
+- R19 `false` — authorization runs before endpoint filters, so the redirect is the correct observed behaviour.
+- R20 `false` — unchanged behaviour; options validation rejects an unapproved asset path.
+- R21 `false` — `RenderAndPromoteAsync` runs before the transaction, so no committed row can reference an unpromoted file.
+- R22 `false` — defence in depth; no caller reaches it without management.
+- R23 `false` — `CertificateDocument` is the return type of two public interface methods.
+- R24 `false` — six kept plus one added is seven, and the class runs seven.
+- R25 `low` — record inconsistency; both statements are true of their own moment.
+- R26 `false` — duplicate of R9.
+- R27 `false` — issuance keeps its own cleanup at `CertificateLedgerService.cs:249-252` and `:439-452`.
+- R28 `false` — `CertificateLedgerFlowTests` still asserts the AccessDenied redirect for a Management route.
+- R29 `false` — route absence is assembly-level, not environment-gated.
+- R30 `false` — for official renders the removed branch was already the `isDevelopmentSample == false` path.
+- R31 `false` — the comment says exactly that; the asset fails in `ReadPngAssetDataUriAsync`.
+- R32 `false` — the route fact asserts 404 for GET and POST for both authenticated callers, and passes.
+- R33 `false` — an authenticated member satisfies the fallback policy, so routing yields 404; the fact measures it.
+- R34 `false` — frozen elicitation record; the decision log records the correction.
+- R35 `low` — verification observation; the intent defers the full regression to 8.4.
+- R36 `low` — the plan runs the greps; automating symbol absence is more than a direct correction.
+- R37 `low` — tracking state has no observable consumer.
+- R38 `false` — identical to the official branch (same as R30).
+- R39 `false` — class granularity is the plan's chosen check and stays inside "focused".
+- R40 `low` — the intent text carries the deferral to 8.4.
+- R41 `false` — the template is a PDF render artefact, not an app screen.
+- R42 `low` — the code contains both fixes; the log records the verdict.
