@@ -37,6 +37,12 @@ public static class ParticipationFacts
         attendance is not null && IsValidAttendance(attendance.InvalidatedAt);
 
     /// <summary>
+    /// The named negation of <see cref="IsValidAttendance(DateTime?)"/>, for a caller whose own
+    /// property is "invalidated". Defined in terms of the rule, so the two cannot drift.
+    /// </summary>
+    public static bool IsInvalidated(DateTime? invalidatedAt) => !IsValidAttendance(invalidatedAt);
+
+    /// <summary>
     /// The one "open registration" rule: a registration that still competes for a seat. Cancellation
     /// and the member's own cancel action use this instead of repeating the status list.
     /// </summary>

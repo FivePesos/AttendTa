@@ -86,15 +86,14 @@ public sealed class ParticipationFactsTests
         var now = new DateTime(2026, 3, 1, 12, 0, 0, DateTimeKind.Utc);
         var seatHeld = ParticipationFacts.SeatHeld.Compile();
         var validAttendance = ParticipationFacts.ValidAttendance.Compile();
+        var openRegistration = ParticipationFacts.OpenRegistration.Compile();
 
         foreach (var status in Enum.GetValues<RegistrationStatusCode>())
         {
             var registration = new Registration { RegistrationStatusId = status };
             Assert.Equal(seatHeld(registration), ParticipationFacts.HoldsSeat(status));
             Assert.Equal(seatHeld(registration), ParticipationFacts.HoldsSeat(registration));
-            Assert.Equal(
-                status is RegistrationStatusCode.Pending or RegistrationStatusCode.Confirmed or RegistrationStatusCode.Waitlisted,
-                ParticipationFacts.IsOpenRegistration(status));
+            Assert.Equal(openRegistration(registration), ParticipationFacts.IsOpenRegistration(status));
         }
 
         foreach (var invalidatedAt in new DateTime?[] { null, now })
@@ -102,6 +101,7 @@ public sealed class ParticipationFactsTests
             var attendance = new Attendance { InvalidatedAt = invalidatedAt };
             Assert.Equal(validAttendance(attendance), ParticipationFacts.IsValidAttendance(invalidatedAt));
             Assert.Equal(validAttendance(attendance), ParticipationFacts.IsValidAttendance(attendance));
+            Assert.Equal(!validAttendance(attendance), ParticipationFacts.IsInvalidated(invalidatedAt));
         }
 
         Assert.False(ParticipationFacts.IsValidAttendance((Attendance)null!));

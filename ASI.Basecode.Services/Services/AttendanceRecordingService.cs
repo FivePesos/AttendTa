@@ -166,7 +166,7 @@ public sealed class AttendanceRecordingService(
         if (current is not null)
         {
             // The refusal checks above win over the repeat: an invalidated row is never a repeat.
-            if (!ParticipationFacts.IsValidAttendance(current))
+            if (ParticipationFacts.IsInvalidated(current.InvalidatedAt))
             {
                 return AttendanceRecordingResult.Invalid(InvalidatedMessage);
             }

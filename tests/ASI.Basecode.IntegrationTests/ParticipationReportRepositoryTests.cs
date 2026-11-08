@@ -100,17 +100,15 @@ public sealed class ParticipationReportRepositoryTests(SqlServerDatabaseFixture 
         Assert.Equal(1, snapshot.Count(row => row.Status == RegistrationStatusCode.Waitlisted));
         Assert.Equal(1, snapshot.Count(row => row.Status == RegistrationStatusCode.Cancelled));
 
-        // The invalidated check-in keeps its recorded time and is flagged by the invalidation time.
+        // The invalidated check-in keeps its recorded time and carries its invalidation time.
         var invalidatedRow = snapshot.Single(row => row.RegistrationId == invalidated.RegistrationId);
         Assert.NotNull(invalidatedRow.CheckedInAt);
         Assert.NotNull(invalidatedRow.InvalidatedAt);
-        Assert.True(invalidatedRow.IsAttendanceInvalidated);
 
         // A never-checked-in row has no attendance facts at all.
         var absentRow = snapshot.Single(row => row.RegistrationId == neverCheckedIn.RegistrationId);
         Assert.Null(absentRow.CheckedInAt);
         Assert.Null(absentRow.InvalidatedAt);
-        Assert.False(absentRow.IsAttendanceInvalidated);
 
         // The inactive member's valid attendance is still in the snapshot: the read never joins the
         // active-account or active-membership flags.
@@ -272,16 +270,17 @@ public sealed class ParticipationReportRepositoryTests(SqlServerDatabaseFixture 
         Assert.Equal(members[1].StudentNumber, lastRow.StudentNumber);
         Assert.Equal(2, lastRow.YearLevel);
 
-        // The invalidated row is flagged, a valid row is not, and an absent row has no check-in time.
+        // The invalidated row carries its invalidation time, a valid row does not, and an absent row
+        // has no check-in time and no invalidation time.
         var invalidatedRow = snapshot.Single(row => row.RegistrationId == registrations[1].RegistrationId);
-        Assert.True(invalidatedRow.IsAttendanceInvalidated);
+        Assert.NotNull(invalidatedRow.InvalidatedAt);
         Assert.NotNull(invalidatedRow.CheckedInAt);
         var validRow = snapshot.Single(row => row.RegistrationId == registrations[2].RegistrationId);
-        Assert.False(validRow.IsAttendanceInvalidated);
+        Assert.Null(validRow.InvalidatedAt);
         Assert.NotNull(validRow.CheckedInAt);
         var absentRow = snapshot.Single(row => row.RegistrationId == registrations[5].RegistrationId);
         Assert.Null(absentRow.CheckedInAt);
-        Assert.False(absentRow.IsAttendanceInvalidated);
+        Assert.Null(absentRow.InvalidatedAt);
     }
 
     private AsiBasecodeDBContext Context() => new(

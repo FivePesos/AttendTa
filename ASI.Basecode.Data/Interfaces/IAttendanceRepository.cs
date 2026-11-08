@@ -70,7 +70,4 @@ public sealed record MyAttendanceRow(
     DateTime RecordedAt,
     CheckInMethodCode CheckInMethod,
     DateTime? InvalidatedAt,
-    string InvalidationReason)
-{
-    public bool IsValid => ParticipationFacts.IsValidAttendance(InvalidatedAt);
-}
+    string InvalidationReason);

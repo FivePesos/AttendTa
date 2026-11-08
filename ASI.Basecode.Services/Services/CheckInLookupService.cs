@@ -63,7 +63,7 @@ public sealed class CheckInLookupService(
                     MemberName = row.MemberName,
                     StudentNumber = row.StudentNumber,
                     IsCheckedIn = row.HasAttendance && ParticipationFacts.IsValidAttendance(row.InvalidatedAt),
-                    IsInvalidated = !ParticipationFacts.IsValidAttendance(row.InvalidatedAt)
+                    IsInvalidated = ParticipationFacts.IsInvalidated(row.InvalidatedAt)
                 })
                 .ToList(),
             PageNumber = page,

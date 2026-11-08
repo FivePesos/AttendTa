@@ -94,7 +94,7 @@ public sealed class AttendanceInvalidationService(
         }
 
         // A repeat writes nothing, so the first reason and its audit entry survive.
-        if (!ParticipationFacts.IsValidAttendance(row))
+        if (ParticipationFacts.IsInvalidated(row.InvalidatedAt))
         {
             throw new DomainException(OutcomeCode.Invalid, AlreadyInvalidatedMessage);
         }

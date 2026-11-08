@@ -282,8 +282,8 @@ public sealed class RegistrationRepository : BaseRepository, IRegistrationReposi
         // The status filter runs in SQL, so every returned row is already open; no in-memory re-filter
         // is needed after the tracked refresh.
         var ids = await GetDbSet<Registration>().AsNoTracking()
-            .Where(registration => registration.EventId == eventId
-                && registration.RegistrationStatusId != RegistrationStatusCode.Cancelled)
+            .Where(ParticipationFacts.OpenRegistration)
+            .Where(registration => registration.EventId == eventId)
             .OrderBy(registration => registration.RegistrationId)
             .Select(registration => registration.RegistrationId)
             .ToListAsync(cancellationToken);
@@ -298,9 +298,9 @@ public sealed class RegistrationRepository : BaseRepository, IRegistrationReposi
     }
 
     public async Task<IReadOnlyList<int>> DiscoverOpenEventIdsForUserAsync(int userId, CancellationToken cancellationToken = default) =>
-        await (from r in GetDbSet<Registration>().AsNoTracking()
+        await (from r in GetDbSet<Registration>().AsNoTracking().Where(ParticipationFacts.OpenRegistration)
                join m in GetDbSet<Member>().AsNoTracking() on r.MemberId equals m.MemberId
-               where m.UserId == userId && r.RegistrationStatusId != RegistrationStatusCode.Cancelled
+               where m.UserId == userId
                select r.EventId).Distinct().ToListAsync(cancellationToken);
 
     public async Task<IReadOnlyList<UpcomingRegistrationRow>> GetUpcomingForUserAsync(int userId, DateTime nowUtc, int? eventId = null, CancellationToken cancellationToken = default)

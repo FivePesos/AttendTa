@@ -38,8 +38,4 @@ public sealed record ParticipationReportDetailRow(
     int YearLevel,
     RegistrationStatusCode Status,
     DateTime? CheckedInAt,
-    DateTime? InvalidatedAt)
-{
-    /// <summary>True when the registration carries an attendance row that was invalidated.</summary>
-    public bool IsAttendanceInvalidated => !ParticipationFacts.IsValidAttendance(InvalidatedAt);
-}
+    DateTime? InvalidatedAt);
