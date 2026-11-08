@@ -227,10 +227,12 @@ public sealed class CertificateReviewDecisionTests(SqlServerDatabaseFixture fixt
 
         // M-12 is removed by 6.9: the demo registration no longer touches either certificate
         // contract, so no demo provider can replace the real ones with the switch on or off.
-        Assert.DoesNotContain(typeof(ICertificateLedgerService).Assembly.GetTypes(), type =>
+        // The scan has to look in the WebApp assembly, where the demo namespace lives.
+        var demoTypes = typeof(DemoDataRegistration).Assembly.GetTypes();
+        Assert.DoesNotContain(demoTypes, type =>
             type.Namespace == typeof(DemoDataRegistration).Namespace
             && typeof(ICertificateLedgerService).IsAssignableFrom(type));
-        Assert.DoesNotContain(typeof(IMyCertificatesService).Assembly.GetTypes(), type =>
+        Assert.DoesNotContain(demoTypes, type =>
             type.Namespace == typeof(DemoDataRegistration).Namespace
             && typeof(IMyCertificatesService).IsAssignableFrom(type));
     }

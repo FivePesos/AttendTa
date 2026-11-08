@@ -68,6 +68,8 @@ public sealed class MyCertificatesService(
 
             rows.Add(new MyEventCertificateRowViewModel
             {
+                // The row's CertificateId is the registration id, not certificates.certificate_id:
+                // it is the route value the PDF read expects, and the ledger resolves the row from it.
                 CertificateId = registration.RegistrationId,
                 EventId = eventItem.EventId,
                 EventTitle = review?.EventTitleSnapshot ?? eventItem.Title,
