@@ -25,7 +25,6 @@ public sealed class CheckInService(
 {
     private const string BlankTokenMessage = "Scan or enter a pass code to check in.";
     private const string InvalidPassMessage = "This pass is not valid for this event.";
-    private const string EventClosedMessage = "Check-in is not available for this event.";
     private const string WindowClosedMessage = "Check-in is closed for this event. Open it before scanning.";
 
     public async Task<CheckInScreenViewModel> GetScreenAsync(int? eventId, CancellationToken cancellationToken = default)
@@ -60,7 +59,6 @@ public sealed class CheckInService(
             EventId = selected.EventId,
             EventTitle = selected.Title,
             IsCheckInOpen = selected.IsCheckInOpen,
-            CanChangeWindow = true,
             RecentResults = await RecentResultsAsync(selected.EventId, cancellationToken)
         };
     }
@@ -74,15 +72,9 @@ public sealed class CheckInService(
         }
 
         // A draft, cancelled or completed event never matches the published read.
-        var eventItem = await events.GetPublishedEventAsync(eventId, cancellationToken);
-        if (eventItem == null)
+        if (await CheckInWindowGuard.ClosedOutcomeAsync(events, eventId, WindowClosedMessage, cancellationToken) is { } closed)
         {
-            return CheckInOutcomeViewModel.ClosedResult(EventClosedMessage);
-        }
-
-        if (!eventItem.IsCheckInOpen)
-        {
-            return CheckInOutcomeViewModel.ClosedResult(WindowClosedMessage);
+            return closed;
         }
 
         // The pass PNG encodes the real registrations.qr_token, so the scan matches that stored

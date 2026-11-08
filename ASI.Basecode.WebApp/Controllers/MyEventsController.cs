@@ -43,12 +43,14 @@ public sealed class MyEventsController : ControllerBase<MyEventsController>
 
     [HttpGet]
     [Route("MyEvents/Registrations")]
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
     public async Task<IActionResult> Registrations(int? page, CancellationToken cancellationToken) =>
         View("Index", MyEventsViewModel.FromRegistrations(
             await _myEvents.GetRegistrationsAsync(page, cancellationToken)));
 
     [HttpGet]
     [Route("MyEvents/Attendance")]
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
     public async Task<IActionResult> Attendance(int? page, CancellationToken cancellationToken) =>
         View("Index", MyEventsViewModel.FromAttendance(
             await _myEvents.GetAttendanceAsync(page, cancellationToken)));

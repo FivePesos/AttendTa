@@ -1,7 +1,6 @@
 using ASI.Basecode.Data.Interfaces;
 using ASI.Basecode.Data.Models;
 using ASI.Basecode.Data.Models.Lookups;
-using ASI.Basecode.Data.Queries;
 using Basecode.Data.Repositories;
 using Microsoft.EntityFrameworkCore;
 using System;
@@ -66,19 +65,6 @@ public sealed class AttendanceRepository : BaseRepository, IAttendanceRepository
                           attendance.InvalidationReason,
                           issued.Any(certificate => certificate.RegistrationId == attendance.RegistrationId)))
             .Take(RecentLogLimit)
-            .ToListAsync(cancellationToken);
-    }
-
-    public async Task<IReadOnlyList<int>> GetValidAttendedRegistrationIdsAsync(int eventId, CancellationToken cancellationToken = default)
-    {
-        var validAttendance = ParticipationFacts.ValidAttendances(GetDbSet<Attendance>().AsNoTracking());
-
-        return await (from registration in GetDbSet<Registration>().AsNoTracking()
-                      join attendance in validAttendance on registration.RegistrationId equals attendance.RegistrationId
-                      where registration.EventId == eventId
-                      select registration.RegistrationId)
-            .Distinct()
-            .OrderBy(registrationId => registrationId)
             .ToListAsync(cancellationToken);
     }
 

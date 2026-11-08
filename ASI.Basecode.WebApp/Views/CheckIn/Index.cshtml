@@ -31,11 +31,7 @@ else
             <div>
                 <h2 id="scanner-session-heading">@Model.EventTitle</h2>
                 <p class="muted">
-                    @if (Model.IsCompleted)
-                    {
-                        <span>This event is completed, so check-in is closed.</span>
-                    }
-                    else if (Model.IsCheckInOpen)
+                    @if (Model.IsCheckInOpen)
                     {
                         <span>Check-in is open. Scan a pass or look up a participant.</span>
                     }
@@ -45,7 +41,7 @@ else
                     }
                 </p>
             </div>
-            <partial name="_CheckInControl" model="new CheckInControlViewModel { EventId = Model.EventId.Value, IsCheckInOpen = Model.IsCheckInOpen, CanChange = Model.CanChangeWindow, ReturnUrl = returnUrl }" />
+            <partial name="_CheckInControl" model="new CheckInControlViewModel { EventId = Model.EventId.Value, IsCheckInOpen = Model.IsCheckInOpen, CanChange = true, ReturnUrl = returnUrl }" />
         </div>
     </section>
 

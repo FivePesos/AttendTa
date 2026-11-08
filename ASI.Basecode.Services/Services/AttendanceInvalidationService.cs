@@ -42,7 +42,7 @@ public sealed class AttendanceInvalidationService(
         string reason,
         CancellationToken cancellationToken = default)
     {
-        var actorUserId = RequireManagement();
+        var actorUserId = ManagementActorGuard.RequireUserId(actor);
 
         // Discovery outside the transaction; every fact is re-read after the locks are taken.
         var identity = await registrations.DiscoverReviewAsync(registrationId, cancellationToken);
@@ -122,33 +122,6 @@ public sealed class AttendanceInvalidationService(
             NewValues: new AttendanceInvalidationAuditValues(
                 eventId, registrationId, actorUserId, now, trimmedReason)));
         await unitOfWork.SaveChangesAsync(cancellationToken);
-    }
-
-    private int RequireManagement()
-    {
-        if (!actor.IsAuthenticated)
-        {
-            throw new DomainException(OutcomeCode.Forbidden, "Access denied.");
-        }
-
-        int userId;
-        try
-        {
-            userId = actor.UserId;
-        }
-        catch (InvalidOperationException)
-        {
-            throw new DomainException(OutcomeCode.Forbidden, "Access denied.");
-        }
-
-        if (userId <= 0
-            || (!string.Equals(actor.Role, RoleCodes.Admin, StringComparison.Ordinal)
-                && !string.Equals(actor.Role, RoleCodes.Officer, StringComparison.Ordinal)))
-        {
-            throw new DomainException(OutcomeCode.Forbidden, "Access denied.");
-        }
-
-        return userId;
     }
 
     private sealed record AttendanceInvalidationAuditValues(
