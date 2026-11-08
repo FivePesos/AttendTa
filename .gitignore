@@ -201,4 +201,7 @@ node_modules
 # Local documentation
 docs-local/
 
+# Hotspot certificate output (private keys and PFX files)
+hotspot-certificates/
+
 __pycache__/

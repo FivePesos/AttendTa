@@ -3,8 +3,8 @@
 This is a host-specific procedure, not evidence that a host is ready. Use a dedicated,
 isolated demo machine and SQL Server instance only; never use a shared or production system.
 Do not reset, replace, or reuse an existing database. Stop if `AttendTa_Demo` already exists.
-HTTPS phone trust and backup/restore are separate work. A successful online run is not evidence
-of offline operation.
+Hotspot HTTPS and phone trust are covered by `docs/hotspot-https.md`; backup/restore is separate
+work. A successful online run is not evidence of offline operation.
 
 ## Select and prepare the host
 
@@ -119,6 +119,18 @@ the same settings; the operator must establish that identity and environment equ
 
 Record each result in `docs/demo-host-readiness-evidence.md`. A closed tracking issue is not
 proof that this host passed; only dated, host-specific evidence is.
+
+## Hotspot HTTPS for phone scanning
+
+The Q2 mechanism is a local root CA with a directly bound Kestrel HTTPS listener. HTTP stays on
+`127.0.0.1` for the readiness check; HTTPS binds only the hotspot adapter IP and refuses wildcard
+or loopback addresses. Follow `docs/hotspot-https.md` to generate the certificates, set the
+`Hotspot__*` environment variables, open the firewall for the hotspot subnet only, start the app
+and install the public root CA on each officer phone.
+
+Record the real host, certificate thumbprints, SANs and phone scan results in
+`docs/hotspot-https-evidence.md`. This repository change does not provision a host or prove phone
+scanning; those rows stay `BLOCKED` until a real run is recorded.
 
 ## Benchmark and disconnected evidence
 
