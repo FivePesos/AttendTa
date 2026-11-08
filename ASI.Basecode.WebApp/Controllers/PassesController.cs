@@ -110,7 +110,6 @@ public sealed class PassesController : ControllerBase<PassesController>
                 StudentNumber = pass.StudentNumber,
                 StatusLabel = pass.StatusLabel,
                 AccentClass = pass.AccentClass,
-                GateCode = pass.GateCode,
                 QrImageUrl = Url.Action(nameof(Qr), new { id = pass.RegistrationId }),
                 DownloadUrl = Url.Action(nameof(Qr), new { id = pass.RegistrationId, download = true }),
                 HasPass = true

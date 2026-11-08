@@ -140,8 +140,6 @@ public sealed class PassViewModel
     /// <summary>The visual event accent class for the card's top rule. Decorative only.</summary>
     public string AccentClass { get; init; }
 
-    public string GateCode { get; init; }
-
     /// <summary>The authorized URL of the server-rendered QR PNG.</summary>
     public string QrImageUrl { get; init; }
 

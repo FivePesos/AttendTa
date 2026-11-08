@@ -33,12 +33,6 @@ public interface IAttendanceRepository
     Task<IReadOnlyList<AttendanceLogRow>> GetRecentForEventAsync(int eventId, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Registration ids of the event with Valid Attendance, ordered by registration id. Invalidated
-    /// rows never match.
-    /// </summary>
-    Task<IReadOnlyList<int>> GetValidAttendedRegistrationIdsAsync(int eventId, CancellationToken cancellationToken = default);
-
-    /// <summary>
     /// Counts the actor's attendance rows across events, resolving ownership through
     /// <c>registrations.member_id</c> to <c>members.user_id</c>.
     /// </summary>

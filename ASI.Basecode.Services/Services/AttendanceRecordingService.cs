@@ -46,7 +46,7 @@ public sealed class AttendanceRecordingService(
         CheckInMethodCode method,
         CancellationToken cancellationToken = default)
     {
-        var actorUserId = RequireManagement();
+        var actorUserId = ManagementActorGuard.RequireUserId(actor);
 
         // Discovery outside the transaction; every fact is rechecked after the locks are taken.
         var identity = await registrations.DiscoverReviewAsync(registrationId, cancellationToken);
@@ -212,33 +212,6 @@ public sealed class AttendanceRecordingService(
         var user = await users.GetByIdAsync(userId, cancellationToken);
         var member = await members.GetMemberByUserIdAsync(userId, cancellationToken);
         return (user?.Name, member?.StudentNumber);
-    }
-
-    private int RequireManagement()
-    {
-        if (!actor.IsAuthenticated)
-        {
-            throw new DomainException(OutcomeCode.Forbidden, "Access denied.");
-        }
-
-        int userId;
-        try
-        {
-            userId = actor.UserId;
-        }
-        catch (InvalidOperationException)
-        {
-            throw new DomainException(OutcomeCode.Forbidden, "Access denied.");
-        }
-
-        if (userId <= 0
-            || (!string.Equals(actor.Role, RoleCodes.Admin, StringComparison.Ordinal)
-                && !string.Equals(actor.Role, RoleCodes.Officer, StringComparison.Ordinal)))
-        {
-            throw new DomainException(OutcomeCode.Forbidden, "Access denied.");
-        }
-
-        return userId;
     }
 
     private sealed record AttendanceAuditValues(int EventId, int RegistrationId, int CheckInMethodId, DateTime RecordedAt) : IAuditValues;

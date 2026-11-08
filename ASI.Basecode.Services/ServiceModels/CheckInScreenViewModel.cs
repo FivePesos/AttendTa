@@ -15,8 +15,6 @@ public sealed class CheckInScreenViewModel
     public bool HasEvent => EventId.HasValue;
     public string EventTitle { get; init; }
     public bool IsCheckInOpen { get; init; }
-    public bool IsCompleted { get; init; }
-    public bool CanChangeWindow { get; init; }
 
     /// <summary>Filled by the controller after the screen read when a lookup query is present.</summary>
     public CheckInLookupViewModel Lookup { get; set; } = CheckInLookupViewModel.Empty();

@@ -22,7 +22,6 @@ public sealed class CheckInLookupService(
     IRegistrationRepository registrations,
     IAttendanceRecordingService recording) : ICheckInLookupService
 {
-    private const string EventClosedMessage = "Check-in is not available for this event.";
     private const string WindowClosedMessage = "Check-in is closed for this event. Open it before checking in.";
     private const string NotConfirmedMessage = "This participant is not confirmed for this event.";
 
@@ -78,15 +77,9 @@ public sealed class CheckInLookupService(
         CancellationToken cancellationToken = default)
     {
         // A draft, cancelled or completed event never matches the published read.
-        var eventItem = await events.GetPublishedEventAsync(eventId, cancellationToken);
-        if (eventItem == null)
+        if (await CheckInWindowGuard.ClosedOutcomeAsync(events, eventId, WindowClosedMessage, cancellationToken) is { } closed)
         {
-            return CheckInOutcomeViewModel.ClosedResult(EventClosedMessage);
-        }
-
-        if (!eventItem.IsCheckInOpen)
-        {
-            return CheckInOutcomeViewModel.ClosedResult(WindowClosedMessage);
+            return closed;
         }
 
         // The confirmed read is also the event-match and current-status check: a cancelled
