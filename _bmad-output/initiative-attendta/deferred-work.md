@@ -12,7 +12,8 @@
   evidence: Impeccable critique on 2026-11-06 scored the queue 17/40; decided rows show only "Reviewed" and empty tabs drop the toolbar and column context.
 - source_plan: `_bmad-output/initiative-attendta/tickets/epic-check-in/tickets/story-frontend-member-attendance-history-partial-plan.md`
   summary: Give one demo member enough attendance rows for the Attendance tab's pager to be demonstrable.
-  evidence: `DemoSeedService` checks in at most eight confirmed registrations of the single completed event (`MaxSeededCheckIns = 8`) and a member has one registration per event, so a member's attendance history holds one row and `_Pager` never renders on `/MyEvents/Attendance`. The tab pages correctly for 26+ rows (verified by a temporary integration check), but the demo cannot reach that volume until 4.11's scanner and 4.7's real query supply more records.
+  status: resolved (149791b)
+  evidence: `DemoSeedService` seeded at most eight confirmed registrations of one event (`MaxSeededCheckIns = 8`) and a member has one registration per event, so a member's history held one row and `_Pager` never rendered on `/MyEvents/Attendance`. 8.13 deleted the seed service with the rest of the demo seam, so the demo no longer seeds attendance at all and the concern has no mechanism left; the tab still pages correctly for 26+ rows (verified by a temporary integration check) once real check-ins supply the volume.
 - source_plan: `_bmad-output/initiative-attendta/tickets/epic-participation-reports/tickets/story-event-selector-and-participation-summary-kpis-plan.md`
   summary: Until 7.3 supplies real detail rows, the switch-off report shows its summary KPIs beside the unchanged view's "No registrations"/"No attendee data" empty-state copy.
   status: resolved (04157b3)
@@ -20,7 +21,7 @@
 - source_plan: `_bmad-output/initiative-attendta/tickets/epic-check-in/tickets/story-member-attendance-view-on-my-events-plan.md`
   summary: Seeded demo-store check-ins no longer appear in the member Attendance tab after 4.7; only real SQL attendance does.
   status: resolved (04157b3)
-  evidence: 4.7's approved intent replaced the demo attendance source with the owner-scoped SQL query, so `DemoSeedService`'s in-memory check-ins remained visible on the report overlay (M-13c seam) but not in `/MyEvents/Attendance`. 7.3 removed that overlay, so the report also reads real SQL attendance only and the seeded check-ins feed the certificate ledger alone. A check-in made through the real 4.3 engine does appear. The demo store is removed by 8.13.
+  evidence: 4.7's approved intent replaced the demo attendance source with the owner-scoped SQL query, so `DemoSeedService`'s in-memory check-ins remained visible on the report overlay (M-13c seam) but not in `/MyEvents/Attendance`. 7.3 removed that overlay, so the report also reads real SQL attendance only and the seeded check-ins feed the certificate ledger alone. A check-in made through the real 4.3 engine does appear. The demo store was removed by 8.13 (149791b).
 - source_plan: `_bmad-output/initiative-attendta/tickets/epic-check-in/tickets/story-member-attendance-view-on-my-events-plan.md`
   summary: `MyEventsController.Attendance` (and `Registrations`) lacks the `ResponseCache(NoStore)` attribute that the sibling `Certificates` action carries.
   evidence: `docs/CODING_STANDARDS.md` §5 asks sensitive responses to use the agreed no-store policy, and `Certificates` sets `NoStore = true` while `Attendance` and `Registrations` do not. The gap predates 4.7 and the approved intent freezes the controller action, so it is recorded rather than patched; no cache leak was demonstrated.
@@ -45,8 +46,8 @@
 
 - source_plan: `_bmad-output/initiative-attendta/tickets/epic-certificates/tickets/story-member-certificate-download-links-in-my-events-plan.md`
   summary: `DemoStore.GetPassToken` has no consumer.
-  status: deferred
-  evidence: The instance method was already unreferenced at the plan baseline (e757812); only the static `DerivePassToken` is used, by `Program.cs`. The plan deliberately keeps the pass-token surface for 8.13, so the dead accessor is recorded rather than deleted.
+  status: resolved (149791b)
+  evidence: The instance method was already unreferenced at the plan baseline (e757812); only the static `DerivePassToken` was used, by `Program.cs`. 8.13 deleted `DemoStore` and the `--demo-pass-token` switch with the rest of the demo seam, so the accessor no longer exists.
 
 ## Deferred from: code review of story-member-certificate-download-links-in-my-events-plan (2026-11-08, decisions)
 
