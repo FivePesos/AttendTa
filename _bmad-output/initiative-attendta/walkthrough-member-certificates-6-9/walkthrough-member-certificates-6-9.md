@@ -4,7 +4,7 @@ Target: PR #210, head commit `787fd61` — *feat(certificates): [BMAD 6.9] serve
 
 Ticket: [story-member-certificate-download-links-in-my-events.md](../tickets/epic-certificates/tickets/story-member-certificate-download-links-in-my-events.md) · Plan: [story-member-certificate-download-links-in-my-events-plan.md](../tickets/epic-certificates/tickets/story-member-certificate-download-links-in-my-events-plan.md)
 
-Review status: **In progress — Block 1 (intent) accepted; Block 2 (broad strokes) current.**
+Review status: **In progress — Blocks 1–4 accepted; Block 5 (periphery) current.**
 
 ---
 
@@ -26,7 +26,7 @@ The ticket states the same intent from the delivery side: replace 6.13's demo ce
 
 ## Block 2 — Broad strokes
 
-- [ ] Current · not yet accepted
+- [x] Accepted · unchanged during review
 
 The change swaps the source behind an unchanged contract. The Certificates tab still calls `IMyCertificatesService` through the same controller, row model and partial; what changes is which class answers, and that class now reads the database instead of an in-memory store. Four entry points tell the story in order:
 
@@ -37,16 +37,45 @@ The change swaps the source behind an unchanged contract. The Certificates tab s
 
 ---
 
-## Block 3 — Slices
+## Block 3 — The page query
 
-- [ ] Not yet written · pending
+- [x] Accepted · unchanged during review
 
-<!-- Placeholder: one concern per block, split as the review proceeds (e.g. owner-scoped history query, PDF delegation and member guard, demo removal, DI and records). -->
+`GetPageAsync` walks the actor's own data one event at a time rather than querying certificates directly. Ownership is fixed at the first query: the repository returns the distinct event ids where the member's registration is not cancelled, joining registrations to members on the actor's user id. For each owned event the service reads the event, skips a cancelled one, then reads the actor's own registration for that event and requires it to be confirmed. Only then does it read the certificate row, map its status to a display state, and decide whether a document exists. An Issued row with no retained file is demoted to Unavailable, which is why the seeded row has no link. The rows are ordered by event start descending then registration id descending, and paged at 25.
+
+- [MyCertificatesService.cs](../../../ASI.Basecode.Services/Services/MyCertificatesService.cs#L36) — the owned event ids
+- [RegistrationRepository.cs](../../../ASI.Basecode.Data/Repositories/RegistrationRepository.cs#L32) — the SQL ownership scope
+- [MyCertificatesService.cs](../../../ASI.Basecode.Services/Services/MyCertificatesService.cs#L43) — cancelled event skip
+- [MyCertificatesService.cs](../../../ASI.Basecode.Services/Services/MyCertificatesService.cs#L48) — own confirmed registration
+- [RegistrationRepository.cs](../../../ASI.Basecode.Data/Repositories/RegistrationRepository.cs#L297) — registration joined to the actor
+- [MyCertificatesService.cs](../../../ASI.Basecode.Services/Services/MyCertificatesService.cs#L55) — status to state map
+- [MyCertificatesService.cs](../../../ASI.Basecode.Services/Services/MyCertificatesService.cs#L63) — `HasDocument` and the Unavailable demotion
+- [MyCertificatesService.cs](../../../ASI.Basecode.Services/Services/MyCertificatesService.cs#L83) — ordering and paging
 
 ---
 
-## Block 4 — Periphery
+## Block 4 — The PDF read
 
-- [ ] Not yet written · pending
+- [x] Accepted · unchanged during review
 
-<!-- Placeholder: docs, DI registration, register rows, PRODUCT.md, test rewrite. References only, one clause each. -->
+The download path is deliberately thin. `GetPdfAsync` runs the member guard and then hands the id to the certificate ledger, which does the real authorization on every request. The guard refuses an unauthenticated caller, a missing user id and any role other than member. The ledger re-resolves the registration's owner, requires an issued row whose retained key starts with `certificates/`, and refuses a non-owner member. Because the ledger resolves the owner from the id itself, another member's registration id and an unknown id take the same branch and produce the same not-found. The controller maps that not-found to 404 and renders one message for both not-found and forbidden, which is why the two URLs you tried were indistinguishable. The bytes come from the retained file, never from a regeneration.
+
+- [MyCertificatesService.cs](../../../ASI.Basecode.Services/Services/MyCertificatesService.cs#L102) — the delegation
+- [MyCertificatesService.cs](../../../ASI.Basecode.Services/Services/MyCertificatesService.cs#L108) — the member guard
+- [CertificateLedgerService.cs](../../../ASI.Basecode.Services/Services/CertificateLedgerService.cs#L272) — owner-or-management check
+- [CertificateLedgerService.cs](../../../ASI.Basecode.Services/Services/CertificateLedgerService.cs#L488) — issued row with a retained `certificates/` key
+- [CertificateLedgerService.cs](../../../ASI.Basecode.Services/Services/CertificateLedgerService.cs#L514) — retained-file read, missing file is a controlled not-found
+- [MyCertificatesController.cs](../../../ASI.Basecode.WebApp/Controllers/MyCertificatesController.cs#L17) — member-only policy
+- [MyCertificatesController.cs](../../../ASI.Basecode.WebApp/Controllers/MyCertificatesController.cs#L38) — outcome-to-status mapping and the shared message
+
+---
+
+## Block 5 — Periphery
+
+- [ ] Current · not yet accepted
+
+- [PRODUCT.md](../../../PRODUCT.md#L42) — the member certificate line now states the real owner-scoped history and the issued-plus-retained-file rule in both switch states.
+- [demo-mock-register.md](../demo-mock-register.md#L98) — M-12's row is marked removed at `d16feed`.
+- [demo-mock-register.md](../demo-mock-register.md#L488) — the M-12 removal paragraph, store summary and known limits, including that the seeded issued row has no document.
+- [story-member-certificate-download-links-in-my-events-plan.md](../tickets/epic-certificates/tickets/story-member-certificate-download-links-in-my-events-plan.md) — the plan itself, with its Review Triage Log and the Code Review section this session added.
+- [walkthrough-member-certificates-6-9.md](walkthrough-member-certificates-6-9.md) — this narrative, and its [log](walkthrough-member-certificates-6-9-log.md) beside it.

@@ -68,7 +68,7 @@ review_loop_iteration: 0
 - [x] `ASI.Basecode.WebApp/DemoData/DemoSeedService.cs` -- delete the M-12 block and the `DemoStore` field/parameter; relabel the summary and log line -- no document is seeded.
 - [x] `ASI.Basecode.WebApp/DemoData/DemoStore.cs` -- delete the issue dictionary, four methods and `DemoCertificateIssue` -- only the pass token remains.
 - [x] `tests/ASI.Basecode.IntegrationTests/CertificateReviewDecisionTests.cs` -- assert the real ledger and member service resolve -- keeps CI compiling, no new coverage.
-- [x] `_bmad-output/initiative-attendta/demo-mock-register.md` -- M-12 `removed (pending commit)`, removal paragraph, store summary and known limits; a follow-up docs commit fills the short sha -- register rule 11.
+- [x] `_bmad-output/initiative-attendta/demo-mock-register.md` -- M-12 `removed (d16feed)`, removal paragraph, store summary and known limits; the follow-up docs commit filled the short sha -- register rule 11.
 - [x] `PRODUCT.md` -- replace the in-memory/demo clause with the real owner-scoped retained-file behavior -- product truth.
 
 **Acceptance Criteria:**
@@ -147,3 +147,65 @@ pass-token surface intact and no certificate state behind.
 
 **Manual checks:**
 - With `DemoData__Enabled=true`, issue a certificate, open My Events → Certificates as the owner, confirm the Issued row and a 200 PDF; confirm the seeded row shows no link and a non-owner id returns 404.
+
+## Code Review
+
+### 2026-11-08
+
+**Code review complete.** 2 decision-needed, 3 patch, 1 defer, 46 rejected.
+
+- [x] [Review][Defer] An issued certificate with no retained file renders as "Not issued" with its number hidden [ASI.Basecode.Services/Services/MyCertificatesService.cs:63-67] — deferred: the frozen matrix defines this row as Unavailable with no links, and the copy lives in a partial the ticket forbids touching; revisit in 8.5/8.12.
+- [x] [Review][Defer] No test exercises the rendered member certificate surface [tests/] — deferred: the deferral to 8.5 (#78) was approved on 2026-11-08 and the rows were driven manually in the 6.9 walkthrough.
+- [x] [Review][Patch] `CertificateId` carries the registration id with nothing at the assignment saying so [ASI.Basecode.Services/Services/MyCertificatesService.cs:71]
+- [x] [Review][Patch] The rewritten DI test cannot fail and covers only the switch-off host [tests/ASI.Basecode.IntegrationTests/CertificateReviewDecisionTests.cs:230-235]
+- [x] [Review][Patch] The plan's task line still says `removed (pending commit)` while the register records `d16feed` [_bmad-output/initiative-attendta/tickets/epic-certificates/tickets/story-member-certificate-download-links-in-my-events-plan.md:71]
+- [x] [Review][Defer] `DemoStore.GetPassToken` has no consumer [ASI.Basecode.WebApp/DemoData/DemoStore.cs:53] — deferred: pre-existing, already unreferenced at the plan baseline, and the plan deliberately keeps the pass-token surface for 8.13.
+
+**Rejected**
+
+- R1 — low: N+1 reads are bounded by the member's own history and the plan records the trade; a batched query is a rewrite, not a correction.
+- R2 — low: full materialisation before paging shares R1's root cause and reasoning.
+- R4 — false: the row model has no field for the discarded columns and the ticket scopes the change to the existing contract.
+- R5 — false: the partial gates on non-blank notes; showing an officer's note on a pending row is informative and matches the demo provider.
+- R7 — false: the member route is `[Authorize(Policy = Policies.Member)]`, so the ledger's management branch is unreachable from it.
+- R8 — low: the guard duplicates a check with no behavioural difference; the divergence is plan wording.
+- R9 — low: style only; extracting a helper changes no outcome.
+- R10 — low: the catch converts a missing claim into the generic refusal the auth design mandates.
+- R11 — false: cancellation is refused when an issued certificate exists and cancels every registration, so the skipped state is unreachable.
+- R12 — false: same unreachable state as R11.
+- R13 — low: reordering the reads is a micro-optimisation with no result change.
+- R14 — false: the fallback is deliberate and matches the ledger's PDF fallback.
+- R15 — false: no event deletion path exists.
+- R16 — low: cosmetic; the class summary carries the mechanism.
+- R17 — false: the lens found no dead usings.
+- R18 — low: cosmetic wording.
+- R19 — false: the lock guarded the removed dictionary; the remaining surface is a pure static HMAC.
+- R20 — false: both values feed the staged issued row and the class summary explains the missing document.
+- R21 — false: the sentence is about the document read, which is a not-found on both routes.
+- R25 — low: the register records the seeded row's state; adding a clause is cosmetic.
+- R26 — false: `status` describes the build, not the review.
+- R27 — false: the plan is 149 lines and line 112 is the `## Review Triage Log` heading.
+- R29 — false: removed rows name the deleted types by convention (M-11a/M-11b do the same).
+- R30 — false: the sentence is accurate where it sits.
+- R31 — false: the claim is about another member's record and an unknown id, which is exactly what the ledger returns.
+- R32 — false: the controller sets `CertificateHistoryError` and the partial renders an error notice with a retry link.
+- R33 — low: at most 25 tracked rows per request; a no-tracking overload is more than a direct correction.
+- R34 — false: both states are unreachable or already covered by the default arm.
+- R36 — false: same unreachable state as R11.
+- R37 — false: same as R15.
+- R38 — false: issuance is the only writer and always prefixes `certificates/`.
+- R39 — false: duplicate of R1.
+- R40 — false: every repository call receives the token, so cancellation surfaces on the next await.
+- R41 — false: the intended contract.
+- R42 — false: `OnValidatePrincipal` reloads the account on every request and rejects an inactive session.
+- R46 — false: duplicate of R7.
+- R47 — false: the document is deleted and the row is deliberately kept.
+- R48 — false: the lock guarded the removed dictionary only.
+- R49 — false: same unreachable state as R11.
+- R50 — false: the PR body names the new service, the DI registration and the deletions.
+- R52 — false: the issued row needs both values.
+- R56 — false: the import is used by the assertion that must be fixed.
+- R57 — false: historical record of a past review.
+- R58 — false: descriptive observation, no defect claimed.
+- R61 — false: duplicate of R11.
+- R62 — false: observation about emphasis, not a defect.

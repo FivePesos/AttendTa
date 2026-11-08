@@ -40,3 +40,21 @@
 - source_plan: `_bmad-output/initiative-attendta/tickets/epic-events-registration/tickets/story-refactor-sweep-plan.md`
   summary: No findings ledger backs the "concrete deferred findings" that the 3.14 refactor sweep closed.
   evidence: Code review of PR #204 (2026-11-07). None of the eleven findings appears in this file, the epic memlog, or any sibling plan's deferrals; the sweep's own plan is their only enumeration, so closure cannot be checked against a record that predates the change. Recording future findings here is what makes the next sweep verifiable.
+
+## Deferred from: code review of story-member-certificate-download-links-in-my-events-plan (2026-11-08)
+
+- source_plan: `_bmad-output/initiative-attendta/tickets/epic-certificates/tickets/story-member-certificate-download-links-in-my-events-plan.md`
+  summary: `DemoStore.GetPassToken` has no consumer.
+  status: deferred
+  evidence: The instance method was already unreferenced at the plan baseline (e757812); only the static `DerivePassToken` is used, by `Program.cs`. The plan deliberately keeps the pass-token surface for 8.13, so the dead accessor is recorded rather than deleted.
+
+## Deferred from: code review of story-member-certificate-download-links-in-my-events-plan (2026-11-08, decisions)
+
+- source_plan: `_bmad-output/initiative-attendta/tickets/epic-certificates/tickets/story-member-certificate-download-links-in-my-events-plan.md`
+  summary: An issued certificate with no retained file renders as "Not issued" with its number hidden in the member history.
+  status: deferred
+  evidence: The service demotes an Issued row without `file_path` to `Unavailable` and the unchanged partial prints "Not issued" and "No PDF available" while the SQL row holds a real certificate number. Deferred because the frozen matrix defines this row as Unavailable with no links and the copy lives in a partial the ticket forbids touching; revisit in 8.5/8.12.
+- source_plan: `_bmad-output/initiative-attendta/tickets/epic-certificates/tickets/story-member-certificate-download-links-in-my-events-plan.md`
+  summary: No test exercises the rendered member certificate surface.
+  status: deferred
+  evidence: The only behavioural assertion is that the certificate number string appears in the page; the Issued links, unissued rows, issued-without-file row, member-route identical 404 and switch-off tab are unasserted. The deferral to 8.5 (#78) was approved on 2026-11-08 and the rows were driven manually in the 6.9 walkthrough.
