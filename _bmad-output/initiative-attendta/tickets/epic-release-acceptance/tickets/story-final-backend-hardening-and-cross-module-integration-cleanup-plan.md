@@ -189,3 +189,40 @@ Deleted the demo seam (register M-01) and closed the cross-module backend findin
 - `ParticipationFacts` now carries three `IsValidAttendance` overloads (entity, timestamp, flag); callers must pick the matching shape.
 - No Impeccable critique or polish ran: the only Razor change is the Activity Log `<time datetime>` value, which has no visual effect.
 
+## Code Review
+
+### 2026-11-08 (walkthrough, chunk 1 — shared rules)
+
+**Code review complete.** 2 `decision-needed`, 9 `patch`, 0 `defer`, 23 rejected.
+
+- [x] [Review][Patch] `NoShows`/`AttendanceRates` are now test-only, leaving two implementations of the no-show and rate facts — delete the two SQL methods and their test assertions [ASI.Basecode.Data/Queries/ParticipationFacts.cs:155-186]
+- [x] [Review][Patch] `YearBreakdown` always prints `Year N`, a copy change outside the ticket's boundary and inconsistent with `CourseBreakdown` — restore the "Unspecified" branch [ASI.Basecode.Services/Services/ParticipationReportService.cs:176-195]
+- [x] [Review][Patch] The report's derived facts are no longer verified end to end against SQL [tests/ASI.Basecode.IntegrationTests/ParticipationReportRepositoryTests.cs:100-142]
+- [x] [Review][Patch] Nothing pins the in-memory twins to their SQL expressions [tests/ASI.Basecode.Services.Tests/ParticipationFactsTests.cs:20-40]
+- [x] [Review][Patch] The completion handler's new Confirmed-only filter is untested [ASI.Basecode.Data/Repositories/CertificateRepository.cs:30]
+- [x] [Review][Patch] The decision refusal order changed and no test pins it [ASI.Basecode.Services/Services/CertificateLedgerService.cs:307-336]
+- [x] [Review][Patch] The valid-attendance rule is still encoded outside `ParticipationFacts` [ASI.Basecode.Data/Interfaces/IAttendanceRepository.cs:61]
+- [x] [Review][Patch] `IsValidAttendance(bool)` is inverted and unused [ASI.Basecode.Data/Queries/ParticipationFacts.cs:43]
+- [x] [Review][Patch] `IsCertificateEligible`'s optional event lets a caller skip the completion check [ASI.Basecode.Data/Queries/ParticipationFacts.cs:70-80]
+- [x] [Review][Patch] Dead cancelled-event fixture in the report integration test [tests/ASI.Basecode.IntegrationTests/ParticipationReportRepositoryTests.cs:60-97]
+- [x] [Review][Patch] `DetailRow` ignores its `checkedInAt` argument when building the invalidation time [tests/ASI.Basecode.Services.Tests/ParticipationReportServiceTests.cs:351-368]
+
+**Rejected (23):**
+
+- `false` — Unbounded snapshot read: the read's shape is stated in the repository comment and chosen in Design Notes; the trade-off is documented, not overlooked. (R1, R23, R32)
+- `false` — `NoShowCount` can go negative: `IsValidAttendee` requires a Confirmed seat, so attendees are a subset by construction. (R3)
+- `false` — Decide path accepts a null event: no code path deletes an event row and `event_id` is a NOT NULL FK, so the state is unreachable. (R4, R21)
+- `false` — Refusal message mislabels a non-completed event: no pending review can exist on a non-completed event, so the arm is unreachable. (R5, R22, R27)
+- `false` — `GetForUpdateAsync` does not exist: it is defined at `RegistrationRepository.cs:259` and `IRegistrationRepository.cs:79`; chunk artifact. (R7)
+- `false` — Rename is one-sided: complete across the tree, including every fake. (R8, R35)
+- `false` — Certificate test harnesses not updated for the new constructor: the solution builds and the integration suite is 457/457. (R9)
+- `false` — `OpenRegistration`/`IsOpenRegistration` have no callers: three production callers plus the SQL use. (R10, R28)
+- `false` — Completion query documented as equivalent to `IsCertificateEligible`: the doc describes exactly what the query selects, and the query comment explains the any-certificate exclusion. (R13)
+- `false` — `IsValidAttendee`'s comment overstates its provenance: "both facts" refers to seat and attendance validity, both canonical. (R18)
+- `false` — `GetSnapshotAsync` relies on `recorded_at` NOT NULL: the column is `datetime2(3) NOT NULL DEFAULT (SYSUTCDATETIME())`. (R19)
+- `false` — Deleted Data-layer types need a migration note: solution-internal, no external consumer, solution compiles. (R20)
+- `false` — `EventPublicationFlowTests` calls deleted methods: the build is clean and the test now calls the surviving facts. (R24)
+- `false` — Decide path gains an undocumented `Completed` gate: unreachable, so no outcome changes. (R33)
+- `false` — Lock order extended / attendance read unlocked: the event lock is the mutex and invalidation takes the same users-then-event order. (R34)
+- `false` — Report counts now depend on a three-table join: both FKs are NOT NULL, so the row set is provably identical. (R31)
+

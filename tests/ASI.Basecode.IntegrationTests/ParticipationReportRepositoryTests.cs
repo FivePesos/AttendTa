@@ -3,6 +3,7 @@ using ASI.Basecode.Data.Models;
 using ASI.Basecode.Data.Models.Lookups;
 using ASI.Basecode.Data.Queries;
 using ASI.Basecode.Data.Repositories;
+using ASI.Basecode.Services.Services;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
 
@@ -57,8 +58,7 @@ public sealed class ParticipationReportRepositoryTests(SqlServerDatabaseFixture 
         await context.SaveChangesAsync(ct);
 
         var completed = EventItem(completed: true, now, eventType.TypeId, venue.VenueId, actor.Id, suffix);
-        var cancelled = EventItem(completed: false, now, eventType.TypeId, venue.VenueId, actor.Id, suffix);
-        context.Events.AddRange(completed, cancelled);
+        context.Events.Add(completed);
         await context.SaveChangesAsync(ct);
 
         // One member per registration: the schema allows one registration per member/event.
@@ -87,14 +87,6 @@ public sealed class ParticipationReportRepositoryTests(SqlServerDatabaseFixture 
             Attendance(attended.RegistrationId, actor.Id, now),
             Attendance(invalidated.RegistrationId, actor.Id, now, invalidatedAt: now),
             Attendance(inactiveAttended.RegistrationId, actor.Id, now));
-        await context.SaveChangesAsync(ct);
-
-        // Cancelled event: a confirmed row with and without valid attendance.
-        var cancelledAttended = Registration(cancelled.EventId, activeMembers[0].MemberId, RegistrationStatusCode.Confirmed, "BSIT", 1, actor.Id, now);
-        var cancelledNoShow = Registration(cancelled.EventId, inactiveMember.MemberId, RegistrationStatusCode.Confirmed, "BSED", 2, actor.Id, now);
-        context.Registrations.AddRange(cancelledAttended, cancelledNoShow);
-        await context.SaveChangesAsync(ct);
-        context.AttendanceRecords.Add(Attendance(cancelledAttended.RegistrationId, actor.Id, now));
         await context.SaveChangesAsync(ct);
 
         var repository = new ParticipationReportRepository(new UnitOfWork(context));
@@ -139,6 +131,23 @@ public sealed class ParticipationReportRepositoryTests(SqlServerDatabaseFixture 
             && ParticipationFacts.IsValidAttendance(row.InvalidatedAt));
         Assert.Equal(2, validAttendees);
         Assert.Equal(2, snapshot.Count(row => ParticipationFacts.HoldsSeat(row.Status)) - validAttendees);
+
+        // The service derives every panel from that one snapshot, so the composed read is exercised
+        // against real SQL rather than a fake.
+        var service = new ParticipationReportService(new EventRepository(new UnitOfWork(context)), repository);
+        var report = await service.GetReportAsync(completed.EventId, null, ct);
+
+        Assert.Equal(7, report.TotalCount);
+        Assert.Equal(1, report.PendingCount);
+        Assert.Equal(4, report.ConfirmedCount);
+        Assert.Equal(1, report.WaitlistedCount);
+        Assert.Equal(1, report.CancelledCount);
+        Assert.Equal(2, report.ValidAttendeeCount);
+        Assert.Equal(2, report.NoShowCount);
+        Assert.Equal(0.5m, report.AttendanceRate);
+        Assert.Equal(7, report.Rows.Count);
+        Assert.Equal(2, report.CourseBreakdown.Sum(item => item.Count));
+        Assert.Equal(2, report.YearBreakdown.Sum(item => item.Count));
     }
 
     [Fact]

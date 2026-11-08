@@ -113,9 +113,10 @@ public sealed record MyPassRow(int RegistrationId, int EventId, string EventTitl
 public sealed record OwnedPassRow(int RegistrationId, int EventId, ASI.Basecode.Data.Models.Lookups.RegistrationStatusCode Status, ASI.Basecode.Data.Models.Lookups.EventStatusCode EventStatus, string QrToken);
 /// <summary>
 /// One confirmed participant in the manual check-in lookup. <see cref="HasAttendance"/> is true for
-/// any attendance row; <see cref="IsAttendanceInvalidated"/> is true when that row is invalidated.
+/// any attendance row; <see cref="InvalidatedAt"/> is that row's invalidation time, or null when the
+/// row is valid or absent.
 /// </summary>
-public sealed record ConfirmedLookupRow(int RegistrationId, string MemberName, string StudentNumber, bool HasAttendance, bool IsAttendanceInvalidated);
+public sealed record ConfirmedLookupRow(int RegistrationId, string MemberName, string StudentNumber, bool HasAttendance, DateTime? InvalidatedAt);
 public sealed record RegistrationReviewRow(int RegistrationId, int EventId, string EventTitle, string MemberName, string StudentNumber, DateTime SubmittedAt, ASI.Basecode.Data.Models.Lookups.RegistrationStatusCode Status)
 {
     /// <summary>The course captured at signup, used by the participation report breakdowns.</summary>

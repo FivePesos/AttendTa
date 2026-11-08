@@ -62,7 +62,7 @@ public sealed class ParticipationFactsTests
     }
 
     [Fact]
-    public void WaitlistNoShowAndAttendanceRateApplyOrderingInvalidationAndZeroRules()
+    public void WaitlistSeatAndAttendanceFactsApplyOrderingAndInvalidationRules()
     {
         var registrations = new[]
         {
@@ -73,38 +73,59 @@ public sealed class ParticipationFactsTests
             new Registration { RegistrationId = 6, EventId = 1, RegistrationStatusId = RegistrationStatusCode.Confirmed },
             new Registration { RegistrationId = 7, EventId = 1, RegistrationStatusId = RegistrationStatusCode.Confirmed }
         }.AsQueryable();
-        var events = new[]
-        {
-            Event(DateTime.UtcNow, EventStatusCode.Completed, 1),
-            Event(DateTime.UtcNow, EventStatusCode.Completed, 2),
-            Event(DateTime.UtcNow, EventStatusCode.Completed, 3)
-        }.AsQueryable();
         var attendance = new[] { new Attendance { RegistrationId = 5 }, new Attendance { RegistrationId = 6 }, new Attendance { RegistrationId = 4, InvalidatedAt = DateTime.UtcNow } }.AsQueryable();
 
         Assert.Equal(new[] { 2, 3 }, ParticipationFacts.WaitlistPriority(registrations, 1).Select(row => row.RegistrationId));
         Assert.Equal(new[] { 4, 5, 6, 7 }, ParticipationFacts.SeatHolders(registrations).Select(row => row.RegistrationId));
         Assert.Equal(new[] { 5, 6 }, ParticipationFacts.ValidAttendances(attendance).Select(row => row.RegistrationId));
-        Assert.Equal(new[] { 4, 7 }, ParticipationFacts.NoShows(registrations, events, attendance).Select(row => row.RegistrationId));
-        Assert.Equal(new decimal?[] { 1m / 3m, 1m, null }, ParticipationFacts.AttendanceRates(events, registrations, attendance).ToArray());
     }
 
     [Fact]
-    public void NoShowsReturnOnlyConfirmedRowsOfCompletedEvents()
+    public void InMemoryTwinsAgreeWithTheirSqlExpressions()
     {
-        var registrations = new[]
+        var now = new DateTime(2026, 3, 1, 12, 0, 0, DateTimeKind.Utc);
+        var seatHeld = ParticipationFacts.SeatHeld.Compile();
+        var validAttendance = ParticipationFacts.ValidAttendance.Compile();
+
+        foreach (var status in Enum.GetValues<RegistrationStatusCode>())
         {
-            new Registration { RegistrationId = 1, EventId = 1, RegistrationStatusId = RegistrationStatusCode.Pending },
-            new Registration { RegistrationId = 2, EventId = 1, RegistrationStatusId = RegistrationStatusCode.Waitlisted },
-            new Registration { RegistrationId = 3, EventId = 1, RegistrationStatusId = RegistrationStatusCode.Cancelled },
-            new Registration { RegistrationId = 4, EventId = 1, RegistrationStatusId = RegistrationStatusCode.Confirmed },
-            new Registration { RegistrationId = 5, EventId = 1, RegistrationStatusId = RegistrationStatusCode.Confirmed }
-        }.AsQueryable();
-        var events = new[] { Event(DateTime.UtcNow, EventStatusCode.Completed, 1) }.AsQueryable();
-        var attendance = new[] { new Attendance { RegistrationId = 5 } }.AsQueryable();
+            var registration = new Registration { RegistrationStatusId = status };
+            Assert.Equal(seatHeld(registration), ParticipationFacts.HoldsSeat(status));
+            Assert.Equal(seatHeld(registration), ParticipationFacts.HoldsSeat(registration));
+            Assert.Equal(
+                status is RegistrationStatusCode.Pending or RegistrationStatusCode.Confirmed or RegistrationStatusCode.Waitlisted,
+                ParticipationFacts.IsOpenRegistration(status));
+        }
 
-        var noShows = ParticipationFacts.NoShows(registrations, events, attendance).Select(row => row.RegistrationId);
+        foreach (var invalidatedAt in new DateTime?[] { null, now })
+        {
+            var attendance = new Attendance { InvalidatedAt = invalidatedAt };
+            Assert.Equal(validAttendance(attendance), ParticipationFacts.IsValidAttendance(invalidatedAt));
+            Assert.Equal(validAttendance(attendance), ParticipationFacts.IsValidAttendance(attendance));
+        }
 
-        Assert.Equal(new[] { 4 }, noShows);
+        Assert.False(ParticipationFacts.IsValidAttendance((Attendance)null!));
+    }
+
+    [Fact]
+    public void CertificateEligibilityRequiresSeatAttendanceReviewStateAndCompletedEvent()
+    {
+        var now = new DateTime(2026, 3, 1, 12, 0, 0, DateTimeKind.Utc);
+        var confirmed = new Registration { RegistrationStatusId = RegistrationStatusCode.Confirmed };
+        var waitlisted = new Registration { RegistrationStatusId = RegistrationStatusCode.Waitlisted };
+        var valid = new Attendance();
+        var invalidated = new Attendance { InvalidatedAt = now };
+        var pending = new Certificate { CertificateStatusId = CertificateStatusCode.PendingApproval };
+        var eligible = new Certificate { CertificateStatusId = CertificateStatusCode.Eligible };
+        var completed = new Event { EventStatusId = EventStatusCode.Completed };
+        var published = new Event { EventStatusId = EventStatusCode.Published };
+
+        Assert.True(ParticipationFacts.IsCertificateEligible(confirmed, valid, pending, CertificateStatusCode.PendingApproval, completed));
+        Assert.True(ParticipationFacts.IsCertificateEligible(confirmed, valid, eligible, CertificateStatusCode.Eligible, completed));
+        Assert.False(ParticipationFacts.IsCertificateEligible(waitlisted, valid, pending, CertificateStatusCode.PendingApproval, completed));
+        Assert.False(ParticipationFacts.IsCertificateEligible(confirmed, invalidated, pending, CertificateStatusCode.PendingApproval, completed));
+        Assert.False(ParticipationFacts.IsCertificateEligible(confirmed, valid, eligible, CertificateStatusCode.PendingApproval, completed));
+        Assert.False(ParticipationFacts.IsCertificateEligible(confirmed, valid, pending, CertificateStatusCode.PendingApproval, published));
     }
 
     private static Event Event(DateTime now, EventStatusCode status, int id = 1) => new()

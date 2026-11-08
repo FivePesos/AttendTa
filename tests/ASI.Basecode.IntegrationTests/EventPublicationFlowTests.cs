@@ -88,9 +88,6 @@ public sealed class EventPublicationFlowTests(SqlServerDatabaseFixture fixture) 
         Assert.Single(await factContext.Events.Where(ParticipationFacts.StartCutoffPassed(facts.Now)).Where(row => row.EventId == facts.CompletedEventId).ToListAsync(ct));
         Assert.Equal(new[] { facts.PublishedEventId }, await factContext.Events.Where(ParticipationFacts.SignupOpen(facts.Now)).Where(row => row.EventId == facts.PublishedEventId).Select(row => row.EventId).ToArrayAsync(ct));
         Assert.Equal(new[] { facts.PublishableEventId }, await ParticipationFacts.PublishableEventIds(factContext.Events, factContext.EventTypes, factContext.Venues, facts.Now).Where(id => id == facts.PublishableEventId).ToArrayAsync(ct));
-        Assert.Equal(new[] { facts.ConfirmedRegistrationIds[1], facts.ConfirmedRegistrationIds[2] }, await ParticipationFacts.NoShows(factContext.Registrations, factContext.Events, factContext.AttendanceRecords).Where(row => row.EventId == facts.CompletedEventId).Select(row => row.RegistrationId).OrderBy(id => id).ToArrayAsync(ct));
-        var rate = Assert.Single(await ParticipationFacts.AttendanceRates(factContext.Events.Where(row => row.EventId == facts.CompletedEventId), factContext.Registrations, factContext.AttendanceRecords).ToListAsync(ct));
-        Assert.InRange(rate!.Value, 0.333333m, 0.333334m);
 
         var snapshot = await new ParticipationReportRepository(new UnitOfWork(factContext))
             .GetSnapshotAsync(facts.CompletedEventId, ct);

@@ -148,7 +148,7 @@ public sealed class ParticipationReportService : IParticipationReportService
         }
 
         // An invalidated check-in is still shown as Invalidated; it is not a valid attendee.
-        return row.IsAttendanceInvalidated
+        return !ParticipationFacts.IsValidAttendance(row.InvalidatedAt)
             ? ("Invalidated", "badge-inactive")
             : ("Checked in", "badge-open");
     }
@@ -179,14 +179,15 @@ public sealed class ParticipationReportService : IParticipationReportService
 
         return attendees
             .GroupBy(row => row.YearLevel)
-            .OrderBy(group => group.Key)
+            .OrderBy(group => group.Key == 0 ? int.MaxValue : group.Key)
             .Select(group =>
             {
                 var count = group.Count();
                 return new ParticipationBreakdownItemViewModel
                 {
-                    // registrations.year_level_snapshot has a CHECK (> 0), so the year is always known.
-                    Label = $"Year {group.Key}",
+                    // A year level of 0 means the signup did not record one; the label says so rather
+                    // than printing "Year 0".
+                    Label = group.Key == 0 ? "Unspecified" : $"Year {group.Key}",
                     Count = count,
                     Percent = Share(count, total)
                 };

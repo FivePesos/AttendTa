@@ -68,6 +68,41 @@ public sealed class EventCompletionReviewTests(SqlServerDatabaseFixture fixture)
     }
 
     [Fact]
+    public async Task CompletionCreatesNoReviewForACancelledOrWaitlistedRegistrationWithAttendance()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var officerId = await EventDraftTestSupport.SeedActorAsync(fixture.ConnectionString, ct);
+        var (typeId, venueId) = await MemberEventTestSupport.SeedReferencesAsync(fixture.ConnectionString, officerId, ct);
+        var eventItem = await MemberEventTestSupport.SeedEventAsync(
+            fixture.ConnectionString, officerId, typeId, venueId, EventStatusCode.Published,
+            Now.AddHours(-1), Now.AddDays(-2), 20, null, "Seat filter review event", ct);
+
+        var confirmed = await SeedConfirmedAttendeeAsync(fixture.ConnectionString, officerId, eventItem.EventId, "Confirmed attendee", ct);
+        var waitlisted = await SeedConfirmedAttendeeAsync(
+            fixture.ConnectionString, officerId, eventItem.EventId, "Waitlisted attendee", ct, RegistrationStatusCode.Waitlisted);
+        var cancelled = await SeedConfirmedAttendeeAsync(
+            fixture.ConnectionString, officerId, eventItem.EventId, "Cancelled attendee", ct, RegistrationStatusCode.Cancelled);
+        await SeedAttendanceAsync(fixture.ConnectionString, confirmed.RegistrationId, officerId, Now.AddHours(-1), null, ct);
+        await SeedAttendanceAsync(fixture.ConnectionString, waitlisted.RegistrationId, officerId, Now.AddHours(-1), null, ct);
+        await SeedAttendanceAsync(fixture.ConnectionString, cancelled.RegistrationId, officerId, Now.AddHours(-1), null, ct);
+
+        await using var context = MemberEventTestSupport.Context(fixture.ConnectionString);
+        var service = EventDraftTestSupport.Service(context, officerId, new FixedClock(Now),
+            completionHandlerFactory: unitOfWork => new IEventCompletionHandler[]
+            {
+                new CertificateReviewCompletionHandler(new CertificateRepository(unitOfWork), unitOfWork)
+            });
+
+        await service.CompleteAsync(eventItem.EventId, ct);
+
+        await using var observer = MemberEventTestSupport.Context(fixture.ConnectionString);
+        Assert.True(await observer.Certificates.AsNoTracking()
+            .AnyAsync(row => row.RegistrationId == confirmed.RegistrationId, ct));
+        Assert.False(await observer.Certificates.AsNoTracking()
+            .AnyAsync(row => row.RegistrationId == waitlisted.RegistrationId || row.RegistrationId == cancelled.RegistrationId, ct));
+    }
+
+    [Fact]
     public async Task LaterHandlerFailureRollsBackTheInsertedReviewsAndKeepsTheEventPublished()
     {
         var ct = TestContext.Current.CancellationToken;
@@ -161,7 +196,8 @@ public sealed class EventCompletionReviewTests(SqlServerDatabaseFixture fixture)
         int officerId,
         int eventId,
         string name,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        RegistrationStatusCode status = RegistrationStatusCode.Confirmed)
     {
         var user = await MemberEventTestSupport.SeedUserAsync(
             connectionString, $"{Guid.NewGuid():N}@attendta.test", MemberEventTestSupport.NewPassword(), RoleCode.Member, cancellationToken);
@@ -174,7 +210,7 @@ public sealed class EventCompletionReviewTests(SqlServerDatabaseFixture fixture)
         var member = await MemberEventTestSupport.SeedMemberAsync(
             connectionString, user.Id, MembershipStatusCode.Active, cancellationToken);
         return await MemberEventTestSupport.SeedRegistrationAsync(
-            connectionString, eventId, member.MemberId, RegistrationStatusCode.Confirmed, officerId, cancellationToken);
+            connectionString, eventId, member.MemberId, status, officerId, cancellationToken);
     }
 
     private static async Task SeedAttendanceAsync(

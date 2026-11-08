@@ -150,6 +150,26 @@ public sealed class CertificateReviewDecisionTests(SqlServerDatabaseFixture fixt
     }
 
     [Fact]
+    public async Task InvalidatedAttendanceWithBlankDeclineReasonIsStaleNotInvalid()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var setup = await SeedAsync(invalidateAttendance: true);
+        var registrationId = setup.RegistrationIds[0];
+        var certificateId = setup.CertificateIds[registrationId];
+        await using var context = EventDraftTestSupport.Context(fixture.ConnectionString);
+        var service = Service(context, setup.OfficerId, RoleCodes.Officer);
+
+        // The certificate rule runs before the decline reason, so an undecidable review reports the
+        // stale fact instead of asking for a reason the officer could never submit.
+        var exception = await Assert.ThrowsAsync<DomainException>(
+            () => service.DecideAsync(registrationId, false, "   ", ct));
+
+        Assert.Equal(OutcomeCode.Stale, exception.Outcome);
+        Assert.Null(exception.Field);
+        await AssertUnchangedAsync(certificateId, CertificateStatusCode.PendingApproval);
+    }
+
+    [Fact]
     public async Task UnknownReviewIsNotFoundAndWritesNoAudit()
     {
         var ct = TestContext.Current.CancellationToken;

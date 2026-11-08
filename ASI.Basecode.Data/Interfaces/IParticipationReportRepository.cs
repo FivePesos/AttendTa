@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using ASI.Basecode.Data.Models.Lookups;
+using ASI.Basecode.Data.Queries;
 
 namespace ASI.Basecode.Data.Interfaces;
 
@@ -40,5 +41,5 @@ public sealed record ParticipationReportDetailRow(
     DateTime? InvalidatedAt)
 {
     /// <summary>True when the registration carries an attendance row that was invalidated.</summary>
-    public bool IsAttendanceInvalidated => InvalidatedAt is not null;
+    public bool IsAttendanceInvalidated => !ParticipationFacts.IsValidAttendance(InvalidatedAt);
 }

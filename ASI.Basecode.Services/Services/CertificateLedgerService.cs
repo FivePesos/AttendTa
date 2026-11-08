@@ -309,7 +309,8 @@ public sealed class CertificateLedgerService(
         // review is still pending. The refusal names the fact that actually failed.
         var registration = await registrations.GetForUpdateAsync(registrationId, cancellationToken);
         var attendanceRow = await attendance.GetByRegistrationIdAsync(registrationId, cancellationToken);
-        if (!ParticipationFacts.IsCertificateEligible(
+        if (eventItem is null
+            || !ParticipationFacts.IsCertificateEligible(
                 registration, attendanceRow, certificate, CertificateStatusCode.PendingApproval, eventItem))
         {
             var message = certificate.CertificateStatusId != CertificateStatusCode.PendingApproval

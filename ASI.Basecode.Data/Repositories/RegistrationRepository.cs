@@ -150,7 +150,7 @@ public sealed class RegistrationRepository : BaseRepository, IRegistrationReposi
                 row.User.Name,
                 row.Member.StudentNumber,
                 row.Attendance != null,
-                row.Attendance != null && row.Attendance.InvalidatedAt != null))
+                row.Attendance != null ? row.Attendance.InvalidatedAt : (DateTime?)null))
             .ToListAsync(cancellationToken);
     }
 

@@ -365,7 +365,7 @@ public sealed class ParticipationReportServiceTests
             yearLevel,
             status,
             checkedInAt,
-            invalidated ? CheckedInAt.AddMinutes(1) : null);
+            invalidated ? checkedInAt?.AddMinutes(1) : null);
 
     private static Event Event(int eventId, EventStatusCode status) => new()
     {

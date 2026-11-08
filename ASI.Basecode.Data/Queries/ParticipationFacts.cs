@@ -37,12 +37,6 @@ public static class ParticipationFacts
         attendance is not null && IsValidAttendance(attendance.InvalidatedAt);
 
     /// <summary>
-    /// In-memory twin of <see cref="ValidAttendance"/> for a caller that already reduced the row to its
-    /// invalidation flag.
-    /// </summary>
-    public static bool IsValidAttendance(bool isInvalidated) => !isInvalidated;
-
-    /// <summary>
     /// The one "open registration" rule: a registration that still competes for a seat. Cancellation
     /// and the member's own cancel action use this instead of repeating the status list.
     /// </summary>
@@ -62,22 +56,22 @@ public static class ParticipationFacts
     /// <summary>
     /// The one certificate-eligibility rule: a Confirmed seat with valid attendance on a completed
     /// event, whose review is in the state the operation requires — <c>PendingApproval</c> for a
-    /// decision, <c>Eligible</c> for issuance. Callers that already know the event is completed may
-    /// omit it. The completion hook's SQL twin is
-    /// <c>CertificateRepository.GetRegistrationsAwaitingReviewAsync</c>, which selects the same
-    /// Confirmed seats with valid attendance and no review yet.
+    /// decision, <c>Eligible</c> for issuance. The event is required: a caller that cannot read it must
+    /// refuse before calling, because a missing event is not a completed event. The completion hook's
+    /// SQL twin is <c>CertificateRepository.GetRegistrationsAwaitingReviewAsync</c>, which selects the
+    /// same Confirmed seats with valid attendance and no review yet.
     /// </summary>
     public static bool IsCertificateEligible(
         Registration registration,
         Attendance attendance,
         Certificate certificate,
         CertificateStatusCode requiredStatus,
-        Event eventItem = null) =>
+        Event eventItem) =>
         HoldsSeat(registration)
         && IsValidAttendance(attendance)
         && certificate is not null
         && certificate.CertificateStatusId == requiredStatus
-        && (eventItem is null || eventItem.EventStatusId == EventStatusCode.Completed);
+        && eventItem.EventStatusId == EventStatusCode.Completed;
 
     public static IQueryable<int> EligibleParticipantMemberIds(
         IQueryable<User> users,
@@ -150,39 +144,6 @@ public static class ParticipationFacts
         var eventTypeIds = eventTypes.Where(eventTypeFilter).SelectMany(
             Expression.Lambda<Func<EventType, IEnumerable<int>>>(venueIds.Expression, eventType));
         return events.SelectMany(Expression.Lambda<Func<Event, IEnumerable<int>>>(eventTypeIds.Expression, eventItem));
-    }
-
-    public static IQueryable<Registration> NoShows(
-        IQueryable<Registration> registrations,
-        IQueryable<Event> events,
-        IQueryable<Attendance> attendance)
-    {
-        var seatHolders = SeatHolders(registrations);
-        var validAttendance = ValidAttendances(attendance);
-        return
-        from registration in seatHolders
-        join eventItem in events on registration.EventId equals eventItem.EventId
-        where eventItem.EventStatusId == EventStatusCode.Completed
-              && !validAttendance.Any(row => row.RegistrationId == registration.RegistrationId)
-        select registration;
-    }
-
-    public static IQueryable<decimal?> AttendanceRates(
-        IQueryable<Event> events,
-        IQueryable<Registration> registrations,
-        IQueryable<Attendance> attendance)
-    {
-        var seatHolders = SeatHolders(registrations);
-        var validAttendance = ValidAttendances(attendance);
-        return
-        from eventItem in events
-        let confirmed = seatHolders.Count(registration => registration.EventId == eventItem.EventId)
-        let validAttendees =
-            (from registration in seatHolders
-             join row in validAttendance on registration.RegistrationId equals row.RegistrationId
-             where registration.EventId == eventItem.EventId
-             select registration.RegistrationId).Distinct().Count()
-        select confirmed == 0 ? (decimal?)null : (decimal)validAttendees / confirmed;
     }
 
     private static Expression Replace(Expression expression, IReadOnlyDictionary<ParameterExpression, Expression> replacements) =>
