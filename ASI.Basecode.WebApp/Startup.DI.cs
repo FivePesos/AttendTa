@@ -57,11 +57,11 @@ namespace ASI.Basecode.WebApp
             this._services.AddScoped<ICheckInLookupService, CheckInLookupService>();
             this._services.AddScoped<IAttendanceInvalidationService, AttendanceInvalidationService>();
             this._services.AddScoped<ICertificateTracerService, CertificateTracerService>();
-            // The real certificate ledger serves both demo switch states; no demo provider
-            // replaces it. The demo registration adds only the M-12 member history and its shared
-            // seeded-document reader.
+            // The real certificate ledger and the real member certificate history serve both demo
+            // switch states; no demo provider replaces either one.
             this._services.AddScoped<CertificateLedgerService>();
             this._services.AddScoped<ICertificateLedgerService>(services => services.GetRequiredService<CertificateLedgerService>());
+            this._services.AddScoped<IMyCertificatesService, MyCertificatesService>();
             this._services.AddScoped<IMyEventsService, MyEventsService>();
             this._services.AddScoped<IPassService, PassService>();
             this._services.AddScoped<ParticipationReportService>();

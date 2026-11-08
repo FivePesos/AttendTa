@@ -95,7 +95,7 @@ into lettered rows.
 | M-10b | Review queue and the approve and decline decisions | Review queue and decisions | 6.12 | 6.6 | removed |
 | M-11a | Certificate issuance (number from the demo store, nothing retained) | Issuance pipeline and retained file | 6.12 | 6.7 | removed (58cffca) |
 | M-11b | Officer PDF view and download (authorized retained-file retrieval) | Authorized download of the retained file | 6.12 | 6.8 | removed (124ef29) |
-| M-12 | Member certificate history and download links - `IMyCertificatesService`, `DemoMyCertificatesService`, `UnavailableMyCertificatesService`; shared `DemoCertificateDocuments` (its only remaining consumer after M-11b) | Owner-scoped certificate query | 6.13 | 6.9 | open |
+| M-12 | Member certificate history and download links - `IMyCertificatesService`, `DemoMyCertificatesService`, `UnavailableMyCertificatesService`; shared `DemoCertificateDocuments` (its only remaining consumer after M-11b) | Owner-scoped certificate query | 6.13 | 6.9 | removed (pending commit) |
 | M-13a | Report summary: status counts, Confirmed and Valid attendees, rate | Report summary queries | 7.4 | 7.1 | removed |
 | M-13b | Report no-shows and course/year breakdowns | No-show and distribution queries | 7.4 | 7.2 | removed |
 | M-13c | Report paged detail rows | Paged detail query | 7.4 | 7.3 | removed (04157b3) |
@@ -133,9 +133,9 @@ in `ASI.Basecode.Services`.
 | Shared check-in control and its model | `Views/Shared/_CheckInControl.cshtml`, `ASI.Basecode.Services/ServiceModels/CheckInControlViewModel.cs` |
 | Operator pass-token switch | `ASI.Basecode.WebApp/Program.cs` (`--demo-pass-token <registrationId>`) |
 
-**Store.** One singleton keyed by real ids. After 6.8 it holds only pass tokens and the seeded issued
-document (M-12); issuance, attendance and certificate reviews are real SQL rows and every newly issued
-PDF is retained in the private file store. The check-in window is no longer store state after 4.2. `GetPassToken` is the lowercase hex
+**Store.** One singleton keyed by real ids. After 6.9 it holds only pass tokens; issuance, attendance
+and certificate reviews are real SQL rows and every issued PDF is retained in the private file store.
+The check-in window is no longer store state after 4.2. `GetPassToken` is the lowercase hex
 HMAC-SHA256 of the invariant registration id under `DemoData:TokenKey`; the `--demo-pass-token`
 switch prints the same value and writes nothing.
 
@@ -143,7 +143,8 @@ switch prints the same value and writes nothing.
 and `IRegistrationRepository.GetReviewQueueAsync(Confirmed)`, then writes the ready-to-complete
 event's attendance and certificate reviews as real SQL rows inside one transaction. It never
 overwrites an existing attendance row or decision, writes no stored file and appends no Activity Log
-entry. The seeded issued row's document stays in the demo store (M-12).
+entry. The seeded issued row has no retained file, so its document is a controlled not-found for both
+the officer ledger and the member history.
 
 - *Ready to complete* — the started published event with the most confirmed registrations (ties on
   the lowest event id). It stays Published in SQL so the demo completes it live through the real
@@ -433,9 +434,8 @@ certificate-ledger demo only.
 **Contract and registration.** `ASI.Basecode.Services/Interfaces/ICertificateLedgerService.cs`
 defines `GetPageAsync`, `DecideAsync`, `IssueAsync`, `GetViewerAsync` and `GetPdfAsync`. The real
 `CertificateLedgerService` is registered before the demo seam and serves both switch states. After
-6.8 no demo provider replaces it: `DemoData/DemoCertificatesRegistration.cs` registers only M-12's
-member history and its shared seeded-document reader. The unavailable ledger stub is retired; only
-the M-12 member-history stub remains for the switch-off state.
+6.8 no demo provider replaces it, and after 6.9 the demo registration no longer touches either
+certificate contract at all.
 
 | Row | Implementation and handoff |
 |---|---|
@@ -455,18 +455,18 @@ service and deleted `DemoStore.DecideCertificate`. The start-up seed now writes 
 event's attendance and certificate reviews as real SQL rows, so the real completion hook finds them
 and the real decision command updates them. Existing attendance rows and decisions are never
 overwritten, so a restart keeps them. The issued attendee's snapshot, number, issue time and PDF
-bytes stay in the same `DemoStore` issue record used by 6.13; the seeded document is the only
-remaining demo certificate state after 6.7 and is re-seeded at start-up only when the real review is
-approved. Existing invalidated reviews remain visible as not eligible with their reason. Later SQL
-edits do not rewrite issued snapshot values or rendered bytes.
+bytes stayed in the same `DemoStore` issue record used by 6.13 until 6.9 deleted that record; the
+seeded document was the only remaining demo certificate state after 6.7 and was re-seeded at start-up
+only when the real review was approved. Existing invalidated reviews remain visible as not eligible
+with their reason. Later SQL edits do not rewrite issued snapshot values or rendered bytes.
 
 **M-11a removal (6.7).** 6.7 moved issuance to the real `CertificateLedgerService.IssueAsync`
 and deleted `DemoStore.PublishCertificate` and `DemoStore.GetCertificateNumber`. The demo provider
 now delegates the command, so an issue writes the real SQL row, retains the PDF under
 `<SetupRoot>/certificates` and appends one `certificate.issued` audit entry in the caller-owned
-transaction. The seeded issued row keeps its in-memory document, which was the only remaining demo
-certificate state until 6.8 removed M-11b; the officer viewer and PDF read the real row and
-`file_path` for every row that has one.
+transaction. The seeded issued row kept its in-memory document, which was the only remaining demo
+certificate state until 6.8 removed M-11b and 6.9 removed M-12; the officer viewer and PDF read the
+real row and `file_path` for every row that has one.
 
 **M-11b removal (6.8).** 6.8 implemented the real document retrieval behind the existing
 `ICertificateLedgerService` contract and deleted `DemoCertificateLedgerService` and its
@@ -477,54 +477,56 @@ starts with `certificates/`, read the retained file through `IPrivateFileStore.O
 map a missing, unreadable or unsafe key to the same not-found as an unknown id. The controller
 moved the Management policy to `Index`, `Viewer`, `Approve`, `Decline` and `Issue` and left `Pdf`
 authenticated-only, so one route serves officers and owners. The seeded issued row has no retained
-file and is now a controlled 404 for officer access; M-12 still reads its in-memory document until
-6.9.
+file and is now a controlled 404 for officer access; M-12 read its in-memory document until 6.9
+removed it.
 
 **Presentation ownership.** `Controllers/CertificateLedgerController.cs`,
 `Views/CertificateLedger/Index.cshtml`, `Views/CertificateLedger/Viewer.cshtml`,
 `Styles/features/certificate-ledger.css` and `wwwroot/js/features/certificate-ledger.js`.
 The selector, pager, shared shell and member-history slot remain unchanged. There is no bulk action.
 
-## M-12 — member certificate history (6.13)
+## M-12 — member certificate history (6.13, removed by 6.9)
 
-**Contract and registration.** `ASI.Basecode.Services/Interfaces/IMyCertificatesService.cs`
-provides `GetPageAsync` and `GetPdfAsync`. `DemoCertificatesRegistration.cs` uses `TryAddScoped`
-to register `DemoMyCertificatesService` only with the central switch on, preserving a real
-provider registered first. With the switch off, `UnavailableMyCertificatesService` returns an
-empty page and the same not-found refusal for documents.
+**M-12 is removed.** 6.9 deleted `DemoMyCertificatesService`, `UnavailableMyCertificatesService`,
+`DemoCertificateDocuments` and `DemoCertificatesRegistration`, and registered the real
+`ASI.Basecode.Services/Services/MyCertificatesService.cs` against the unchanged
+`IMyCertificatesService` contract in `Startup.DI.cs`, so both switch states serve the same real
+history. `DemoDataRegistration` no longer calls a certificate registration file, and `DemoStore`,
+`DemoSeedService` and `DemoDataRegistration` no longer carry any certificate state: the store keeps
+only the pass token, and the seed writes the issued review as a SQL row with no retained file.
 
-**Read composition and states.** The provider composes the actor's real non-cancelled event ids,
-`IRegistrationRepository.GetMemberRegistrationAsync`, and `IEventRepository.CountAsync` /
-`GetPageAsync` for event titles and schedules. Confirmed registrations are joined to the real SQL
-certificate reviews through `ICertificateRepository.GetReviewQueueAsync`. After 6.7 an issued row
-reads its snapshots, number, issue time and retained `file_path` from SQL; only the seeded issued
-row, which has no retained file, is overlaid from the `DemoStore` issue record. Pending, eligible,
-declined (with reason), issued, and unavailable (no review, or an issued row with neither a retained
-file nor a seeded document) are displayed. Ordering is event start descending then registration id
-descending, at the shared page size of 25. The existing My Events certificate action and pager
-remain independent of Registrations and Attendance.
+**Read composition and states (as handed over).** The demo provider composed the actor's real
+non-cancelled event ids, `IRegistrationRepository.GetMemberRegistrationAsync`, and
+`IEventRepository.CountAsync` / `GetPageAsync` for event titles and schedules, and joined confirmed
+registrations to the real SQL certificate reviews through `ICertificateRepository.GetReviewQueueAsync`.
+After 6.7 an issued row read its snapshots, number, issue time and retained `file_path` from SQL;
+only the seeded issued row, which has no retained file, was overlaid from the `DemoStore` issue
+record. Pending, eligible, declined (with reason), issued, and unavailable (no review, or an issued
+row with no retained file) were displayed. Ordering was event start descending then registration id
+descending, at the shared page size of 25, and the My Events certificate action and pager stayed
+independent of Registrations and Attendance. The real service keeps every one of those rules and
+drops the store overlay: it reads each owned event through `IEventRepository.GetEventAsync`, skips a
+cancelled event, and sets `HasDocument` only for an issued row with a non-blank `file_path`.
 
-**Documents and ownership.** Every member PDF request reloads `DiscoverReviewAsync` and compares
-its real `UserId` to `ICurrentActor.UserId` before accessing an issued document. Unknown ids and
-other owners receive the same not-found response. The Member policy retains the normal per-request
-active-account cookie validation; membership status does not block historical access. After 6.7 an
-issued row streams its retained private file; only the seeded row falls back to
-`DemoCertificateDocuments`, the shared snapshot render/cache path, which calls the real
-`RenderSnapshotAsync`, attaches seeded bytes in process memory once, and returns the original bytes
-thereafter. View streams inline `application/pdf`; Download uses an attachment name based on the
-certificate number. Responses use no-store caching. No SQL, private-file or Activity Log writes
-occur.
+**Documents and ownership (as handed over).** Every member PDF request reloaded `DiscoverReviewAsync`
+and compared its real `UserId` to `ICurrentActor.UserId` before accessing an issued document, and
+unknown ids and other owners received the same not-found response. The Member policy retains the
+normal per-request active-account cookie validation; membership status does not block historical
+access. After 6.7 an issued row streamed its retained private file; only the seeded row fell back to
+`DemoCertificateDocuments`, the shared snapshot render/cache path. The real service adds the member
+guard and delegates to `ICertificateLedgerService.GetPdfAsync`, so the ledger's owner-or-Management
+check, `certificates/` prefix, store containment and `OpenReadAsync` handling apply unchanged and the
+seeded row is a controlled not-found for both officer and member access. View streams inline
+`application/pdf`; Download uses an attachment name based on the certificate number. Responses use
+no-store caching. No SQL, private-file or Activity Log writes occur.
 
-**Seed and removal.** No additional seed or store is introduced. M-01 / 6.12's issued, pending,
-declined and invalidated attendee scenarios appear only to their actual owners; officer approval
-and issuance are reflected on the next member read. A confirmed registration without a review
-shows unavailable, and a member without confirmed registrations gets the empty state. 6.9 replaces
-the member provider with its real owner-scoped query and retained-document access, deletes the
-switch-off member provider and registration lines, and marks M-12 removed. 6.7 already handed the
-member read over to the retained-document source (register rule 12); 6.8 replaced the officer
-document adapter with authorized retained-file retrieval and deleted `DemoCertificateLedgerService`,
-so the seeded row is a controlled 404 for officer access while M-12 still reads its in-memory
-document.
+**Seed and removal.** No additional seed or store was introduced, and 6.9 removed the last certificate
+state the store held. M-01 / 6.12's issued, pending, declined and invalidated attendee scenarios
+appear only to their actual owners; officer approval and issuance are reflected on the next member
+read. A confirmed registration without a review shows unavailable, and a member without confirmed
+registrations gets the empty state. 6.7 already handed the member read over to the retained-document
+source (register rule 12) and 6.8 replaced the officer document adapter with authorized retained-file
+retrieval, so 6.9 only had to delete the demo providers and the seeded-document path.
 
 ## Known limits of the demo
 
@@ -538,11 +540,10 @@ document.
   `member.membership_reactivated`. The linked account keeps signing in in both cases, and cancelled
   registrations stay Cancelled.
 - Review decisions, check-ins and the seeded demo attendance are real SQL rows and survive a restart;
-  an issued certificate is a real SQL row with a retained PDF, while only the seeded issued document
-  (M-12) is process memory and is re-seeded at start-up when its review is approved. Passes keep
-  scanning.
+  every issued certificate is a real SQL row with a retained PDF, and the seeded issued row has no
+  retained file. Passes keep scanning.
 - A pass scanned in the demo is matched against the real `registrations.qr_token`, the same value
   the server-rendered PNG encodes, so a cancelled registration's cleared token stops scanning.
-- The seeded issued row has no retained file, so its officer viewer and PDF are a controlled 404;
-  the Issued Registry still renders a View PDF link for that row, which lands on the not-found page.
-  M-12 member history still reads its in-memory document until 6.9.
+- The seeded issued row has no retained file, so its officer viewer and PDF are a controlled 404 and
+  the member history shows it as unavailable with no link; the Issued Registry still renders a View
+  PDF link for that row, which lands on the not-found page.
