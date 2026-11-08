@@ -22,7 +22,7 @@ using System.Threading.Tasks;
 
 namespace ASI.Basecode.WebApp.Certificates;
 
-/// <summary>Renders fixed, self-contained certificate PDFs for the Development tracer and future issuance.</summary>
+/// <summary>Renders fixed, self-contained official certificate PDFs.</summary>
 public sealed class PlaywrightCertificatePdfRenderer : ICertificatePdfRenderer
 {
     private const string TemplatePath = "~/Views/Certificates/CertificateTemplate.cshtml";
@@ -56,22 +56,11 @@ public sealed class PlaywrightCertificatePdfRenderer : ICertificatePdfRenderer
         this.browserChannel = configuration["Certificates:BrowserChannel"];
     }
 
-    public Task<byte[]> RenderSampleAsync(CancellationToken cancellationToken = default) => RenderPdfAsync(
-        new CertificatePdfSnapshot(
-            "AttendTa Development Sample",
-            "Certificate Rendering Integration Check",
-            new DateTime(2026, 11, 6, 9, 0, 0, DateTimeKind.Utc),
-            new DateTime(2026, 11, 6, 10, 0, 0, DateTimeKind.Utc),
-            "SAMPLE-DEVELOPMENT-ONLY"),
-        isDevelopmentSample: true,
-        cancellationToken);
-
     public Task<byte[]> RenderSnapshotAsync(CertificatePdfSnapshot snapshot, CancellationToken cancellationToken = default) =>
-        RenderPdfAsync(snapshot, isDevelopmentSample: false, cancellationToken);
+        RenderPdfAsync(snapshot, cancellationToken);
 
     private async Task<byte[]> RenderPdfAsync(
         CertificatePdfSnapshot snapshot,
-        bool isDevelopmentSample,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(snapshot);
@@ -84,18 +73,14 @@ public sealed class PlaywrightCertificatePdfRenderer : ICertificatePdfRenderer
         // The shared formatter treats unspecified SQL datetime2 values as UTC and rejects local-kind values.
         var eventStartsAtManila = ManilaTimeFormatter.Format(snapshot.EventStartsAt);
         var issuedAtManila = ManilaTimeFormatter.Format(snapshot.IssuedAt);
-        var signatoryName = string.Empty;
-        var signatoryTitle = string.Empty;
-        var signatureDataUri = string.Empty;
-        if (!isDevelopmentSample)
-        {
-            // IOptions validates the approved identity on first official render. The Development
-            // tracer can still render its visibly watermarked sample if deployment config is absent.
-            var signatory = signatoryOptions.Value;
-            signatoryName = signatory.Name;
-            signatoryTitle = signatory.Title;
-            signatureDataUri = await ReadPngAssetDataUriAsync(signatory.PackagedSignatureAsset, cancellationToken);
-        }
+
+        // IOptions validates the approved name, title and asset path, so an unapproved signatory
+        // configuration fails here before any PDF is produced. The asset itself is read below:
+        // a missing or corrupt file fails in ReadPngAssetDataUriAsync, not in options validation.
+        var signatory = signatoryOptions.Value;
+        var signatoryName = signatory.Name;
+        var signatoryTitle = signatory.Title;
+        var signatureDataUri = await ReadPngAssetDataUriAsync(signatory.PackagedSignatureAsset, cancellationToken);
 
         var templateModel = new CertificateTemplateViewModel(
             snapshot.RecipientName,
@@ -109,7 +94,6 @@ public sealed class PlaywrightCertificatePdfRenderer : ICertificatePdfRenderer
             snapshot.RecipientName.Length > 60 ? "compact" : string.Empty,
             snapshot.EventTitle.Length > 100 ? "compact" : string.Empty,
             snapshot.CertificateNumber.Length > 50 ? "long" : string.Empty,
-            isDevelopmentSample,
             signatoryName,
             signatoryTitle,
             signatureDataUri);
@@ -139,14 +123,11 @@ public sealed class PlaywrightCertificatePdfRenderer : ICertificatePdfRenderer
             throw new InvalidOperationException("The locally bundled Cinzel font did not load for certificate rendering.");
         }
 
-        if (!isDevelopmentSample)
+        var signatureLoaded = await page.EvaluateAsync<bool>(
+            "() => { const image = document.querySelector('.signatory-signature'); return !!image && image.complete && image.naturalWidth > 0 && image.naturalHeight > 0; }");
+        if (!signatureLoaded)
         {
-            var signatureLoaded = await page.EvaluateAsync<bool>(
-                "() => { const image = document.querySelector('.signatory-signature'); return !!image && image.complete && image.naturalWidth > 0 && image.naturalHeight > 0; }");
-            if (!signatureLoaded)
-            {
-                throw new InvalidOperationException("The packaged certificate signatory signature image is invalid.");
-            }
+            throw new InvalidOperationException("The packaged certificate signatory signature image is invalid.");
         }
 
         cancellationToken.ThrowIfCancellationRequested();

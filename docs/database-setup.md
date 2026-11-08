@@ -112,8 +112,8 @@ Official certificate rendering uses the approved, non-secret settings in
 approved identity and rejects a missing or invalid signature asset before returning a PDF. Keep
 the image at `ASI.Basecode.WebApp/wwwroot/img/christian-kyle-ducay-signature.png` in deployed
 packages; it is embedded into the PDF, so certificate rendering makes no external image request.
-Do not replace the approved details or signature with placeholders. The Development tracer keeps
-its visibly watermarked sample rendering and does not issue official certificates.
+Do not replace the approved details or signature with placeholders. Every rendered certificate is
+an official certificate; there is no sample or watermarked rendering.
 
 ## Existing venue photo paths
 
@@ -167,6 +167,6 @@ The assertions extract the supplied text, confirm one landscape A4 page, and che
 embedded. The matching Playwright Chromium revision is installed by the command above. The Cinzel
 regular and semibold files are bundled under `ASI.Basecode.WebApp/wwwroot/fonts/cinzel/` with their
 SIL Open Font License at `ASI.Basecode.WebApp/wwwroot/fonts/cinzel/OFL.txt`. Any CI job that runs
-the integration suite must install Poppler and Chromium before running it. The tracer keeps its
-Development-only access, writes its fixed sample PDF to private `certificates/` storage for the
-response, and deletes it when the response stream is disposed.
+the integration suite must install Poppler and Chromium before running it. The renderer creates
+the official PDF during issuance, promotes it into private `certificates/` storage, and the
+authorized download streams those retained bytes without regenerating them.

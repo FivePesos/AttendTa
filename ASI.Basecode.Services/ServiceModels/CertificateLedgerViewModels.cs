@@ -20,8 +20,6 @@ public sealed class CertificateLedgerViewModel
     public int IssuedCount { get; init; }
     public IReadOnlyList<CertificateLedgerRowViewModel> Rows { get; init; } = Array.Empty<CertificateLedgerRowViewModel>();
     public PagedResult<CertificateLedgerRowViewModel> Page { get; init; } = new(Array.Empty<CertificateLedgerRowViewModel>(), 1, 0);
-
-    public static CertificateLedgerViewModel Empty() => new();
 }
 
 /// <summary>One certificate eligibility or issued-registry row.</summary>
@@ -38,7 +36,6 @@ public sealed class CertificateLedgerRowViewModel
     public string StatusBadgeClass { get; init; }
     public string CertificateNumber { get; init; }
     public DateTime? IssuedAt { get; init; }
-    public string ViewerUrl { get; init; }
     public string Reason { get; init; }
 }
 
@@ -49,7 +46,6 @@ public sealed class CertificateViewerViewModel
     public string EventTitle { get; init; }
     public string MemberName { get; init; }
     public string CertificateNumber { get; init; }
-    public string PdfUrl { get; init; }
     public int EventId { get; init; }
 
     public static CertificateViewerViewModel Empty(int certificateId = 0) => new() { CertificateId = certificateId };
@@ -58,9 +54,9 @@ public sealed class CertificateViewerViewModel
 public sealed record CertificateDocument(byte[] Bytes, string CertificateNumber);
 
 /// <summary>
-/// The selected completed event's full review set. The real page path and the demo hand-over both
-/// page this read, so tab counts and paging stay identical in both switch states.
+/// The selected completed event's full review set. The ledger pages this read, so tab counts and
+/// paging are derived from the same rows.
 /// </summary>
-public sealed record CertificateLedgerRead(
+internal sealed record CertificateLedgerRead(
     EventSelectorViewModel Selector,
     IReadOnlyList<CertificateLedgerRowViewModel> Rows);

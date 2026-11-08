@@ -73,7 +73,7 @@ public sealed class CertificateLedgerService(
     /// certificate row, mapped for the issued and eligibility tabs. <see cref="BuildPage"/> pages this
     /// read, so tab counts and paging are derived from the same rows.
     /// </summary>
-    public async Task<CertificateLedgerRead> ReadAsync(int? eventId, CancellationToken cancellationToken = default)
+    private async Task<CertificateLedgerRead> ReadAsync(int? eventId, CancellationToken cancellationToken = default)
     {
         RequireManagement();
 
@@ -111,7 +111,7 @@ public sealed class CertificateLedgerService(
     }
 
     /// <summary>Builds one tab's page from a full read.</summary>
-    public static CertificateLedgerViewModel BuildPage(
+    private static CertificateLedgerViewModel BuildPage(
         CertificateLedgerRead read,
         CertificateLedgerTab tab,
         int? page)
@@ -495,7 +495,7 @@ public sealed class CertificateLedgerService(
             throw NotFound();
         }
 
-        var certificate = await certificates.GetByRegistrationIdAsync(registrationId, cancellationToken);
+        var certificate = await certificates.GetByRegistrationIdNoTrackingAsync(registrationId, cancellationToken);
         if (certificate is null
             || certificate.CertificateStatusId != CertificateStatusCode.Issued
             || string.IsNullOrWhiteSpace(certificate.FilePath)

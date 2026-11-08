@@ -28,6 +28,13 @@ public interface ICertificateRepository
     Task<Certificate> GetByRegistrationIdAsync(int registrationId, CancellationToken ct = default);
 
     /// <summary>
+    /// The registration's certificate row without tracking, or <c>null</c> when the registration has
+    /// none. Read-only callers use this so a GET never attaches a row the request cannot mutate; the
+    /// decision and issuance transactions keep the tracked read.
+    /// </summary>
+    Task<Certificate> GetByRegistrationIdNoTrackingAsync(int registrationId, CancellationToken ct = default);
+
+    /// <summary>
     /// The event's review queue: every confirmed registration joined to its member, the participant's
     /// user, its attendance row and its certificate row. A registration without a certificate row
     /// still appears with a null <see cref="CertificateReviewQueueRow.CertificateId"/>; the caller

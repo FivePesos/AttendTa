@@ -56,7 +56,6 @@ namespace ASI.Basecode.WebApp
             this._services.AddScoped<ICheckInService, CheckInService>();
             this._services.AddScoped<ICheckInLookupService, CheckInLookupService>();
             this._services.AddScoped<IAttendanceInvalidationService, AttendanceInvalidationService>();
-            this._services.AddScoped<ICertificateTracerService, CertificateTracerService>();
             // The real certificate ledger and the real member certificate history serve both demo
             // switch states; no demo provider replaces either one.
             this._services.AddScoped<CertificateLedgerService>();

@@ -38,6 +38,9 @@ public sealed class CertificateRepository : BaseRepository, ICertificateReposito
     public Task<Certificate> GetByRegistrationIdAsync(int registrationId, CancellationToken ct = default) =>
         GetDbSet<Certificate>().SingleOrDefaultAsync(row => row.RegistrationId == registrationId, ct);
 
+    public Task<Certificate> GetByRegistrationIdNoTrackingAsync(int registrationId, CancellationToken ct = default) =>
+        GetDbSet<Certificate>().AsNoTracking().SingleOrDefaultAsync(row => row.RegistrationId == registrationId, ct);
+
     public async Task<IReadOnlyList<CertificateReviewQueueRow>> GetReviewQueueAsync(int eventId, CancellationToken ct = default)
     {
         var attendance = GetDbSet<Attendance>().AsNoTracking();

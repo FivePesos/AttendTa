@@ -50,7 +50,7 @@ context: []
 - `ASI.Basecode.WebApp/wwwroot/css/{login,main,site,style}.css`, `wwwroot/fonts/roboto.css`, and `wwwroot/img/{asi-logo-invert.svg,LiveIT.png,profile-logo.png}` — identified legacy candidates; recheck references and remove only if still unreferenced.
 - `ASI.Basecode.WebApp/appsettings.json` — remove only the unused `Hangfire` log-level entry; no Hangfire runtime package remains.
 - `.github/workflows/ci.yml` — existing PR workflow checks generated CSS, builds Release and runs service and SQL integration tests; inspect rather than claim a new workflow run.
-- `tests/ASI.Basecode.IntegrationTests/AuthenticationFlowTests.cs` and `CertificateTracerFlowTests.cs` — existing coverage for local shell assets and certificate resources.
+- `tests/ASI.Basecode.IntegrationTests/AuthenticationFlowTests.cs` and `CertificatePdfRendererTests.cs` — existing coverage for local shell assets and certificate resources.
 
 ## Tasks & Acceptance
 

@@ -51,7 +51,7 @@ public sealed class MyCertificatesService(
                 continue;
             }
 
-            var review = await certificates.GetByRegistrationIdAsync(registration.RegistrationId, cancellationToken);
+            var review = await certificates.GetByRegistrationIdNoTrackingAsync(registration.RegistrationId, cancellationToken);
             var state = review?.CertificateStatusId switch
             {
                 CertificateStatusCode.PendingApproval => MyCertificateState.Pending,

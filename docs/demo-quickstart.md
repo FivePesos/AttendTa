@@ -121,7 +121,6 @@ certificate review/issue/download, the report, access changes and the Activity L
 | `Demo data refuses to start` | The connected database is not `AttendTa_Demo` and not `DemoData__AllowDatabase`, or `DemoData__TokenKey` is missing | Fix the database name or set the key |
 | `Demo data seeded nothing` | The connected database has no published events | Re-run the scenario seed |
 | Camera shows "not available" | No camera, permission denied, or the page is not on `https://` or `localhost` | Use the Pass code or Manual lookup tab; serve HTTPS for phones |
-| `/CertificateTracer` returns 404 | Expected outside Development | Nothing to fix |
 | A demo change disappeared | The in-memory store resets on restart | Restart the scenario or re-run the seed |
 
 ## Reset
