@@ -11,6 +11,10 @@ using Xunit;
 
 namespace ASI.Basecode.IntegrationTests;
 
+// PLAIN ENGLISH: These tests prove the app refuses a bad hotspot setup before it opens a port: a
+// missing or wrong certificate, an expired certificate, a certificate for the wrong address, a
+// wildcard/loopback bind, or equal ports. One test also starts a real Kestrel server and proves the
+// loopback HTTP address and the hotspot HTTPS address both answer.
 public class HotspotHttpsOptionsTests
 {
     private const string Password = "HotspotTest#2026";

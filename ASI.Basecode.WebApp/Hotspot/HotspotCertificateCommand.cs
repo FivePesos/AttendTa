@@ -6,6 +6,11 @@ using System.Security.Cryptography.X509Certificates;
 
 namespace ASI.Basecode.WebApp.Hotspot;
 
+// PLAIN ENGLISH: This is the `--new-hotspot-cert` command. It takes the hotspot name/IP, creates the
+// two certificates, writes four files (two public certificates and two password-protected
+// private-key files), and prints only safe details such as thumbprints and names. It never prints
+// the password and refuses to overwrite an existing set, so the root private key is not lost.
+
 /// <summary>
 /// The <c>--new-hotspot-cert</c> command. Creates the local root CA and server certificate, writes
 /// the four files an operator needs and prints only thumbprints, SANs and paths. The password comes

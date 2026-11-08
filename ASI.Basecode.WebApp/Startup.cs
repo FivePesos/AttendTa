@@ -144,6 +144,9 @@ namespace ASI.Basecode.WebApp
                 }
             });
 
+            // PLAIN ENGLISH: In hotspot mode the phone must use HTTPS, but the laptop's own
+            // readiness check still uses HTTP. We skip the automatic HTTP-to-HTTPS redirect so that
+            // check keeps working.
             // Hotspot mode serves HTTPS directly on the hotspot adapter IP. Redirecting the loopback
             // HTTP readiness endpoint would present a certificate that may not name 127.0.0.1, so
             // the redirect stays off while hotspot HTTPS is on.

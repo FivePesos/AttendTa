@@ -6,6 +6,12 @@ using Microsoft.Extensions.Configuration;
 
 namespace ASI.Basecode.WebApp.Hotspot;
 
+// PLAIN ENGLISH: This file reads the "Hotspot" settings from appsettings or environment variables.
+// It checks that the address is the laptop's hotspot address (not "all addresses" and not the
+// laptop itself) and that the certificate file, password and public name are present. If anything
+// is wrong, the app stops before it opens a network port, so a bad setup cannot silently expose
+// the app or serve a certificate the phones will reject.
+
 /// <summary>
 /// Binds and validates the <c>Hotspot</c> configuration section. The section is disabled in every
 /// committed <c>appsettings*.json</c>; the demo host sets it in the process environment.

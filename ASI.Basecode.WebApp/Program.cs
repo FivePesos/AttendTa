@@ -87,6 +87,9 @@ if (demoPassTokenIndex >= 0)
     return 0;
 }
 
+// PLAIN ENGLISH: The next block is optional. When the demo host turns on "Hotspot" mode, the app
+// serves HTTPS on the hotspot address so phones can use the camera. When it is off (the normal
+// development case), the app starts exactly as before.
 // Hotspot mode binds HTTPS directly on the hotspot adapter IP and keeps HTTP on 127.0.0.1 for
 // the readiness check. It is off unless the host enables it, so the default startup is unchanged.
 HotspotHttpsOptions hotspotOptions;

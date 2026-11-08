@@ -6,6 +6,10 @@ using Xunit;
 
 namespace ASI.Basecode.IntegrationTests;
 
+// PLAIN ENGLISH: These tests prove the certificate tool creates a real, usable trust chain: the
+// server certificate contains the hotspot name/IP, is allowed for HTTPS, has a private key, chains
+// to the root, and cannot be opened with the wrong password. They also prove the command writes the
+// four files and never prints the password.
 public class HotspotCertificateTests
 {
     private const string Password = "HotspotTest#2026";

@@ -7,6 +7,9 @@ namespace ASI.Basecode.IntegrationTests;
 /// named, and a closed tracking issue is never proof. Update this guard only when real, dated
 /// evidence replaces the placeholder rows.
 /// </summary>
+// PLAIN ENGLISH: This test protects the honesty of the evidence file. It fails if someone writes
+// "PASS" for a phone or host check that has not actually been run, or if a blocked row stops naming
+// what is missing.
 public class HotspotHttpsEvidenceTests
 {
     [Fact]

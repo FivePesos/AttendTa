@@ -7,6 +7,12 @@ using System.Security.Cryptography.X509Certificates;
 
 namespace ASI.Basecode.WebApp.Hotspot;
 
+// PLAIN ENGLISH: This file creates the two certificates the demo needs. The "root" certificate is
+// the one you install once on each phone; it acts like a trusted stamp. The "server" certificate is
+// the one the app shows to the phone; it contains the hotspot IP/name so the phone can match it.
+// Both are created locally, so the hotspot does not need the internet or a public certificate
+// authority.
+
 /// <summary>
 /// The root CA and server certificate created by <see cref="HotspotCertificateFactory"/>.
 /// </summary>

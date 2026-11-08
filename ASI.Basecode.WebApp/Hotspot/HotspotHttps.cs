@@ -10,6 +10,11 @@ using Microsoft.AspNetCore.Server.Kestrel.Https;
 
 namespace ASI.Basecode.WebApp.Hotspot;
 
+// PLAIN ENGLISH: This file does two jobs. First it opens the server certificate and checks that it
+// is usable (has a private key, is in date, is allowed for server authentication, and names the
+// address phones will type). Then it tells Kestrel to listen on two addresses: plain HTTP on the
+// laptop itself (for the existing readiness check) and HTTPS on the hotspot address (for phones).
+
 /// <summary>
 /// Validates the hotspot server certificate and configures the two Kestrel listeners: HTTP on
 /// <c>127.0.0.1</c> for the readiness check and HTTPS on the hotspot adapter IP for phones.
