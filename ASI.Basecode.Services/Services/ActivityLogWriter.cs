@@ -8,12 +8,13 @@ using System.Text.Json.Serialization;
 using ASI.Basecode.Data;
 using ASI.Basecode.Data.Models;
 using ASI.Basecode.Data.Models.Lookups;
+using ASI.Basecode.Resources.Constants;
 using ASI.Basecode.Resources.Messages;
 using ASI.Basecode.Services.Interfaces;
 
 namespace ASI.Basecode.Services.Services;
 
-public sealed class ActivityLogWriter(AsiBasecodeDBContext context, ICurrentActor actor, TimeProvider clock) : IActivityLogWriter
+public sealed class ActivityLogWriter(AsiBasecodeDBContext context, ICurrentActor actor, TimeProvider timeProvider) : IActivityLogWriter
 {
     public void Append(AuditEntry entry)
     {
@@ -21,18 +22,18 @@ public sealed class ActivityLogWriter(AsiBasecodeDBContext context, ICurrentActo
         if (context.Database.CurrentTransaction == null) throw new InvalidOperationException("Audit requires an active transaction.");
         if (!actor.IsAuthenticated || actor.UserId <= 0) throw new InvalidOperationException("Audit requires an authenticated user.");
         var description = AuditDescriptions.ForAction(entry.Action);
-        if ((entry.Action == ASI.Basecode.Resources.Constants.AuditActions.AccountRequestApproved || entry.Action == ASI.Basecode.Resources.Constants.AuditActions.AccountRequestRejected) && entry.EntityType != "account_requests") throw new ArgumentException("Unsupported audit entity type.");
-        if ((entry.Action == ASI.Basecode.Resources.Constants.AuditActions.EventUpdated || entry.Action == ASI.Basecode.Resources.Constants.AuditActions.EventPublished || entry.Action == ASI.Basecode.Resources.Constants.AuditActions.EventCancelled || entry.Action == ASI.Basecode.Resources.Constants.AuditActions.EventCompleted || entry.Action == ASI.Basecode.Resources.Constants.AuditActions.EventCheckInOpened || entry.Action == ASI.Basecode.Resources.Constants.AuditActions.EventCheckInClosed) && entry.EntityType != "events") throw new ArgumentException("Unsupported audit entity type.");
-        if (entry.Action == ASI.Basecode.Resources.Constants.AuditActions.RegistrationCancelled && entry.EntityType != "registrations") throw new ArgumentException("Unsupported audit entity type.");
-        if ((entry.Action == ASI.Basecode.Resources.Constants.AuditActions.RegistrationApproved || entry.Action == ASI.Basecode.Resources.Constants.AuditActions.RegistrationDeclined || entry.Action == ASI.Basecode.Resources.Constants.AuditActions.RegistrationAdminCancelled) && entry.EntityType != "registrations") throw new ArgumentException("Unsupported audit entity type.");
-        if (entry.Action == ASI.Basecode.Resources.Constants.AuditActions.RegistrationPromoted && entry.EntityType != "registrations") throw new ArgumentException("Unsupported audit entity type.");
-        if ((entry.Action == ASI.Basecode.Resources.Constants.AuditActions.EventTypeCreated || entry.Action == ASI.Basecode.Resources.Constants.AuditActions.EventTypeEdited || entry.Action == ASI.Basecode.Resources.Constants.AuditActions.EventTypeStatusChanged) && entry.EntityType != "event_types") throw new ArgumentException("Unsupported audit entity type.");
-        if (entry.Action == ASI.Basecode.Resources.Constants.AuditActions.UserRoleAssigned && entry.EntityType != "users") throw new ArgumentException("Unsupported audit entity type.");
-        if ((entry.Action == ASI.Basecode.Resources.Constants.AuditActions.UserDeactivated || entry.Action == ASI.Basecode.Resources.Constants.AuditActions.UserReactivated) && entry.EntityType != "users") throw new ArgumentException("Unsupported audit entity type.");
-        if ((entry.Action == ASI.Basecode.Resources.Constants.AuditActions.VenueCreated || entry.Action == ASI.Basecode.Resources.Constants.AuditActions.VenueEdited || entry.Action == ASI.Basecode.Resources.Constants.AuditActions.VenueStatusChanged) && entry.EntityType != "venues") throw new ArgumentException("Unsupported audit entity type.");
-        if ((entry.Action == ASI.Basecode.Resources.Constants.AuditActions.MemberCreated || entry.Action == ASI.Basecode.Resources.Constants.AuditActions.MemberEdited || entry.Action == ASI.Basecode.Resources.Constants.AuditActions.MemberStudentNumberCorrected || entry.Action == ASI.Basecode.Resources.Constants.AuditActions.MemberMembershipDeactivated || entry.Action == ASI.Basecode.Resources.Constants.AuditActions.MemberMembershipReactivated) && entry.EntityType != "members") throw new ArgumentException("Unsupported audit entity type.");
-        if ((entry.Action == ASI.Basecode.Resources.Constants.AuditActions.AttendanceRecorded || entry.Action == ASI.Basecode.Resources.Constants.AuditActions.AttendanceInvalidated) && entry.EntityType != "attendance") throw new ArgumentException("Unsupported audit entity type.");
-        if ((entry.Action == ASI.Basecode.Resources.Constants.AuditActions.CertificateApproved || entry.Action == ASI.Basecode.Resources.Constants.AuditActions.CertificateDeclined || entry.Action == ASI.Basecode.Resources.Constants.AuditActions.CertificateIssued) && entry.EntityType != "certificates") throw new ArgumentException("Unsupported audit entity type.");
+        if ((entry.Action == AuditActions.AccountRequestApproved || entry.Action == AuditActions.AccountRequestRejected) && entry.EntityType != "account_requests") throw new ArgumentException("Unsupported audit entity type.");
+        if ((entry.Action == AuditActions.EventUpdated || entry.Action == AuditActions.EventPublished || entry.Action == AuditActions.EventCancelled || entry.Action == AuditActions.EventCompleted || entry.Action == AuditActions.EventCheckInOpened || entry.Action == AuditActions.EventCheckInClosed) && entry.EntityType != "events") throw new ArgumentException("Unsupported audit entity type.");
+        if (entry.Action == AuditActions.RegistrationCancelled && entry.EntityType != "registrations") throw new ArgumentException("Unsupported audit entity type.");
+        if ((entry.Action == AuditActions.RegistrationApproved || entry.Action == AuditActions.RegistrationDeclined || entry.Action == AuditActions.RegistrationAdminCancelled) && entry.EntityType != "registrations") throw new ArgumentException("Unsupported audit entity type.");
+        if (entry.Action == AuditActions.RegistrationPromoted && entry.EntityType != "registrations") throw new ArgumentException("Unsupported audit entity type.");
+        if ((entry.Action == AuditActions.EventTypeCreated || entry.Action == AuditActions.EventTypeEdited || entry.Action == AuditActions.EventTypeStatusChanged) && entry.EntityType != "event_types") throw new ArgumentException("Unsupported audit entity type.");
+        if (entry.Action == AuditActions.UserRoleAssigned && entry.EntityType != "users") throw new ArgumentException("Unsupported audit entity type.");
+        if ((entry.Action == AuditActions.UserDeactivated || entry.Action == AuditActions.UserReactivated) && entry.EntityType != "users") throw new ArgumentException("Unsupported audit entity type.");
+        if ((entry.Action == AuditActions.VenueCreated || entry.Action == AuditActions.VenueEdited || entry.Action == AuditActions.VenueStatusChanged) && entry.EntityType != "venues") throw new ArgumentException("Unsupported audit entity type.");
+        if ((entry.Action == AuditActions.MemberCreated || entry.Action == AuditActions.MemberEdited || entry.Action == AuditActions.MemberStudentNumberCorrected || entry.Action == AuditActions.MemberMembershipDeactivated || entry.Action == AuditActions.MemberMembershipReactivated) && entry.EntityType != "members") throw new ArgumentException("Unsupported audit entity type.");
+        if ((entry.Action == AuditActions.AttendanceRecorded || entry.Action == AuditActions.AttendanceInvalidated) && entry.EntityType != "attendance") throw new ArgumentException("Unsupported audit entity type.");
+        if ((entry.Action == AuditActions.CertificateApproved || entry.Action == AuditActions.CertificateDeclined || entry.Action == AuditActions.CertificateIssued) && entry.EntityType != "certificates") throw new ArgumentException("Unsupported audit entity type.");
         if (string.IsNullOrWhiteSpace(entry.EntityType) || entry.EntityId <= 0) throw new ArgumentException("Audit entity is required.");
         var oldValues = Serialize(entry.OldValues);
         var newValues = Serialize(entry.NewValues);
@@ -47,7 +48,7 @@ public sealed class ActivityLogWriter(AsiBasecodeDBContext context, ICurrentActo
             Reason = entry.Reason,
             OldValues = oldValues,
             NewValues = newValues,
-            OccurredAt = clock.GetUtcNow().UtcDateTime
+            OccurredAt = timeProvider.GetUtcNow().UtcDateTime
         });
     }
 

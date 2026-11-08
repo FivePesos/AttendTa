@@ -19,8 +19,6 @@ namespace ASI.Basecode.Services.Services;
 /// </summary>
 public sealed class AccountAccessService : IAccountAccessCommands
 {
-    private const int ReasonMaxLength = 1000;
-
     private readonly IAccountAdministrationRepository _accountAdministrationRepository;
     private readonly IUserRepository _userRepository;
     private readonly IRegistrationCancellationService _registrationCancellationService;
@@ -50,8 +48,8 @@ public sealed class AccountAccessService : IAccountAccessCommands
     /// <inheritdoc />
     public async Task DeactivateAsync(int accountId, string reason, CancellationToken cancellationToken = default)
     {
-        var actorUserId = RequireAdministratorActor();
-        var normalizedReason = RequiredReason(reason);
+        var actorUserId = AdministrationCommandGuards.RequireAdministrator(_currentActor);
+        var normalizedReason = AdministrationCommandGuards.RequiredReason(reason, "reason");
 
         await _unitOfWork.ExecuteInTransactionAsync(async ct =>
         {
@@ -125,8 +123,8 @@ public sealed class AccountAccessService : IAccountAccessCommands
     /// <inheritdoc />
     public async Task ReactivateAsync(int accountId, string reason, CancellationToken cancellationToken = default)
     {
-        var actorUserId = RequireAdministratorActor();
-        var normalizedReason = RequiredReason(reason);
+        var actorUserId = AdministrationCommandGuards.RequireAdministrator(_currentActor);
+        var normalizedReason = AdministrationCommandGuards.RequiredReason(reason, "reason");
 
         await _unitOfWork.ExecuteInTransactionAsync(async ct =>
         {
@@ -156,47 +154,6 @@ public sealed class AccountAccessService : IAccountAccessCommands
 
             await _unitOfWork.SaveChangesAsync(ct);
         }, cancellationToken);
-    }
-
-    private static string RequiredReason(string reason)
-    {
-        var normalized = reason?.Trim();
-        if (string.IsNullOrWhiteSpace(normalized))
-        {
-            throw new DomainException(OutcomeCode.Invalid, "A reason is required.", "reason");
-        }
-
-        if (normalized.Length > ReasonMaxLength)
-        {
-            throw new DomainException(OutcomeCode.Invalid, "The reason must be 1000 characters or fewer.", "reason");
-        }
-
-        return normalized;
-    }
-
-    private int RequireAdministratorActor()
-    {
-        if (!_currentActor.IsAuthenticated)
-        {
-            throw new DomainException(OutcomeCode.Forbidden, "Access denied.");
-        }
-
-        int userId;
-        try
-        {
-            userId = _currentActor.UserId;
-        }
-        catch (InvalidOperationException)
-        {
-            throw new DomainException(OutcomeCode.Forbidden, "Access denied.");
-        }
-
-        if (userId <= 0 || !string.Equals(_currentActor.Role, RoleCodes.Admin, StringComparison.Ordinal))
-        {
-            throw new DomainException(OutcomeCode.Forbidden, "Access denied.");
-        }
-
-        return userId;
     }
 
     private sealed record ActivationAuditValues(bool IsActive) : IAuditValues;

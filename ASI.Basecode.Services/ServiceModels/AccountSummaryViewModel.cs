@@ -10,5 +10,5 @@ public sealed class AccountSummaryViewModel
     public string RoleLabel { get; init; }
 
     /// <summary>The account's real <c>users.is_active</c> state.</summary>
-    public bool IsActive { get; set; }
+    public bool IsActive { get; init; }
 }

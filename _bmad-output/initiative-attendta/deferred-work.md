@@ -58,3 +58,10 @@
   summary: No test exercises the rendered member certificate surface.
   status: deferred
   evidence: The only behavioural assertion is that the certificate number string appears in the page; the Issued links, unissued rows, issued-without-file row, member-route identical 404 and switch-off tab are unasserted. The deferral to 8.5 (#78) was approved on 2026-11-08 and the rows were driven manually in the 6.9 walkthrough.
+
+## Deferred from: code review of story-refactor-sweep-plan (2026-11-08)
+
+- source_plan: `_bmad-output/initiative-attendta/tickets/epic-administration/tickets/story-refactor-sweep-plan.md`
+  summary: The two membership `IsActive` derivations disagree on letter case: `AccessDialogService` compares `Status` with `OrdinalIgnoreCase` while `MembershipAccessViewModel.For` uses ordinal `== "active"`.
+  status: deferred
+  evidence: `AccessDialogService.GetMembershipAccessAsync` and `AccessDialogViewModels.For(MemberViewModel)` derive the same flag differently. `MemberRepository` emits lowercase `active`/`inactive` today, so both agree in practice, and the new `AccessDialogServiceTests.MembershipStatusIsCaseInsensitive` pins only the service's contract. The `For` factory predates this sweep, so it is recorded rather than patched; a one-line `string.Equals(..., OrdinalIgnoreCase)` in `For` would close it.

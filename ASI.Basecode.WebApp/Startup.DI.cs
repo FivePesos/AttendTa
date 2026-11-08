@@ -41,9 +41,7 @@ namespace ASI.Basecode.WebApp
             this._services.AddScoped<IAccountAdministrationService, AccountAdministrationService>();
             this._services.AddScoped<IAccountRoleService, AccountRoleService>();
             this._services.AddScoped<IAccessDialogService, AccessDialogService>();
-            this._services.AddScoped<AccountAccessService>();
             this._services.AddScoped<IAccountAccessCommands, AccountAccessService>();
-            this._services.AddScoped<MembershipAccessService>();
             this._services.AddScoped<IMembershipAccessCommands, MembershipAccessService>();
             this._services.AddScoped<IMemberService, MemberService>();
             this._services.AddScoped<IEventTypeService, EventTypeService>();
