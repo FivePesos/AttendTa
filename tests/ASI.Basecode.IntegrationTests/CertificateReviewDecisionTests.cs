@@ -166,6 +166,27 @@ public sealed class CertificateReviewDecisionTests(SqlServerDatabaseFixture fixt
 
         Assert.Equal(OutcomeCode.Stale, exception.Outcome);
         Assert.Null(exception.Field);
+        Assert.Contains("attendance is no longer valid", exception.Message, StringComparison.Ordinal);
+        await AssertUnchangedAsync(certificateId, CertificateStatusCode.PendingApproval);
+    }
+
+    [Fact]
+    public async Task LostSeatIsStaleWithTheChangedMessage()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var setup = await SeedAsync(cancelRegistration: true);
+        var registrationId = setup.RegistrationIds[0];
+        var certificateId = setup.CertificateIds[registrationId];
+        await using var context = EventDraftTestSupport.Context(fixture.ConnectionString);
+        var service = Service(context, setup.OfficerId, RoleCodes.Officer);
+
+        // Approving a review whose seat was cancelled refuses as stale, and the message names the lost
+        // seat rather than the attendance, which is still valid.
+        var exception = await Assert.ThrowsAsync<DomainException>(
+            () => service.DecideAsync(registrationId, true, string.Empty, ct));
+
+        Assert.Equal(OutcomeCode.Stale, exception.Outcome);
+        Assert.Contains("details changed", exception.Message, StringComparison.Ordinal);
         await AssertUnchangedAsync(certificateId, CertificateStatusCode.PendingApproval);
     }
 
@@ -270,7 +291,8 @@ public sealed class CertificateReviewDecisionTests(SqlServerDatabaseFixture fixt
         int confirmedCount = 1,
         CertificateStatusCode? reviewStatus = CertificateStatusCode.PendingApproval,
         bool invalidateAttendance = false,
-        bool seedReview = true)
+        bool seedReview = true,
+        bool cancelRegistration = false)
     {
         var ct = TestContext.Current.CancellationToken;
         var officerId = await EventDraftTestSupport.SeedActorAsync(fixture.ConnectionString, ct);
@@ -308,6 +330,17 @@ public sealed class CertificateReviewDecisionTests(SqlServerDatabaseFixture fixt
                 officerId,
                 ct);
             registrationIds.Add(registration.RegistrationId);
+
+            if (cancelRegistration)
+            {
+                // A seat lost after the review exists: the reviewer cancelled the registration, so the
+                // review can no longer be decided.
+                await using var canceller = EventDraftTestSupport.Context(fixture.ConnectionString);
+                var row = await canceller.Registrations
+                    .SingleAsync(item => item.RegistrationId == registration.RegistrationId, ct);
+                row.RegistrationStatusId = RegistrationStatusCode.Cancelled;
+                await canceller.SaveChangesAsync(ct);
+            }
 
             await using var writer = EventDraftTestSupport.Context(fixture.ConnectionString);
             writer.AttendanceRecords.Add(new Attendance
