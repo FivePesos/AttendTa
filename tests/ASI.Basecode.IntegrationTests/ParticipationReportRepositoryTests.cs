@@ -71,7 +71,8 @@ public sealed class ParticipationReportRepositoryTests(SqlServerDatabaseFixture 
         var inactiveMember = await SeedMemberAsync($"report-inactive-{suffix}@attendta.test", isActive: false, MembershipStatusCode.Inactive, actor.Id, now, ct);
 
         // Completed event: one valid attendee, one invalidated check-in, one never checked in, plus
-        // pending, waitlisted and cancelled rows.
+        // pending, waitlisted and cancelled rows. The cancelled row carries a real check-in, so the
+        // report has to exclude it by seat rather than by the absence of an attendance row.
         var attended = Registration(completed.EventId, activeMembers[0].MemberId, RegistrationStatusCode.Confirmed, "BSIT", 1, actor.Id, now);
         var invalidated = Registration(completed.EventId, activeMembers[1].MemberId, RegistrationStatusCode.Confirmed, "BSED", 2, actor.Id, now);
         var neverCheckedIn = Registration(completed.EventId, activeMembers[2].MemberId, RegistrationStatusCode.Confirmed, "BSIT", 3, actor.Id, now);
@@ -86,7 +87,8 @@ public sealed class ParticipationReportRepositoryTests(SqlServerDatabaseFixture 
         context.AttendanceRecords.AddRange(
             Attendance(attended.RegistrationId, actor.Id, now),
             Attendance(invalidated.RegistrationId, actor.Id, now, invalidatedAt: now),
-            Attendance(inactiveAttended.RegistrationId, actor.Id, now));
+            Attendance(inactiveAttended.RegistrationId, actor.Id, now),
+            Attendance(cancelledRow.RegistrationId, actor.Id, now));
         await context.SaveChangesAsync(ct);
 
         var repository = new ParticipationReportRepository(new UnitOfWork(context));
@@ -146,6 +148,14 @@ public sealed class ParticipationReportRepositoryTests(SqlServerDatabaseFixture 
         Assert.Equal(7, report.Rows.Count);
         Assert.Equal(2, report.CourseBreakdown.Sum(item => item.Count));
         Assert.Equal(2, report.YearBreakdown.Sum(item => item.Count));
+
+        // The cancelled row holds a real check-in, so it is a checked-in row that is not a valid
+        // attendee: the seat, not the presence of an attendance row, is what excludes it from the
+        // count. Without that check the attendee total would rise and the no-show arithmetic could go
+        // negative. The row's own display flag is covered by ParticipationReportServiceTests.
+        var cancelledReportRow = report.Rows.Single(row => row.RegistrationId == cancelledRow.RegistrationId);
+        Assert.NotNull(cancelledReportRow.CheckedInAt);
+        Assert.False(cancelledReportRow.IsNoShow);
     }
 
     [Fact]
