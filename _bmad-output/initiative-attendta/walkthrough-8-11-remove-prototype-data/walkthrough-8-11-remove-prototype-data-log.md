@@ -1,4 +1,3 @@
----
 # Verification log: 8.11 remove prototype data and prove complete real integrations
 
 Baseline `2d05a3580645e91aac43770caebe473224ac8f5a`, branch
@@ -86,6 +85,10 @@ in this repository unless a working directory is named.
   certificate rows; those were produced live.
 - Action: drove the flows over HTTP with per-role cookie sessions and the antiforgery token from
   each page. Sign-in rotates the antiforgery cookie, so the token must be re-read after login.
+- Note on reproduction: the driver was a temporary PowerShell script outside the repository (two
+  passes, one per session group), not committed, because the ticket is verify-only. Every check it
+  made is enumerated below with its request, expected result and observed value; the sqlcmd
+  wrappers for the two seed scripts were also temporary files outside the repository.
 - Result: 51 checks recorded across two passes; 42 passed on their first attempt. The nine
   first-pass failures and their resolution:
   - `scan-pass`, `scan-repeat`, `my-passes`, `pass-qr-png`, `pass-qr-download` — the seeded
@@ -101,12 +104,25 @@ in this repository unless a working directory is named.
   - `invalidated-attendance-review-not-eligible` — invalidation happened before completion, so no
     review row was ever created; the not-eligible transition needs a review that already exists.
   - `pass-qr-download` also returned 404 in three consecutive `Invoke-WebRequest` runs and then
-    200 in every later run, including `curl.exe` against the same session cookie. Not reproducible;
-    recorded as a pass on the curl and repeated `Invoke-WebRequest` evidence.
+    200 in every later run, including `curl.exe` against the same session cookie. Not reproducible.
+    `PassesController.Qr` has no 404 path — it returns the PNG or the one `403` refusal — so the
+    404 came from the client or from routing before the action, not from the code under test.
+    Recorded as a pass on the curl and repeated `Invoke-WebRequest` evidence.
 - Result detail: completion wrote `event_status_id=4`; approval wrote `certificate_status_id=2`;
   issuance wrote `AT-2026-000001` with `certificates/fd9af9d4ba9e4b31b73e6beaa1f5b3d6.pdf`; the
   officer PDF was 447,119 bytes of `application/pdf`; the member PDF returned the same bytes; the
   cancelled event stayed `event_status_id=3` after a refused completion.
+- Action: re-ran both passes a second time from a worktree at the committed branch head, against a
+  freshly built `AttendTa_IT_811verify`, then read `activity_logs` before dropping the database.
+- Result: the two passes reproduced exactly (32/6 and 10/3), and the run left 18 audit rows:
+  `user.provisioned` and `event.published` from the seeds, then `account_request.approved`,
+  `member.created`, `user.deactivated`, `user.reactivated`, `event.check_in_opened` (events 1 and
+  3), `attendance.recorded` (three), `attendance.invalidated`, `event.completed`,
+  `certificate.approved`, `certificate.issued`, `registration.approved`,
+  `member.membership_deactivated` and `member.membership_reactivated`. Attendance rows 3,
+  certificate rows 1. Each row carries the acting user id and the affected entity id.
+- Result detail (ownership): the pass QR requested by a different member's session returned the
+  same `403` with the same 25-byte body, so the owner check is exercised, not assumed.
 - Cleanup: stopped the host and dropped `AttendTa_IT_811verify`. The retained certificate PDF under
   the setup root and the ephemeral credentials were left out of this record.
 

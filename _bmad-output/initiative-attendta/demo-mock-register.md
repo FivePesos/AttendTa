@@ -86,7 +86,7 @@ into lettered rows.
 | M-01 | Demo seam: `DemoData:Enabled`, the startup database guard, `DemoData:TokenKey`, the demo store (pass tokens and issued certificate documents; attendance and certificate reviews are real SQL rows after 6.6), the registration method and the start-up seed | — (infrastructure) | 1.14 | 8.13 | removed (149791b) |
 | M-02 | My Events: all of a member's registrations across events, with status and cutoff labels | Cross-event owner query (only per-event and upcoming-only reads exist) | 3.17 | 3.13 | removed (6668425) |
 | M-03 | Pass card QR image and PNG download (rule 10 token, QR drawn by a locally served browser library) | QR library, token read, authorized PNG endpoint | 4.10 | 4.1 | removed (81f721e) |
-| M-04 | Check-in window open/close command, the shared control partial, and the open flag overlaid on event reads (rule 7) | Open/close command | 1.14 | 4.2 | removed (7f6ae2218e6bc9e74611c610287b11ffa7f19ec4) |
+| M-04 | Check-in window open/close command, the shared control partial, and the open flag overlaid on event reads (rule 7) | Open/close command | 1.14 | 4.2 | removed (7f6ae22) |
 | M-05 | Check-in by scan: outcome (success, repeat, invalid, closed) and the attendance record | Validation engine and attendance write | 4.11 | 4.3 | removed (2a8b9b5) |
 | M-06 | Manual lookup of confirmed participants by name or student number, and manual check-in | Registration-scoped search and manual check-in | 4.11 | 4.5 | removed (ff06123) |
 | M-07 | Attendance invalidation with reason, and its effect on the review (rule 8) | Invalidation command | 4.11 | 4.6 | removed (6a82840) |
@@ -98,7 +98,7 @@ into lettered rows.
 | M-11b | Officer PDF view and download (authorized retained-file retrieval) | Authorized download of the retained file | 6.12 | 6.8 | removed (124ef29) |
 | M-12 | Member certificate history and download links - `IMyCertificatesService`, `DemoMyCertificatesService`, `UnavailableMyCertificatesService`; shared `DemoCertificateDocuments` (its only remaining consumer after M-11b) | Owner-scoped certificate query | 6.13 | 6.9 | removed (7637096) |
 | M-13a | Report summary: status counts, Confirmed and Valid attendees, rate | Report summary queries | 7.4 | 7.1 | removed (c0c0935) |
-| M-13b | Report no-shows and course/year breakdowns | No-show and distribution queries | 7.4 | 7.2 | removed (975c08b) |
+| M-13b | Report no-shows and course/year breakdowns | No-show and distribution queries | 7.4 | 7.2 | removed (975c08b; residue 04157b3) |
 | M-13c | Report paged detail rows | Paged detail query | 7.4 | 7.3 | removed (04157b3) |
 | M-14a | Account deactivation with reason (the Accounts list shows the new state) — `IAccountAccessCommands.DeactivateAsync`, `DemoAccountAccessCommands` | Account deactivation and cascade | 5.11 | 5.4 | removed (8230045) |
 | M-14b | Account reactivation with reason — `IAccountAccessCommands.ReactivateAsync`, `DemoAccountAccessCommands` | Account reactivation | 5.11 | 5.5 | removed (f232933) |

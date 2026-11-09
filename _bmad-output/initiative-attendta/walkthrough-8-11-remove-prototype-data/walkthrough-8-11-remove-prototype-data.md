@@ -1,4 +1,3 @@
----
 # Verification record: Remove prototype data and prove complete real integrations (8.11)
 
 Target: branch `feature/152-remove-prototype-data-and-prove-real-integrations` against `dev` in
@@ -116,6 +115,7 @@ step succeed. Credentials were ephemeral and are not recorded.
 | Certificate review | one `pending_approval` row existed per valid attendance; approving wrote `eligible` |
 | Certificate issue | issuing wrote `AT-2026-000001` with a retained `certificates/...` path; the officer PDF download returned `application/pdf` (447 KB) |
 | Member certificate | the owner's history showed the certificate number and the member PDF download returned `application/pdf` |
+| Audit | the same run left 18 `activity_logs` rows covering the whole chain: `account_request.approved`, `member.created`, `user.deactivated`, `user.reactivated`, `event.check_in_opened` (both events), `attendance.recorded` (three), `attendance.invalidated`, `event.completed`, `certificate.approved`, `certificate.issued`, `registration.approved`, `member.membership_deactivated` and `member.membership_reactivated`, each with the acting user and the affected entity id |
 | Account access | deactivation set `users.is_active=0`, reactivation restored `1` |
 | Membership access | deactivation set `membership_status_id=2`, reactivation restored `1` |
 | Reports | `/Reports/Participation?eventId=1` rendered the completed event's report from the real reads |

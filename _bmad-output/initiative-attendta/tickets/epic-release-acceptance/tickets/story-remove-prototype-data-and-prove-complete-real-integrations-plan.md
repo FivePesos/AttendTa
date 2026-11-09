@@ -125,6 +125,31 @@ readiness probe that legitimately names `AttendTa_Demo`, and it is not the seam.
     checks … 39 passed", which does not match the two runs it summarises (38 + 13 = 51 checks, 42
     passed, 9 failed). Patched: the tally is corrected and the nine failures are the ones listed.
 
+### 2026-11-09 — Review pass (quick lens, reported after finalize)
+
+- verdicts: 20 findings — high 0, medium 1, low 6, false 13, maybe-false 0
+- findings:
+  - `[false]` `[reject]` `CheckInService.cs:14` broken sentence — the committed comment reads "The real door scanner. The screen composes the published-event read and the real attendance log; …", two complete sentences. The lens read the pre-change text.
+  - `[false]` `[reject]` `CheckInLookupService.cs:14` same splice — the committed comment reads "The real manual lookup and manual check-in. The search is a registration-scoped, server-paged read …". Same cause.
+  - `[false]` `[reject]` comment-only JS edits widen risk — no statement differs and the files are served as-is, not bundled; the edit is the gate's own search requirement.
+  - `[low]` `[patch]` M-13b row names only `975c08b` — the row now reads `removed (975c08b; residue 04157b3)`, so the commit that deleted the leftover fallback is on the row itself, not only in the detail section.
+  - `[false]` `[reject]` M-13b description inverted — the row carries a commit, not a description; the detail section already states that `975c08b` left the fallback and `04157b3` deleted it.
+  - `[low]` `[patch]` log commands not reproducible — added a note that the driver and the sqlcmd wrappers were temporary files outside the repository, and that every check is enumerated with its request and observed value.
+  - `[low]` `[patch]` unexplained 404 on the pass download — the log now says `PassesController.Qr` has no 404 path, so the 404 came from the client or routing before the action, and records the curl evidence.
+  - `[low]` `[patch]` cross-member 403 unevidenced — the log now records that a different member's session requesting the same QR returned the same 403 with the same 25-byte body.
+  - `[false]` `[reject]` upcoming-event window unevidenced — the record makes no pass-window claim; its window row is about check-in and cites `events.is_check_in_open`.
+  - `[medium]` `[patch]` audit half of the requirement unevidenced — the ticket asks for "matching report and audit". Re-ran both passes from a worktree at the committed head against a fresh database and read `activity_logs`: 18 rows covering the whole chain. Recorded in the record and the log.
+  - `[false]` `[reject]` check counts inconsistent — corrected to 51/42/nine before this triage; the current text is internally consistent.
+  - `[false]` `[reject]` seed limitation misdescribed — the record says the passes "show the empty state", which is the page's own empty-state message; `GetMyPassesAsync` skipping tokenless rows is why that state renders.
+  - `[false]` `[reject]` `AT-2026-000001` vs `registration_id=15` — different rows: the certificate belongs to the event-1 registration, 15 is the event-3 registration whose token was scanned. The record never equates them.
+  - `[low]` `[patch]` unterminated frontmatter — both new records opened with `---` and never closed it. Removed the opening delimiter so they start with the heading, matching the walkthroughs that carry no frontmatter.
+  - `[false]` `[reject]` plan expects 20 rows — the plan states no row count; the register has 21 rows.
+  - `[false]` `[reject]` `followup_review_recommended: false` unsupported — the rule is a patched `high` or two patched `medium`; this pass patched one `medium`.
+  - `[false]` `[reject]` `--no-build` configuration unstated — the log names `--no-build` on both test commands and the `dotnet build` that precedes them.
+  - `[false]` `[reject]` published-output scope ambiguous — the log names `-c Release`, the `-o` directory and that both searches ran over it.
+  - `[low]` `[patch]` M-04 full SHA — shortened to `7f6ae22` so every row uses the same form.
+  - `[false]` `[reject]` `DemoData` literal not disclosed — the record's search table names `CheckInWindowFlagTests.cs:73` as the single hit and explains it.
+
 ## Auto Run Result
 
 - Summary: ran the 8.11 gate and recorded its evidence. Every register row resolves to the commit
@@ -142,15 +167,20 @@ readiness probe that legitimately names `AttendTa_Demo`, and it is not the seam.
   - `_bmad-output/initiative-attendta/demo-mock-register.md` — corrected M-01's commit, filled nine missing commits, noted the M-13b residue, corrected the introduction.
   - `_bmad-output/initiative-attendta/tickets/epic-release-acceptance/tickets/story-remove-prototype-data-and-prove-complete-real-integrations-plan.md` — this plan.
   - `_bmad-output/initiative-attendta/walkthrough-8-11-remove-prototype-data/walkthrough-8-11-remove-prototype-data.md` and `-log.md` — the verification record and its log.
-- Review findings: 2 findings, both `low`, both patched; nothing deferred; nothing rejected.
-- Follow-up review recommendation: false (no patched `high`, and no two patched `medium`).
+- Review findings: 22 findings across two passes — 1 `medium`, 8 `low`, 13 `false`. All 9 real
+  findings were patched; none deferred; the 13 `false` findings are rejected with their refutations
+  in the triage log. The quick lens returned only after the run had finalized, so it is recorded as
+  a second pass.
+- Follow-up review recommendation: false (no patched `high`, and only one patched `medium`).
 - Verification performed: `dotnet build ASI.Basecode.sln -warnaserror` 0/0; services 321/321;
   integration 460/460; `css:build` with no `app.css` diff; published build started from its own
   directory with `DemoData__Enabled=true`, no token key and `AttendTa_IT_811verify`, serving
   `/Account/Login` 200; both searches clean over source and published output; a 51-check
-  end-to-end run over one disposable database, which was dropped afterwards.
+  end-to-end run over one disposable database, repeated from a worktree at the committed head to
+  read the 18-row `activity_logs` trail; the database was dropped afterwards.
 - Residual risks: the end-to-end run used HTTP sessions rather than a browser, so it proves the
   services and controllers, not the rendered interaction; 8.12 owns the frontend pass. One
   `Invoke-WebRequest` run returned 404 for the pass download and never reproduced (curl and later
-  runs returned 200 with the attachment header). The scenario seed mints no pass tokens, so the
-  pass and scanner checks used a token produced by the real approval command.
+  runs returned 200 with the attachment header); the action has no 404 path, so the cause is
+  client-side or routing. The scenario seed mints no pass tokens, so the pass and scanner checks
+  used a token produced by the real approval command.
