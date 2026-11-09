@@ -11,7 +11,7 @@ using ASI.Basecode.Services.ServiceModels;
 namespace ASI.Basecode.Services.Services;
 
 /// <summary>
-/// The real door scanner (register M-05, removed by 4.3). The screen composes the published-event
+/// The real door scanner. The screen composes the published-event
 /// read and the real attendance log; a scan normalizes the pass token, resolves it to a confirmed
 /// registration of the event and delegates the validation and write to the shared
 /// <see cref="IAttendanceRecordingService"/>. The screen and the outcome JSON keep their existing

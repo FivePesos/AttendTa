@@ -1,4 +1,4 @@
-// Door scanner camera adapter (register M-05). Uses the locally served jsQR decoder and the shared
+// Door scanner camera adapter. Uses the locally served jsQR decoder and the shared
 // scanner API; a denied or missing camera renders the camera-unavailable outcome while the pass
 // code and manual lookup modes stay usable. The camera stops after an outcome and Scan next resumes.
 (function () {

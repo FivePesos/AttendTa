@@ -1,4 +1,4 @@
-// Door scanner shared behaviour (register M-05). Loaded by the CheckIn view after the locally
+// Door scanner shared behaviour. Loaded by the CheckIn view after the locally
 // served jsQR decoder. The camera and manual adapters use the small API this file exposes; the
 // pass-code form posts the same contract with form-encoded AJAX and renders the JSON outcome.
 (function () {
