@@ -4,8 +4,13 @@ Decision: 2026-11-06 — demo rescope, approved by the project owner. Every piec
 that stands in for a missing backend is listed here with the one ticket that removes it. The
 initiative's Delivery section and `delivery-queue.md` give the phase order.
 
-This file is the planning record. The code keeps the same ids in a comment on each demo
-class, so a search for the id finds every line to delete.
+This file is the planning record. Each demo class, and each real class that replaced one, carried
+its id in a comment, so a search for the id found every line to delete. The last of those comments,
+on the real services and assets, went with 8.11 (`89b362b`), so no product source file outside this
+register carries an id.
+
+**Status: all 21 rows are `removed`; no row is open. The last removal is `149791b` (8.13); 8.11
+verified the gate at `89b362b`.** The rules below apply only if demo data is reintroduced.
 
 ## Rules every demo-phase ticket follows
 
@@ -69,7 +74,9 @@ class, so a search for the id finds every line to delete.
     downloaded passes keep scanning, and nobody can derive a token without the key.
 11. **Record it.** A ticket that adds demo data fills its row below in the same pull request
     (interface, classes, seeded scenarios). The one ticket named in "Removed by" deletes the
-    classes and sets the row to `removed` with the commit. 8.11 verifies that no row is open.
+    classes and sets the row to `removed` with the commit. When a class or file outlived that
+    ticket because another open row still used it, the row reads `removed (<sha>; <what> <sha>)`
+    and names both commits. 8.11 verifies that no row is open.
 12. **Hand-over between rows.** When a ticket removes a row whose data another open row still
     reads (for example 4.3 makes check-ins real while M-10a still derives reviews from them),
     the remaining demo provider reads the real source from that commit on. The removing ticket
@@ -82,27 +89,27 @@ into lettered rows.
 
 | Id | Surface | Missing backend today | Added by | Removed by | State |
 |---|---|---|---|---|---|
-| M-01 | Demo seam: `DemoData:Enabled`, the startup database guard, `DemoData:TokenKey`, the demo store (pass tokens and issued certificate documents; attendance and certificate reviews are real SQL rows after 6.6), the registration method and the start-up seed | — (infrastructure) | 1.14 | 8.13 | removed (005f899) |
-| M-02 | My Events: all of a member's registrations across events, with status and cutoff labels | Cross-event owner query (only per-event and upcoming-only reads exist) | 3.17 | 3.13 | removed |
-| M-03 | Pass card QR image and PNG download (rule 10 token, QR drawn by a locally served browser library) | QR library, token read, authorized PNG endpoint | 4.10 | 4.1 | removed |
-| M-04 | Check-in window open/close command, the shared control partial, and the open flag overlaid on event reads (rule 7) | Open/close command | 1.14 | 4.2 | removed (7f6ae2218e6bc9e74611c610287b11ffa7f19ec4) |
-| M-05 | Check-in by scan: outcome (success, repeat, invalid, closed) and the attendance record | Validation engine and attendance write | 4.11 | 4.3 | removed |
-| M-06 | Manual lookup of confirmed participants by name or student number, and manual check-in | Registration-scoped search and manual check-in | 4.11 | 4.5 | removed (ff06123) |
+| M-01 | Demo seam: `DemoData:Enabled`, the startup database guard, `DemoData:TokenKey`, the demo store (pass tokens; issued certificate documents until 6.9; attendance and certificate reviews are real SQL rows after 6.6), the registration method and the start-up seed | — (infrastructure) | 1.14 | 8.13 | removed (149791b) |
+| M-02 | My Events: all of a member's registrations across events, with status and cutoff labels | Cross-event owner query (only per-event and upcoming-only reads exist) | 3.17 | 3.13 | removed (6668425) |
+| M-03 | Pass card QR image and PNG download (rule 10 token, QR drawn by a locally served browser library) | QR library, token read, authorized PNG endpoint | 4.10 | 4.1 | removed (81f721e) |
+| M-04 | Check-in window open/close command, the shared control partial, and the open flag overlaid on event reads (rule 7) | Open/close command | 1.14 | 4.2 | removed (7f6ae22) |
+| M-05 | Check-in by scan: outcome (success, repeat, invalid, closed) and the attendance record | Validation engine and attendance write | 4.11 | 4.3 | removed (2a8b9b5) |
+| M-06 | Manual lookup of confirmed participants by name or student number, and manual check-in | Registration-scoped search and manual check-in | 4.11 | 4.5 | removed (ff06123; registration file 6a82840) |
 | M-07 | Attendance invalidation with reason, and its effect on the review (rule 8) | Invalidation command | 4.11 | 4.6 | removed (6a82840) |
 | M-08 | Member attendance history | Owner-scoped attendance query | 4.12 | 4.7 | removed (d3edd37) |
-| M-09 | Event completion command and the Completed status overlaid on event reads (rule 7) | Completion command | 1.14 | 3.12 | removed |
+| M-09 | Event completion command and the Completed status overlaid on event reads (rule 7) | Completion command | 1.14 | 3.12 | removed (0abc4f8; overlay class 7f6ae22) |
 | M-10a | Certificate reviews created at completion (a pending review for each valid check-in of a completed event) | Review creation hook | 6.12 | 6.4 | removed (46a2100) |
 | M-10b | Review queue and the approve and decline decisions | Review queue and decisions | 6.12 | 6.6 | removed (d6de0d5) |
 | M-11a | Certificate issuance (number from the demo store, nothing retained) | Issuance pipeline and retained file | 6.12 | 6.7 | removed (58cffca) |
 | M-11b | Officer PDF view and download (authorized retained-file retrieval) | Authorized download of the retained file | 6.12 | 6.8 | removed (124ef29) |
 | M-12 | Member certificate history and download links - `IMyCertificatesService`, `DemoMyCertificatesService`, `UnavailableMyCertificatesService`; shared `DemoCertificateDocuments` (its only remaining consumer after M-11b) | Owner-scoped certificate query | 6.13 | 6.9 | removed (7637096) |
-| M-13a | Report summary: status counts, Confirmed and Valid attendees, rate | Report summary queries | 7.4 | 7.1 | removed |
-| M-13b | Report no-shows and course/year breakdowns | No-show and distribution queries | 7.4 | 7.2 | removed (975c08b) |
+| M-13a | Report summary: status counts, Confirmed and Valid attendees, rate | Report summary queries | 7.4 | 7.1 | removed (c0c0935; valid-count and rate residue 04157b3) |
+| M-13b | Report no-shows and course/year breakdowns | No-show and distribution queries | 7.4 | 7.2 | removed (975c08b; breakdown residue 04157b3) |
 | M-13c | Report paged detail rows | Paged detail query | 7.4 | 7.3 | removed (04157b3) |
-| M-14a | Account deactivation with reason (the Accounts list shows the new state) — `IAccountAccessCommands.DeactivateAsync`, `DemoAccountAccessCommands` | Account deactivation and cascade | 5.11 | 5.4 | removed |
-| M-14b | Account reactivation with reason — `IAccountAccessCommands.ReactivateAsync`, `DemoAccountAccessCommands` | Account reactivation | 5.11 | 5.5 | removed |
-| M-15a | Membership deactivation with reason (the Members list shows the new state) — `IMembershipAccessCommands.DeactivateAsync`, `DemoMembershipAccessCommands` | Membership deactivation and cascade | 5.11 | 5.6 | removed |
-| M-15b | Membership reactivation with reason — `IMembershipAccessCommands.ReactivateAsync`, `DemoMembershipAccessCommands` | Membership reactivation | 5.11 | 5.7 | removed |
+| M-14a | Account deactivation with reason (the Accounts list shows the new state) — `IAccountAccessCommands.DeactivateAsync`, `DemoAccountAccessCommands` | Account deactivation and cascade | 5.11 | 5.4 | removed (8230045; class deleted with M-14b, f232933) |
+| M-14b | Account reactivation with reason — `IAccountAccessCommands.ReactivateAsync`, `DemoAccountAccessCommands` | Account reactivation | 5.11 | 5.5 | removed (f232933) |
+| M-15a | Membership deactivation with reason (the Members list shows the new state) — `IMembershipAccessCommands.DeactivateAsync`, `DemoMembershipAccessCommands` | Membership deactivation and cascade | 5.11 | 5.6 | removed (48e0231; class deleted with M-15b, 1853ad9) |
+| M-15b | Membership reactivation with reason — `IMembershipAccessCommands.ReactivateAsync`, `DemoMembershipAccessCommands` | Membership reactivation | 5.11 | 5.7 | removed (1853ad9) |
 
 6.5 removes no row; its invalidation guard must be in place before 6.7 removes M-11a. 4.4
 removes no row; it verifies the 4.11 camera against the real engine after 4.3.
@@ -425,7 +432,12 @@ and the presenter records the check-ins through the real scanner.
 **Removal.** 7.1 replaced the summary computation (M-13a) and 7.2 the no-show and breakdown
 computation (M-13b). 7.3 replaced the paged detail read (M-13c) in `04157b3` and deleted
 `DemoParticipationReportService.cs`, `DemoReportsRegistration.cs` and
-`DemoParticipationReportOverlayTests.cs`. The screen did not change visibly.
+`DemoParticipationReportOverlayTests.cs`. The screen did not change visibly. 7.2's commit
+`975c08b` removed the demo no-show and breakdown as the authoritative path but left the
+`hasDemoAttendance` overrides for the valid count, rate and no-show figure, and the
+`CourseBreakdown`/`YearBreakdown` fallback, in the file; `04157b3` deleted them with the rest of
+the file. 7.1's commit `c0c0935` likewise left the valid-count and rate overrides behind until
+`04157b3`.
 
 **Hand-over (rule 12).** 4.3 (real check-in) and 4.6 (real invalidation) landed before 7.3, so the
 detail rows read the real attendance and invalidation source. 7.3 then removed the demo overlay

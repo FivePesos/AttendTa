@@ -1,4 +1,4 @@
-/* Door passes: member pass cards, the QR block and its download states (M-03). */
+/* Door passes: member pass cards, the QR block and its download states. */
 @layer components {
   .passes-section + .passes-section { margin-top: 1.5rem; }
   .pass-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1rem; }

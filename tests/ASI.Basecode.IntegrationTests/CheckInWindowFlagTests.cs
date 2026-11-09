@@ -68,9 +68,9 @@ public sealed class CheckInWindowFlagTests(SqlServerDatabaseFixture fixture) : I
         var ct = TestContext.Current.CancellationToken;
 
         // The seam is gone, so the old switch is just an unknown configuration key: the host must
-        // start and serve normally with it on, no token key and a non-demo database. The section name
-        // is assembled from its two words so no source search for the deleted seam finds a literal.
-        var retiredSection = "Demo" + "Data";
+        // start and serve normally with it on, no token key and a non-demo database. This test is the
+        // one place the retired section name may appear, because it is the check that the seam is gone.
+        const string retiredSection = "DemoData";
 
         using var factory = new AttendTaWebApplicationFactory(fixture.ConnectionString);
         using var host = factory.WithWebHostBuilder(builder => builder.UseSetting(retiredSection + ":Enabled", "true"));

@@ -11,7 +11,7 @@ using ASI.Basecode.Services.ServiceModels;
 namespace ASI.Basecode.Services.Services;
 
 /// <summary>
-/// The real manual lookup and manual check-in (register M-06, removed by 4.5). The search is a
+/// The real manual lookup and manual check-in. The search is a
 /// registration-scoped, server-paged read of the selected event's Confirmed registrations matching a
 /// name or student number substring; it never writes. The explicit Check in pre-checks the published
 /// event and open window, reads the row's student number to choose <c>student_number</c> or
