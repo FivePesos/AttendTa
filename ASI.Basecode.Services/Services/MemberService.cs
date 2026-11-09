@@ -48,9 +48,9 @@ namespace ASI.Basecode.Services.Services
             return new PagedResult<MemberViewModel>(records.Select(ToViewModel).ToList(), page, totalCount);
         }
 
-        public MemberViewModel GetMember(int id)
+        public async Task<MemberViewModel> GetMemberAsync(int id, CancellationToken cancellationToken = default)
         {
-            var member = _repository.GetMemberRecord(id);
+            var member = await _repository.GetMemberRecordAsync(id, cancellationToken);
             return member == null ? null : ToViewModel(member);
         }
 
@@ -90,12 +90,12 @@ namespace ASI.Basecode.Services.Services
                     throw new DomainException(OutcomeCode.NotFound, "The linked account was not found.");
                 }
 
-                if (_repository.UserHasMemberProfile(userId))
+                if (await _repository.UserHasMemberProfileAsync(userId, ct))
                 {
                     throw new DomainException(OutcomeCode.Duplicate, "This user already has a member profile.");
                 }
 
-                if (_repository.StudentNumberExists(model.StudentNumber))
+                if (await _repository.StudentNumberExistsAsync(model.StudentNumber, cancellationToken: ct))
                 {
                     throw new DomainException(OutcomeCode.Duplicate, "Student number already exists.", nameof(MemberViewModel.StudentNumber));
                 }
@@ -134,7 +134,7 @@ namespace ASI.Basecode.Services.Services
 
             await _unitOfWork.ExecuteInTransactionAsync(async ct =>
             {
-                var memberRecord = _repository.GetMemberRecord(model.MemberId);
+                var memberRecord = await _repository.GetMemberRecordAsync(model.MemberId, ct);
                 if (memberRecord == null)
                 {
                     throw new DomainException(OutcomeCode.NotFound, "Member not found.");
@@ -146,7 +146,7 @@ namespace ASI.Basecode.Services.Services
                     throw new DomainException(OutcomeCode.NotFound, "The linked account was not found.");
                 }
 
-                var member = _repository.GetMember(model.MemberId);
+                var member = await _repository.GetMemberAsync(model.MemberId, ct);
                 if (member == null)
                 {
                     throw new DomainException(OutcomeCode.NotFound, "Member not found.");
@@ -163,7 +163,7 @@ namespace ASI.Basecode.Services.Services
                     throw new DomainException(OutcomeCode.Invalid, "A reason is required when correcting the student number.", nameof(MemberViewModel.StudentNumberCorrectionReason));
                 }
 
-                if (correctingStudentNumber && _repository.StudentNumberExists(model.StudentNumber, model.MemberId))
+                if (correctingStudentNumber && await _repository.StudentNumberExistsAsync(model.StudentNumber, model.MemberId, ct))
                 {
                     throw new DomainException(OutcomeCode.Duplicate, "Student number already exists.", nameof(MemberViewModel.StudentNumber));
                 }

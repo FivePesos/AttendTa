@@ -18,6 +18,67 @@ public static class ParticipationFacts
     public static readonly Expression<Func<Registration, bool>> SeatHeld =
         registration => registration.RegistrationStatusId == RegistrationStatusCode.Confirmed;
 
+    /// <summary>
+    /// The SQL twin of <see cref="IsOpenRegistration"/>: a registration that still competes for a seat.
+    /// </summary>
+    public static readonly Expression<Func<Registration, bool>> OpenRegistration =
+        registration => registration.RegistrationStatusId == RegistrationStatusCode.Pending
+                        || registration.RegistrationStatusId == RegistrationStatusCode.Confirmed
+                        || registration.RegistrationStatusId == RegistrationStatusCode.Waitlisted;
+
+    /// <summary>
+    /// In-memory twin of <see cref="ValidAttendance"/>. Every module that already holds the row uses
+    /// this instead of re-testing <c>InvalidatedAt</c>, so the rule changes in one place.
+    /// </summary>
+    public static bool IsValidAttendance(DateTime? invalidatedAt) => invalidatedAt is null;
+
+    /// <summary>In-memory twin of <see cref="ValidAttendance"/> over the attendance entity.</summary>
+    public static bool IsValidAttendance(Attendance attendance) =>
+        attendance is not null && IsValidAttendance(attendance.InvalidatedAt);
+
+    /// <summary>
+    /// The named negation of <see cref="IsValidAttendance(DateTime?)"/>, for a caller whose own
+    /// property is "invalidated". Defined in terms of the rule, so the two cannot drift.
+    /// </summary>
+    public static bool IsInvalidated(DateTime? invalidatedAt) => !IsValidAttendance(invalidatedAt);
+
+    /// <summary>
+    /// The one "open registration" rule: a registration that still competes for a seat. Cancellation
+    /// and the member's own cancel action use this instead of repeating the status list.
+    /// </summary>
+    public static bool IsOpenRegistration(RegistrationStatusCode status) =>
+        status is RegistrationStatusCode.Pending or RegistrationStatusCode.Confirmed or RegistrationStatusCode.Waitlisted;
+
+    /// <summary>
+    /// In-memory twin of <see cref="SeatHeld"/>. Every module that already holds the status uses this
+    /// instead of re-testing <c>RegistrationStatusId</c>, so the rule changes in one place.
+    /// </summary>
+    public static bool HoldsSeat(RegistrationStatusCode status) => status == RegistrationStatusCode.Confirmed;
+
+    /// <summary>In-memory twin of <see cref="SeatHeld"/> over the registration entity.</summary>
+    public static bool HoldsSeat(Registration registration) =>
+        registration is not null && HoldsSeat(registration.RegistrationStatusId);
+
+    /// <summary>
+    /// The one certificate-eligibility rule: a Confirmed seat with valid attendance on a completed
+    /// event, whose review is in the state the operation requires — <c>PendingApproval</c> for a
+    /// decision, <c>Eligible</c> for issuance. The event is required: a caller that cannot read it must
+    /// refuse before calling, because a missing event is not a completed event. The completion hook's
+    /// SQL twin is <c>CertificateRepository.GetRegistrationsAwaitingReviewAsync</c>, which selects the
+    /// same Confirmed seats with valid attendance and no review yet.
+    /// </summary>
+    public static bool IsCertificateEligible(
+        Registration registration,
+        Attendance attendance,
+        Certificate certificate,
+        CertificateStatusCode requiredStatus,
+        Event eventItem) =>
+        HoldsSeat(registration)
+        && IsValidAttendance(attendance)
+        && certificate is not null
+        && certificate.CertificateStatusId == requiredStatus
+        && eventItem.EventStatusId == EventStatusCode.Completed;
+
     public static IQueryable<int> EligibleParticipantMemberIds(
         IQueryable<User> users,
         IQueryable<Member> members)
@@ -78,6 +139,9 @@ public static class ParticipationFacts
             [publishable.Parameters[1]] = eventType,
             [publishable.Parameters[2]] = venue
         });
+        // The three-table predicate is rebuilt as a correlated subquery: the venue filter carries the
+        // event's venue id, and the event-type filter carries the event's type id, so the whole
+        // publishable rule stays one expression tree that EF can translate without client evaluation.
         var venueFilter = Expression.Lambda<Func<Venue, bool>>(
             Expression.AndAlso(Expression.Equal(Expression.Property(venue, nameof(Venue.VenueId)), Expression.Property(eventItem, nameof(Event.VenueId))), predicate), venue);
         var venueIds = venues.Where(venueFilter).Select(Expression.Lambda<Func<Venue, int>>(Expression.Property(eventItem, nameof(Event.EventId)), venue));
@@ -86,39 +150,6 @@ public static class ParticipationFacts
         var eventTypeIds = eventTypes.Where(eventTypeFilter).SelectMany(
             Expression.Lambda<Func<EventType, IEnumerable<int>>>(venueIds.Expression, eventType));
         return events.SelectMany(Expression.Lambda<Func<Event, IEnumerable<int>>>(eventTypeIds.Expression, eventItem));
-    }
-
-    public static IQueryable<Registration> NoShows(
-        IQueryable<Registration> registrations,
-        IQueryable<Event> events,
-        IQueryable<Attendance> attendance)
-    {
-        var seatHolders = SeatHolders(registrations);
-        var validAttendance = ValidAttendances(attendance);
-        return
-        from registration in seatHolders
-        join eventItem in events on registration.EventId equals eventItem.EventId
-        where eventItem.EventStatusId == EventStatusCode.Completed
-              && !validAttendance.Any(row => row.RegistrationId == registration.RegistrationId)
-        select registration;
-    }
-
-    public static IQueryable<decimal?> AttendanceRates(
-        IQueryable<Event> events,
-        IQueryable<Registration> registrations,
-        IQueryable<Attendance> attendance)
-    {
-        var seatHolders = SeatHolders(registrations);
-        var validAttendance = ValidAttendances(attendance);
-        return
-        from eventItem in events
-        let confirmed = seatHolders.Count(registration => registration.EventId == eventItem.EventId)
-        let validAttendees =
-            (from registration in seatHolders
-             join row in validAttendance on registration.RegistrationId equals row.RegistrationId
-             where registration.EventId == eventItem.EventId
-             select registration.RegistrationId).Distinct().Count()
-        select confirmed == 0 ? (decimal?)null : (decimal)validAttendees / confirmed;
     }
 
     private static Expression Replace(Expression expression, IReadOnlyDictionary<ParameterExpression, Expression> replacements) =>

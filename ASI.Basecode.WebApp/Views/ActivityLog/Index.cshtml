@@ -33,7 +33,7 @@ else
                 @foreach (var log in Model.Items)
                 {
                     <tr data-log-id="@log.LogId">
-                        <td><time datetime="@(DateTime.SpecifyKind(log.OccurredAt, DateTimeKind.Utc).ToString("O"))" aria-label="Occurred at in Asia/Manila">@ManilaTimeFormatter.Format(log.OccurredAt)</time></td>
+                        <td><time datetime="@log.OccurredAt.ToString("O")" aria-label="Occurred at in Asia/Manila">@ManilaTimeFormatter.Format(log.OccurredAt)</time></td>
                         <td>@log.ActorName</td>
                         <td>@log.ActorType</td>
                         <td>@log.Action</td>

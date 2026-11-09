@@ -1,5 +1,4 @@
 using System.Net;
-using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using ASI.Basecode.Data;
 using ASI.Basecode.Data.Interfaces;
@@ -10,7 +9,6 @@ using ASI.Basecode.Resources;
 using ASI.Basecode.Resources.Constants;
 using ASI.Basecode.Services.Interfaces;
 using ASI.Basecode.Services.Services;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -209,34 +207,28 @@ public sealed class AdminAccountReactivationTests : IClassFixture<SqlServerDatab
     }
 
     [Fact]
-    public async Task DemoSwitchOnUsesTheRealCommandAndNoOverlayMasksTheNewState()
+    public async Task ReactivationThroughTheEndpointUsesTheRealCommandAndShowsTheActiveBadge()
     {
         var ct = TestContext.Current.CancellationToken;
-        var actor = await SeedUserAsync(RoleCode.Admin, "demo-reactivate-actor", ct);
-        var target = await SeedUserAsync(RoleCode.Member, "demo-reactivate-target", ct);
+        var actor = await SeedUserAsync(RoleCode.Admin, "reactivate-actor", ct);
+        var target = await SeedUserAsync(RoleCode.Member, "reactivate-target", ct);
 
-        using var demoFactory = new AttendTaWebApplicationFactory(fixture.ConnectionString);
-        using var demoHost = demoFactory.WithWebHostBuilder(builder =>
-        {
-            builder.UseSetting("DemoData:Enabled", "true");
-            builder.UseSetting("DemoData:TokenKey", Convert.ToHexString(RandomNumberGenerator.GetBytes(32)));
-            builder.UseSetting("DemoData:AllowDatabase", fixture.DatabaseName);
-        });
-        using var demoClient = CreateClient(demoHost);
+        using var factory = new AttendTaWebApplicationFactory(fixture.ConnectionString);
+        using var client = CreateClient(factory);
 
-        using (var scope = demoHost.Services.CreateScope())
+        using (var scope = factory.Services.CreateScope())
         {
             var commands = scope.ServiceProvider.GetRequiredService<IAccountAccessCommands>();
             Assert.IsType<AccountAccessService>(commands);
         }
 
-        await MemberEventTestSupport.SignInAsync(demoClient, actor.UserId, password, ct);
-        using (var deactivated = await DeactivateThroughEndpointAsync(demoClient, target.Id, "Demo switch deactivation.", ct))
+        await MemberEventTestSupport.SignInAsync(client, actor.UserId, password, ct);
+        using (var deactivated = await DeactivateThroughEndpointAsync(client, target.Id, "Deactivation through the endpoint.", ct))
         {
             Assert.Equal(HttpStatusCode.Redirect, deactivated.StatusCode);
         }
 
-        using (var reactivated = await ReactivateThroughEndpointAsync(demoClient, target.Id, "Demo switch reactivation.", ct))
+        using (var reactivated = await ReactivateThroughEndpointAsync(client, target.Id, "Reactivation through the endpoint.", ct))
         {
             Assert.Equal(HttpStatusCode.Redirect, reactivated.StatusCode);
         }
@@ -250,7 +242,7 @@ public sealed class AdminAccountReactivationTests : IClassFixture<SqlServerDatab
                 item => item.Action == AuditActions.UserReactivated && item.EntityId == target.Id, ct));
         }
 
-        var page = await demoClient.GetStringAsync(
+        var page = await client.GetStringAsync(
             $"/admin/accounts?search={Uri.EscapeDataString(target.UserId)}", ct);
         var row = AccountRow(page, target.Id);
         Assert.Contains("badge-active", row, StringComparison.Ordinal);

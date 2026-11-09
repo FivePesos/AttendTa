@@ -1,6 +1,6 @@
 ﻿using ASI.Basecode.Data.Models;
 using ASI.Basecode.Data.Models.Lookups;
-using System.Linq;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -8,7 +8,8 @@ namespace ASI.Basecode.Data.Interfaces
 {
     public interface IUserRepository
     {
-        IQueryable<User> GetUsers();
+        /// <summary>Reads every user row, tracked for the caller's unit of work.</summary>
+        Task<IReadOnlyList<User>> GetUsersAsync(CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Finds a user by the login identifier (<c>users.email</c>).

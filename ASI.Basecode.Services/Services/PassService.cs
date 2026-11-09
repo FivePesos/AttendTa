@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using ASI.Basecode.Data.Interfaces;
 using ASI.Basecode.Data.Models.Lookups;
+using ASI.Basecode.Data.Queries;
 using ASI.Basecode.Resources;
 using ASI.Basecode.Services.Interfaces;
 using ASI.Basecode.Services.ServiceModels;
@@ -107,7 +108,7 @@ public sealed class PassService(
             : await registrations.GetOwnedPassAsync(registrationId, userId, cancellationToken);
 
         if (owned is null
-            || owned.Status != RegistrationStatusCode.Confirmed
+            || !ParticipationFacts.HoldsSeat(owned.Status)
             || owned.EventStatus != EventStatusCode.Published
             || !IsCanonicalToken(owned.QrToken))
         {

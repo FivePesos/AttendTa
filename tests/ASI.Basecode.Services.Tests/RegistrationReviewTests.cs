@@ -305,9 +305,9 @@ public sealed class RegistrationReviewTests
 
     private sealed class FakeRegistrations(ReviewHarness harness) : IRegistrationRepository
     {
-        public Task<RegistrationReviewIdentity> DiscoverReviewAsync(int id, CancellationToken ct = default) =>
+        public Task<RegistrationIdentity> DiscoverIdentityAsync(int id, CancellationToken ct = default) =>
             Task.FromResult(id == ReviewHarness.RegistrationId
-                ? new RegistrationReviewIdentity(ReviewHarness.ActorUserId, ReviewHarness.MemberId, ReviewHarness.EventId)
+                ? new RegistrationIdentity(ReviewHarness.ActorUserId, ReviewHarness.MemberId, ReviewHarness.EventId)
                 : null!);
 
         public Task<RegistrationPromotionCandidate> DiscoverPromotionCandidateAsync(int eventId, CancellationToken ct = default) =>
@@ -319,7 +319,7 @@ public sealed class RegistrationReviewTests
         public Task<OwnedPassRow> GetOwnedPassAsync(int registrationId, int userId, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<int?> FindConfirmedRegistrationIdByTokenAsync(int eventId, string token, CancellationToken ct = default) => throw new NotSupportedException();
 
-        public Task<Registration> GetForCancellationAsync(int id, CancellationToken ct = default) =>
+        public Task<Registration> GetForUpdateAsync(int id, CancellationToken ct = default) =>
             Task.FromResult(id == ReviewHarness.RegistrationId ? harness.Registration : null!);
 
         public Task<int> CountConfirmedAsync(int eventId, CancellationToken cancellationToken = default) => Task.FromResult(0);
@@ -350,7 +350,7 @@ public sealed class RegistrationReviewTests
             Task.FromResult(userId == ReviewHarness.ActorUserId ? harness.User : null!);
 
         public Task<User> GetByIdAsync(int userId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public IQueryable<User> GetUsers() => throw new NotSupportedException();
+        public Task<IReadOnlyList<User>> GetUsersAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<User> GetByEmailAsync(string email, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task AddAsync(User user, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<string> GetRoleCodeAsync(RoleCode roleId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
@@ -364,13 +364,13 @@ public sealed class RegistrationReviewTests
         public IQueryable<MemberRecord> GetMemberRecords() => throw new NotSupportedException();
         public Task<int> CountAsync(string search, string status, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<IReadOnlyList<MemberRecord>> GetPageAsync(string search, string status, int skip, int take, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public MemberRecord GetMemberRecord(int memberId) => throw new NotSupportedException();
+        public Task<MemberRecord> GetMemberRecordAsync(int memberId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<MemberRecord> GetMemberRecordByUserIdAsync(int userId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Member GetMember(int memberId) => throw new NotSupportedException();
+        public Task<Member> GetMemberAsync(int memberId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task AddMemberAsync(Member member, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task UpdateMemberAsync(Member member, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public bool UserHasMemberProfile(int userId) => throw new NotSupportedException();
-        public bool StudentNumberExists(string studentNumber, int? excludeId = null) => throw new NotSupportedException();
+        public Task<bool> UserHasMemberProfileAsync(int userId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<bool> StudentNumberExistsAsync(string studentNumber, int? excludeId = null, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }
 
     private sealed class FakeEvents(ReviewHarness harness) : IEventRepository

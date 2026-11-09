@@ -1,5 +1,4 @@
 ﻿using ASI.Basecode.Data;
-using ASI.Basecode.WebApp.DemoData;
 using ASI.Basecode.WebApp.Extensions.Configuration;
 using ASI.Basecode.WebApp.Hotspot;
 using Microsoft.AspNetCore.Builder;
@@ -72,10 +71,6 @@ namespace ASI.Basecode.WebApp
                     + "ConnectionStrings__DefaultConnection environment variable (or a user secret) "
                     + "before starting AttendTa.");
             }
-
-            // The demo switch is a live-host safety gate: it runs before any demo provider is
-            // registered and refuses to start against a database that is not the demo database.
-            DemoDataStartupGuard.Validate(Configuration);
 
             // Register SQL database configuration context as services.
             services.AddDbContext<AsiBasecodeDBContext>(options =>

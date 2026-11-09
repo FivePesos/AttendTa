@@ -411,6 +411,7 @@ public sealed class CertificateIssuanceTests(SqlServerDatabaseFixture fixture) :
             new EventRepository(unitOfWork),
             new CertificateRepository(unitOfWork),
             new RegistrationRepository(unitOfWork),
+            new AttendanceRepository(unitOfWork),
             new UserRepository(unitOfWork),
             unitOfWork,
             actor,

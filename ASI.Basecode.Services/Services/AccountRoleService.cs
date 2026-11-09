@@ -123,8 +123,12 @@ public sealed class AccountRoleService : IAccountRoleService
                 }
             }
 
-            var oldRoleCode = await _userRepository.GetRoleCodeAsync(user.RoleId, ct) ?? user.RoleId.ToString();
-            var newRoleCode = await _userRepository.GetRoleCodeAsync(requestedRole, ct) ?? requestedRole.ToString();
+            // A missing role lookup is a data-integrity fault, not a user error: fail loudly rather
+            // than writing a numeric fallback into the audit row.
+            var oldRoleCode = await _userRepository.GetRoleCodeAsync(user.RoleId, ct)
+                ?? throw new InvalidOperationException($"Role lookup {user.RoleId} is missing.");
+            var newRoleCode = await _userRepository.GetRoleCodeAsync(requestedRole, ct)
+                ?? throw new InvalidOperationException($"Role lookup {requestedRole} is missing.");
 
             user.RoleId = requestedRole;
             user.UpdatedById = actorUserId;

@@ -1,5 +1,6 @@
 using ASI.Basecode.Data.Models;
 using ASI.Basecode.Data.Models.Lookups;
+using ASI.Basecode.Data.Queries;
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -58,7 +59,7 @@ public sealed record AttendanceLogRow(
     string InvalidationReason,
     bool IsCertificateIssued)
 {
-    public bool IsValid => InvalidatedAt is null;
+    public bool IsValid => ParticipationFacts.IsValidAttendance(InvalidatedAt);
 }
 
 /// <summary>One attendance row joined to its event for the member Participation History.</summary>
@@ -69,7 +70,4 @@ public sealed record MyAttendanceRow(
     DateTime RecordedAt,
     CheckInMethodCode CheckInMethod,
     DateTime? InvalidatedAt,
-    string InvalidationReason)
-{
-    public bool IsValid => InvalidatedAt is null;
-}
+    string InvalidationReason);

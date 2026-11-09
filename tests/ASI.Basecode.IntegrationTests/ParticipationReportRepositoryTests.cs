@@ -1,22 +1,24 @@
 using ASI.Basecode.Data;
 using ASI.Basecode.Data.Models;
 using ASI.Basecode.Data.Models.Lookups;
+using ASI.Basecode.Data.Queries;
 using ASI.Basecode.Data.Repositories;
+using ASI.Basecode.Services.Services;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
 
 namespace ASI.Basecode.IntegrationTests;
 
 /// <summary>
-/// Focused SQL smoke for the report's reads: Confirmed registrations without valid attendance are
-/// no-shows only on a completed event, the distribution groups the signup snapshots even when the
-/// member is now inactive, and the detail rows page by participant name then registration id with
-/// stable boundaries.
+/// Focused SQL smoke for the report's one snapshot read: every registration of the event comes back
+/// with its member, signup snapshots and attendance state, including inactive history, and the rows
+/// order by participant name then registration id with stable boundaries. The summary, no-shows and
+/// distribution are derived from this snapshot by the service.
 /// </summary>
 public sealed class ParticipationReportRepositoryTests(SqlServerDatabaseFixture fixture) : IClassFixture<SqlServerDatabaseFixture>
 {
     [Fact]
-    public async Task CompletedEventCountsNoShowsAndGroupsSnapshotsIncludingInactiveHistory()
+    public async Task SnapshotReturnsEveryRegistrationWithAttendanceStateIncludingInactiveHistory()
     {
         var ct = TestContext.Current.CancellationToken;
         var now = new DateTime(2026, 5, 1, 9, 0, 0, DateTimeKind.Utc);
@@ -56,8 +58,7 @@ public sealed class ParticipationReportRepositoryTests(SqlServerDatabaseFixture 
         await context.SaveChangesAsync(ct);
 
         var completed = EventItem(completed: true, now, eventType.TypeId, venue.VenueId, actor.Id, suffix);
-        var cancelled = EventItem(completed: false, now, eventType.TypeId, venue.VenueId, actor.Id, suffix);
-        context.Events.AddRange(completed, cancelled);
+        context.Events.Add(completed);
         await context.SaveChangesAsync(ct);
 
         // One member per registration: the schema allows one registration per member/event.
@@ -70,14 +71,15 @@ public sealed class ParticipationReportRepositoryTests(SqlServerDatabaseFixture 
         var inactiveMember = await SeedMemberAsync($"report-inactive-{suffix}@attendta.test", isActive: false, MembershipStatusCode.Inactive, actor.Id, now, ct);
 
         // Completed event: one valid attendee, one invalidated check-in, one never checked in, plus
-        // pending, waitlisted and cancelled rows that must never count as no-shows.
+        // pending, waitlisted and cancelled rows. The cancelled row carries a real check-in, so the
+        // report has to exclude it by seat rather than by the absence of an attendance row.
         var attended = Registration(completed.EventId, activeMembers[0].MemberId, RegistrationStatusCode.Confirmed, "BSIT", 1, actor.Id, now);
         var invalidated = Registration(completed.EventId, activeMembers[1].MemberId, RegistrationStatusCode.Confirmed, "BSED", 2, actor.Id, now);
         var neverCheckedIn = Registration(completed.EventId, activeMembers[2].MemberId, RegistrationStatusCode.Confirmed, "BSIT", 3, actor.Id, now);
         var pending = Registration(completed.EventId, activeMembers[3].MemberId, RegistrationStatusCode.Pending, "BSIT", 1, actor.Id, now);
         var waitlisted = Registration(completed.EventId, activeMembers[4].MemberId, RegistrationStatusCode.Waitlisted, "BSED", 2, actor.Id, now);
         var cancelledRow = Registration(completed.EventId, activeMembers[5].MemberId, RegistrationStatusCode.Cancelled, "BSIT", 4, actor.Id, now);
-        // The inactive member still attended, so the snapshot distribution must keep them.
+        // The inactive member still attended, so the snapshot must keep them.
         var inactiveAttended = Registration(completed.EventId, inactiveMember.MemberId, RegistrationStatusCode.Confirmed, "BSED", 2, actor.Id, now);
         context.Registrations.AddRange(attended, invalidated, neverCheckedIn, pending, waitlisted, cancelledRow, inactiveAttended);
         await context.SaveChangesAsync(ct);
@@ -85,37 +87,79 @@ public sealed class ParticipationReportRepositoryTests(SqlServerDatabaseFixture 
         context.AttendanceRecords.AddRange(
             Attendance(attended.RegistrationId, actor.Id, now),
             Attendance(invalidated.RegistrationId, actor.Id, now, invalidatedAt: now),
-            Attendance(inactiveAttended.RegistrationId, actor.Id, now));
-        await context.SaveChangesAsync(ct);
-
-        // Cancelled event: a confirmed row with and without valid attendance, still zero no-shows.
-        var cancelledAttended = Registration(cancelled.EventId, activeMembers[0].MemberId, RegistrationStatusCode.Confirmed, "BSIT", 1, actor.Id, now);
-        var cancelledNoShow = Registration(cancelled.EventId, inactiveMember.MemberId, RegistrationStatusCode.Confirmed, "BSED", 2, actor.Id, now);
-        context.Registrations.AddRange(cancelledAttended, cancelledNoShow);
-        await context.SaveChangesAsync(ct);
-        context.AttendanceRecords.Add(Attendance(cancelledAttended.RegistrationId, actor.Id, now));
+            Attendance(inactiveAttended.RegistrationId, actor.Id, now),
+            Attendance(cancelledRow.RegistrationId, actor.Id, now));
         await context.SaveChangesAsync(ct);
 
         var repository = new ParticipationReportRepository(new UnitOfWork(context));
 
-        Assert.Equal(2, await repository.GetNoShowCountAsync(completed.EventId, ct));
-        Assert.Equal(0, await repository.GetNoShowCountAsync(cancelled.EventId, ct));
+        var snapshot = await repository.GetSnapshotAsync(completed.EventId, ct);
 
-        var distribution = await repository.GetAttendeeDistributionAsync(completed.EventId, ct);
-        Assert.Equal(
-            new[] { ("BSED", 1), ("BSIT", 1) },
-            distribution.Courses.OrderBy(row => row.Course).Select(row => (row.Course, row.Count)));
-        Assert.Equal(
-            new[] { (1, 1), (2, 1) },
-            distribution.Years.OrderBy(row => row.YearLevel).Select(row => (row.YearLevel, row.Count)));
+        // Every registration of the event is present, in every status.
+        Assert.Equal(7, snapshot.Count);
+        Assert.Equal(4, snapshot.Count(row => ParticipationFacts.HoldsSeat(row.Status)));
+        Assert.Equal(1, snapshot.Count(row => row.Status == RegistrationStatusCode.Pending));
+        Assert.Equal(1, snapshot.Count(row => row.Status == RegistrationStatusCode.Waitlisted));
+        Assert.Equal(1, snapshot.Count(row => row.Status == RegistrationStatusCode.Cancelled));
 
-        // The inactive member's valid attendance is the only BSED/year-2 attendee, so it still counts.
-        Assert.Contains(distribution.Courses, row => row.Course == "BSED" && row.Count == 1);
-        Assert.Contains(distribution.Years, row => row.YearLevel == 2 && row.Count == 1);
+        // The invalidated check-in keeps its recorded time and carries its invalidation time.
+        var invalidatedRow = snapshot.Single(row => row.RegistrationId == invalidated.RegistrationId);
+        Assert.NotNull(invalidatedRow.CheckedInAt);
+        Assert.NotNull(invalidatedRow.InvalidatedAt);
+
+        // A never-checked-in row has no attendance facts at all.
+        var absentRow = snapshot.Single(row => row.RegistrationId == neverCheckedIn.RegistrationId);
+        Assert.Null(absentRow.CheckedInAt);
+        Assert.Null(absentRow.InvalidatedAt);
+
+        // The inactive member's valid attendance is still in the snapshot: the read never joins the
+        // active-account or active-membership flags.
+        var inactiveRow = snapshot.Single(row => row.RegistrationId == inactiveAttended.RegistrationId);
+        Assert.NotNull(inactiveRow.CheckedInAt);
+        Assert.Null(inactiveRow.InvalidatedAt);
+
+        // The snapshot carries the signup snapshots and the linked member's student number.
+        Assert.Equal("BSED", invalidatedRow.Course);
+        Assert.Equal(2, invalidatedRow.YearLevel);
+        Assert.Equal(activeMembers[1].StudentNumber, invalidatedRow.StudentNumber);
+
+        // The derived facts agree with the raw rows: two valid attendees, four confirmed seats and
+        // therefore two no-shows on the completed event.
+        var validAttendees = snapshot.Count(row =>
+            ParticipationFacts.HoldsSeat(row.Status)
+            && row.CheckedInAt is not null
+            && ParticipationFacts.IsValidAttendance(row.InvalidatedAt));
+        Assert.Equal(2, validAttendees);
+        Assert.Equal(2, snapshot.Count(row => ParticipationFacts.HoldsSeat(row.Status)) - validAttendees);
+
+        // The service derives every panel from that one snapshot, so the composed read is exercised
+        // against real SQL rather than a fake.
+        var service = new ParticipationReportService(new EventRepository(new UnitOfWork(context)), repository);
+        var report = await service.GetReportAsync(completed.EventId, null, ct);
+
+        Assert.Equal(7, report.TotalCount);
+        Assert.Equal(1, report.PendingCount);
+        Assert.Equal(4, report.ConfirmedCount);
+        Assert.Equal(1, report.WaitlistedCount);
+        Assert.Equal(1, report.CancelledCount);
+        Assert.Equal(2, report.ValidAttendeeCount);
+        Assert.Equal(2, report.NoShowCount);
+        Assert.Equal(0.5m, report.AttendanceRate);
+        Assert.Equal(7, report.Rows.Count);
+        Assert.Equal(2, report.CourseBreakdown.Sum(item => item.Count));
+        Assert.Equal(2, report.YearBreakdown.Sum(item => item.Count));
+
+        // The cancelled row holds a real check-in, so it is a checked-in row that is not a valid
+        // attendee: the seat, not the presence of an attendance row, is what excludes it from the
+        // count. Without that check the attendee total would rise and the no-show arithmetic could go
+        // negative. The row's own display flag is covered by ParticipationReportServiceTests.
+        var cancelledReportRow = report.Rows.Single(row => row.RegistrationId == cancelledRow.RegistrationId);
+        Assert.NotNull(cancelledReportRow.CheckedInAt);
+        Assert.False(cancelledReportRow.IsNoShow);
     }
 
     [Fact]
-    public async Task DetailRowsPageByNameThenRegistrationIdWithStableBoundaries()
+    public async Task SnapshotOrdersByNameThenRegistrationIdWithStableBoundaries()
     {
         var ct = TestContext.Current.CancellationToken;
         var now = new DateTime(2026, 6, 1, 9, 0, 0, DateTimeKind.Utc);
@@ -212,13 +256,12 @@ public sealed class ParticipationReportRepositoryTests(SqlServerDatabaseFixture 
 
         var repository = new ParticipationReportRepository(new UnitOfWork(context));
 
-        Assert.Equal(26, await repository.CountDetailRowsAsync(completed.EventId, ct));
+        var snapshot = await repository.GetSnapshotAsync(completed.EventId, ct);
 
-        var first = await repository.GetDetailPageAsync(completed.EventId, 0, 25, ct);
-        var second = await repository.GetDetailPageAsync(completed.EventId, 25, 25, ct);
+        Assert.Equal(26, snapshot.Count);
 
-        Assert.Equal(25, first.Count);
-        var lastRow = Assert.Single(second);
+        var first = snapshot.Take(25).ToList();
+        var lastRow = Assert.Single(snapshot.Skip(25));
 
         // Names ascend across the boundary; the shared name breaks on the lower id first.
         Assert.Equal("Participant 01", first[0].MemberName);
@@ -230,25 +273,24 @@ public sealed class ParticipationReportRepositoryTests(SqlServerDatabaseFixture 
         Assert.True(lastRow.RegistrationId > first[24].RegistrationId);
 
         // No row is repeated or skipped.
-        var paged = first.Concat(second).ToList();
-        Assert.Equal(26, paged.Count);
-        Assert.Equal(26, paged.Select(row => row.RegistrationId).Distinct().Count());
+        Assert.Equal(26, snapshot.Select(row => row.RegistrationId).Distinct().Count());
 
         // The snapshot course and the linked member's student number come back on the row.
         Assert.Equal("BSED", lastRow.Course);
         Assert.Equal(members[1].StudentNumber, lastRow.StudentNumber);
         Assert.Equal(2, lastRow.YearLevel);
 
-        // The invalidated row is flagged, a valid row is not, and an absent row has no check-in time.
-        var invalidatedRow = paged.Single(row => row.RegistrationId == registrations[1].RegistrationId);
-        Assert.True(invalidatedRow.IsAttendanceInvalidated);
+        // The invalidated row carries its invalidation time, a valid row does not, and an absent row
+        // has no check-in time and no invalidation time.
+        var invalidatedRow = snapshot.Single(row => row.RegistrationId == registrations[1].RegistrationId);
+        Assert.NotNull(invalidatedRow.InvalidatedAt);
         Assert.NotNull(invalidatedRow.CheckedInAt);
-        var validRow = paged.Single(row => row.RegistrationId == registrations[2].RegistrationId);
-        Assert.False(validRow.IsAttendanceInvalidated);
+        var validRow = snapshot.Single(row => row.RegistrationId == registrations[2].RegistrationId);
+        Assert.Null(validRow.InvalidatedAt);
         Assert.NotNull(validRow.CheckedInAt);
-        var absentRow = paged.Single(row => row.RegistrationId == registrations[5].RegistrationId);
+        var absentRow = snapshot.Single(row => row.RegistrationId == registrations[5].RegistrationId);
         Assert.Null(absentRow.CheckedInAt);
-        Assert.False(absentRow.IsAttendanceInvalidated);
+        Assert.Null(absentRow.InvalidatedAt);
     }
 
     private AsiBasecodeDBContext Context() => new(

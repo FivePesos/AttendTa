@@ -83,7 +83,7 @@ namespace ASI.Basecode.Services.Services
             }
 
             // StudentNumberExists includes inactive member profiles.
-            if (_memberRepository.StudentNumberExists(studentNumber))
+            if (await _memberRepository.StudentNumberExistsAsync(studentNumber, cancellationToken: cancellationToken))
             {
                 throw new DomainException(OutcomeCode.Duplicate, "This student number is already in use.", nameof(AccountRequestViewModel.StudentNumber));
             }
@@ -140,7 +140,7 @@ namespace ASI.Basecode.Services.Services
                     }
                 }
 
-                if (_memberRepository.StudentNumberExists(request.StudentNumber))
+                if (await _memberRepository.StudentNumberExistsAsync(request.StudentNumber, cancellationToken: ct))
                 {
                     throw new DomainException(OutcomeCode.Duplicate, "This student number is already in use.");
                 }

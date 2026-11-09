@@ -49,6 +49,7 @@ public class TransactionVerificationTests(SqlServerDatabaseFixture fixture) : IC
         var audit = await observer.ActivityLogs.SingleAsync(a => a.ActorUserId == actor.Id, ct);
         Assert.Equal(ActorTypeCode.User, audit.ActorTypeId); Assert.Equal(actor.Id, audit.ActorUserId);
         Assert.Equal(new DateTime(2026, 1, 2, 3, 4, 5), audit.OccurredAt);
+        Assert.Equal(DateTimeKind.Utc, audit.OccurredAt.Kind);
         Assert.Equal("Account request approved.", audit.Description); Assert.Null(audit.Reason);
         Assert.Equal("{\"Status\":\"approved\",\"Count\":2}", audit.NewValues);
         var rollbackEmail = Email();

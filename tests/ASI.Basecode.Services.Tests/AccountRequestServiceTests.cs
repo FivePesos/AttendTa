@@ -506,7 +506,7 @@ public class AccountRequestServiceTests
         public MemberViewModel? Model => Calls.SingleOrDefault().Model;
 
         public Task<PagedResult<MemberViewModel>> GetPageAsync(string search, string status, int? pageNumber, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public MemberViewModel GetMember(int id) => throw new NotSupportedException();
+        public Task<MemberViewModel> GetMemberAsync(int id, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<MemberViewModel> GetSelfProfileAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task UpdateMemberAsync(MemberViewModel model, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task CreateMemberFromApprovedAccountRequestAsync(int userId, MemberViewModel model, CancellationToken cancellationToken = default)
@@ -571,7 +571,8 @@ public class AccountRequestServiceTests
     {
         public List<User> Users { get; } = new();
 
-        public IQueryable<User> GetUsers() => Users.AsQueryable();
+        public Task<IReadOnlyList<User>> GetUsersAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<User>>(Users);
 
         public Task<User> GetByEmailAsync(string email, CancellationToken cancellationToken = default)
         {
@@ -609,14 +610,15 @@ public class AccountRequestServiceTests
         public Task<int> CountAsync(string search, string status, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<IReadOnlyList<MemberRecord>> GetPageAsync(string search, string status, int skip, int take, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
-        public MemberRecord GetMemberRecord(int memberId) => null!;
+        public Task<MemberRecord> GetMemberRecordAsync(int memberId, CancellationToken cancellationToken = default) => Task.FromResult<MemberRecord>(null!);
 
         public Task<MemberRecord> GetMemberRecordByUserIdAsync(int userId, CancellationToken cancellationToken = default) => Task.FromResult<MemberRecord>(null!);
 
         public Task<Member> GetMemberByUserIdAsync(int userId, CancellationToken cancellationToken = default) =>
             Task.FromResult(Members.FirstOrDefault(member => member.UserId == userId)!);
 
-        public Member GetMember(int memberId) => Members.FirstOrDefault(member => member.MemberId == memberId)!;
+        public Task<Member> GetMemberAsync(int memberId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(Members.FirstOrDefault(member => member.MemberId == memberId)!);
 
         public Task AddMemberAsync(Member member, CancellationToken cancellationToken = default)
         {
@@ -626,13 +628,14 @@ public class AccountRequestServiceTests
 
         public Task UpdateMemberAsync(Member member, CancellationToken cancellationToken = default) => Task.CompletedTask;
 
-        public bool UserHasMemberProfile(int userId) => Members.Any(member => member.UserId == userId);
+        public Task<bool> UserHasMemberProfileAsync(int userId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(Members.Any(member => member.UserId == userId));
 
-        public bool StudentNumberExists(string studentNumber, int? excludeId = null)
+        public Task<bool> StudentNumberExistsAsync(string studentNumber, int? excludeId = null, CancellationToken cancellationToken = default)
         {
-            return Members.Any(member =>
+            return Task.FromResult(Members.Any(member =>
                 string.Equals(member.StudentNumber, studentNumber, StringComparison.Ordinal)
-                && (!excludeId.HasValue || member.MemberId != excludeId.Value));
+                && (!excludeId.HasValue || member.MemberId != excludeId.Value)));
         }
     }
 

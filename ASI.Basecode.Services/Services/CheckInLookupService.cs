@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using ASI.Basecode.Data.Interfaces;
 using ASI.Basecode.Data.Models.Lookups;
+using ASI.Basecode.Data.Queries;
 using ASI.Basecode.Services.Interfaces;
 using ASI.Basecode.Services.ServiceModels;
 
@@ -61,8 +62,8 @@ public sealed class CheckInLookupService(
                     RegistrationId = row.RegistrationId,
                     MemberName = row.MemberName,
                     StudentNumber = row.StudentNumber,
-                    IsCheckedIn = row.HasAttendance && !row.IsAttendanceInvalidated,
-                    IsInvalidated = row.IsAttendanceInvalidated
+                    IsCheckedIn = row.HasAttendance && ParticipationFacts.IsValidAttendance(row.InvalidatedAt),
+                    IsInvalidated = ParticipationFacts.IsInvalidated(row.InvalidatedAt)
                 })
                 .ToList(),
             PageNumber = page,

@@ -10,11 +10,13 @@ using System.Threading.Tasks;
 namespace ASI.Basecode.Services.Services;
 
 /// <summary>
-/// Creates one pending certificate review per registration with Valid Attendance when an event is
-/// completed (AD-2). It runs inside the caller's completion transaction and saves through the
-/// caller's unit of work, so a later handler failure rolls every review back with the completion.
-/// It never opens a transaction of its own and never writes an audit entry: completion owns the
-/// single <c>event.completed</c> row.
+/// Creates one pending certificate review per Confirmed registration with Valid Attendance when an
+/// event is completed (AD-2). The eligibility rule is the canonical certificate rule: the repository
+/// query selects the same Confirmed seats with valid attendance and no review yet that
+/// <c>ParticipationFacts.IsCertificateEligible</c> describes for the ledger. It runs inside the
+/// caller's completion transaction and saves through the caller's unit of work, so a later handler
+/// failure rolls every review back with the completion. It never opens a transaction of its own and
+/// never writes an audit entry: completion owns the single <c>event.completed</c> row.
 /// </summary>
 public sealed class CertificateReviewCompletionHandler : IEventCompletionHandler
 {

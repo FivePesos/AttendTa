@@ -82,7 +82,7 @@ into lettered rows.
 
 | Id | Surface | Missing backend today | Added by | Removed by | State |
 |---|---|---|---|---|---|
-| M-01 | Demo seam: `DemoData:Enabled`, the startup database guard, `DemoData:TokenKey`, the demo store (pass tokens and issued certificate documents; attendance and certificate reviews are real SQL rows after 6.6), the registration method and the start-up seed | — (infrastructure) | 1.14 | 8.13 | open |
+| M-01 | Demo seam: `DemoData:Enabled`, the startup database guard, `DemoData:TokenKey`, the demo store (pass tokens and issued certificate documents; attendance and certificate reviews are real SQL rows after 6.6), the registration method and the start-up seed | — (infrastructure) | 1.14 | 8.13 | removed (005f899) |
 | M-02 | My Events: all of a member's registrations across events, with status and cutoff labels | Cross-event owner query (only per-event and upcoming-only reads exist) | 3.17 | 3.13 | removed |
 | M-03 | Pass card QR image and PNG download (rule 10 token, QR drawn by a locally served browser library) | QR library, token read, authorized PNG endpoint | 4.10 | 4.1 | removed |
 | M-04 | Check-in window open/close command, the shared control partial, and the open flag overlaid on event reads (rule 7) | Open/close command | 1.14 | 4.2 | removed (7f6ae2218e6bc9e74611c610287b11ffa7f19ec4) |
@@ -97,7 +97,7 @@ into lettered rows.
 | M-11b | Officer PDF view and download (authorized retained-file retrieval) | Authorized download of the retained file | 6.12 | 6.8 | removed (124ef29) |
 | M-12 | Member certificate history and download links - `IMyCertificatesService`, `DemoMyCertificatesService`, `UnavailableMyCertificatesService`; shared `DemoCertificateDocuments` (its only remaining consumer after M-11b) | Owner-scoped certificate query | 6.13 | 6.9 | removed (7637096) |
 | M-13a | Report summary: status counts, Confirmed and Valid attendees, rate | Report summary queries | 7.4 | 7.1 | removed |
-| M-13b | Report no-shows and course/year breakdowns | No-show and distribution queries | 7.4 | 7.2 | removed |
+| M-13b | Report no-shows and course/year breakdowns | No-show and distribution queries | 7.4 | 7.2 | removed (975c08b) |
 | M-13c | Report paged detail rows | Paged detail query | 7.4 | 7.3 | removed (04157b3) |
 | M-14a | Account deactivation with reason (the Accounts list shows the new state) — `IAccountAccessCommands.DeactivateAsync`, `DemoAccountAccessCommands` | Account deactivation and cascade | 5.11 | 5.4 | removed |
 | M-14b | Account reactivation with reason — `IAccountAccessCommands.ReactivateAsync`, `DemoAccountAccessCommands` | Account reactivation | 5.11 | 5.5 | removed |
@@ -112,6 +112,8 @@ removing ticket. When no ticket owns the real work, the builder names that gap i
 request and the row's "Removed by" says `8.13`.
 
 ## M-01, M-04 and M-09 — demo seam detail (1.14)
+
+> **Removed.** 8.13 deleted the M-01 seam; the file list below is kept for provenance only.
 
 **Switch and guard.** `DemoData:Enabled` is `false` in the committed `appsettings.json` and is
 read in every environment. `DemoDataStartupGuard.Validate` runs from `Startup.ConfigureServices`
@@ -281,7 +283,7 @@ PNG is rendered in `WebApp/Rendering/QrPassPngRenderer` with `Net.Codecrete.QrCo
 streamed from `Passes/Qr/{id}` (the same GET serves the inline image and `?download=true`). Every
 unavailable request is one 403 with `This pass is unavailable.` The demo scanner now matches the
 real `registrations.qr_token` through `FindConfirmedRegistrationIdByTokenAsync` (register rule 12).
-The M-01 `--demo-pass-token` switch and `DemoStore.GetPassToken` remain until 8.13 removes the store.
+The M-01 `--demo-pass-token` switch and `DemoStore.GetPassToken` were removed by 8.13 (149791b).
 
 ## M-05, M-06 and M-07 — door scanner detail (4.11)
 
@@ -413,11 +415,12 @@ no demo report provider and no empty provider.
   so a null check-in time is the only "no attendance row" signal. The count is the pager's total, so
   the summary, no-shows and breakdowns stay full-dataset on every page.
 
-**Seeded starting state.** The ready-to-complete event seeded by M-01 still seeds up to eight
-demo-store check-ins (the last one invalidated) for the certificate-ledger demo. The report no longer
-reads them: it shows real SQL attendance only, so it opens with the not-final markers before the
-demo completes the event and reflects only the check-ins recorded through the real scanner
-afterwards.
+**Seeded starting state.** The M-01 seed service used to seed up to eight demo-store check-ins (the
+last one invalidated) for the ready-to-complete event, for the certificate-ledger demo. The report
+stopped reading them at 7.3 and shows real SQL attendance only, so it opens with the not-final
+markers before the demo completes the event and reflects only the check-ins recorded through the real
+scanner. 8.13 (149791b) deleted the seed service: the scenario seed now writes registrations only,
+and the presenter records the check-ins through the real scanner.
 
 **Removal.** 7.1 replaced the summary computation (M-13a) and 7.2 the no-show and breakdown
 computation (M-13b). 7.3 replaced the paged detail read (M-13c) in `04157b3` and deleted

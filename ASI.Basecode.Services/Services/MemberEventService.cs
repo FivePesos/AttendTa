@@ -107,9 +107,7 @@ namespace ASI.Basecode.Services.Services
             model.RegistrationId = registration?.RegistrationId;
             model.RegistrationStatus = registration?.Status;
             model.CanCancel = registration != null
-                              && (registration.Status is RegistrationStatusCode.Pending
-                                  or RegistrationStatusCode.Confirmed
-                                  or RegistrationStatusCode.Waitlisted)
+                              && ParticipationFacts.IsOpenRegistration(registration.Status)
                               && row.EventStatusId == EventStatusCode.Published
                               && !model.IsStartCutoffPassed
                               && !await _registrations.HasValidAttendanceAsync(registration.RegistrationId, cancellationToken);
@@ -229,7 +227,7 @@ namespace ASI.Basecode.Services.Services
                     throw new DomainException(OutcomeCode.Stale, "Your registration changed. Refresh the page and try again.");
                 }
 
-                if (row.Status is not (RegistrationStatusCode.Pending or RegistrationStatusCode.Confirmed or RegistrationStatusCode.Waitlisted))
+                if (!ParticipationFacts.IsOpenRegistration(row.Status))
                 {
                     throw new DomainException(OutcomeCode.Stale, "This registration can no longer be cancelled.");
                 }

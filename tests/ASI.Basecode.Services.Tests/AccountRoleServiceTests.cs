@@ -55,6 +55,29 @@ public class AccountRoleServiceTests
     }
 
     [Fact]
+    public async Task MissingRoleLookupFailsWithoutWritingTheChange()
+    {
+        var accounts = new FakeAccounts();
+        var target = accounts.Add(42, "Ana Reyes", "ana@example.com", RoleCode.Member, isActive: true);
+        var users = new FakeUsers(target) { RoleLookupMissing = true };
+        var audit = new RecordingAudit();
+        var work = new ImmediateUnitOfWork();
+        var service = Create(accounts, users, work, audit);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.ChangeRoleAsync(new ChangeAccountRoleViewModel
+        {
+            AccountId = 42,
+            RoleCode = "officer",
+            Reason = "Promote to officer."
+        }, TestContext.Current.CancellationToken));
+
+        // A broken role lookup is a data-integrity fault: no numeric fallback reaches the audit row.
+        Assert.Equal(RoleCode.Member, target.RoleId);
+        Assert.Empty(audit.Entries);
+        Assert.Equal(0, work.SaveCount);
+    }
+
+    [Fact]
     public async Task NoOpChangeSucceedsWithoutWriteOrAudit()
     {
         var accounts = new FakeAccounts();
@@ -498,7 +521,11 @@ public class AccountRoleServiceTests
     {
         public User? User { get; } = user;
 
-        public IQueryable<User> GetUsers() => new[] { User! }.AsQueryable();
+        /// <summary>When true, every role lookup misses, as a broken role table would.</summary>
+        public bool RoleLookupMissing { get; set; }
+
+        public Task<IReadOnlyList<User>> GetUsersAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<User>>(new[] { User! });
 
         public Task<User?> GetByEmailAsync(string email, CancellationToken cancellationToken = default) =>
             Task.FromResult<User?>(User);
@@ -512,11 +539,13 @@ public class AccountRoleServiceTests
         public Task AddAsync(User user, CancellationToken cancellationToken = default) => Task.CompletedTask;
 
         public Task<string> GetRoleCodeAsync(RoleCode roleId, CancellationToken cancellationToken = default) =>
-            Task.FromResult(roleId switch
-            {
-                RoleCode.Admin => RoleCodes.Admin,
-                RoleCode.Officer => RoleCodes.Officer,
-                _ => RoleCodes.Member
-            });
+            Task.FromResult(RoleLookupMissing
+                ? null!
+                : roleId switch
+                {
+                    RoleCode.Admin => RoleCodes.Admin,
+                    RoleCode.Officer => RoleCodes.Officer,
+                    _ => RoleCodes.Member
+                });
     }
 }

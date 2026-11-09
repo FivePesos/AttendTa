@@ -65,7 +65,7 @@ public sealed class AccessDialogService : IAccessDialogService
 
     public async Task<MembershipAccessViewModel> GetMembershipAccessAsync(int memberId, CancellationToken cancellationToken = default)
     {
-        var member = _memberRepository.GetMemberRecord(memberId);
+        var member = await _memberRepository.GetMemberRecordAsync(memberId, cancellationToken);
         if (member is null)
         {
             throw new DomainException(OutcomeCode.NotFound, "Member not found.");

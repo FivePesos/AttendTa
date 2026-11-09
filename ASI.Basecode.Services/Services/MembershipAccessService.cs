@@ -55,7 +55,7 @@ public sealed class MembershipAccessService : IMembershipAccessCommands
 
         await _unitOfWork.ExecuteInTransactionAsync(async ct =>
         {
-            var memberRecord = _memberRepository.GetMemberRecord(memberId);
+            var memberRecord = await _memberRepository.GetMemberRecordAsync(memberId, ct);
             if (memberRecord is null)
             {
                 throw new DomainException(OutcomeCode.NotFound, "Member not found.");
@@ -68,7 +68,7 @@ public sealed class MembershipAccessService : IMembershipAccessCommands
                 throw new DomainException(OutcomeCode.NotFound, "Member not found.");
             }
 
-            var member = _memberRepository.GetMember(memberId);
+            var member = await _memberRepository.GetMemberAsync(memberId, ct);
             if (member is null)
             {
                 throw new DomainException(OutcomeCode.NotFound, "Member not found.");
@@ -109,7 +109,7 @@ public sealed class MembershipAccessService : IMembershipAccessCommands
 
         await _unitOfWork.ExecuteInTransactionAsync(async ct =>
         {
-            var memberRecord = _memberRepository.GetMemberRecord(memberId);
+            var memberRecord = await _memberRepository.GetMemberRecordAsync(memberId, ct);
             if (memberRecord is null)
             {
                 throw new DomainException(OutcomeCode.NotFound, "Member not found.");
@@ -122,7 +122,7 @@ public sealed class MembershipAccessService : IMembershipAccessCommands
                 throw new DomainException(OutcomeCode.NotFound, "Member not found.");
             }
 
-            var member = _memberRepository.GetMember(memberId);
+            var member = await _memberRepository.GetMemberAsync(memberId, ct);
             if (member is null)
             {
                 throw new DomainException(OutcomeCode.NotFound, "Member not found.");

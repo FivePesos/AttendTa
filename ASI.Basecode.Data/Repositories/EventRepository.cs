@@ -73,66 +73,19 @@ namespace ASI.Basecode.Data.Repositories
             if (skip < 0) throw new ArgumentOutOfRangeException(nameof(skip));
             if (take <= 0) throw new ArgumentOutOfRangeException(nameof(take));
 
-            var events = GetDbSet<Event>().AsNoTracking();
-            var eventTypes = GetDbSet<EventType>().AsNoTracking();
-            var venues = GetDbSet<Venue>().AsNoTracking();
-            var seatHolders = ParticipationFacts.SeatHolders(GetDbSet<Registration>().AsNoTracking());
-
             // Filters apply before paging; ordering ends with the unique event id tiebreak.
-            return await (
-                from eventItem in events
-                join eventType in eventTypes on eventItem.TypeId equals eventType.TypeId
-                join venue in venues on eventItem.VenueId equals venue.VenueId
-                where eventItem.EventStatusId == EventStatusCode.Published
-                orderby eventItem.StartsAt ascending, eventItem.EventId ascending
-                select new PublishedEventListItem
-                {
-                    EventId = eventItem.EventId,
-                    Title = eventItem.Title,
-                    TypeName = eventType.TypeName,
-                    VenueName = venue.RoomName,
-                    StartsAt = eventItem.StartsAt,
-                    RegistrationDeadline = eventItem.RegistrationDeadline,
-                    ParticipantLimit = eventItem.ParticipantLimit,
-                    ConfirmedCount = seatHolders.Count(registration => registration.EventId == eventItem.EventId),
-                    HasCover = eventItem.ImagePath != null && eventItem.ImagePath.StartsWith("uploads/events/"),
-                    EventStatusId = eventItem.EventStatusId,
-                    IsCheckInOpen = eventItem.IsCheckInOpen
-                })
+            return await MemberVisibleEventListQuery()
+                .Where(row => row.EventStatusId == EventStatusCode.Published)
                 .Skip(skip)
                 .Take(take)
                 .ToListAsync(cancellationToken);
         }
 
-        public async Task<PublishedEventDetail> GetPublishedEventAsync(int eventId, CancellationToken cancellationToken = default)
-        {
-            var events = GetDbSet<Event>().AsNoTracking();
-            var eventTypes = GetDbSet<EventType>().AsNoTracking();
-            var venues = GetDbSet<Venue>().AsNoTracking();
-            var seatHolders = ParticipationFacts.SeatHolders(GetDbSet<Registration>().AsNoTracking());
-
-            return await (
-                from eventItem in events
-                join eventType in eventTypes on eventItem.TypeId equals eventType.TypeId
-                join venue in venues on eventItem.VenueId equals venue.VenueId
-                where eventItem.EventId == eventId && eventItem.EventStatusId == EventStatusCode.Published
-                select new PublishedEventDetail
-                {
-                    EventId = eventItem.EventId,
-                    Title = eventItem.Title,
-                    Description = eventItem.Description,
-                    TypeName = eventType.TypeName,
-                    VenueName = venue.RoomName,
-                    StartsAt = eventItem.StartsAt,
-                    RegistrationDeadline = eventItem.RegistrationDeadline,
-                    ParticipantLimit = eventItem.ParticipantLimit,
-                    ConfirmedCount = seatHolders.Count(registration => registration.EventId == eventItem.EventId),
-                    HasCover = eventItem.ImagePath != null && eventItem.ImagePath.StartsWith("uploads/events/"),
-                    EventStatusId = eventItem.EventStatusId,
-                    IsCheckInOpen = eventItem.IsCheckInOpen
-                })
-                .SingleOrDefaultAsync(cancellationToken);
-        }
+        public Task<PublishedEventDetail> GetPublishedEventAsync(int eventId, CancellationToken cancellationToken = default) =>
+            MemberVisibleEventDetailQuery()
+                .SingleOrDefaultAsync(
+                    row => row.EventId == eventId && row.EventStatusId == EventStatusCode.Published,
+                    cancellationToken);
 
         public Task<int> CountMemberVisibleAsync(CancellationToken cancellationToken = default) =>
             GetDbSet<Event>().AsNoTracking()
@@ -144,18 +97,39 @@ namespace ASI.Basecode.Data.Repositories
             if (skip < 0) throw new ArgumentOutOfRangeException(nameof(skip));
             if (take <= 0) throw new ArgumentOutOfRangeException(nameof(take));
 
+            // Filters apply before paging; ordering ends with the unique event id tiebreak.
+            return await MemberVisibleEventListQuery()
+                .Where(row => row.EventStatusId == EventStatusCode.Published
+                              || row.EventStatusId == EventStatusCode.Completed)
+                .Skip(skip)
+                .Take(take)
+                .ToListAsync(cancellationToken);
+        }
+
+        public Task<PublishedEventDetail> GetMemberVisibleEventAsync(int eventId, CancellationToken cancellationToken = default) =>
+            MemberVisibleEventDetailQuery()
+                .SingleOrDefaultAsync(
+                    row => row.EventId == eventId
+                           && (row.EventStatusId == EventStatusCode.Published
+                               || row.EventStatusId == EventStatusCode.Completed),
+                    cancellationToken);
+
+        /// <summary>
+        /// The one participant-facing event list projection. The published-only and member-visible
+        /// reads share it and add their own status filter, so the columns, ordering and confirmed-seat
+        /// count can never drift apart.
+        /// </summary>
+        private IQueryable<PublishedEventListItem> MemberVisibleEventListQuery()
+        {
             var events = GetDbSet<Event>().AsNoTracking();
             var eventTypes = GetDbSet<EventType>().AsNoTracking();
             var venues = GetDbSet<Venue>().AsNoTracking();
             var seatHolders = ParticipationFacts.SeatHolders(GetDbSet<Registration>().AsNoTracking());
 
-            // Filters apply before paging; ordering ends with the unique event id tiebreak.
-            return await (
+            return
                 from eventItem in events
                 join eventType in eventTypes on eventItem.TypeId equals eventType.TypeId
                 join venue in venues on eventItem.VenueId equals venue.VenueId
-                where eventItem.EventStatusId == EventStatusCode.Published
-                      || eventItem.EventStatusId == EventStatusCode.Completed
                 orderby eventItem.StartsAt ascending, eventItem.EventId ascending
                 select new PublishedEventListItem
                 {
@@ -170,26 +144,24 @@ namespace ASI.Basecode.Data.Repositories
                     HasCover = eventItem.ImagePath != null && eventItem.ImagePath.StartsWith("uploads/events/"),
                     EventStatusId = eventItem.EventStatusId,
                     IsCheckInOpen = eventItem.IsCheckInOpen
-                })
-                .Skip(skip)
-                .Take(take)
-                .ToListAsync(cancellationToken);
+                };
         }
 
-        public async Task<PublishedEventDetail> GetMemberVisibleEventAsync(int eventId, CancellationToken cancellationToken = default)
+        /// <summary>
+        /// The one participant-facing event detail projection. The published-only and member-visible
+        /// reads share it and add their own status filter.
+        /// </summary>
+        private IQueryable<PublishedEventDetail> MemberVisibleEventDetailQuery()
         {
             var events = GetDbSet<Event>().AsNoTracking();
             var eventTypes = GetDbSet<EventType>().AsNoTracking();
             var venues = GetDbSet<Venue>().AsNoTracking();
             var seatHolders = ParticipationFacts.SeatHolders(GetDbSet<Registration>().AsNoTracking());
 
-            return await (
+            return
                 from eventItem in events
                 join eventType in eventTypes on eventItem.TypeId equals eventType.TypeId
                 join venue in venues on eventItem.VenueId equals venue.VenueId
-                where eventItem.EventId == eventId
-                      && (eventItem.EventStatusId == EventStatusCode.Published
-                          || eventItem.EventStatusId == EventStatusCode.Completed)
                 select new PublishedEventDetail
                 {
                     EventId = eventItem.EventId,
@@ -204,8 +176,7 @@ namespace ASI.Basecode.Data.Repositories
                     HasCover = eventItem.ImagePath != null && eventItem.ImagePath.StartsWith("uploads/events/"),
                     EventStatusId = eventItem.EventStatusId,
                     IsCheckInOpen = eventItem.IsCheckInOpen
-                })
-                .SingleOrDefaultAsync(cancellationToken);
+                };
         }
 
         // Event writers must acquire this same event lock before changing competing state.

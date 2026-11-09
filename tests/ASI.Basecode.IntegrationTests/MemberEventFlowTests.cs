@@ -851,7 +851,7 @@ public sealed class MemberEventRegistrationPersistenceTests(SqlServerDatabaseFix
     /// </summary>
     private sealed class StaleExistenceRegistrationRepository(IRegistrationRepository inner) : IRegistrationRepository
     {
-        public Task<RegistrationReviewIdentity> DiscoverReviewAsync(int id, CancellationToken ct = default) => inner.DiscoverReviewAsync(id, ct);
+        public Task<RegistrationIdentity> DiscoverIdentityAsync(int id, CancellationToken ct = default) => inner.DiscoverIdentityAsync(id, ct);
         public Task<RegistrationPromotionCandidate> DiscoverPromotionCandidateAsync(int eventId, CancellationToken ct = default) => inner.DiscoverPromotionCandidateAsync(eventId, ct);
         public Task<bool> HasEligibleWaitlistAsync(int id, CancellationToken ct = default) => inner.HasEligibleWaitlistAsync(id, ct);
         public Task<bool> HasValidAttendanceAsync(int id, CancellationToken ct = default) => inner.HasValidAttendanceAsync(id, ct);
@@ -862,7 +862,7 @@ public sealed class MemberEventRegistrationPersistenceTests(SqlServerDatabaseFix
         public Task<IReadOnlyList<MyPassRow>> GetMyPassRowsAsync(int userId, CancellationToken ct = default) => inner.GetMyPassRowsAsync(userId, ct);
         public Task<OwnedPassRow> GetOwnedPassAsync(int registrationId, int userId, CancellationToken ct = default) => inner.GetOwnedPassAsync(registrationId, userId, ct);
         public Task<int?> FindConfirmedRegistrationIdByTokenAsync(int eventId, string token, CancellationToken ct = default) => inner.FindConfirmedRegistrationIdByTokenAsync(eventId, token, ct);
-        public Task<Registration> GetForCancellationAsync(int id, CancellationToken ct = default) => inner.GetForCancellationAsync(id, ct);
+        public Task<Registration> GetForUpdateAsync(int id, CancellationToken ct = default) => inner.GetForUpdateAsync(id, ct);
         public Task<IReadOnlyList<Registration>> GetOpenForEventAsync(int id, CancellationToken ct = default) => inner.GetOpenForEventAsync(id, ct);
         public Task<IReadOnlyList<int>> DiscoverOpenEventIdsForUserAsync(int id, CancellationToken ct = default) => inner.DiscoverOpenEventIdsForUserAsync(id, ct);
         public Task<IReadOnlyList<UpcomingRegistrationRow>> GetUpcomingForUserAsync(int id, DateTime now, int? eventId = null, CancellationToken ct = default) => inner.GetUpcomingForUserAsync(id, now, eventId, ct);

@@ -1,25 +1,28 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using ASI.Basecode.Data.Interfaces;
 using ASI.Basecode.Data.Models;
-using ASI.Basecode.Data.Models.Lookups;
 using ASI.Basecode.Data.Queries;
 using ASI.Basecode.Services.Interfaces;
 using ASI.Basecode.Services.ServiceModels;
+using AutoMapper;
 
 namespace ASI.Basecode.Services.Services;
 
 /// <summary>
 /// The member Participation History reads. Registrations and attendance each come from one
-/// owner-scoped cross-event query, paged at the shared page size.
+/// owner-scoped cross-event query, paged at the shared page size; the row-to-card mapping lives in
+/// the AutoMapper profile so the service only supplies the per-row cutoff fact.
 /// </summary>
 public sealed class MyEventsService(
     IRegistrationRepository registrations,
     IAttendanceRepository attendance,
     ICurrentActor actor,
-    TimeProvider clock) : IMyEventsService
+    TimeProvider clock,
+    IMapper mapper) : IMyEventsService
 {
     public async Task<PagedResult<MyEventRegistrationCardViewModel>> GetRegistrationsAsync(
         int? pageNumber,
@@ -27,40 +30,21 @@ public sealed class MyEventsService(
     {
         // The member policy guards the route; the actor is the only source of ownership.
         var userId = actor.UserId;
-        var totalCount = await registrations.CountMyRegistrationsAsync(userId, cancellationToken);
-
-        var pageRequest = new PageRequest(pageNumber);
-        var normalizedPage = pageRequest.NormalizePageNumber(totalCount);
-        var rows = totalCount == 0
-            ? Array.Empty<MyEventRegistrationRow>()
-            : (await registrations.GetMyRegistrationsAsync(
-                userId,
-                pageRequest.GetOffset(normalizedPage),
-                PageRequest.FixedPageSize,
-                cancellationToken)).ToArray();
+        var (rows, page, totalCount) = await ReadPageAsync(
+            token => registrations.CountMyRegistrationsAsync(userId, token),
+            (skip, take, token) => registrations.GetMyRegistrationsAsync(userId, skip, take, token),
+            pageNumber,
+            cancellationToken);
 
         var startCutoffPassed = ParticipationFacts.StartCutoffPassed(clock.GetUtcNow().UtcDateTime).Compile();
-        var cards = new MyEventRegistrationCardViewModel[rows.Length];
-        for (var index = 0; index < rows.Length; index++)
-        {
-            var row = rows[index];
-            // The label is derived from the canonical cutoff fact; the stored status is unchanged.
-            var cutoffPassed = startCutoffPassed(new Event { StartsAt = row.StartsAt });
-            cards[index] = new MyEventRegistrationCardViewModel
-            {
-                RegistrationId = row.RegistrationId,
-                EventId = row.EventId,
-                EventTitle = row.EventTitle,
-                TypeName = row.TypeName,
-                VenueName = row.VenueName,
-                StartsAt = row.StartsAt,
-                StatusLabel = RegistrationStatusDisplay.Label(row.Status, cutoffPassed),
-                StatusBadgeClass = RegistrationStatusDisplay.BadgeClass(row.Status, cutoffPassed),
-                CanViewEvent = row.EventStatusId is EventStatusCode.Published or EventStatusCode.Completed
-            };
-        }
+        var cards = rows
+            .Select(row => mapper.Map<MyEventRegistrationCardViewModel>(
+                row,
+                options => options.Items[MyEventsMappingItems.CutoffPassed] =
+                    startCutoffPassed(new Event { StartsAt = row.StartsAt })))
+            .ToList();
 
-        return new PagedResult<MyEventRegistrationCardViewModel>(cards, normalizedPage, totalCount);
+        return new PagedResult<MyEventRegistrationCardViewModel>(cards, page, totalCount);
     }
 
     public async Task<PagedResult<MyEventAttendanceRowViewModel>> GetAttendanceAsync(
@@ -69,34 +53,36 @@ public sealed class MyEventsService(
     {
         // The member policy guards the route; the actor is the only source of ownership.
         var userId = actor.UserId;
-        var totalCount = await attendance.CountMyAttendanceAsync(userId, cancellationToken);
+        var (rows, page, totalCount) = await ReadPageAsync(
+            token => attendance.CountMyAttendanceAsync(userId, token),
+            (skip, take, token) => attendance.GetMyAttendanceAsync(userId, skip, take, token),
+            pageNumber,
+            cancellationToken);
 
-        var pageRequest = new PageRequest(pageNumber);
-        var normalizedPage = pageRequest.NormalizePageNumber(totalCount);
+        var records = rows
+            .Select(row => mapper.Map<MyEventAttendanceRowViewModel>(row))
+            .ToList();
+
+        return new PagedResult<MyEventAttendanceRowViewModel>(records, page, totalCount);
+    }
+
+    /// <summary>
+    /// The one paging shape both tabs share: count, normalize the requested page, and read only that
+    /// page. A tab with no records skips the page read and reports page one of zero.
+    /// </summary>
+    private static async Task<(IReadOnlyList<TRow> Rows, int PageNumber, int TotalCount)> ReadPageAsync<TRow>(
+        Func<CancellationToken, Task<int>> countAsync,
+        Func<int, int, CancellationToken, Task<IReadOnlyList<TRow>>> readPageAsync,
+        int? pageNumber,
+        CancellationToken cancellationToken)
+    {
+        var totalCount = await countAsync(cancellationToken);
+        var request = new PageRequest(pageNumber);
+        var page = request.NormalizePageNumber(totalCount);
         var rows = totalCount == 0
-            ? Array.Empty<MyAttendanceRow>()
-            : (await attendance.GetMyAttendanceAsync(
-                userId,
-                pageRequest.GetOffset(normalizedPage),
-                PageRequest.FixedPageSize,
-                cancellationToken)).ToArray();
+            ? Array.Empty<TRow>()
+            : (await readPageAsync(request.GetOffset(page), PageRequest.FixedPageSize, cancellationToken)).ToArray();
 
-        var records = new MyEventAttendanceRowViewModel[rows.Length];
-        for (var index = 0; index < rows.Length; index++)
-        {
-            var row = rows[index];
-            records[index] = new MyEventAttendanceRowViewModel
-            {
-                AttendanceId = row.AttendanceId,
-                EventId = row.EventId,
-                EventTitle = row.EventTitle,
-                RecordedAt = row.RecordedAt,
-                CheckInMethodLabel = CheckInMethodDisplay.Label(row.CheckInMethod),
-                IsInvalidated = row.InvalidatedAt is not null,
-                InvalidationReason = row.InvalidationReason
-            };
-        }
-
-        return new PagedResult<MyEventAttendanceRowViewModel>(records, normalizedPage, totalCount);
+        return (rows, page, totalCount);
     }
 }

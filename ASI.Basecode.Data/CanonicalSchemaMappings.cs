@@ -298,7 +298,17 @@ namespace ASI.Basecode.Data
                 entity.Property(log => log.Reason).HasColumnType("nvarchar(max)").HasColumnName("reason");
                 entity.Property(log => log.OldValues).HasColumnType("nvarchar(max)").HasColumnName("old_values");
                 entity.Property(log => log.NewValues).HasColumnType("nvarchar(max)").HasColumnName("new_values");
-                entity.Property(log => log.OccurredAt).IsRequired().HasColumnType("datetime2(3)").HasColumnName("occurred_at").HasDefaultValueSql("SYSUTCDATETIME()");
+                // SQL Server stores datetime2 without a kind. Restore the UTC marker on read so every
+                // consumer (view, reader, test) sees the same instant the writer stored, and no view
+                // has to re-specify it.
+                entity.Property(log => log.OccurredAt)
+                    .HasConversion(
+                        value => value,
+                        value => DateTime.SpecifyKind(value, DateTimeKind.Utc))
+                    .IsRequired()
+                    .HasColumnType("datetime2(3)")
+                    .HasColumnName("occurred_at")
+                    .HasDefaultValueSql("SYSUTCDATETIME()");
                 entity.HasOne<ActorTypeLookup>().WithMany().HasForeignKey(log => log.ActorTypeId).OnDelete(DeleteBehavior.NoAction);
                 entity.HasOne<User>().WithMany().HasForeignKey(log => log.ActorUserId).OnDelete(DeleteBehavior.NoAction);
             });

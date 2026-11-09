@@ -91,7 +91,7 @@ public sealed class EventCheckInWindowFlowTests(SqlServerDatabaseFixture fixture
     }
 
     [Fact]
-    public async Task RealCheckInWindowCommandWorksWhenDemoDataIsDisabled()
+    public async Task RealCheckInWindowCommandWorksThroughTheHttpEndpoint()
     {
         var ct = TestContext.Current.CancellationToken;
         var email = $"check-in-window-{Guid.NewGuid():N}@attendta.test";

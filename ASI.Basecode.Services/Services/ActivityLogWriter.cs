@@ -48,6 +48,8 @@ public sealed class ActivityLogWriter(AsiBasecodeDBContext context, ICurrentActo
             Reason = entry.Reason,
             OldValues = oldValues,
             NewValues = newValues,
+            // The stored value is UTC. CanonicalSchemaMappings restores the UTC kind on read, so the
+            // view renders the same instant without re-specifying it.
             OccurredAt = timeProvider.GetUtcNow().UtcDateTime
         });
     }

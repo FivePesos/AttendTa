@@ -129,9 +129,9 @@ namespace ASI.Basecode.WebApp.Controllers
 
         [HttpGet]
         [Route("Member/Edit/{id:int}")]
-        public IActionResult Edit(int id)
+        public async Task<IActionResult> Edit(int id)
         {
-            var model = _memberService.GetMember(id);
+            var model = await _memberService.GetMemberAsync(id, HttpContext.RequestAborted);
             if (model == null)
             {
                 if (IsRecordDialog) return NotFound();
@@ -146,7 +146,7 @@ namespace ASI.Basecode.WebApp.Controllers
         {
             if (!ModelState.IsValid)
             {
-                RestoreCanonicalEmail(model);
+                await RestoreCanonicalEmailAsync(model);
                 return Editor(model);
             }
 
@@ -159,14 +159,15 @@ namespace ASI.Basecode.WebApp.Controllers
             }
             catch (DomainException ex)
             {
-                RestoreCanonicalEmail(model);
+                await RestoreCanonicalEmailAsync(model);
                 return EditorError(ex, model);
             }
         }
 
-        private void RestoreCanonicalEmail(MemberViewModel model)
+        private async Task RestoreCanonicalEmailAsync(MemberViewModel model)
         {
-            model.Email = _memberService.GetMember(model.MemberId)?.Email;
+            var current = await _memberService.GetMemberAsync(model.MemberId, HttpContext.RequestAborted);
+            model.Email = current?.Email;
             ModelState.Remove(nameof(MemberViewModel.Email));
         }
     }

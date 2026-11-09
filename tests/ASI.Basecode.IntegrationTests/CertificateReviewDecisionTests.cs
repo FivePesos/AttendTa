@@ -8,7 +8,6 @@ using ASI.Basecode.Resources.Constants;
 using ASI.Basecode.Services.Interfaces;
 using ASI.Basecode.Services.ServiceModels;
 using ASI.Basecode.Services.Services;
-using ASI.Basecode.WebApp.DemoData;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
@@ -18,8 +17,7 @@ namespace ASI.Basecode.IntegrationTests;
 /// <summary>
 /// Focused SQL coverage for 6.6: the real review queue, both decisions, the single audit entry, every
 /// refusal in the ticket matrix, and in-memory paging at 25. The DI check also asserts that the real
-/// ledger and the real member history resolve and that no demo provider replaces either one after
-/// 6.8 and 6.9 removed M-11b and M-12.
+/// ledger and the real member history resolve from the container.
 /// </summary>
 public sealed class CertificateReviewDecisionTests(SqlServerDatabaseFixture fixture) : IClassFixture<SqlServerDatabaseFixture>
 {
@@ -152,6 +150,47 @@ public sealed class CertificateReviewDecisionTests(SqlServerDatabaseFixture fixt
     }
 
     [Fact]
+    public async Task InvalidatedAttendanceWithBlankDeclineReasonIsStaleNotInvalid()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var setup = await SeedAsync(invalidateAttendance: true);
+        var registrationId = setup.RegistrationIds[0];
+        var certificateId = setup.CertificateIds[registrationId];
+        await using var context = EventDraftTestSupport.Context(fixture.ConnectionString);
+        var service = Service(context, setup.OfficerId, RoleCodes.Officer);
+
+        // The certificate rule runs before the decline reason, so an undecidable review reports the
+        // stale fact instead of asking for a reason the officer could never submit.
+        var exception = await Assert.ThrowsAsync<DomainException>(
+            () => service.DecideAsync(registrationId, false, "   ", ct));
+
+        Assert.Equal(OutcomeCode.Stale, exception.Outcome);
+        Assert.Null(exception.Field);
+        Assert.Contains("attendance is no longer valid", exception.Message, StringComparison.Ordinal);
+        await AssertUnchangedAsync(certificateId, CertificateStatusCode.PendingApproval);
+    }
+
+    [Fact]
+    public async Task LostSeatIsStaleWithTheChangedMessage()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var setup = await SeedAsync(cancelRegistration: true);
+        var registrationId = setup.RegistrationIds[0];
+        var certificateId = setup.CertificateIds[registrationId];
+        await using var context = EventDraftTestSupport.Context(fixture.ConnectionString);
+        var service = Service(context, setup.OfficerId, RoleCodes.Officer);
+
+        // Approving a review whose seat was cancelled refuses as stale, and the message names the lost
+        // seat rather than the attendance, which is still valid.
+        var exception = await Assert.ThrowsAsync<DomainException>(
+            () => service.DecideAsync(registrationId, true, string.Empty, ct));
+
+        Assert.Equal(OutcomeCode.Stale, exception.Outcome);
+        Assert.Contains("details changed", exception.Message, StringComparison.Ordinal);
+        await AssertUnchangedAsync(certificateId, CertificateStatusCode.PendingApproval);
+    }
+
+    [Fact]
     public async Task UnknownReviewIsNotFoundAndWritesNoAudit()
     {
         var ct = TestContext.Current.CancellationToken;
@@ -214,7 +253,7 @@ public sealed class CertificateReviewDecisionTests(SqlServerDatabaseFixture fixt
     }
 
     [Fact]
-    public void ApplicationRegistersTheRealLedgerAndMemberHistoryInBothSwitchStates()
+    public void ApplicationRegistersTheRealLedgerAndMemberHistory()
     {
         using var factory = new AttendTaWebApplicationFactory(fixture.ConnectionString);
         using (var scope = factory.Services.CreateScope())
@@ -224,17 +263,6 @@ public sealed class CertificateReviewDecisionTests(SqlServerDatabaseFixture fixt
             Assert.IsType<MyCertificatesService>(
                 scope.ServiceProvider.GetRequiredService<IMyCertificatesService>());
         }
-
-        // M-12 is removed by 6.9: the demo registration no longer touches either certificate
-        // contract, so no demo provider can replace the real ones with the switch on or off.
-        // The scan has to look in the WebApp assembly, where the demo namespace lives.
-        var demoTypes = typeof(DemoDataRegistration).Assembly.GetTypes();
-        Assert.DoesNotContain(demoTypes, type =>
-            type.Namespace == typeof(DemoDataRegistration).Namespace
-            && typeof(ICertificateLedgerService).IsAssignableFrom(type));
-        Assert.DoesNotContain(demoTypes, type =>
-            type.Namespace == typeof(DemoDataRegistration).Namespace
-            && typeof(IMyCertificatesService).IsAssignableFrom(type));
     }
 
     private static CertificateLedgerService Service(
@@ -249,6 +277,7 @@ public sealed class CertificateReviewDecisionTests(SqlServerDatabaseFixture fixt
             new EventRepository(unitOfWork),
             new CertificateRepository(unitOfWork),
             new RegistrationRepository(unitOfWork),
+            new AttendanceRepository(unitOfWork),
             new UserRepository(unitOfWork),
             unitOfWork,
             actor,
@@ -262,7 +291,8 @@ public sealed class CertificateReviewDecisionTests(SqlServerDatabaseFixture fixt
         int confirmedCount = 1,
         CertificateStatusCode? reviewStatus = CertificateStatusCode.PendingApproval,
         bool invalidateAttendance = false,
-        bool seedReview = true)
+        bool seedReview = true,
+        bool cancelRegistration = false)
     {
         var ct = TestContext.Current.CancellationToken;
         var officerId = await EventDraftTestSupport.SeedActorAsync(fixture.ConnectionString, ct);
@@ -300,6 +330,17 @@ public sealed class CertificateReviewDecisionTests(SqlServerDatabaseFixture fixt
                 officerId,
                 ct);
             registrationIds.Add(registration.RegistrationId);
+
+            if (cancelRegistration)
+            {
+                // A seat lost after the review exists: the reviewer cancelled the registration, so the
+                // review can no longer be decided.
+                await using var canceller = EventDraftTestSupport.Context(fixture.ConnectionString);
+                var row = await canceller.Registrations
+                    .SingleAsync(item => item.RegistrationId == registration.RegistrationId, ct);
+                row.RegistrationStatusId = RegistrationStatusCode.Cancelled;
+                await canceller.SaveChangesAsync(ct);
+            }
 
             await using var writer = EventDraftTestSupport.Context(fixture.ConnectionString);
             writer.AttendanceRecords.Add(new Attendance

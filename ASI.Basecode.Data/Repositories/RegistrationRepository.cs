@@ -19,10 +19,8 @@ public sealed class RegistrationRepository : BaseRepository, IRegistrationReposi
     }
 
     public Task<bool> IsConfirmedAsync(int registrationId, CancellationToken cancellationToken = default) =>
-        GetDbSet<Registration>().AnyAsync(
-            registration => registration.RegistrationId == registrationId
-                && registration.RegistrationStatusId == RegistrationStatusCode.Confirmed,
-            cancellationToken);
+        ParticipationFacts.SeatHolders(GetDbSet<Registration>())
+            .AnyAsync(registration => registration.RegistrationId == registrationId, cancellationToken);
 
     public Task<bool> ExistsAsync(int eventId, int memberId, CancellationToken cancellationToken = default) =>
         GetDbSet<Registration>().AsNoTracking().AnyAsync(
@@ -64,14 +62,13 @@ public sealed class RegistrationRepository : BaseRepository, IRegistrationReposi
             .ToListAsync(cancellationToken);
 
     public async Task<IReadOnlyList<MyPassRow>> GetMyPassRowsAsync(int userId, CancellationToken cancellationToken = default) =>
-        await (from registration in GetDbSet<Registration>().AsNoTracking()
+        await (from registration in ParticipationFacts.SeatHolders(GetDbSet<Registration>().AsNoTracking())
                join member in GetDbSet<Member>().AsNoTracking() on registration.MemberId equals member.MemberId
                join user in GetDbSet<User>().AsNoTracking() on member.UserId equals user.Id
                join eventItem in GetDbSet<Event>().AsNoTracking() on registration.EventId equals eventItem.EventId
                join eventType in GetDbSet<EventType>().AsNoTracking() on eventItem.TypeId equals eventType.TypeId
                join venue in GetDbSet<Venue>().AsNoTracking() on eventItem.VenueId equals venue.VenueId
                where member.UserId == userId
-                   && registration.RegistrationStatusId == RegistrationStatusCode.Confirmed
                    && eventItem.EventStatusId == EventStatusCode.Published
                    && registration.QrToken != null
                orderby eventItem.StartsAt, registration.RegistrationId
@@ -109,10 +106,8 @@ public sealed class RegistrationRepository : BaseRepository, IRegistrationReposi
             return Task.FromResult<int?>(null);
         }
 
-        return GetDbSet<Registration>().AsNoTracking()
-            .Where(registration => registration.EventId == eventId
-                && registration.RegistrationStatusId == RegistrationStatusCode.Confirmed
-                && registration.QrToken == normalized)
+        return ParticipationFacts.SeatHolders(GetDbSet<Registration>().AsNoTracking())
+            .Where(registration => registration.EventId == eventId && registration.QrToken == normalized)
             .Select(registration => (int?)registration.RegistrationId)
             .FirstOrDefaultAsync(cancellationToken);
     }
@@ -155,16 +150,15 @@ public sealed class RegistrationRepository : BaseRepository, IRegistrationReposi
                 row.User.Name,
                 row.Member.StudentNumber,
                 row.Attendance != null,
-                row.Attendance != null && row.Attendance.InvalidatedAt != null))
+                row.Attendance != null ? row.Attendance.InvalidatedAt : (DateTime?)null))
             .ToListAsync(cancellationToken);
     }
 
     public Task<string> GetConfirmedStudentNumberAsync(int eventId, int registrationId, CancellationToken cancellationToken = default) =>
-        (from registration in GetDbSet<Registration>().AsNoTracking()
+        (from registration in ParticipationFacts.SeatHolders(GetDbSet<Registration>().AsNoTracking())
          join member in GetDbSet<Member>().AsNoTracking() on registration.MemberId equals member.MemberId
          where registration.RegistrationId == registrationId
              && registration.EventId == eventId
-             && registration.RegistrationStatusId == RegistrationStatusCode.Confirmed
          select member.StudentNumber)
         .FirstOrDefaultAsync(cancellationToken);
 
@@ -175,14 +169,13 @@ public sealed class RegistrationRepository : BaseRepository, IRegistrationReposi
     /// <see cref="ReviewQueue"/>, which orders by <c>SubmittedAt</c> for the review screens.
     /// </summary>
     private IQueryable<ConfirmedLookupCandidate> ConfirmedLookup(int eventId, string query) =>
-        from registration in GetDbSet<Registration>().AsNoTracking()
+        from registration in ParticipationFacts.SeatHolders(GetDbSet<Registration>().AsNoTracking())
         join member in GetDbSet<Member>().AsNoTracking() on registration.MemberId equals member.MemberId
         join user in GetDbSet<User>().AsNoTracking() on member.UserId equals user.Id
         join attendance in GetDbSet<Attendance>().AsNoTracking()
             on registration.RegistrationId equals attendance.RegistrationId into attendances
         from attendance in attendances.DefaultIfEmpty()
         where registration.EventId == eventId
-            && registration.RegistrationStatusId == RegistrationStatusCode.Confirmed
             && (user.Name.Contains(query) || member.StudentNumber.Contains(query))
         select new ConfirmedLookupCandidate { Registration = registration, Member = member, User = user, Attendance = attendance };
 
@@ -200,11 +193,11 @@ public sealed class RegistrationRepository : BaseRepository, IRegistrationReposi
         return Task.CompletedTask;
     }
 
-    public Task<RegistrationReviewIdentity> DiscoverReviewAsync(int id, CancellationToken ct = default) =>
+    public Task<RegistrationIdentity> DiscoverIdentityAsync(int id, CancellationToken ct = default) =>
         (from r in GetDbSet<Registration>().AsNoTracking()
          join m in GetDbSet<Member>().AsNoTracking() on r.MemberId equals m.MemberId
          where r.RegistrationId == id
-         select new RegistrationReviewIdentity(m.UserId, m.MemberId, r.EventId)).SingleOrDefaultAsync(ct);
+         select new RegistrationIdentity(m.UserId, m.MemberId, r.EventId)).SingleOrDefaultAsync(ct);
 
     public Task<bool> HasEligibleWaitlistAsync(int eventId, CancellationToken ct = default)
     {
@@ -263,9 +256,7 @@ public sealed class RegistrationRepository : BaseRepository, IRegistrationReposi
     public async Task<IReadOnlyList<RegistrationReviewRow>> GetReviewQueueAsync(RegistrationStatusCode status, int? eventId, int offset, int limit, CancellationToken ct = default) =>
         await ReviewQueue(status, eventId).Skip(offset).Take(limit).ToListAsync(ct);
 
-    private static bool Open(RegistrationStatusCode status) => status is RegistrationStatusCode.Pending or RegistrationStatusCode.Confirmed or RegistrationStatusCode.Waitlisted;
-
-    public async Task<Registration> GetForCancellationAsync(int registrationId, CancellationToken cancellationToken = default)
+    public async Task<Registration> GetForUpdateAsync(int registrationId, CancellationToken cancellationToken = default)
     {
         var snapshot = await GetDbSet<Registration>().AsNoTracking().SingleOrDefaultAsync(r => r.RegistrationId == registrationId, cancellationToken);
         if (snapshot == null) return null;
@@ -288,26 +279,37 @@ public sealed class RegistrationRepository : BaseRepository, IRegistrationReposi
 
     public async Task<IReadOnlyList<Registration>> GetOpenForEventAsync(int eventId, CancellationToken cancellationToken = default)
     {
-        var ids = await GetDbSet<Registration>().AsNoTracking().Where(r => r.EventId == eventId && r.RegistrationStatusId != RegistrationStatusCode.Cancelled).OrderBy(r => r.RegistrationId).Select(r => r.RegistrationId).ToListAsync(cancellationToken);
-        var result = new List<Registration>();
-        foreach (var id in ids) { var row = await GetForCancellationAsync(id, cancellationToken); if (row != null && Open(row.RegistrationStatusId)) result.Add(row); }
+        // The status filter runs in SQL, so every returned row is already open; no in-memory re-filter
+        // is needed after the tracked refresh.
+        var ids = await GetDbSet<Registration>().AsNoTracking()
+            .Where(ParticipationFacts.OpenRegistration)
+            .Where(registration => registration.EventId == eventId)
+            .OrderBy(registration => registration.RegistrationId)
+            .Select(registration => registration.RegistrationId)
+            .ToListAsync(cancellationToken);
+        var result = new List<Registration>(ids.Count);
+        foreach (var id in ids)
+        {
+            var row = await GetForUpdateAsync(id, cancellationToken);
+            if (row != null) result.Add(row);
+        }
+
         return result;
     }
 
     public async Task<IReadOnlyList<int>> DiscoverOpenEventIdsForUserAsync(int userId, CancellationToken cancellationToken = default) =>
-        await (from r in GetDbSet<Registration>().AsNoTracking()
+        await (from r in GetDbSet<Registration>().AsNoTracking().Where(ParticipationFacts.OpenRegistration)
                join m in GetDbSet<Member>().AsNoTracking() on r.MemberId equals m.MemberId
-               where m.UserId == userId && r.RegistrationStatusId != RegistrationStatusCode.Cancelled
+               where m.UserId == userId
                select r.EventId).Distinct().ToListAsync(cancellationToken);
 
     public async Task<IReadOnlyList<UpcomingRegistrationRow>> GetUpcomingForUserAsync(int userId, DateTime nowUtc, int? eventId = null, CancellationToken cancellationToken = default)
     {
         var validAttendance = ParticipationFacts.ValidAttendances(GetDbSet<Attendance>().AsNoTracking());
-        var rows = await (from r in GetDbSet<Registration>().AsNoTracking()
+        var rows = await (from r in GetDbSet<Registration>().AsNoTracking().Where(ParticipationFacts.OpenRegistration)
                           join m in GetDbSet<Member>().AsNoTracking() on r.MemberId equals m.MemberId
                           join e in GetDbSet<Event>().AsNoTracking() on r.EventId equals e.EventId
                           where m.UserId == userId && (!eventId.HasValue || e.EventId == eventId.Value)
-                            && (r.RegistrationStatusId == RegistrationStatusCode.Pending || r.RegistrationStatusId == RegistrationStatusCode.Confirmed || r.RegistrationStatusId == RegistrationStatusCode.Waitlisted)
                             && !validAttendance.Any(a => a.RegistrationId == r.RegistrationId)
                           select new UpcomingRegistrationRow(r.RegistrationId, e.EventId, e.Title, e.StartsAt)).ToListAsync(cancellationToken);
         // Compare in memory: SQL datetime2(3) parameter coercion must not round away a tick.
