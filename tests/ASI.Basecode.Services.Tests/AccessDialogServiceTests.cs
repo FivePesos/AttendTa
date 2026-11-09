@@ -144,6 +144,28 @@ public class AccessDialogServiceTests
         Assert.True(model.IsActive);
     }
 
+    [Theory]
+    [InlineData("active", true)]
+    [InlineData("ACTIVE", true)]
+    [InlineData("Active", true)]
+    [InlineData("inactive", false)]
+    [InlineData("Inactive", false)]
+    public void MembershipAccessRowModelTreatsTheStatusCaseInsensitively(string status, bool expected)
+    {
+        // The member list builds its access action model through this factory, so a mixed-case lookup
+        // code must not read as inactive there either.
+        var model = MembershipAccessViewModel.For(new MemberViewModel
+        {
+            MemberId = 9,
+            UserId = 31,
+            FullName = "Bea Cruz",
+            StudentNumber = "2024-0009",
+            Status = status
+        });
+
+        Assert.Equal(expected, model.IsActive);
+    }
+
     [Fact]
     public async Task InactiveMemberPreviewsNothing()
     {
