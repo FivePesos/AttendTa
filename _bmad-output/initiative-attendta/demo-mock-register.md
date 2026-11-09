@@ -283,7 +283,7 @@ PNG is rendered in `WebApp/Rendering/QrPassPngRenderer` with `Net.Codecrete.QrCo
 streamed from `Passes/Qr/{id}` (the same GET serves the inline image and `?download=true`). Every
 unavailable request is one 403 with `This pass is unavailable.` The demo scanner now matches the
 real `registrations.qr_token` through `FindConfirmedRegistrationIdByTokenAsync` (register rule 12).
-The M-01 `--demo-pass-token` switch and `DemoStore.GetPassToken` remain until 8.13 removes the store.
+The M-01 `--demo-pass-token` switch and `DemoStore.GetPassToken` were removed by 8.13 (149791b).
 
 ## M-05, M-06 and M-07 — door scanner detail (4.11)
 
@@ -415,11 +415,12 @@ no demo report provider and no empty provider.
   so a null check-in time is the only "no attendance row" signal. The count is the pager's total, so
   the summary, no-shows and breakdowns stay full-dataset on every page.
 
-**Seeded starting state.** The ready-to-complete event seeded by M-01 still seeds up to eight
-demo-store check-ins (the last one invalidated) for the certificate-ledger demo. The report no longer
-reads them: it shows real SQL attendance only, so it opens with the not-final markers before the
-demo completes the event and reflects only the check-ins recorded through the real scanner
-afterwards.
+**Seeded starting state.** The M-01 seed service used to seed up to eight demo-store check-ins (the
+last one invalidated) for the ready-to-complete event, for the certificate-ledger demo. The report
+stopped reading them at 7.3 and shows real SQL attendance only, so it opens with the not-final
+markers before the demo completes the event and reflects only the check-ins recorded through the real
+scanner. 8.13 (149791b) deleted the seed service: the scenario seed now writes registrations only,
+and the presenter records the check-ins through the real scanner.
 
 **Removal.** 7.1 replaced the summary computation (M-13a) and 7.2 the no-show and breakdown
 computation (M-13b). 7.3 replaced the paged detail read (M-13c) in `04157b3` and deleted
