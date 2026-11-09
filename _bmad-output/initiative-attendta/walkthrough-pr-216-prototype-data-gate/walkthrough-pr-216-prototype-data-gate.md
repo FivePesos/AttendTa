@@ -2,7 +2,7 @@
 
 Target: PR #216, branch `feature/152-remove-prototype-data-and-prove-real-integrations` against `dev` in `rainyDayssss/AttendTa`, baseline `2d05a3580645e91aac43770caebe473224ac8f5a`
 
-Review status: **In progress — reopened for block 3.**
+Review status: **Closed — all four blocks walked; PR #216 merged.**
 
 Review moves: Second opinion, Formal review, Test, Drive, Demo, Draw, Wrap-up.
 
@@ -40,13 +40,9 @@ Diagram: [block-2-gate-checks.svg](block-2-gate-checks.svg) — the four checks,
 
 Tested in this review: see the log's Test move entry.
 
-## Blocks not walked
-
-Block 4 (periphery) was not walked: the review closed at block 2 and reopened only for block 3.
-
 ## Block 3 — Slices
 
-- [ ] Block 3 — Slices (presented, awaiting review)
+- [x] Block 3 — Slices (accepted 2026-11-09)
 
 ### Slice 1 — the five comment files
 
@@ -75,3 +71,15 @@ Open question from the second opinion: M-08's `d3edd37` deletes no demo class �
 The record is the gate's product. Five sections: the 21-row verdict table, the startup check, the search table, the end-to-end table, and "what this record does not claim". The log holds the commands, the environment and the nine first-pass failures. See [the record](../walkthrough-8-11-remove-prototype-data/walkthrough-8-11-remove-prototype-data.md) and [its log](../walkthrough-8-11-remove-prototype-data/walkthrough-8-11-remove-prototype-data-log.md).
 
 Thin spots: the end-to-end evidence is prose with no raw output; the log promises every check enumerated but only the failures are; `pass-qr-download` is scored a pass after three 404s.
+
+## Block 4 — Periphery
+
+- [x] Block 4 — Periphery (accepted 2026-11-09)
+
+Records and registrations.
+
+- [story-remove-prototype-data-and-prove-complete-real-integrations-plan.md](../tickets/epic-release-acceptance/tickets/story-remove-prototype-data-and-prove-complete-real-integrations-plan.md) — created by this PR; frontmatter, Intent, Implementation Notes, Implementation record, Verification, Review Triage Log, Auto Run Result.
+- [walkthrough-8-11-remove-prototype-data.md](../walkthrough-8-11-remove-prototype-data/walkthrough-8-11-remove-prototype-data.md) and [its log](../walkthrough-8-11-remove-prototype-data/walkthrough-8-11-remove-prototype-data-log.md) — the evidence record and the commands behind it.
+- No build, DI, csproj or schema registration: the PR adds no project entry, no `Startup.*` change and no database change.
+
+One finding: the plan's frontmatter records `review: 'quick'` and `lenses_ran: ['quick']`, but its own triage log says the quick lens "did not return across three collection attempts" and the inspection was done in-session and "recorded as a deviation, not as a lens result". The frontmatter therefore claims a lens that did not run.
