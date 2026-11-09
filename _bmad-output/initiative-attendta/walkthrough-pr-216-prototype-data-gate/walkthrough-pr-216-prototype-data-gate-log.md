@@ -8,8 +8,8 @@ Target: https://github.com/rainyDayssss/AttendTa/pull/216 (branch `feature/152-r
 | ----- | ---- | ------ |
 | 1 | Intent | accepted |
 | 2 | Broad strokes | accepted |
-| 3 | Slices | presented |
-| 4 | Periphery | skipped |
+| 3 | Slices | accepted |
+| 4 | Periphery | accepted |
 
 ## 1 — Session — walkthrough opened
 
@@ -108,12 +108,6 @@ Session: unavailable · Timestamp: 2026-11-09T00:00:00+08:00
 - Evidence: [narrative](walkthrough-pr-216-prototype-data-gate.md#blocks-not-walked)
 - Open: None.
 
-## Outcome
-
-- The gate's checks were independently re-run and pass: both searches clean in source and published output, `DemoData/` absent, build 0/0, the inertness test green, and the published build serving `/Account/Login` with the retired key set.
-- Two documentation findings stand: M-08's commit deletes no demo class, and the record's log claims every check is enumerated when only the failures are.
-- No code change was proposed or made by this review.
-
 ## 8 — Session — review reopened; block 3 presented
 
 Session: unavailable · Timestamp: 2026-11-09T00:00:00+08:00
@@ -134,3 +128,58 @@ Session: unavailable · Timestamp: 2026-11-09T00:00:00+08:00
 - Reports: [block-3-formal-review.md](block-3-formal-review.md) and [block-3-formal-review-findings.json](block-3-formal-review-findings.json). The skill's `output_format` is `both`, so the full markdown report and the raw JSON array were written to those files and a condensed report was presented in chat.
 - Result: Findings recorded for triage; none patched by this move.
 - Open: Block 3 not yet accepted. Block 4 not walked.
+
+### Follow-through (2026-11-09)
+
+Session: unavailable · Timestamp: 2026-11-09T00:00:00+08:00
+
+- Decision: reviewer chose to fix the register and the two cross-document lines, then commit and push.
+- Register edits: M-06 `removed (ff06123; registration file 6a82840)`; M-09 `removed (0abc4f8; overlay class 7f6ae22)`; M-13a `removed (c0c0935; valid-count and rate residue 04157b3)`; M-14a `removed (8230045; class deleted with M-14b, f232933)`; M-15a `removed (48e0231; class deleted with M-15b, 1853ad9)`; M-13b cell reworded to `breakdown residue 04157b3`.
+- Rule 11 amended to define the `removed (<sha>; <what> <sha>)` form.
+- M-01 Surface cell now says pass tokens, with issued certificate documents until 6.9.
+- Introduction: scoped the id claim to product source, named the real classes the last five comments sat on, cited `89b362b`, and added a status line stating all 21 rows are removed.
+- M-13 detail paragraph now names all five leftovers from `975c08b` and the `c0c0935` residue.
+- `delivery-queue.md:49`: "Every register row is `removed`."
+- 8.13 plan lines 105, 107, 165, 187: M-01 marked corrected to `149791b`; the "replace it with the merge commit" instruction reversed.
+- 8.11 walkthrough M-13b row: evidence now names the leftover overrides as well as the breakdown fallback.
+- Commit `0d449e0` on `feature/152-remove-prototype-data-and-prove-real-integrations`; pushed to origin. PR #216 head is now `0d449e0`, 17 files, +973 / −30.
+- Result: Register and both cross-document lines corrected and pushed. No CI checks are reported on the branch.
+- Evidence: [register](../demo-mock-register.md); [delivery queue](../delivery-queue.md#L49); [plan](../tickets/epic-release-acceptance/tickets/story-remove-prototype-data-and-prove-complete-real-integrations-plan.md); [record](../walkthrough-8-11-remove-prototype-data/walkthrough-8-11-remove-prototype-data.md).
+- Open: Block 3 not yet accepted. Block 4 not walked. CI unobserved.
+
+### Verification and merge (2026-11-09)
+
+Session: unavailable · Timestamp: 2026-11-09T00:00:00+08:00
+
+- Services suite: 321 passed, 0 failed, 0 skipped (`--no-build`).
+- Integration suite on LocalDB with `ATTENDTA_TEST_SQL`: 460 passed, 0 failed, 0 skipped (1m 24s).
+- Register table integrity: rows 90–113 all carry 7 pipes after the edits.
+- PR #216 merged into `rainyDayssss/AttendTa` `dev` at 2026-11-09T07:57:56Z by wigglebop25; merge commit `e81a9b3`, which contains `0d449e0` and `2005351`.
+- Result: Block 3 accepted and the review closed. No CI checks were configured on the branch, so the two suites above are the verification of record.
+- Evidence: [narrative](walkthrough-pr-216-prototype-data-gate.md); [register](../demo-mock-register.md#L90)
+- Open: None. Block 4 not walked.
+
+## 9 — Block 4 (periphery) — presented
+
+Session: unavailable · Timestamp: 2026-11-09T00:00:00+08:00
+
+- Action: Reviewer asked whether all blocks were done; added `## Block 4 — Periphery` to the narrative and removed the `## Blocks not walked` section. Top status line now reads "In progress — block 4 presented after the merge".
+- Result: Block 4 presented, awaiting review. One finding recorded: the plan's frontmatter claims `lenses_ran: ['quick']` while its own triage log records the quick lens as not returning and the inspection as a deviation, not a lens result. No build, DI, csproj or schema registration in the PR.
+- Evidence: [narrative](walkthrough-pr-216-prototype-data-gate.md#block-4--periphery); [plan](../tickets/epic-release-acceptance/tickets/story-remove-prototype-data-and-prove-complete-real-integrations-plan.md); [record](../walkthrough-8-11-remove-prototype-data/walkthrough-8-11-remove-prototype-data.md); [record log](../walkthrough-8-11-remove-prototype-data/walkthrough-8-11-remove-prototype-data-log.md).
+- Open: Block 4 not yet accepted. Supersedes entry 7 and the "block 4 not walked" clauses in entries 8–9 and the Verification and merge entry.
+
+## 10 — Block 4 (periphery) — accepted; review closed
+
+Session: unavailable · Timestamp: 2026-11-09T00:00:00+08:00
+
+- Action: Marked Block 4 accepted and closed the review at the reviewer's direction.
+- Result: Block 4 accepted; review closed. All four blocks walked.
+- Evidence: [narrative](walkthrough-pr-216-prototype-data-gate.md#block-4--periphery)
+- Open: None. One finding left open by choice — the plan's `lenses_ran` frontmatter.
+
+## Outcome
+
+- The gate's checks were independently re-run and pass: searches clean in source and published output, build 0/0, the inertness test passing, the published build serving 200 with the retired switch on.
+- Five register rows named a commit that did not remove the class or residue they describe; all corrected, with rule 11 defining the two-part form.
+- Two records outside the register contradicted it; both corrected.
+- One finding left open by choice: the plan's frontmatter records `lenses_ran: ['quick']` while its triage log says the quick lens did not return.
