@@ -1,7 +1,7 @@
 ---
 name: AttendTa
 description: Visual handoff for the existing event and attendance prototype.
-status: final
+status: superseded
 updated: 2026-11-04
 sources:
   - ../prd-attendta/prd-attendta.md
@@ -78,6 +78,11 @@ components:
     background: '{colors.canvas-dark}'
     foreground: '{colors.ink-inverse}'
 ---
+
+> **SUPERSEDED 2026-11-09.** This document records the replaced visual world: slate
+> `#F8FAFC`, navy `#0B1120`, amber `#D97706`, Outfit, JetBrains Mono, and 6/10/16px radii.
+> It is kept as history and as an anti-reference. The visual authority is `DESIGN.md` at the
+> repository root. Do not build against the tokens or rules below.
 
 ## Brand & Style
 

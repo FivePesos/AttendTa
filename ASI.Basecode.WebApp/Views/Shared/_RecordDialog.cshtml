@@ -4,7 +4,11 @@
             <h2 id="record-dialog-title">Record editor</h2>
             <p class="record-dialog-subtitle" data-record-subtitle hidden></p>
         </div>
-        <button type="button" class="record-dialog-close" data-record-close aria-label="Close editor">×</button>
+        <button type="button" class="record-dialog-close" data-record-close aria-label="Close editor">
+            <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                <path d="M4 4l8 8M12 4l-8 8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+            </svg>
+        </button>
     </header>
     <p id="record-dialog-description">Required fields are marked with an asterisk.</p>
     <div data-record-message role="status" tabindex="-1"></div>

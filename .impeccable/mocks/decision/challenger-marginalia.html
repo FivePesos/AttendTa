@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Marginalia — Organization Members</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=Roboto+Mono:wght@400&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{width:1440px;height:900px;overflow:hidden}
+  body{background:#F4EFE4;color:#14171A;font:400 12px/1.45 "Source Serif 4",Georgia,serif;-webkit-font-smoothing:antialiased}
+  .band{background:#14171A;color:#F4EFE4}
+  .brandrow{height:54px;display:flex;align-items:center;gap:12px;padding:0 30px}
+  .tile{width:32px;height:32px;background:#000;border-radius:1px;display:grid;place-items:center;color:#B3261E;font:600 18px/1 "Source Serif 4"}
+  .wordmark{font:600 19px/1 "Source Serif 4";letter-spacing:.01em}
+  .inst{display:block;font:400 9px/1.7 "Source Serif 4";letter-spacing:.22em;text-transform:uppercase;color:#A79E8C;margin-top:2px}
+  .who{margin-left:auto;text-align:right;font-size:11.5px;color:#C9C1B0}
+  .who b{display:block;color:#F4EFE4;font-weight:600}
+  .who span{font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:#A79E8C}
+  .nav{height:38px;display:flex;align-items:center;gap:2px;padding:0 26px;border-top:1px solid #2A2E33}
+  .nav a{color:#BDB4A2;text-decoration:none;font:400 9.5px/1 "Source Serif 4";letter-spacing:.15em;text-transform:uppercase;padding:9px 10px}
+  .nav a.on{color:#F4EFE4;box-shadow:inset 0 -2px 0 #B3261E}
+  .wrap{max-width:1280px;margin:0 auto;padding:26px 28px 0}
+  .head{display:flex;align-items:flex-end;justify-content:space-between;padding-bottom:12px;border-bottom:2px solid #14171A}
+  h1{font:600 33px/1.05 "Source Serif 4";letter-spacing:-.015em}
+  .sub{color:#6F6757;font-size:12.5px;font-style:italic;margin-top:5px}
+  .count{font:400 9.5px/1 "Source Serif 4";letter-spacing:.2em;text-transform:uppercase;color:#6F6757}
+  .tools{display:flex;align-items:center;gap:9px;padding:12px 0 14px}
+  .search{display:flex;align-items:center;width:300px;height:38px;background:#FAF6EC;border:1px solid #C6BCA6;border-radius:1px;padding:0 11px;color:#8A8170;font-size:12px;font-style:italic}
+  .btn{height:38px;padding:0 18px;background:#14171A;color:#F4EFE4;border:0;border-radius:1px;font:400 9.5px "Source Serif 4";letter-spacing:.18em;text-transform:uppercase}
+  .tabs{display:flex;gap:20px;margin-left:6px}
+  .tab{font:400 9.5px "Source Serif 4";letter-spacing:.16em;text-transform:uppercase;color:#6F6757;padding:9px 0;border-bottom:1px solid transparent}
+  .tab.on{color:#14171A;border-bottom-color:#B3261E}
+  .tab i{font-style:normal;font-family:"Roboto Mono";font-size:9px;color:#8A8170;margin-left:4px}
+  .grid{display:grid;grid-template-columns:1fr 64px 292px;gap:0;align-items:start}
+  table{width:100%;border-collapse:collapse;table-layout:fixed}
+  th{font:400 8.5px/1 "Source Serif 4";letter-spacing:.17em;text-transform:uppercase;color:#6F6757;text-align:left;padding:0 6px;height:32px;border-bottom:1px solid #14171A;border-top:1px solid #14171A;vertical-align:middle}
+  td{height:46px;padding:0 6px;border-bottom:1px solid #D9D0BF;vertical-align:middle;color:#2A2F35;font-size:10.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .num{font:400 10px "Roboto Mono";color:#3E454D;letter-spacing:-.02em}
+  .nm b{font:600 12px "Source Serif 4";color:#14171A}
+  .bandchip{font:400 8.5px "Source Serif 4";letter-spacing:.14em;text-transform:uppercase}
+  .bandchip::before{content:"";display:inline-block;width:12px;height:1px;background:#14171A;vertical-align:middle;margin-right:5px}
+  .bandchip.off{color:#6F6757}.bandchip.off::before{background:#8A8170;width:6px}
+  .act a{color:#B3261E;font:400 9px "Source Serif 4";letter-spacing:.1em;text-transform:uppercase;text-decoration:none;margin-right:7px}
+  .rail{background:#14171A;display:flex;flex-direction:column;height:100%}
+  .key{height:70px;display:flex;align-items:center;justify-content:center;gap:6px;border-bottom:1px solid #2A2E33;color:#BDB4A2}
+  .key:last-child{border-bottom:0}
+  .key i{width:5px;height:5px;background:#B3261E;display:block;flex:0 0 5px}
+  .key span{writing-mode:vertical-rl;font:400 8px/1 "Source Serif 4";letter-spacing:.2em;text-transform:uppercase}
+  .key.live{color:#F4EFE4}.key.live i{background:#F4EFE4}
+  .margin{padding:0 0 0 20px}
+  .mtitle{font:400 8.5px/1 "Source Serif 4";letter-spacing:.2em;text-transform:uppercase;color:#6F6757;padding:0 0 8px;border-bottom:1px solid #D9D0BF}
+  .note{position:relative;padding:11px 0 11px 14px;border-left:1px solid #B3261E;margin-top:12px}
+  .note::before{content:"[";position:absolute;left:-5px;top:6px;color:#B3261E;font-size:16px}
+  .note b{display:block;font:600 11px "Source Serif 4";color:#14171A}
+  .note em{display:block;font:400 10.5px/1.4 "Source Serif 4";color:#6F6757;margin-top:3px;font-style:normal}
+  .note u{font:400 8.5px "Roboto Mono";color:#B3261E;text-decoration:none;letter-spacing:.04em}
+  .foot{display:flex;align-items:center;justify-content:space-between;height:42px;color:#6F6757;font:400 11px "Source Serif 4";font-style:italic}
+  .pager{display:flex;gap:5px;font-style:normal}
+  .pager span{min-width:24px;height:24px;display:grid;place-items:center;border:1px solid #C6BCA6;background:#FAF6EC;font:400 10px "Roboto Mono"}
+  .pager .cur{background:#14171A;color:#F4EFE4;border-color:#14171A}
+</style>
+</head>
+<body>
+<div class="band">
+  <div class="brandrow">
+    <div class="tile">A</div>
+    <div><span class="wordmark">AttendTa</span><span class="inst">University of Cebu</span></div>
+    <div class="who"><b>J. Dela Cruz</b><span>Administrator</span></div>
+  </div>
+  <nav class="nav">
+    <a>Home</a><a>Events</a><a>Check-in</a><a>Registration review</a><a>Browse events</a>
+    <a>Certificates</a><a>Reports</a><a class="on">Members</a><a>Account requests</a>
+    <a>Accounts</a><a>Event types</a><a>Venues</a><a>Activity log</a>
+  </nav>
+</div>
+<div class="wrap">
+  <div class="head">
+    <div><h1>Organization Members</h1><p class="sub">Member profiles are linked to approved user accounts.</p></div>
+    <div class="count">24 members · 19 active</div>
+  </div>
+  <div class="tools">
+    <div class="search">Search by name or student number</div>
+    <button class="btn">Search</button>
+    <div class="tabs"><span class="tab on">All<i>24</i></span><span class="tab">Active<i>19</i></span><span class="tab">Inactive<i>5</i></span></div>
+  </div>
+  <div class="grid">
+    <table>
+      <colgroup><col style="width:9%"><col style="width:17%"><col style="width:15%"><col style="width:4%"><col style="width:6%"><col style="width:10%"><col style="width:8%"><col style="width:7%"><col style="width:6%"></colgroup>
+      <thead><tr><th>Student No.</th><th>Full Name</th><th>Course</th><th>Yr</th><th>Section</th><th>Mobile</th><th>Type</th><th>Status</th><th>Actions</th></tr></thead>
+      <tbody>
+        <tr><td class="num">2023-00184</td><td class="nm"><b>Maria Sofia Dela Cruz</b></td><td>BS Information Technology</td><td>3</td><td>IT-3A</td><td class="num">0917 555 0142</td><td>Regular</td><td><span class="bandchip">Active</span></td><td class="act"><a>View</a><a>Edit</a></td></tr>
+        <tr><td class="num">2022-01127</td><td class="nm"><b>Jomar B. Villanueva</b></td><td>BS Computer Engineering</td><td>4</td><td>CPE-4B</td><td class="num">0918 555 0231</td><td>Regular</td><td><span class="bandchip">Active</span></td><td class="act"><a>View</a><a>Edit</a></td></tr>
+        <tr><td class="num">2024-00291</td><td class="nm"><b>Alyssa Mae Tampus</b></td><td>BS Information Systems</td><td>2</td><td>IS-2C</td><td class="num">0917 555 0388</td><td>Associate</td><td><span class="bandchip">Active</span></td><td class="act"><a>View</a><a>Edit</a></td></tr>
+        <tr><td class="num">2021-00903</td><td class="nm"><b>Kenneth Ryan Ouano</b></td><td>BS Information Technology</td><td>5</td><td>IT-5A</td><td class="num">0920 555 0417</td><td>Regular</td><td><span class="bandchip off">Inactive</span></td><td class="act"><a>View</a><a>Edit</a></td></tr>
+        <tr><td class="num">2023-00456</td><td class="nm"><b>Patricia Anne Lim</b></td><td>BS Computer Science</td><td>3</td><td>CS-3A</td><td class="num">0916 555 0529</td><td>Regular</td><td><span class="bandchip">Active</span></td><td class="act"><a>View</a><a>Edit</a></td></tr>
+        <tr><td class="num">2024-00112</td><td class="nm"><b>Dominic S. Abellana</b></td><td>BS Information Technology</td><td>2</td><td>IT-2B</td><td class="num">0919 555 0674</td><td>Associate</td><td><span class="bandchip">Active</span></td><td class="act"><a>View</a><a>Edit</a></td></tr>
+        <tr><td class="num">2022-00738</td><td class="nm"><b>Hannah Grace Ybañez</b></td><td>BS Computer Engineering</td><td>4</td><td>CPE-4A</td><td class="num">0917 555 0733</td><td>Regular</td><td><span class="bandchip">Active</span></td><td class="act"><a>View</a><a>Edit</a></td></tr>
+        <tr><td class="num">2023-00502</td><td class="nm"><b>Rafael Luis Mendez</b></td><td>BS Information Systems</td><td>3</td><td>IS-3B</td><td class="num">0918 555 0806</td><td>Regular</td><td><span class="bandchip">Active</span></td><td class="act"><a>View</a><a>Edit</a></td></tr>
+        <tr><td class="num">2021-00664</td><td class="nm"><b>Charlene Mae Rosales</b></td><td>BS Computer Science</td><td>5</td><td>CS-5A</td><td class="num">0920 555 0941</td><td>Regular</td><td><span class="bandchip off">Inactive</span></td><td class="act"><a>View</a><a>Edit</a></td></tr>
+      </tbody>
+    </table>
+    <div class="rail">
+      <div class="key live"><i></i><span>Request</span></div>
+      <div class="key live"><i></i><span>Approve</span></div>
+      <div class="key live"><i></i><span>Register</span></div>
+      <div class="key live"><i></i><span>Check-in</span></div>
+      <div class="key"><i></i><span>Certify</span></div>
+      <div class="key"><i></i><span>Report</span></div>
+    </div>
+    <aside class="margin">
+      <div class="mtitle">Audit trail · this page</div>
+      <div class="note"><u>04</u><b>Membership deactivated</b><em>Kenneth Ryan Ouano set inactive by J. Dela Cruz, 12 Oct 2026.</em></div>
+      <div class="note"><u>07</u><b>Account request approved</b><em>Hannah Grace Ybañez approved from the request queue, 03 Nov 2026.</em></div>
+      <div class="note"><u>09</u><b>Certificate issued</b><em>Seminar on Research Methods, 08 Nov 2026. Signatory on file.</em></div>
+    </aside>
+  </div>
+  <div class="foot"><span>Showing 1–9 of 24 members</span><div class="pager"><span class="cur">1</span><span>2</span><span>3</span></div></div>
+</div>
+</body>
+</html>

@@ -1,7 +1,7 @@
 @model PassViewModel
 @if (Model.HasPass)
 {
-    <section class="pass-card @Model.AccentClass" aria-label="Door pass for @Model.EventTitle" data-registration-id="@Model.RegistrationId">
+    <section class="pass-card" aria-label="Door pass for @Model.EventTitle" data-registration-id="@Model.RegistrationId">
         <div class="pass-card-head">
             @if (!string.IsNullOrWhiteSpace(Model.EventTypeName))
             {
@@ -9,7 +9,7 @@
             }
             <p class="pass-event-title">@Model.EventTitle</p>
             <p class="pass-event-meta">
-                <span>@ManilaTimeFormatter.Format(Model.StartsAt)</span>
+                <span class="numeric">@ManilaTimeFormatter.Format(Model.StartsAt)</span>
                 @if (!string.IsNullOrWhiteSpace(Model.VenueName))
                 {
                     <span> · @Model.VenueName</span>

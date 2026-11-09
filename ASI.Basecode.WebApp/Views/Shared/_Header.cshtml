@@ -3,35 +3,97 @@
     var authenticated = User.Identity?.IsAuthenticated == true;
     var management = User.IsInRole(RoleCodes.Admin) || User.IsInRole(RoleCodes.Officer);
     var role = User.IsInRole(RoleCodes.Admin) ? "Administrator" : User.IsInRole(RoleCodes.Officer) ? "Officer" : "Member";
-}
-<header class="shell-header @(management ? "management-header" : "")">
-    <div class="brand-row">
-        @if (authenticated)
-        {
-            <a class="brand" asp-controller="Home" asp-action="Index"><img class="brand-mark" src="~/img/attendta-logo.jpg" alt="" /><span>AttendTa<small>University of Cebu</small></span></a>
-        }
-        else
-        {
-            <div class="brand"><img class="brand-mark" src="~/img/attendta-logo.jpg" alt="" /><span>AttendTa<small>University of Cebu</small></span></div>
-        }
-        @if (authenticated)
-        {
-            <details class="mobile-menu">
-                <summary>Menu</summary>
-                <nav aria-label="Mobile navigation">
-                    <partial name="_NavLinks" />
-                    <div class="account-name">@User.Identity?.Name <span>@role</span></div>
-                    <form asp-controller="Account" asp-action="Logout" method="post"><button type="submit" class="nav-logout">Sign out</button></form>
-                </nav>
-            </details>
-        }
-    </div>
-    @if (authenticated)
+    var controller = ViewContext.RouteData.Values["controller"]?.ToString() ?? string.Empty;
+    var action = ViewContext.RouteData.Values["action"]?.ToString() ?? string.Empty;
+
+    var group = controller switch
     {
-        <nav class="desktop-nav" aria-label="Main navigation">
+        "Home" => "Overview",
+        "MemberEvents" => "Overview",
+        "Event" or "EventCover" => "Records",
+        "Member" or "DeactivationPreview" => "Records",
+        "EventType" => "Records",
+        "Venue" => "Records",
+        "AccountRequest" or "ManagementAccountRequest" => "Records",
+        "AdminAccounts" => "Records",
+        "ActivityLog" => "Records",
+        "MyEvents" or "Passes" => "Records",
+        "CheckIn" => "Output",
+        "RegistrationReview" => "Output",
+        "CertificateLedger" or "MyCertificates" => "Output",
+        "Reports" => "Output",
+        "Profile" => "Account",
+        "Account" => "Account",
+        _ => "Overview"
+    };
+
+    var pageLabel = controller switch
+    {
+        "Home" => "Home",
+        "MemberEvents" => management ? "Browse events" : "Events",
+        "Event" or "EventCover" => "Events",
+        "Member" or "DeactivationPreview" => "Members",
+        "EventType" => "Event types",
+        "Venue" => "Venues",
+        "AccountRequest" or "ManagementAccountRequest" => "Account requests",
+        "AdminAccounts" => "Accounts",
+        "ActivityLog" => "Activity log",
+        "MyEvents" => "My Events",
+        "Passes" => "My Passes",
+        "CheckIn" => "Check-in",
+        "RegistrationReview" => "Registration review",
+        "CertificateLedger" or "MyCertificates" => "Certificates",
+        "Reports" => "Reports",
+        "Profile" => "Profile",
+        "Account" => action == "AccessDenied" ? "Access denied" : "Account",
+        _ => "Home"
+    };
+}
+@if (authenticated)
+{
+    <aside class="rail" aria-label="Primary">
+        <div class="rail-brand">
+            <a class="brand" asp-controller="Home" asp-action="Index">
+                <img class="brand-mark" src="~/img/attendta-logo.jpg" alt="" />
+                <span>AttendTa<small>University of Cebu</small></span>
+            </a>
+        </div>
+        <nav class="rail-nav" aria-label="Main navigation">
             <partial name="_NavLinks" />
+        </nav>
+    </aside>
+    <header class="topbar @(management ? "management-header" : "")">
+        <nav class="breadcrumb" aria-label="Breadcrumb">
+            <ol>
+                <li><a asp-controller="Home" asp-action="Index">Home</a></li>
+                @if (pageLabel != "Home")
+                {
+                    <li><span>@group</span></li>
+                }
+                <li aria-current="page">@pageLabel</li>
+            </ol>
+        </nav>
+
+        <details class="mobile-menu">
+            <summary>Menu</summary>
+            <nav aria-label="Mobile navigation">
+                <partial name="_NavLinks" />
+                <div class="account-name">@User.Identity?.Name <span>@role</span></div>
+                <form asp-controller="Account" asp-action="Logout" method="post"><button type="submit" class="nav-logout">Sign out</button></form>
+            </nav>
+        </details>
+
+        <div class="topbar-account">
             <div class="account-name">@User.Identity?.Name <span>@role</span></div>
             <form asp-controller="Account" asp-action="Logout" method="post"><button type="submit" class="nav-logout">Sign out</button></form>
-        </nav>
-    }
-</header>
+        </div>
+    </header>
+}
+else
+{
+    <header class="public-band">
+        <div class="brand-row">
+            <div class="brand"><img class="brand-mark" src="~/img/attendta-logo.jpg" alt="" /><span>AttendTa<small>University of Cebu</small></span></div>
+        </div>
+    </header>
+}

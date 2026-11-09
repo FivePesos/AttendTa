@@ -17,9 +17,9 @@
 
 @if (!Model.HasEvent)
 {
-    <section class="panel" aria-labelledby="scanner-empty-heading">
+    <section class="empty-panel" aria-labelledby="scanner-empty-heading">
         <h2 id="scanner-empty-heading">No event to check in</h2>
-        <p class="empty-state">No published events are available. Publish an event before opening the scanner.</p>
+        <p>No published events are available. Publish an event before opening the scanner.</p>
     </section>
 }
 else
@@ -136,7 +136,9 @@ else
                                                 <input type="hidden" name="registrationId" value="@row.RegistrationId" />
                                                 <input type="hidden" name="q" value="@Model.Lookup.Query" />
                                                 <input type="hidden" name="page" value="@Model.Lookup.PageNumber" />
-                                                <button type="submit" class="button button-small button-primary" data-submitting-label="Checking&hellip;">Check in</button>
+                                                <div class="row-actions">
+                                                    <button type="submit" class="button" data-submitting-label="Checking&hellip;">Check in</button>
+                                                </div>
                                             </form>
                                         }
                                         else
@@ -149,8 +151,8 @@ else
                         </tbody>
                     </table>
                 </div>
-                <partial name="_ResultCount" model="Model.Lookup" />
                 <partial name="_Pager" model="Model.Lookup" />
+                <partial name="_ResultCount" model="Model.Lookup" />
             }
         </div>
 
@@ -224,13 +226,15 @@ else
                                 <td class="actions">
                                     @if (result.CanInvalidate)
                                     {
-                                        <button type="button"
-                                                class="button button-small button-secondary"
-                                                data-dialog-open="invalidate-dialog"
-                                                data-dialog-value-id="@result.RegistrationId"
-                                                data-dialog-value-summary="Invalidate the check-in for @result.MemberName (@result.StudentNumber)?">
-                                            Invalidate
-                                        </button>
+                                        <div class="row-actions">
+                                            <button type="button"
+                                                    class="button button-quiet-danger"
+                                                    data-dialog-open="invalidate-dialog"
+                                                    data-dialog-value-id="@result.RegistrationId"
+                                                    data-dialog-value-summary="Invalidate the check-in for @result.MemberName (@result.StudentNumber)?">
+                                                Invalidate
+                                            </button>
+                                        </div>
                                     }
                                     else if (result.IsInvalidated)
                                     {
@@ -255,7 +259,7 @@ else
             <input type="hidden" name="registrationId" data-dialog-field="id" />
             <div class="dialog-header">
                 <h2 id="invalidate-dialog-title">Invalidate attendance</h2>
-                <button type="button" class="dialog-close" data-dialog-close aria-label="Close dialog">&times;</button>
+                <button type="button" class="dialog-close" data-dialog-close aria-label="Close dialog"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M4 4l8 8M12 4l-8 8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" /></svg></button>
             </div>
             <p class="muted" data-dialog-field="summary"></p>
             <p class="dialog-consequence">The attendance row stays on record and the member is marked as not eligible. Re-check-in is refused after invalidation.</p>

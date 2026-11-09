@@ -24,7 +24,7 @@
 
 @if (Model.EventId is null)
 {
-    <section class="panel empty-state" aria-live="polite">
+    <section class="empty-panel" aria-live="polite">
         @if (Model.Selector.HasOptions)
         {
             <p>Select an event above and choose Show to load its participation report.</p>
@@ -37,7 +37,7 @@
 }
 else
 {
-    <section class="report-event" aria-labelledby="report-event-heading">
+    <section class="section-head" aria-labelledby="report-event-heading">
         <div>
             <h2 id="report-event-heading">@Model.EventTitle</h2>
             @if (Model.StartsAt is not null)
@@ -147,8 +147,8 @@ else
                     </tbody>
                 </table>
             </div>
-            <partial name="_ResultCount" model="Model" />
             <partial name="_Pager" model="Model" />
+            <partial name="_ResultCount" model="Model" />
         }
     </section>
 

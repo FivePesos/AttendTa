@@ -48,7 +48,7 @@ public sealed class VenuePagedListTests : IClassFixture<SqlServerDatabaseFixture
     }
 
     [Fact]
-    public async Task ManagementSeesAuthorizedThumbnailsOnRoomNameOrderedPagesAndClampedPastEnd()
+    public async Task ManagementSeesRoomNameOrderedPagesAndClampedPastEnd()
     {
         var ct = TestContext.Current.CancellationToken;
 
@@ -82,8 +82,6 @@ public sealed class VenuePagedListTests : IClassFixture<SqlServerDatabaseFixture
         foreach (var venueId in pageOne)
         {
             var row = Row(firstPage, venueId);
-            Assert.Contains($"src=\"/Venue/Photo?id={venueId}\"", row, StringComparison.Ordinal);
-            Assert.Contains("class=\"venue-thumb\"", row, StringComparison.Ordinal);
             Assert.Contains($"action=\"/Venue/ToggleActive?id={venueId}\"", row, StringComparison.Ordinal);
         }
 

@@ -1,0 +1,154 @@
+{
+  "title": "Choose AttendTa's visual world",
+  "question": "Four directions for the replacement visual world, shown on the same screen: Organization Members. Keep the assigned direction, take an alternate, or re-roll.",
+  "options": [
+    {
+      "id": "assigned",
+      "kind": "assigned",
+      "label": "Lanyard",
+      "kicker": "THE ROLL",
+      "lineage": "Philippine campus ID cards, laminate, and the gate logbook",
+      "thesis": "Every person is one laminated identity plate that gains a printed band as they move from request to certificate.",
+      "palette": ["#0C1214", "#1C848F", "#F2F5F5", "#DDE9EA", "#B33A26"],
+      "materials": ["laminate", "offset card stock", "guilloche tint"],
+      "viewport": "An ink institutional band with the logo tile and keyed nav, then a full-width roster where every name leads with a 30px identity plate.",
+      "risk": "An ID-card world can read as an HR badge system: cold, corporate, and processing students instead of welcoming them.",
+      "raised": [
+        {
+          "from": "operate-c-emission-line-rail",
+          "raise": "State is line form before hue: solid, dashed, half-height and struck bands carry status, so it survives grayscale and colour blindness."
+        },
+        {
+          "from": "crouwel-grid-specimen",
+          "raise": "One earned accent plane: exactly one saturated teal field per screen, earned by the primary object or action."
+        },
+        {
+          "from": "notation-diagram-systems-star-atlas",
+          "raise": "A fixed magnitude ramp ranks report data by size and weight, never by colour family."
+        },
+        {
+          "from": "vernacular-ephemera-cassette-j-card",
+          "raise": "Registered and waitlisted are hard halves with a physical divide, never blended into one list."
+        }
+      ],
+      "html": ".impeccable/mocks/decision/assigned.html"
+    },
+    {
+      "id": "model-pick",
+      "kind": "pick",
+      "label": "Record Book",
+      "kicker": "IMPECCABLE’S PICK",
+      "lineage": "the registrar's ruled ledger and the class record book",
+      "thesis": "The roster is a ruled ledger: every row is a posted entry and every decision leaves a stamp in the margin.",
+      "palette": ["#161B22", "#1C848F", "#F6F1E6", "#D8CFBC", "#B33A26"],
+      "materials": ["ruled ledger paper", "ledger ink", "rubber stamp"],
+      "viewport": "A bone sheet under an ink band, the roster ruled into columns with a teal margin rule and a POSTED stamp on the page head.",
+      "risk": "Also the direction most runs in this category land on, and a serif roster can read as a newspaper.",
+      "html": ".impeccable/mocks/decision/model-pick.html"
+    },
+    {
+      "id": "challenger-marginalia",
+      "kind": "challenger",
+      "catalogId": "rw-centre-rail-reference-setting",
+      "label": "Marginalia",
+      "verdict": "competitive",
+      "lineage": "an annotated reference edition with a centre rail of keys",
+      "thesis": "The record sits in the main column and its audit trail hangs in the margin, bracketed back to the line it belongs to.",
+      "palette": ["#14171A", "#B3261E", "#F4EFE4", "#D9D0BF"],
+      "materials": ["unbleached book paper", "letterpress", "vermilion rubrication"],
+      "viewport": "A roster in the main column, a vermilion lifecycle rail, and the audit trail bracketed into a wide annotation margin.",
+      "risk": "Two-column apparatus is hostile to a ten-column roster, and small serif at projector distance is hard to read.",
+      "case": "Fuses cleanly: the audit trail becomes the margin, but the two-column measure fights the roster.",
+      "html": ".impeccable/mocks/decision/challenger-marginalia.html"
+    },
+    {
+      "id": "challenger-plate-section",
+      "kind": "challenger",
+      "catalogId": "design-annual-s-plate-section",
+      "label": "Plate Section",
+      "verdict": "competitive",
+      "lineage": "a design annual's plate section on uncoated stock",
+      "thesis": "Every record is a registered plate: hairlines, crosshairs, and one letterpressed seal to prove a human signed it.",
+      "palette": ["#16181A", "#1C848F", "#F5F4F6", "#C9C7C4"],
+      "materials": ["uncoated stock", "registration marks", "letterpress seal"],
+      "viewport": "A near-white sheet of hairlines and registration crosshairs, with a rotating letterpress stamp half off the page head.",
+      "risk": "A designer's world, not a student org's: identification is thin and hairlines can read cold.",
+      "case": "Fuses cleanly on clarity; loses on identification because a design annual is not a student's world.",
+      "html": ".impeccable/mocks/decision/challenger-plate-section.html"
+    },
+    {
+      "id": "challenger-star-atlas",
+      "kind": "challenger",
+      "catalogId": "notation-diagram-systems-star-atlas",
+      "label": "Star Atlas",
+      "verdict": "declined",
+      "lineage": "a celestial star atlas chart",
+      "thesis": "Participants plot as magnitudes on a chart, importance carried by dot size on a fixed ramp.",
+      "palette": ["#0B1B33", "#E8EEF7", "#C8452D"],
+      "materials": ["chart paper", "night-vision red"],
+      "viewport": "A navy chart ground where members plot as magnitude-scaled dots inside a coordinate grid.",
+      "risk": "Dot-size hierarchy cannot carry tabular attendance data.",
+      "case": "Fuses poorly: dot-size hierarchy cannot carry a ten-column roster.",
+      "kept": "Magnitude as a fixed rank ramp."
+    },
+    {
+      "id": "challenger-grid-specimen",
+      "kind": "challenger",
+      "catalogId": "crouwel-grid-specimen",
+      "label": "Grid Specimen",
+      "verdict": "declined",
+      "lineage": "a Wim Crouwel gridded type specimen",
+      "thesis": "The layout grid stays visible and every element snaps to its cells.",
+      "palette": ["#FFFFFF", "#16181A", "#1C848F"],
+      "materials": ["construction grid", "flat ink"],
+      "viewport": "A visible construction grid with the roster snapped to cells and one saturated accent plane.",
+      "risk": "A visible grid is a designer's reference; students do not identify with a type specimen.",
+      "case": "Fuses poorly: the visible grid is a designer's reference, not a student's.",
+      "kept": "One saturated plane earned by the primary object."
+    },
+    {
+      "id": "challenger-cassette",
+      "kind": "challenger",
+      "catalogId": "vernacular-ephemera-cassette-j-card",
+      "label": "J-Card",
+      "verdict": "declined",
+      "lineage": "a mixtape's hand-lettered J-card inlay",
+      "thesis": "The roster is a folded inlay with two hard halves and running figures ruled to the margin.",
+      "palette": ["#1B4FA0", "#FFFFFF", "#C8102E"],
+      "materials": ["lined inlay stock", "ballpoint"],
+      "viewport": "A folded inlay sheet with side A / side B halves and running figures tight to the margin.",
+      "risk": "A retro artifact the audience knows as nostalgia, not as their daily record system.",
+      "case": "Fuses partly: two hard halves help, but the folded card has no counterpart in the product.",
+      "kept": "Hard two-half splits and figures tight to the margin."
+    },
+    {
+      "id": "challenger-emission-rail",
+      "kind": "challenger",
+      "catalogId": "operate-c-emission-line-rail",
+      "label": "Emission Rail",
+      "verdict": "declined",
+      "lineage": "a spectrogram's emission-line rail on a viewing box",
+      "thesis": "State is carried by line form and position on one calibrated rail, never by hue.",
+      "palette": ["#1A1C1E", "#E8E3D8", "#D9A62E"],
+      "materials": ["charcoal continuum", "emission lines"],
+      "viewport": "A charcoal continuum with bone legends and needle-thin emission lines carrying every state.",
+      "risk": "A lab instrument's grammar applied to a working screen reads as costume.",
+      "case": "Fuses poorly as a world, but its state grammar is the strongest donation in the hand.",
+      "kept": "State encoded as line form, not hue."
+    }
+  ],
+  "reroll": { "registers": ["safer", "bolder"] },
+  "buildPath": { "value": "code", "toggle": false },
+  "canon": true,
+  "canonCard": {
+    "kind": "canon",
+    "label": "The category standard",
+    "thesis": "What this category ships, executed impeccably.",
+    "palette": ["#FFFFFF", "#111827", "#2563EB"],
+    "materials": ["clean grid", "product UI"],
+    "viewport": "A left sidebar, a top bar, three summary tiles, and a rounded table with status pills.",
+    "risk": "Indistinguishable from the competition by design.",
+    "html": ".impeccable/mocks/decision/canon.html"
+  },
+  "steer": true
+}

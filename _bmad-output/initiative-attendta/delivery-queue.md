@@ -34,8 +34,9 @@ Demo data rules and the list of every mock with its removing ticket:
   `built`/`in-review` text is historical build evidence, not a fresh claim or GitHub closure.
 - The `tickets.toml` entries and pulled leaf files are the requirements. `after` contains real
   prerequisites; `phase`, `area` and numeric `queue` order the remaining shared work.
-- `docs/DESIGN.md` remains the visual authority. The separate `F:/AttendTa` prototype is a
-  read-only visual source, not a second app or a source of production business rules.
+- `DESIGN.md` at the repository root is the visual authority. `docs/design.md` and the
+  separate `F:/AttendTa` prototype are superseded visual evidence: read-only, not a second
+  app and not a source of production business rules.
 - The architecture's one writer per table/module still applies to code. It does **not** assign
   a permanent person to that module. Historical WBS owners remain attribution/context only.
 - Old dependency waves, `bmad-progress.*` and older ownership tables are historical snapshots,
@@ -74,9 +75,9 @@ items are cleared for the shared pool; active claims/reviews are not silently re
 ## Demo phase queue
 
 All rows are frontend only: no new controller logic beyond calling existing services or the
-demo providers, no schema change, no new service in Services or Data. Keep the incumbent visual
-identity and follow `docs/DESIGN.md`; builders may use Impeccable's craft guidance while
-building. A ticket is done on `dotnet build`, `npm run css:build` when views or styles change,
+demo providers, no schema change, no new service in Services or Data. Follow the replacement
+visual world in root `DESIGN.md`; the superseded `docs/design.md` identity is an anti-reference.
+Builders may use Impeccable's craft guidance while building. A ticket is done on `dotnet build`, `npm run css:build` when views or styles change,
 and one look at the changed screen with `DemoData__Enabled=true`. No new automated tests (1.14's
 startup guard test is the one exception); existing CI stays green; each pull request keeps one
 peer approval and there is no separate code-review pass. Verify lines use seeded data only.
@@ -189,7 +190,7 @@ for the whole scanner UI. Final real-data proof still waits for all required int
 | 450–480 | 3.14 / #43, 4.9 / #51, 5.10 / #60, 6.11 / #70 | Focused backend module cleanup from concrete findings; no repeated whole-app UI review. |
 | 500 | 8.13 / #151 | Delete the demo seam (M-01) once every other row is removed, then cross-module backend hardening; preserve transactions, locks, facts, auth, hooks and storage. |
 | 510 | 8.11 / #152 | Verify only: every register row is `removed`; the published build starts normally with the switch on, no token key and a non-demo database (the guard refuses this while the seam exists); no register id, demo folder or `DemoData` key in source or published output; real integrations end to end. Findings return to the owning ticket. |
-| 515 | 2.11 / #128 | Accept the three centered editors against `docs/DESIGN.md`; fixes only. |
+| 515 | 2.11 / #128 | Accept the three centered editors against root `DESIGN.md`; fixes only. |
 | 520 | 8.12 / #153 | Final frontend walkthrough, targeted refactor, Impeccable implementation/critique/polish. |
 | 530 | 8.10 / #83 | Release cleanup **before** acceptance tests and release. |
 | 540 | 8.5 / #78 | Add/reuse only important automated cases; map every other SPEC scenario to manual verification. |
@@ -233,7 +234,7 @@ removes it. 8.13 removes the seam; 8.11 verifies that no row is open.
 - Q2 needs a real host address/certificate decision and phone verification; preparation can
   start early, but #75 cannot pass on a localhost screenshot alone.
 - #74 closed the provisioning tooling; 8.14 owns the still-unproven host/SQL/log/offline checks.
-- Report wording follows the existing SPEC-over-PRD precedence and `docs/DESIGN.md`; do not
+- Report wording follows the existing SPEC-over-PRD precedence and root `DESIGN.md`; do not
   invent a new PM override or extra cross-event metrics while implementing the report.
 - All final MVP goals remain required. Cosmetic extras can be reduced only as recorded scope
   decisions; remaining mocks, unsafe mutations or unverified major tests block final completion.

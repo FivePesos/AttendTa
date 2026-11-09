@@ -36,7 +36,7 @@
 
 @if (Model.Rows.Count == 0 && ViewData["LedgerError"] == null)
 {
-    <section class="card empty-state" role="status">
+    <section class="empty-panel" role="status">
         <h2>@(Model.Selector.HasOptions ? (tab == "issued" ? "No certificates issued yet" : "No reviews to display") : "No completed events available")</h2>
         <p>@(Model.Selector.HasOptions ? (tab == "issued" ? "Approve an eligible attendee and issue their certificate from Eligibility Review." : "Certificate reviews appear for checked-in members when an event is completed.") : "Complete an event to begin reviewing attendance for certificates.")</p>
     </section>
@@ -76,16 +76,16 @@ else if (Model.Rows.Count > 0)
                         <div class="row-actions">
                         @if (row.Status == CertificateStatusCode.PendingApproval)
                         {
-                            <button type="button" class="button button-small ledger-approve" data-certificate-open="approve-certificate" data-id="@row.RegistrationId" data-member="@row.MemberName" data-event="@row.EventTitle">Approve</button>
-                            <button type="button" class="button button-small ledger-decline" data-certificate-open="decline-certificate" data-id="@row.RegistrationId" data-member="@row.MemberName" data-event="@row.EventTitle">Decline</button>
+                            <button type="button" class="button" data-certificate-open="approve-certificate" data-id="@row.RegistrationId" data-member="@row.MemberName" data-event="@row.EventTitle">Approve</button>
+                            <button type="button" class="button button-quiet-danger" data-certificate-open="decline-certificate" data-id="@row.RegistrationId" data-member="@row.MemberName" data-event="@row.EventTitle">Decline</button>
                         }
                         else if (row.Status == CertificateStatusCode.Eligible)
                         {
-                            <button type="button" class="button button-small ledger-issue" data-certificate-open="issue-certificate" data-id="@row.RegistrationId" data-member="@row.MemberName" data-event="@row.EventTitle">Issue certificate</button>
+                            <button type="button" class="button" data-certificate-open="issue-certificate" data-id="@row.RegistrationId" data-member="@row.MemberName" data-event="@row.EventTitle">Issue certificate</button>
                         }
                         else if (row.Status == CertificateStatusCode.Issued)
                         {
-                            <a class="button button-small button-secondary" asp-action="Viewer" asp-route-id="@row.RegistrationId">View PDF<span class="ledger-sr-only"> for @row.MemberName</span></a>
+                            <a class="button" asp-action="Viewer" asp-route-id="@row.RegistrationId">View PDF<span class="ledger-sr-only"> for @row.MemberName</span></a>
                         }
                         else { <span class="muted">Decision final</span> }
                         </div>
@@ -95,8 +95,8 @@ else if (Model.Rows.Count > 0)
         </tbody>
     </table>
 </div>
-<p class="result-count muted">Showing @Model.Page.FirstItemNumber–@Model.Page.LastItemNumber of @Model.Page.TotalCount</p>
 <partial name="_Pager" model="Model.Page" />
+<p class="result-count muted">Showing @Model.Page.FirstItemNumber–@Model.Page.LastItemNumber of @Model.Page.TotalCount</p>
 }
 
 @foreach (var action in new[] { "approve", "decline", "issue" })
@@ -107,7 +107,7 @@ else if (Model.Rows.Count > 0)
         <form asp-action="@endpoint" method="post">
             <div class="dialog-header">
                 <h2 id="@(action)-title">@verb?</h2>
-                <button type="button" class="dialog-close" data-certificate-close aria-label="Close dialog">×</button>
+                <button type="button" class="dialog-close" data-certificate-close aria-label="Close dialog"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M4 4l8 8M12 4l-8 8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" /></svg></button>
             </div>
             <input type="hidden" name="id" data-certificate-field="id" />
             <input type="hidden" name="eventId" value="@Model.Selector.SelectedEventId" />
@@ -127,7 +127,7 @@ else if (Model.Rows.Count > 0)
             }
             <div class="dialog-actions">
                 <button type="button" class="button button-secondary" data-certificate-close autofocus="@(action != "decline")">Cancel</button>
-                <button type="submit" class="button @(action == "approve" ? "ledger-approve" : action == "decline" ? "button-danger" : "ledger-issue")" data-submitting-label="@(action == "issue" ? "Generating PDF…" : "Saving…")">@verb</button>
+                <button type="submit" class="button @(action == "decline" ? "button-danger" : "button-primary")" data-submitting-label="@(action == "issue" ? "Generating PDF…" : "Saving…")">@verb</button>
             </div>
         </form>
     </dialog>

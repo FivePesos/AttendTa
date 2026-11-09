@@ -27,9 +27,9 @@
 
 @if (Model.TotalPages > 1)
 {
-    <nav class="page-heading" aria-label="Pagination">
+    <nav class="pager" aria-label="Pagination">
         <span aria-live="polite" class="numeric">Page @Model.PageNumber of @Model.TotalPages</span>
-        <div class="search-group">
+        <div class="pager-actions">
             @if (Model.HasPreviousPage)
             {
                 <a class="button button-secondary" rel="prev" href="@PageUrl(Model.PageNumber - 1)" aria-label="Previous page">Previous</a>

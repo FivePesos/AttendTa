@@ -11,10 +11,12 @@
 </div>
 
 <section class="passes-section" aria-labelledby="active-passes-heading">
-    <h2 id="active-passes-heading">Active passes</h2>
+    <div class="section-head">
+        <h2 id="active-passes-heading">Active passes</h2>
+    </div>
     @if (Model.Active.Count == 0)
     {
-        <p class="empty-state">No active passes. A pass appears here once a registration is confirmed for an upcoming event.</p>
+        <div class="empty-panel"><p>No active passes. A pass appears here once a registration is confirmed for an upcoming event.</p></div>
     }
     else
     {
@@ -28,10 +30,12 @@
 </section>
 
 <section class="passes-section" aria-labelledby="past-passes-heading">
-    <h2 id="past-passes-heading">Past passes</h2>
+    <div class="section-head">
+        <h2 id="past-passes-heading">Past passes</h2>
+    </div>
     @if (Model.Past.Count == 0)
     {
-        <p class="empty-state">No past passes yet.</p>
+        <div class="empty-panel"><p>No past passes yet.</p></div>
     }
     else
     {

@@ -28,7 +28,7 @@ Used by a University of Cebu student organization on a laptop at the door and on
 - Membership requests are reviewed and approved or declined with a reason; decisions are audited.
 - Master data covers members, event types, and venues; records are deactivated rather than hard-deleted.
 - Master Data lists announce a loading state while a filter, pager, search or status toggle is in flight, and a failed read keeps the shell, tabs and table headers with an in-shell notice and a Try again link instead of an empty-state row.
-- Member, Event Type and Venue create/edit use the same centered keyboard-operable record dialog with required markers, retained server validation, focus containment and restore, and a venue photo preview. Clicks on the dialog's own padding keep it open; only a backdrop click, Escape or Cancel dismisses it. Standalone form routes remain available.
+- Member, Event Type, Venue and Event create/edit use the same centered keyboard-operable record dialog with required markers, retained server validation, focus containment and restore, and a venue photo preview. Clicks on the dialog's own padding keep it open; only a backdrop click, Escape or Cancel dismisses it. Events open the same editor from the Events list and from the event dossier. Standalone form routes remain available.
 - Events move through draft, published, completed, and cancelled states with capacity, deadline, and venue checks.
 - Officers open an event dossier from Events to review metadata, confirmed capacity and paged status rosters, make explicit registration decisions, and confirm check-in and lifecycle changes in contextual dialogs.
 - Failed dossier registration decisions retain the participant/registration context and entered reason for correction; review-queue failures stay within their original workflow.
@@ -43,13 +43,13 @@ Used by a University of Cebu student organization on a laptop at the door and on
 
 ## Brand Commitments
 
-The product name is AttendTa, used by a University of Cebu student organization. The approved identity is the AttendTa logo with the University of Cebu institutional line. The application is a restrained campus operations interface: pale slate canvas, white panels, dark navy primary actions, thin borders, and limited amber accents. `docs/DESIGN.md` is the visual authority.
+The product name is AttendTa, used by a University of Cebu student organization. The approved identity is the AttendTa logo with the University of Cebu institutional line. The application is a campus operations console: neutral ground, white panels, graphite ink, one cobalt action accent, and status carried by tinted labels. `DESIGN.md` at the repository root is the visual authority; `docs/design.md` is superseded as an anti-reference.
 
 ## Evidence on Hand
 
 - `docs/UC-Project-FL.pdf` — approved function list and module ownership.
 - `docs/AttendTa-System-Specification.md` — authoritative rule detail.
-- `docs/DESIGN.md` — approved visual specification for the 20 core screens.
+- `DESIGN.md` — visual authority for the 20 core screens; `docs/design.md` is the superseded anti-reference.
 - `docs/architecture.md` and `_bmad-output/initiative-attendta/architecture-attendta/architecture-attendta.md` — implementation baseline.
 - `_bmad-output/initiative-attendta/prd-attendta/` — product requirements and decisions.
 - Working ASP.NET Core MVC application with seeded local demo data; no production customer data or testimonials exist.

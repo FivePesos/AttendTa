@@ -366,8 +366,8 @@ public class AuthenticationFlowTests : IClassFixture<SqlServerDatabaseFixture>, 
         Assert.Contains("/css/app.css", html, StringComparison.Ordinal);
         Assert.DoesNotContain("https://", html, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("bootstrap", html, StringComparison.OrdinalIgnoreCase);
-        if (management) { Assert.Contains("class=\"management-topbar\"", html, StringComparison.Ordinal); Assert.Contains("/Member", html, StringComparison.Ordinal); Assert.Contains("/EventType", html, StringComparison.Ordinal); Assert.Contains("/Venue", html, StringComparison.Ordinal); Assert.DoesNotContain("/Profile", html, StringComparison.Ordinal); }
-        else { Assert.DoesNotContain("class=\"management-topbar\"", html, StringComparison.Ordinal); Assert.DoesNotContain("/Member", html, StringComparison.Ordinal); Assert.DoesNotContain("/EventType", html, StringComparison.Ordinal); Assert.DoesNotContain("/Venue", html, StringComparison.Ordinal); Assert.Contains("/Profile", html, StringComparison.Ordinal); }
+        if (management) { Assert.Contains("class=\"topbar management-header\"", html, StringComparison.Ordinal); Assert.Contains("/Member", html, StringComparison.Ordinal); Assert.Contains("/EventType", html, StringComparison.Ordinal); Assert.Contains("/Venue", html, StringComparison.Ordinal); Assert.DoesNotContain("/Profile", html, StringComparison.Ordinal); }
+        else { Assert.DoesNotContain("management-header", html, StringComparison.Ordinal); Assert.DoesNotContain("/Member", html, StringComparison.Ordinal); Assert.DoesNotContain("/EventType", html, StringComparison.Ordinal); Assert.DoesNotContain("/Venue", html, StringComparison.Ordinal); Assert.Contains("/Profile", html, StringComparison.Ordinal); }
     }
 
     [Fact]

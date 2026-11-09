@@ -9,15 +9,6 @@
     {
         <input asp-for="VenueId" type="hidden" />
     }
-    @if (!string.IsNullOrWhiteSpace(Model.ImagePath))
-    {
-        <div class="field">
-            <p class="field-label">Current photo</p>
-            <a asp-action="Photo" asp-route-id="@Model.VenueId" target="_blank" rel="noopener">
-                <img src="@Url.Action("Photo", new { id = Model.VenueId })" alt="Current venue photo" width="96" height="64" class="venue-thumb" />
-            </a>
-        </div>
-    }
     <partial name="_Form" model="Model" />
     <footer class="record-dialog-actions">
         <button type="button" class="button button-secondary" data-record-close>Cancel</button>
