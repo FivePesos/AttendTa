@@ -46,7 +46,7 @@ Demo data rules and the list of every mock with its removing ticket:
 | Phase | What runs | Ends when |
 |---|---|---|
 | Demo | 1.13 and 1.14, then the demo-critical surfaces, then the demo-polish surfaces; frontend only, real backend where it exists, demo data where it is missing. 8.14 host readiness may run alongside. | 8.15 rehearsal walks the demo script and every demo-phase Verify line without a dead end; demo-polish tickets not merged by then are shown as they are. |
-| Integration | Backend tickets in the order below; each replaces its register rows with no visible change to the screen. | Every register row except M-01 is `removed`. |
+| Integration | Backend tickets in the order below; each replaces its register rows with no visible change to the screen. | Every register row is `removed`. |
 | Finale | Sweeps, 8.13 hardening and removal of the demo seam (M-01), 8.11 verification that no demo data remains, 2.11 and 8.12 frontend acceptance and polish, 8.10 cleanup, 8.5/8.4 tests, 8.2/8.3 device and storage, 8.6–8.8 acceptance, 8.9 release. | Initiative Done when. |
 
 Ranks are tie-breaks among unblocked work, not a demand to wait for every earlier number.

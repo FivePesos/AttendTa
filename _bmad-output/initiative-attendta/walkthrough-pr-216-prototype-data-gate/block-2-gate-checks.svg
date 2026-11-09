@@ -1,0 +1,113 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1240" height="780" viewBox="0 0 1240 780" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#6b7280"/>
+    </marker>
+    <marker id="arrowGreen" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#047857"/>
+    </marker>
+  </defs>
+
+  <rect width="1240" height="780" fill="#f9fafb"/>
+
+  <text x="40" y="46" font-size="21" font-weight="600" fill="#111827">PR #216 — the 8.11 gate, and the residue that blocked it</text>
+  <text x="40" y="70" font-size="13" fill="#6b7280">Four checks that must fail if any part of the demo seam remains. Only the search check needed a code change.</text>
+
+  <!-- Panel 1: the four checks -->
+  <rect x="40" y="92" width="660" height="438" rx="10" fill="#ffffff" stroke="#e5e7eb"/>
+  <text x="60" y="122" font-size="15" font-weight="600" fill="#111827">1 · The four checks</text>
+
+  <rect x="60" y="138" width="620" height="86" rx="8" fill="#f8fafc" stroke="#e5e7eb"/>
+  <circle cx="82" cy="162" r="11" fill="#dbeafe"/>
+  <text x="82" y="167" font-size="12" font-weight="600" fill="#1d4ed8" text-anchor="middle">1</text>
+  <text x="104" y="167" font-size="13.5" font-weight="600" fill="#111827">Register verdict</text>
+  <text x="104" y="190" font-size="12" fill="#374151">21 rows, each <tspan font-family="Consolas, monospace">removed</tspan> with the commit that deleted its demo code.</text>
+  <text x="104" y="210" font-size="12" fill="#6b7280">Proved with <tspan font-family="Consolas, monospace">git show --stat</tspan>, not from the row's own text.</text>
+
+  <rect x="60" y="232" width="620" height="86" rx="8" fill="#f8fafc" stroke="#e5e7eb"/>
+  <circle cx="82" cy="256" r="11" fill="#dbeafe"/>
+  <text x="82" y="261" font-size="12" font-weight="600" fill="#1d4ed8" text-anchor="middle">2</text>
+  <text x="104" y="261" font-size="13.5" font-weight="600" fill="#111827">Startup</text>
+  <text x="104" y="284" font-size="12" fill="#374151">Published build, <tspan font-family="Consolas, monospace">DemoData__Enabled=true</tspan>, no token key, non-demo database.</text>
+  <text x="104" y="304" font-size="12" fill="#6b7280">Expected 200 on <tspan font-family="Consolas, monospace">/Account/Login</tspan>; the 1.14 guard refused exactly this start.</text>
+
+  <rect x="60" y="326" width="620" height="86" rx="8" fill="#fff7ed" stroke="#fed7aa"/>
+  <circle cx="82" cy="350" r="11" fill="#ffedd5"/>
+  <text x="82" y="355" font-size="12" font-weight="600" fill="#c2410c" text-anchor="middle">3</text>
+  <text x="104" y="355" font-size="13.5" font-weight="600" fill="#111827">Search — the one that failed</text>
+  <text x="104" y="378" font-size="12" fill="#374151">Source and published output: every register id, the demo folder, the <tspan font-family="Consolas, monospace">DemoData</tspan> keys.</text>
+  <text x="104" y="398" font-size="12" fill="#6b7280">Expected no hits. Found five register-id comments and a split literal.</text>
+
+  <rect x="60" y="420" width="620" height="86" rx="8" fill="#f8fafc" stroke="#e5e7eb"/>
+  <circle cx="82" cy="444" r="11" fill="#dbeafe"/>
+  <text x="82" y="449" font-size="12" font-weight="600" fill="#1d4ed8" text-anchor="middle">4</text>
+  <text x="104" y="449" font-size="13.5" font-weight="600" fill="#111827">End-to-end</text>
+  <text x="104" y="472" font-size="12" fill="#374151">One database, one session per role, the real service behind every step.</text>
+  <text x="104" y="492" font-size="12" fill="#6b7280">No hand-written SQL state. 18 <tspan font-family="Consolas, monospace">activity_logs</tspan> rows trail the whole chain.</text>
+
+  <!-- Panel 2: residue -->
+  <rect x="720" y="92" width="480" height="438" rx="10" fill="#ffffff" stroke="#e5e7eb"/>
+  <text x="740" y="122" font-size="15" font-weight="600" fill="#111827">2 · What the search found</text>
+  <text x="740" y="144" font-size="12" fill="#6b7280">Deletion markers the removing tickets left behind.</text>
+
+  <g font-size="11.5" font-family="Consolas, monospace">
+    <rect x="740" y="158" width="440" height="30" rx="6" fill="#fef2f2" stroke="#fecaca"/>
+    <text x="752" y="178" fill="#b91c1c" text-decoration="line-through">CheckInService.cs:14</text>
+    <text x="1000" y="178" fill="#b91c1c" text-decoration="line-through">M-05</text>
+
+    <rect x="740" y="194" width="440" height="30" rx="6" fill="#fef2f2" stroke="#fecaca"/>
+    <text x="752" y="214" fill="#b91c1c" text-decoration="line-through">CheckInLookupService.cs:14</text>
+    <text x="1000" y="214" fill="#b91c1c" text-decoration="line-through">M-06</text>
+
+    <rect x="740" y="230" width="440" height="30" rx="6" fill="#fef2f2" stroke="#fecaca"/>
+    <text x="752" y="250" fill="#b91c1c" text-decoration="line-through">scanner.js:1</text>
+    <text x="1000" y="250" fill="#b91c1c" text-decoration="line-through">M-05</text>
+
+    <rect x="740" y="266" width="440" height="30" rx="6" fill="#fef2f2" stroke="#fecaca"/>
+    <text x="752" y="286" fill="#b91c1c" text-decoration="line-through">scanner-camera.js:1</text>
+    <text x="1000" y="286" fill="#b91c1c" text-decoration="line-through">M-05</text>
+
+    <rect x="740" y="302" width="440" height="30" rx="6" fill="#fef2f2" stroke="#fecaca"/>
+    <text x="752" y="322" fill="#b91c1c" text-decoration="line-through">passes.css:1</text>
+    <text x="1000" y="322" fill="#b91c1c" text-decoration="line-through">M-03</text>
+  </g>
+
+  <rect x="740" y="344" width="440" height="52" rx="6" fill="#eff6ff" stroke="#2563eb"/>
+  <text x="752" y="364" font-size="11.5" font-family="Consolas, monospace" fill="#1d4ed8">CheckInWindowFlagTests.cs:73</text>
+  <text x="752" y="383" font-size="11.5" font-family="Consolas, monospace" fill="#1d4ed8">"Demo" + "Data"  →  "DemoData"</text>
+
+  <line x1="960" y1="400" x2="960" y2="424" stroke="#047857" stroke-width="1.5" marker-end="url(#arrowGreen)"/>
+
+  <rect x="740" y="428" width="440" height="34" rx="6" fill="#ecfdf5" stroke="#a7f3d0"/>
+  <text x="960" y="450" font-size="12.5" font-weight="600" fill="#047857" text-anchor="middle">search clean: 0 hits, 1 intentional</text>
+
+  <text x="740" y="486" font-size="11.5" fill="#6b7280">The five comments read correctly without the id,</text>
+  <text x="740" y="502" font-size="11.5" fill="#6b7280">so only the id was dropped. The test keeps the</text>
+  <text x="740" y="518" font-size="11.5" fill="#6b7280">literal because it is the check.</text>
+
+  <!-- Bottom band -->
+  <rect x="40" y="552" width="1160" height="176" rx="10" fill="#ffffff" stroke="#e5e7eb"/>
+  <text x="60" y="582" font-size="15" font-weight="600" fill="#111827">What the pull request records</text>
+
+  <g font-size="12">
+    <text x="60" y="614" fill="#6b7280">Register</text>
+    <text x="60" y="638" font-size="17" font-weight="600" fill="#111827">21 / 21</text>
+    <text x="60" y="658" fill="#6b7280">removed with a commit</text>
+
+    <text x="300" y="614" fill="#6b7280">Startup</text>
+    <text x="300" y="638" font-size="17" font-weight="600" fill="#111827">200</text>
+    <text x="300" y="658" fill="#6b7280">retired switch on</text>
+
+    <text x="540" y="614" fill="#6b7280">Search</text>
+    <text x="540" y="638" font-size="17" font-weight="600" fill="#111827">0</text>
+    <text x="540" y="658" fill="#6b7280">hits in source and publish</text>
+
+    <text x="780" y="614" fill="#6b7280">End-to-end</text>
+    <text x="780" y="638" font-size="17" font-weight="600" fill="#111827">51</text>
+    <text x="780" y="658" fill="#6b7280">checks, 42 first-pass</text>
+  </g>
+
+  <line x1="60" y1="678" x2="1180" y2="678" stroke="#e5e7eb"/>
+  <text x="60" y="700" font-size="12" fill="#374151">Nine first-pass failures were the check's own wrong expectation or a seed limitation, each explained in the log; none was a product defect.</text>
+  <text x="60" y="718" font-size="12" fill="#374151">No product behaviour changes. The only source edits are five comment lines and one test literal.</text>
+</svg>

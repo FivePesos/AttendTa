@@ -37,7 +37,7 @@ with `git log --diff-filter=D -- <path>` and `git show --stat <sha>`.
 | M-11b | 6.8 | `124ef29` | deletes `DemoCertificateLedgerService.cs` |
 | M-12 | 6.9 | `7637096` | deletes `DemoMyCertificatesService.cs`, `UnavailableMyCertificatesService.cs`, `DemoCertificateDocuments.cs` |
 | M-13a | 7.1 | `c0c0935` | removes the demo summary computation |
-| M-13b | 7.2 | `975c08b` | removes the demo no-show and breakdown as the authoritative path; its leftover `CourseBreakdown`/`YearBreakdown` fallback was deleted with the file by `04157b3` |
+| M-13b | 7.2 | `975c08b` | removes the demo no-show and breakdown as the authoritative path; its leftover `hasDemoAttendance` overrides and `CourseBreakdown`/`YearBreakdown` fallback were deleted with the file by `04157b3` |
 | M-13c | 7.3 | `04157b3` | deletes `DemoParticipationReportService.cs`, `DemoReportsRegistration.cs`, `DemoParticipationReportOverlayTests.cs` |
 | M-14a | 5.4 | `8230045` | removes the demo account `DeactivateAsync` |
 | M-14b | 5.5 | `f232933` | deletes `DemoAccountAccessCommands.cs` |
