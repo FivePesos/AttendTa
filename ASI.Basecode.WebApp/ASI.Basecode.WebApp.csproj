@@ -7,7 +7,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Remove="appsettings.json.rej" />
     <TypeScriptCompile Remove="node_modules\**\*" />
   </ItemGroup>
 

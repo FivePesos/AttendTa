@@ -129,6 +129,55 @@ public sealed class PrivateFileStoreTests
         }
     }
 
+    [Fact]
+    public void RejectsAMissingSetupRoot()
+    {
+        var basePath = Path.Combine(Path.GetTempPath(), "attendta-private-store", Guid.NewGuid().ToString("N"));
+        var appRoot = Path.Combine(basePath, "app");
+        var webRoot = Path.Combine(appRoot, "wwwroot");
+        Directory.CreateDirectory(webRoot);
+
+        try
+        {
+            var configuration = new ConfigurationBuilder().Build();
+            var exception = Assert.Throws<InvalidOperationException>(
+                () => new PrivateFileStore(configuration, new TestWebHostEnvironment(appRoot, webRoot)));
+            Assert.Contains("must be configured for private file storage", exception.Message, StringComparison.Ordinal);
+        }
+        finally
+        {
+            Directory.Delete(basePath, recursive: true);
+        }
+    }
+
+    [Theory]
+    [InlineData("web")]
+    [InlineData("content")]
+    public void RejectsASetupRootInsideTheWebOrContentRoot(string placement)
+    {
+        var basePath = Path.Combine(Path.GetTempPath(), "attendta-private-store", Guid.NewGuid().ToString("N"));
+        var appRoot = Path.Combine(basePath, "app");
+        var webRoot = Path.Combine(appRoot, "wwwroot");
+        Directory.CreateDirectory(webRoot);
+
+        try
+        {
+            var configuration = new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["Common:SetupRoot"] = placement == "web" ? webRoot : appRoot
+                })
+                .Build();
+            var exception = Assert.Throws<InvalidOperationException>(
+                () => new PrivateFileStore(configuration, new TestWebHostEnvironment(appRoot, webRoot)));
+            Assert.Contains("outside wwwroot and the application deployment directory", exception.Message, StringComparison.Ordinal);
+        }
+        finally
+        {
+            Directory.Delete(basePath, recursive: true);
+        }
+    }
+
     private static (IPrivateFileStore Store, string BasePath, string SetupRoot) CreateStore(Func<Guid>? createFileId = null)
     {
         var basePath = Path.Combine(Path.GetTempPath(), "attendta-private-store", Guid.NewGuid().ToString("N"));
