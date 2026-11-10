@@ -56,11 +56,11 @@
                 <dd class="numeric">@ManilaTimeFormatter.Format(item.RegistrationDeadline)</dd>
             </div>
         </dl>
-        <div class="dossier-capacity">
-            <p class="dossier-capacity-label">Confirmed capacity</p>
-            <p class="dossier-capacity-value">@Model.ConfirmedCount <span>of @item.ParticipantLimit</span></p>
-            <p class="dossier-capacity-note">@(Math.Max(0, item.ParticipantLimit - Model.ConfirmedCount)) seats available</p>
-        </div>
+        <dl class="dossier-capacity">
+            <dt class="dossier-capacity-label">Confirmed capacity</dt>
+            <dd class="dossier-capacity-value">@Model.ConfirmedCount <span>of @item.ParticipantLimit</span></dd>
+            <dd class="dossier-capacity-note">@(Math.Max(0, item.ParticipantLimit - Model.ConfirmedCount)) seats available</dd>
+        </dl>
     </div>
     @if (!string.IsNullOrWhiteSpace(item.Description))
     {
