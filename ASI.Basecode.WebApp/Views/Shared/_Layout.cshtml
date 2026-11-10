@@ -8,8 +8,10 @@
     var message = !string.IsNullOrWhiteSpace(error) ? error : success;
     var isError = !string.IsNullOrWhiteSpace(error);
     var authenticated = User.Identity?.IsAuthenticated == true;
+    var management = User.IsInRole(RoleCodes.Admin) || User.IsInRole(RoleCodes.Officer);
     var shellWidth = authenticated ? null : ViewData["ShellWidth"] as string;
-    var shellClass = authenticated ? "authenticated" : "public-shell";
+    // Management keeps the left rail; members get a top header instead.
+    var shellClass = authenticated ? (management ? "authenticated" : "authenticated member-shell") : "public-shell";
     if (!string.IsNullOrWhiteSpace(shellWidth))
     {
         shellClass += " " + shellWidth;

@@ -20,7 +20,7 @@ One auditable lifecycle for student-organization events: request, approve, publi
 
 ## Operating Context
 
-Used by a University of Cebu student organization on a laptop at the door and on phones between classes. Officers work from a management shell with dense tables, filters, and decision actions. Members work from a simpler shell focused on events, passes, and personal history. The system runs as one ASP.NET Core MVC application against one SQL Server database; the demo runs on a local or hotspot host. Times are stored in UTC and shown in Asia/Manila.
+Used by a University of Cebu student organization on a laptop at the door and on phones between classes. Officers work from a management shell (left rail, dense tables, filters, decision actions). Members work from a simpler top-header shell focused on events, passes, and personal history; their account block opens Profile and Sign out. The system runs as one ASP.NET Core MVC application against one SQL Server database; the demo runs on a local or hotspot host. Times are stored in UTC and shown in Asia/Manila.
 
 ## Capabilities and Constraints
 

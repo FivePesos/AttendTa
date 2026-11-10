@@ -476,3 +476,108 @@ resolved by naming this file.
 - Deferred: bottom-left account menu, member top-header shell, cover-in-editor conversion,
   broader dossier information layout and the previously recorded mobile roster crowding.
   These were not silently implemented or marked accepted. The existing confirmed fixes stay.
+
+---
+
+## Shell and IA decisions — 2026-11-10 (owner-confirmed follow-up)
+
+Four owner decisions were implemented on `feature/153-redesign-visual-world`. No route, field,
+validation rule, permission, state transition or data rule changed. `DESIGN.md` is updated as
+the visual authority; `PRODUCT.md` records the two shells.
+
+### 1. Account block moved to the rail's bottom-left
+
+- `Views/Shared/_AccountMenu.cshtml` is the single account block: a 44px trigger showing the
+  name and the real role tag, plus a chevron, and a native popover menu.
+- Management renders it at the bottom of the rail (`Views/Shared/_Header.cshtml`,
+  `.rail > .account-block`, above a 1px border). The trigger opens a small menu with **Sign out**.
+- The menu carries **Profile** for members only. `ProfileController` is `[Authorize(Policy =
+  Policies.Member)]`, so a management Profile link would 403; authorization is unchanged and the
+  management menu deliberately omits it.
+- Keyboard is native: Enter/Space opens the popover, Escape closes it, and focus returns to the
+  trigger. Verified with real key presses in headless Chromium at 1440.
+- The role label stays in the account block and in the mobile menu.
+
+### 2. Member pages use a top header; management keeps the rail
+
+- `_Layout.cshtml` adds `member-shell` for non-management authenticated users; the grid drops the
+  rail column and the header spans the top.
+- `_Header.cshtml` renders `header.member-header`: brand left, Events / My Events / My Passes
+  centre, account block right. Below 1024px the destinations and account block collapse into the
+  existing disclosure menu, which still carries the name, role and Sign out.
+- Management keeps `aside.rail` + `header.topbar.management-header`. The top bar now ends with a
+  neutral outlined role tag (`Administrator` / `Officer`) because the account block moved out of
+  it, so the two management surfaces stay distinguishable at a glance. The mobile menu keeps its
+  role tag.
+
+### 3. "Manage cover" stays a separate page — decision recorded
+
+`Manage cover` remains a separate route (`/Event/Cover`) and is not folded into the Edit event
+dialog. Reasons:
+
+- The cover workflow is its own read-only/upload/remove state machine (upload for draft and
+  published, remove for drafts, read-only for completed and cancelled) with a multipart POST to
+  `UploadCover` and a redirect + TempData success message. The record dialog's save path returns
+  `{ saved: true }` and reloads the list; a cover upload inside it would need a second form and a
+  second success path.
+- The Edit dialog is only offered for draft/published events, while the cover page also explains
+  the read-only case. Folding it in would either duplicate that explanation or hide it.
+- Keeping it separate preserves the existing endpoint, validation and route with zero functional
+  diff, which this ticket requires.
+
+The dossier keeps the boxed `Manage cover` action beside `Edit event`. If the owner later wants
+the conversion, it needs an approved functional change to the Edit dialog's save contract.
+
+### 4. Event dossier information layout
+
+Concrete findings fixed in `Views/Event/Details.cshtml`, `Styles/features/event-dossier.css` and
+`Views/Shared/_CheckInControl.cshtml`:
+
+1. **Two primary actions.** The dossier rendered `Open check-in` as a cobalt primary while
+   `Complete event` was also a cobalt primary (disabled before start), breaking the One Accent
+   Rule. The dossier's check-in control is now secondary; `Complete event` is the screen's single
+   primary. Measured: exactly one visible `.button-primary` on both populated roster tabs.
+2. **Mixed figure sizes in one fact row.** A 22px capacity figure sat beside 13.5px dates, so the
+   value baselines did not align. The fact sheet now separates schedule metadata (Event schedule,
+   Signup deadline as labelled values) from a bordered capacity block using the 26px tabular
+   figure and the remaining-seat line. Side by side at ≥768px, stacked below.
+3. **Unlabelled check-in row.** The state tag and control now sit under a `Check-in` label in the
+   fact sheet instead of floating after the description.
+4. **Empty description artifact.** The description paragraph and its top border render only when
+   a description exists.
+5. **Mixed count line.** The hand-rolled "Times shown in Asia/Manila. Showing X–Y of Z" paragraph
+   is split: the timezone note is the table caption and the count is `_ResultCount` with the real
+   `TotalCount` and the noun "registration", directly below the pager.
+
+Measured in headless Chromium at 1440/1024/768/390: zero page-level horizontal overflow on both
+populated tabs; capacity sits right of the schedule at ≥768 and below it at 390; the block keeps
+the panel's 24px inset. No data, route or action changed.
+
+### Files changed
+
+- `ASI.Basecode.WebApp/Views/Shared/_Header.cshtml`, `_AccountMenu.cshtml` (new), `_Layout.cshtml`
+- `ASI.Basecode.WebApp/Views/Shared/_CheckInControl.cshtml`
+- `ASI.Basecode.WebApp/Views/Event/Details.cshtml`
+- `ASI.Basecode.WebApp/Styles/app.css`, `Styles/features/event-dossier.css`
+- `ASI.Basecode.WebApp/wwwroot/css/app.css` (regenerated)
+- `DESIGN.md`, `PRODUCT.md`
+- `tests/ASI.Basecode.IntegrationTests/AuthenticationFlowTests.cs` (shell assertions)
+
+### Verification
+
+- `dotnet build ASI.Basecode.WebApp` — 0 warnings, 0 errors.
+- `dotnet build tests/ASI.Basecode.IntegrationTests` — 0 warnings, 0 errors.
+- `npm run css:build` — regenerated; `npm run test:js` — 5/5.
+- Integration suite with `ATTENDTA_TEST_SQL` — recorded below.
+- `UiReviewFixesBrowserTests` with `ATTENDTA_UI_BROWSER=1` — 1/1, now also asserting the rail
+  account trigger position, menu placement, Enter/Space/Escape focus return, the member header
+  height and page-overflow, and the dossier layout/one-primary rule at 1440/1024/768/390.
+- Impeccable detector on the changed views — `[]` (exit 0).
+
+### Limitations
+
+- This session cannot read images, and the project owner reserves screenshot judgement for the
+  primary GPT session. The critique/polish below is therefore measurement- and source-based, and
+  pixel acceptance of the new shell is still open. Fresh scratch captures are in
+  `handoff-ui-phases/screenshots/session-shell/` (not committed).
+- Actual browser 200% zoom remains unverified; 616px remains the recorded proxy.

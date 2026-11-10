@@ -35,7 +35,8 @@ hand on depth. Those are listed as prohibitions at the end, because the old syst
 enough that drift would be invisible.
 
 **Key Characteristics:**
-- Left rail and top bar; content is a full-width sheet, not a card grid.
+- A left rail and top bar for management; a top header for members. Content is a full-width
+  sheet, not a card grid.
 - One cobalt accent, reserved for actions, focus, and the current destination.
 - 1px borders do the structural work; shadows appear only on dialogs.
 - Inter only. Figures use tabular numerals, not a mono family.
@@ -121,6 +122,11 @@ A fixed left rail (256px) and a top bar (64px) frame a full-width content area w
 gutters and a 1440px working width. The content is a sheet of stacked sections, never a grid
 of floating cards.
 
+Management (administrator and officer) works from the rail shell: the rail carries the brand,
+the grouped destinations and the account block at its bottom; the top bar carries the
+breadcrumb and the role indicator. Members work from a top-header shell instead: a 64px bar
+with the brand, the three member destinations and the account block, and no rail.
+
 **Owner exception (2026-11-10):** the member Events feed (`MemberEvents/Index`) is a
 cover-card grid. It is the only card grid in the system; the sheet rule above governs every
 other screen.
@@ -129,14 +135,15 @@ A 4px rhythm with 8/12/16/24/32 steps. Roster rows are 48px; compact rows 40px. 
 are 24px; in-section gaps 16px. Table cells use 14px horizontal padding.
 
 The rail groups destinations under micro labels (Overview, Records, Output) and marks the
-current one with a cobalt tint and cobalt text. The top bar carries the breadcrumb, a global
-search, and the account block. Page heads carry the title, an optional one-line description,
-and — only where the action exists — a single primary button on the right.
+current one with a cobalt tint and cobalt text. Page heads carry the title, an optional
+one-line description, and — only where the action exists — a single primary button on the
+right.
 
 Responsive: below 1024px the rail collapses into the existing disclosure menu and the top bar
-keeps the breadcrumb; below 768px gutters drop to 16px and page heads stack. Wide tables keep
-their sticky first and last columns. At 200% zoom the rail collapses before any content is
-clipped.
+keeps the breadcrumb and the role indicator; the member header collapses its destinations and
+account block into the same disclosure menu. Below 768px gutters drop to 16px and page heads
+stack. Wide tables keep their sticky first and last columns. At 200% zoom the rail collapses
+before any content is clipped.
 
 Account-request exception: the first column is applicant identity. Below 1024px this table
 releases both sticky edges so they cannot obscure the intervening fields; horizontal scrolling
@@ -205,6 +212,15 @@ button, or a card with no outline is not part of this system.
   bottom padding; lists with loading feedback reserve one compact 16px live line before
   the table, without an additional blank paragraph margin.
 
+### Event dossier
+- **Fact sheet:** schedule and signup deadline as labelled values on the left; confirmed
+  capacity as a bordered block on the right with the 26px tabular figure and the remaining-seat
+  line. The two stack below 768px.
+- **Check-in:** a labelled row in the fact sheet carrying the state tag and a secondary
+  control. The screen's one primary action stays Complete event.
+- **Roster:** status keys, table, pager, then the real count. The Asia/Manila note is the
+  table caption, not a second count line.
+
 ### Inputs / Fields
 - **Style:** white ground, 1px Border Strong, 4px radius, 36px height, 13.5px.
 - **Focus:** 2px Cobalt outline at 2px offset; the border does not change.
@@ -213,17 +229,28 @@ button, or a card with no outline is not part of this system.
 
 ### Navigation
 - **Rail:** 256px white, 1px Border on the right, grouped under micro labels. Items are 34px,
-  6px radius, 13px. Current item: Cobalt Tint ground, Cobalt text, 600 weight.
-- **Top bar:** 64px white, 1px Border below, breadcrumb left, search centre-right, account
-  right. The account block shows the name and role, never a role switcher.
-- **Role indicator:** the real role is a neutral outlined text tag in the account block
-  and mobile menu. Administrator and Officer remain explicit words, not different themes.
+  6px radius, 13px. Current item: Cobalt Tint ground, Cobalt text, 600 weight. The account
+  block sits at the bottom of the rail, above a 1px Border.
+- **Top bar:** 64px white, 1px Border below, breadcrumb left, role indicator right. The
+  account block lives in the rail, not the top bar.
+- **Member header:** 64px white, 1px Border below, brand left, Events / My Events / My Passes
+  centre, account block right.
+- **Account block:** the name and role tag in a 44px trigger with a chevron. The trigger is a
+  rail row with a hover ground and a focus ring, not a boxed button. It opens a small popover
+  menu holding Profile (members only) and Sign out. Enter or Space opens, Escape closes, and
+  focus returns to the trigger. Management has no Profile destination, so its menu carries Sign
+  out alone.
+- **Role indicator:** the real role is a neutral outlined text tag in the account block, the
+  management top bar and the mobile menu. Administrator and Officer remain explicit words, not
+  different themes.
 - **Mobile:** the existing disclosure menu, restyled to the rail's vocabulary; 44px targets.
+  It carries the destinations, the name, the role tag and Sign out.
 
 ### KPI Card (restricted)
 White panel, 8px radius, 1px Border, 14px/16px padding, 11.5px label, 26px 600 tabular
 figure, optional 11.5px cobalt delta. **Only on screens with real aggregates** — Reports,
 Event details capacity, Check-in counts. Never on a list whose service returns only a total.
+The dossier's confirmed-capacity block is the Event details instance.
 
 ### Dialog
 8px radius, white, 1px Border, the single dialog shadow, 24px padding. Title at 16px 600,

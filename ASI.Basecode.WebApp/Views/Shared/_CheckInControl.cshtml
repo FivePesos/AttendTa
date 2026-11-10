@@ -18,8 +18,10 @@
 {
     @if (Model.Dossier)
     {
+        @* The dossier already carries the screen's single primary action (Complete event), so the
+           check-in control stays secondary here rather than adding a second cobalt fill. *@
         <span class="badge @stateBadge">@stateLabel</span>
-        <button type="button" class="button @(Model.IsCheckInOpen ? "button-secondary" : "button-primary")" data-dialog-open="check-in-@Model.EventId">@actionText</button>
+        <button type="button" class="button button-secondary" data-dialog-open="check-in-@Model.EventId">@actionText</button>
         <dialog id="check-in-@Model.EventId" class="task-dialog" aria-labelledby="check-in-title-@Model.EventId">
             <form asp-controller="Event" asp-action="@action" method="post">
                 <input type="hidden" name="id" value="@Model.EventId" />

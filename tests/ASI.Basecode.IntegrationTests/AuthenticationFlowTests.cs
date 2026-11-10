@@ -96,16 +96,17 @@ public class AuthenticationFlowTests : IClassFixture<SqlServerDatabaseFixture>, 
     }
 
     [Theory]
-    [InlineData(AdminEmail, "Administrator")]
-    [InlineData(OfficerEmail, "Officer")]
-    [InlineData(MemberEmail, "Member")]
-    public async Task AuthenticatedHeaderLabelsTheRealRoleInBothNavigationVariants(string email, string role)
+    [InlineData(AdminEmail, "Administrator", true)]
+    [InlineData(OfficerEmail, "Officer", true)]
+    [InlineData(MemberEmail, "Member", false)]
+    public async Task AuthenticatedHeaderLabelsTheRealRoleInBothNavigationVariants(string email, string role, bool management)
     {
         using var login = await SignInAsync(email, Password);
         Assert.Equal(HttpStatusCode.Redirect, login.StatusCode);
         var html = await client.GetStringAsync("/Home/Index", TestContext.Current.CancellationToken);
-        var tags = Regex.Matches(html, "<span class=\"role-tag\">([^<]+)</span>");
-        Assert.Equal(2, tags.Count);
+        var tags = Regex.Matches(html, "<span class=\"role-tag[^\"]*\">([^<]+)</span>");
+        // Account block and mobile menu always carry the role; management also labels the top bar.
+        Assert.Equal(management ? 3 : 2, tags.Count);
         Assert.All(tags.Cast<Match>(), tag => Assert.Equal(role, tag.Groups[1].Value));
     }
 
@@ -380,8 +381,30 @@ public class AuthenticationFlowTests : IClassFixture<SqlServerDatabaseFixture>, 
         Assert.Contains("/css/app.css", html, StringComparison.Ordinal);
         Assert.DoesNotContain("https://", html, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("bootstrap", html, StringComparison.OrdinalIgnoreCase);
-        if (management) { Assert.Contains("class=\"topbar management-header\"", html, StringComparison.Ordinal); Assert.Contains("/Member", html, StringComparison.Ordinal); Assert.Contains("/EventType", html, StringComparison.Ordinal); Assert.Contains("/Venue", html, StringComparison.Ordinal); Assert.DoesNotContain("/Profile", html, StringComparison.Ordinal); }
-        else { Assert.DoesNotContain("management-header", html, StringComparison.Ordinal); Assert.DoesNotContain("/Member", html, StringComparison.Ordinal); Assert.DoesNotContain("/EventType", html, StringComparison.Ordinal); Assert.DoesNotContain("/Venue", html, StringComparison.Ordinal); Assert.Contains("/Profile", html, StringComparison.Ordinal); }
+        if (management)
+        {
+            Assert.Contains("class=\"app-shell authenticated\"", html, StringComparison.Ordinal);
+            Assert.Contains("class=\"topbar management-header\"", html, StringComparison.Ordinal);
+            Assert.Contains("class=\"rail\"", html, StringComparison.Ordinal);
+            Assert.Contains("class=\"role-tag topbar-role\"", html, StringComparison.Ordinal);
+            Assert.Contains("popovertarget=\"account-menu\"", html, StringComparison.Ordinal);
+            Assert.Contains("/Member", html, StringComparison.Ordinal);
+            Assert.Contains("/EventType", html, StringComparison.Ordinal);
+            Assert.Contains("/Venue", html, StringComparison.Ordinal);
+            Assert.DoesNotContain("/Profile", html, StringComparison.Ordinal);
+        }
+        else
+        {
+            Assert.Contains("class=\"app-shell authenticated member-shell\"", html, StringComparison.Ordinal);
+            Assert.DoesNotContain("management-header", html, StringComparison.Ordinal);
+            Assert.Contains("class=\"topbar member-header\"", html, StringComparison.Ordinal);
+            Assert.DoesNotContain("class=\"rail\"", html, StringComparison.Ordinal);
+            Assert.Contains("popovertarget=\"account-menu\"", html, StringComparison.Ordinal);
+            Assert.DoesNotContain("/Member", html, StringComparison.Ordinal);
+            Assert.DoesNotContain("/EventType", html, StringComparison.Ordinal);
+            Assert.DoesNotContain("/Venue", html, StringComparison.Ordinal);
+            Assert.Contains("/Profile", html, StringComparison.Ordinal);
+        }
     }
 
     [Fact]

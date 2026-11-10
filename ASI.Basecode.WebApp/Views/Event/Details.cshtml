@@ -1,5 +1,6 @@
 @model EventDossierViewModel
 @using ASI.Basecode.Data.Models.Lookups
+@using Microsoft.AspNetCore.Mvc.ViewFeatures
 @using System.Linq
 @{
     var item = Model.Event;
@@ -44,23 +45,29 @@
 
 @if (!string.IsNullOrEmpty(error)) { <p class="notice notice-error" role="alert">@error</p> }
 <section class="panel dossier-facts" aria-label="Event details">
-    <dl class="dossier-fact-grid">
-        <div class="dossier-fact">
-            <dt>Event schedule</dt>
-            <dd class="numeric">@ManilaTimeFormatter.Format(item.StartsAt)</dd>
+    <div class="dossier-fact-grid">
+        <dl class="dossier-schedule">
+            <div class="dossier-fact">
+                <dt>Event schedule</dt>
+                <dd class="numeric">@ManilaTimeFormatter.Format(item.StartsAt)</dd>
+            </div>
+            <div class="dossier-fact">
+                <dt>Signup deadline</dt>
+                <dd class="numeric">@ManilaTimeFormatter.Format(item.RegistrationDeadline)</dd>
+            </div>
+        </dl>
+        <div class="dossier-capacity">
+            <p class="dossier-capacity-label">Confirmed capacity</p>
+            <p class="dossier-capacity-value">@Model.ConfirmedCount <span>of @item.ParticipantLimit</span></p>
+            <p class="dossier-capacity-note">@(Math.Max(0, item.ParticipantLimit - Model.ConfirmedCount)) seats available</p>
         </div>
-        <div class="dossier-fact">
-            <dt>Signup deadline</dt>
-            <dd class="numeric">@ManilaTimeFormatter.Format(item.RegistrationDeadline)</dd>
-        </div>
-        <div class="dossier-fact">
-            <dt>Confirmed capacity</dt>
-            <dd class="dossier-capacity numeric">@Model.ConfirmedCount <span>of @item.ParticipantLimit</span></dd>
-            <dd class="dossier-capacity-note">@(Math.Max(0, item.ParticipantLimit - Model.ConfirmedCount)) seats available</dd>
-        </div>
-    </dl>
-    <p class="dossier-description">@item.Description</p>
+    </div>
+    @if (!string.IsNullOrWhiteSpace(item.Description))
+    {
+        <p class="dossier-description">@item.Description</p>
+    }
     <div class="dossier-checkin">
+        <span class="dossier-checkin-label">Check-in</span>
         <partial name="_CheckInControl" model="new CheckInControlViewModel { EventId = item.EventId, IsCheckInOpen = item.IsCheckInOpen, CanChange = published, Dossier = true }" />
     </div>
     @if (published && !Model.HasStarted) { <p class="muted dossier-hint">Completion becomes available when the event starts.</p> }
@@ -86,6 +93,7 @@
     </nav>
     <div class="table-scroll" role="region" aria-label="Registration roster" tabindex="0">
         <table class="data-table dossier-roster table-sticky">
+            <caption>Times shown in Asia/Manila.</caption>
             <thead><tr><th scope="col">Participant</th><th scope="col">Student number</th><th scope="col">Submitted</th><th scope="col">Status</th><th scope="col" class="actions">Actions</th></tr></thead>
             <tbody>
                 @if (Model.Roster.Items.Count == 0) { <tr><td colspan="5" class="empty-state">No @Model.Status registrations for this event.</td></tr> }
@@ -124,7 +132,7 @@
         </table>
     </div>
     <partial name="_Pager" model="Model.Roster" />
-    <p class="muted result-count">Times shown in Asia/Manila. Showing @Model.Roster.FirstItemNumber–@Model.Roster.LastItemNumber of @Model.Roster.TotalCount registrations.</p>
+    <partial name="_ResultCount" model="Model.Roster" view-data="@(new ViewDataDictionary(ViewData) { ["ResultNoun"] = "registration" })" />
 </section>
 
 @foreach (var decision in new[] { ("approve", "Approve registration", "Approve", false), ("decline", "Decline registration", "Decline", true), ("registration-cancel", "Cancel registration", "Cancel", true), ("promote", "Promote next eligible participant", "Promote", false), ("event-cancel", "Cancel event", "CancelFromDossier", true), ("complete", "Mark event as completed?", "Complete", false) })
