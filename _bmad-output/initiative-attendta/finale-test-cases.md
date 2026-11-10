@@ -73,6 +73,7 @@ automated case, or a manual case with concrete steps. Missing mappings block sig
 
 1. **8.5 / #78:** inventory existing coverage, add missing important automation, write the full
    automated/manual scenario mapping and concrete manual remainder. Targeted new tests pass.
+   The resulting map is [acceptance-coverage-matrix.md](acceptance-coverage-matrix.md).
 2. **8.4 / #77:** run actual CI-equivalent build, `css:build`, `test:js`, service and SQL/PDF
    suites on one integrated commit. Keep the manifest; do not invent a lint/typecheck script.
 3. **8.2/8.3 / #75/#76:** attach actual phone/HTTPS and storage/restore evidence.

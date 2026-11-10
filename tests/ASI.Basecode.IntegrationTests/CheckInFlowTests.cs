@@ -15,8 +15,8 @@ namespace ASI.Basecode.IntegrationTests;
 
 /// <summary>
 /// Focused smoke over real SQL for the 4.3 check-in engine: the valid and repeat paths, every
-/// refusal, the refusal payload, the audit row and the scanner screen read. The true parallel
-/// duplicate race belongs to 8.5.
+/// refusal, the refusal payload, the audit row and the scanner screen read. The parallel duplicate
+/// race is proved here on two SQL connections (SM-4: zero duplicate attendance records).
 /// </summary>
 public sealed class CheckInFlowTests(SqlServerDatabaseFixture fixture) : IClassFixture<SqlServerDatabaseFixture>
 {
@@ -265,6 +265,72 @@ public sealed class CheckInFlowTests(SqlServerDatabaseFixture fixture) : IClassF
         Assert.Equal(2, attendanceIds.Count);
         Assert.Equal(2, await final.ActivityLogs.AsNoTracking()
             .CountAsync(row => row.EntityType == "attendance" && attendanceIds.Contains(row.EntityId), ct));
+    }
+
+    [Fact]
+    public async Task ParallelDuplicateScansWriteOneAttendanceRowAndOneAuditEntry()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var setup = await SeedScanAsync();
+
+        // Both scans pause immediately before their users-row lock, so they enter the engine
+        // together and the second one has to observe the first one's committed row. SM-4: the
+        // unique registration index plus the lock order must leave exactly one attendance record.
+        var firstGate = new MemberEventTestSupport.LockGateInterceptor("users");
+        var secondGate = new MemberEventTestSupport.LockGateInterceptor("users");
+        await using var firstContext = MemberEventTestSupport.Context(fixture.ConnectionString, firstGate);
+        await using var secondContext = MemberEventTestSupport.Context(fixture.ConnectionString, secondGate);
+        var (firstScanner, _) = Services(firstContext, setup.OfficerId, RoleCodes.Officer);
+        var (secondScanner, _) = Services(secondContext, setup.OfficerId, RoleCodes.Officer);
+
+        var first = firstScanner.ScanAsync(setup.EventId, setup.Token, ct);
+        var second = secondScanner.ScanAsync(setup.EventId, setup.Token, ct);
+        try
+        {
+            await Task.WhenAll(firstGate.Attempted, secondGate.Attempted)
+                .WaitAsync(TimeSpan.FromSeconds(30), ct);
+        }
+        finally
+        {
+            firstGate.Release.TrySetResult();
+            secondGate.Release.TrySetResult();
+        }
+
+        var outcomes = await Task.WhenAll(first, second).WaitAsync(TimeSpan.FromSeconds(30), ct);
+
+        var recorded = Assert.Single(outcomes, outcome => outcome.Outcome == CheckInOutcomeViewModel.Success);
+        var repeat = Assert.Single(outcomes, outcome => outcome.Outcome == CheckInOutcomeViewModel.Repeat);
+        Assert.Equal(setup.RegistrationId, recorded.RegistrationId);
+        Assert.Equal(setup.RegistrationId, repeat.RegistrationId);
+        // The repeat answers with the original time, not the second scan's clock reading.
+        Assert.Equal(recorded.RecordedAt, repeat.RecordedAt);
+
+        await using var observer = EventDraftTestSupport.Context(fixture.ConnectionString);
+        var attendance = await observer.AttendanceRecords.AsNoTracking()
+            .SingleAsync(row => row.RegistrationId == setup.RegistrationId, ct);
+        Assert.Equal(Now, attendance.RecordedAt);
+        Assert.Equal(1, await observer.ActivityLogs.AsNoTracking()
+            .CountAsync(row => row.EntityType == "attendance" && row.EntityId == attendance.AttendanceId, ct));
+    }
+
+    [Fact]
+    public async Task WaitlistedRegistrationIsInvalidAndWritesNothing()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var setup = await SeedScanAsync(registrationStatus: RegistrationStatusCode.Waitlisted);
+        await using var context = EventDraftTestSupport.Context(fixture.ConnectionString);
+        var (scanner, engine) = Services(context, setup.OfficerId, RoleCodes.Officer);
+        var before = await AuditCountAsync();
+
+        var outcome = await scanner.ScanAsync(setup.EventId, setup.Token, ct);
+        var direct = await engine.RecordAsync(setup.EventId, setup.RegistrationId, CheckInMethodCode.QrCode, ct);
+
+        Assert.Equal(CheckInOutcomeViewModel.Invalid, outcome.Outcome);
+        Assert.Equal(AttendanceRecordingOutcome.Invalid, direct.Outcome);
+        AssertNoIdentity(outcome);
+        AssertNoIdentity(direct);
+        await AssertNoAttendanceAsync(setup.RegistrationId);
+        Assert.Equal(before, await AuditCountAsync());
     }
 
     [Fact]

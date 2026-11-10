@@ -218,6 +218,60 @@ public sealed class EventCompletionServiceTests(SqlServerDatabaseFixture fixture
         Assert.Equal(OutcomeCode.CutoffPassed, error.Outcome);
     }
 
+    [Fact]
+    public async Task CompleteExactlyAtStartIsAllowed()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var officerId = await EventDraftTestSupport.SeedActorAsync(fixture.ConnectionString, ct);
+        var (typeId, venueId) = await MemberEventTestSupport.SeedReferencesAsync(fixture.ConnectionString, officerId, ct);
+        // The event starts on the same tick the clock reads: the boundary is inclusive.
+        var eventItem = await MemberEventTestSupport.SeedEventAsync(
+            fixture.ConnectionString, officerId, typeId, venueId, EventStatusCode.Published,
+            Now, Now.AddDays(-2), 20, null, "Complete at start", ct);
+        await OpenCheckInAsync(eventItem.EventId, officerId, ct);
+
+        await using var context = MemberEventTestSupport.Context(fixture.ConnectionString);
+        var service = EventDraftTestSupport.Service(context, officerId, new FixedClock(Now));
+
+        await service.CompleteAsync(eventItem.EventId, ct);
+
+        await using var observer = MemberEventTestSupport.Context(fixture.ConnectionString);
+        var persisted = await observer.Events.AsNoTracking().SingleAsync(row => row.EventId == eventItem.EventId, ct);
+        Assert.Equal(EventStatusCode.Completed, persisted.EventStatusId);
+        Assert.Equal(Now, persisted.CompletedAt);
+        Assert.False(persisted.IsCheckInOpen);
+        Assert.Equal(1, await observer.ActivityLogs.CountAsync(
+            row => row.EntityType == "events" && row.EntityId == eventItem.EventId, ct));
+    }
+
+    [Fact]
+    public async Task CompleteJustBeforeStartIsRefusedWithoutChanges()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var officerId = await EventDraftTestSupport.SeedActorAsync(fixture.ConnectionString, ct);
+        var (typeId, venueId) = await MemberEventTestSupport.SeedReferencesAsync(fixture.ConnectionString, officerId, ct);
+        // One millisecond is the smallest difference the datetime2(3) column can store, so this is
+        // the tightest "before the start" the database can represent.
+        var eventItem = await MemberEventTestSupport.SeedEventAsync(
+            fixture.ConnectionString, officerId, typeId, venueId, EventStatusCode.Published,
+            Now.AddMilliseconds(1), Now.AddDays(-2), 20, null, "Complete just before start", ct);
+        await OpenCheckInAsync(eventItem.EventId, officerId, ct);
+
+        await using var context = MemberEventTestSupport.Context(fixture.ConnectionString);
+        var service = EventDraftTestSupport.Service(context, officerId, new FixedClock(Now));
+
+        var error = await Assert.ThrowsAsync<DomainException>(() => service.CompleteAsync(eventItem.EventId, ct));
+
+        Assert.Equal(OutcomeCode.Invalid, error.Outcome);
+        await using var observer = MemberEventTestSupport.Context(fixture.ConnectionString);
+        var persisted = await observer.Events.AsNoTracking().SingleAsync(row => row.EventId == eventItem.EventId, ct);
+        Assert.Equal(EventStatusCode.Published, persisted.EventStatusId);
+        Assert.True(persisted.IsCheckInOpen);
+        Assert.Null(persisted.CompletedAt);
+        Assert.Equal(0, await observer.ActivityLogs.CountAsync(
+            row => row.EntityType == "events" && row.EntityId == eventItem.EventId, ct));
+    }
+
     private async Task OpenCheckInAsync(int eventId, int actorId, CancellationToken cancellationToken)
     {
         await using var context = MemberEventTestSupport.Context(fixture.ConnectionString);
