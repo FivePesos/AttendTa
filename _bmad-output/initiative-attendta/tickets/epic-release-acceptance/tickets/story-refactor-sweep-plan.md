@@ -3,7 +3,7 @@ title: 'Refactor sweep'
 type: 'chore'
 ticket: '10'
 created: '2026-11-10'
-status: 'in-review'
+status: 'built'
 baseline_revision: 'd675a86b3bb47d21a5c74cfb16d0e014f58e8736'
 route: 'full'
 route_source: 'auto'
@@ -141,3 +141,34 @@ deferred: []
 ## Design Notes
 
 `Common:SetupRoot` is blanked rather than deleted so the key stays discoverable in `appsettings.json` while the value comes from the environment, matching how `ConnectionStrings:DefaultConnection` already works (absent from the file, documented as an env var, guarded by a fail-fast throw). The integration test factory sets `Common:SetupRoot` through `builder.UseSetting`, so the suite is unaffected.
+
+## Auto Run Result
+
+**Summary.** Pre-acceptance release cleanup for 8.10. Removed the two `ASI - Backup.*.csproj` duplicates that were outside the solution and forced full-path `dotnet run`, the dead `appsettings.json.rej` MSBuild item, and the developer-machine `Common:SetupRoot` committed into deployment settings. Rewrote `README.md` as an AttendTa setup guide and corrected `AGENTS.md` and `docs/database-setup.md` so a fresh clone and the acceptance host run this commit. Extended `.gitignore` for private storage and key material, added two guard test classes for the `SetupRoot` fail-fast, and recorded the sweep in `docs/release-cleanup-evidence.md`. `DemoData` was already absent from every committed setting (8.11/8.13), so no demo switch remained to remove.
+
+**Files changed.**
+- `ASI.Basecode.WebApp/ASI - Backup.Basecode.WebApp.csproj`, `ASI.Basecode.Services/ASI - Backup.Basecode.Services.csproj` — deleted stale duplicates.
+- `ASI.Basecode.WebApp/ASI.Basecode.WebApp.csproj` — dropped the dead `appsettings.json.rej` item.
+- `ASI.Basecode.WebApp/appsettings.json` — `Common:SetupRoot` is now `""`.
+- `README.md` — AttendTa prerequisites, build, database, run, tests, demo, structure.
+- `docs/database-setup.md` — §6 sets both env vars and lists the fail-fast messages; §7 names the default URL.
+- `AGENTS.md` — `Common__SetupRoot` documented, Backup-csproj workaround dropped, `Policies.Member` added, test commands aligned with CI, doc list extended.
+- `.gitignore` — private storage, key material, database and env-file patterns.
+- `tests/ASI.Basecode.IntegrationTests/PrivateFileStoreTests.cs` — two SetupRoot guard cases.
+- `tests/ASI.Basecode.IntegrationTests/StartupConfigurationGuardTests.cs` — new; proves the Data Protection fail-fast through the real host.
+- `docs/release-cleanup-evidence.md` — new sweep record.
+
+**Review findings.** 4 findings: 2 patched, 0 deferred, 2 rejected.
+- Patched: the README service test-host fallback pointed at `bin\Debug` under a Release-only build instruction (corrected to `bin\Release`); the evidence record named only the baseline revision (now names the sweep commit).
+- Rejected: docs "claim a startup fail-fast" — none of the three passages says "at startup", and the lazy location guard is pre-existing; the plan's "do not change tests" boundary — self-imposed by the plan, and its fix would be an edit to the plan, which review rules exclude.
+- Follow-up review: `false`. Patched entries were both `low`; no `high` was patched and fewer than two `medium` entries were patched.
+
+**Verification performed.**
+- `dotnet build ASI.Basecode.sln --configuration Release` — succeeded, 0 warnings, 0 errors.
+- `npm --prefix ASI.Basecode.WebApp ci`, `npm run css:build`, `git diff --exit-code -- ASI.Basecode.WebApp/wwwroot/css/app.css` — no difference.
+- `git grep "DemoData"` over `appsettings*.json`, `git ls-files` scans for `ASI - Backup` and for key/certificate/database/env files — no matches.
+- Startup smoke with `Common__SetupRoot` unset — the Data Protection fail-fast fires; with it set — the host starts, answers `GET /` with 200 and writes `<SetupRoot>/keys`.
+- `PrivateFileStoreTests` — 6 passed; `StartupConfigurationGuardTests` — 1 passed.
+
+**Residual risks.** The whole integration suite was not executed (unchanged; 8.4/#77 owns combined execution). The location guard inside `PrivateFileStore` is lazy, so a `SetupRoot` placed under `wwwroot` is rejected on first private-store use rather than at startup; that behaviour is pre-existing and belongs to backend hardening (8.13), not this sweep.
+

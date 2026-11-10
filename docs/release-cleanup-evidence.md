@@ -1,8 +1,9 @@
 # Release cleanup evidence (refactor sweep)
 
-Record of the pre-acceptance release sweep for ticket 10. Baseline revision
-`d675a86b3bb47d21a5c74cfb16d0e014f58e8736`; the sweep itself is the working-tree change
-described below. Date: 2026-11-10.
+Record of the pre-acceptance release sweep for ticket 10 (issue #83). Baseline revision
+`d675a86b3bb47d21a5c74cfb16d0e014f58e8736`; the sweep is commit
+`9bfc27aef0eb3e58b3b5c4eb021fcee0fe7e2439`. Date: 2026-11-10. The scans, build, CSS and
+startup-smoke results below were produced on that commit.
 
 ## What was removed or changed
 
