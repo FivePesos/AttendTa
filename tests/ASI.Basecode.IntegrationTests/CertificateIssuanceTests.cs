@@ -111,6 +111,63 @@ public sealed class CertificateIssuanceTests(SqlServerDatabaseFixture fixture) :
         }
     }
 
+    [Fact]
+    public async Task ConcurrentIssuesWriteOneCertificateOneFileAndOneAuditRow()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (store, basePath, setupRoot) = CreateStore();
+        try
+        {
+            var setup = await SeedAsync();
+
+            // Both issuances pass their pre-checks and stop inside the renderer, so they reach the
+            // write together. SM-4: the unique registration index and the locked re-read must leave
+            // exactly one issued certificate, one retained file and one audit row.
+            var gate = new GatedPdfRenderer(2);
+            await using var firstContext = EventDraftTestSupport.Context(fixture.ConnectionString);
+            await using var secondContext = EventDraftTestSupport.Context(fixture.ConnectionString);
+            var first = Service(firstContext, setup.OfficerId, RoleCodes.Officer, gate, store);
+            var second = Service(secondContext, setup.OfficerId, RoleCodes.Officer, gate, store);
+
+            var firstIssue = CaptureAsync(first.IssueAsync(setup.RegistrationId, ct));
+            var secondIssue = CaptureAsync(second.IssueAsync(setup.RegistrationId, ct));
+            try
+            {
+                await gate.BothRendering.WaitAsync(TimeSpan.FromSeconds(30), ct);
+            }
+            finally
+            {
+                gate.Release.TrySetResult();
+            }
+
+            var results = await Task.WhenAll(firstIssue, secondIssue)
+                .WaitAsync(TimeSpan.FromSeconds(60), ct);
+
+            Assert.Single(results, result => result is null);
+            var refused = Assert.Single(results, result => result is not null);
+            Assert.Equal(OutcomeCode.Duplicate, refused!.Outcome);
+
+            await using var observer = EventDraftTestSupport.Context(fixture.ConnectionString);
+            var certificate = await observer.Certificates.AsNoTracking()
+                .SingleAsync(row => row.CertificateId == setup.CertificateId, ct);
+            Assert.Equal(CertificateStatusCode.Issued, certificate.CertificateStatusId);
+            Assert.NotNull(certificate.FilePath);
+            Assert.NotNull(certificate.IssuedAt);
+            // The losing attempt cleans up the file it rendered before the refusal.
+            Assert.Single(CertificateFiles(setupRoot));
+            Assert.Empty(TemporaryFiles(setupRoot));
+            Assert.Equal(1, await IssuedAuditCountAsync(setup.CertificateId, ct));
+            await using var stream = await store.OpenReadAsync(certificate.FilePath!, ct);
+            using var copy = new MemoryStream();
+            await stream.CopyToAsync(copy, ct);
+            Assert.StartsWith("%PDF-", System.Text.Encoding.ASCII.GetString(copy.ToArray()), StringComparison.Ordinal);
+        }
+        finally
+        {
+            Directory.Delete(basePath, recursive: true);
+        }
+    }
+
     [Theory]
     [InlineData(CertificateStatusCode.PendingApproval)]
     [InlineData(CertificateStatusCode.NotEligible)]
@@ -497,6 +554,19 @@ public sealed class CertificateIssuanceTests(SqlServerDatabaseFixture fixture) :
             .CountAsync(row => row.EntityType == "certificates" && row.EntityId == certificateId, ct));
     }
 
+    private static async Task<DomainException?> CaptureAsync(Task task)
+    {
+        try
+        {
+            await task;
+            return null;
+        }
+        catch (DomainException exception)
+        {
+            return exception;
+        }
+    }
+
     private async Task<int> IssuedAuditCountAsync(int certificateId, CancellationToken cancellationToken)
     {
         await using var observer = EventDraftTestSupport.Context(fixture.ConnectionString);
@@ -584,6 +654,33 @@ public sealed class CertificateIssuanceTests(SqlServerDatabaseFixture fixture) :
         public async Task<byte[]> RenderSnapshotAsync(CertificatePdfSnapshot snapshot, CancellationToken cancellationToken = default)
         {
             await mutate();
+            return FakePdfRenderer.PdfBytes();
+        }
+    }
+
+    /// <summary>
+    /// Holds every render until the expected number of issuances are inside the renderer, so the
+    /// concurrent write race is deterministic instead of timing-dependent.
+    /// </summary>
+    private sealed class GatedPdfRenderer(int expected) : ICertificatePdfRenderer
+    {
+        private readonly TaskCompletionSource bothRendering = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource release = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private int arrived;
+
+        public Task BothRendering => bothRendering.Task;
+        public TaskCompletionSource Release => release;
+
+        public async Task<byte[]> RenderSnapshotAsync(
+            CertificatePdfSnapshot snapshot,
+            CancellationToken cancellationToken = default)
+        {
+            if (Interlocked.Increment(ref arrived) >= expected)
+            {
+                bothRendering.TrySetResult();
+            }
+
+            await release.Task.WaitAsync(TimeSpan.FromSeconds(30), cancellationToken);
             return FakePdfRenderer.PdfBytes();
         }
     }

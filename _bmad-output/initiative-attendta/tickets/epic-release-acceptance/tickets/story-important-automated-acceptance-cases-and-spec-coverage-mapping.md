@@ -36,3 +36,25 @@ Verify: The acceptance matrix identifies an existing or added automated test for
 - Missing important test authoring is this entry (#78); combined final execution is 8.4 (#77), manual 8.6–8.8.
 - Test-only: no Impeccable requirement; frontend design lives only in the separate slices 6.12/6.13/7.4 and finale 8.12.
 - The high-risk lifecycle/storage/race rules stay final acceptance; no new test project or large prototype-only suite.
+
+## Delivery (2026-11-10)
+
+Test-only authoring in the two existing projects plus the coverage map. No production code, Razor,
+CSS, JS, schema or CI change.
+
+- Added seven targeted cases: the parallel duplicate scan (`CheckInFlowTests`), the waitlisted
+  token refusal (`CheckInFlowTests`), the concurrent double issue (`CertificateIssuanceTests`),
+  the completion start boundary in both directions (`EventCompletionServiceTests`), the 30-row
+  mixed-status report totals (`ParticipationReportRepositoryTests`), and overlapping-event
+  registrations (`MemberEventRegistrationFlowTests`).
+- SM-4 is now proved for all three clauses: zero overbooked events (existing), zero duplicate
+  attendance records and zero duplicate certificates (both new, on two gated SQL connections).
+- `_bmad-output/initiative-attendta/acceptance-coverage-matrix.md` maps every finale case, every
+  SPEC §20 bullet and every functional ID group to an existing or added automated test, and names
+  the manual remainder with its owning 8.6 case. Nothing is silently dropped.
+- Verification: `dotnet build ASI.Basecode.sln --configuration Release` succeeded with 0 warnings
+  and 0 errors. The five edited classes ran green against LocalDB
+  (`CheckInFlowTests` 12, `CertificateIssuanceTests` 14, `EventCompletionServiceTests` 10,
+  `ParticipationReportRepositoryTests` 3, `MemberEventRegistrationFlowTests` 8).
+- The combined full-suite execution and its manifest remain 8.4 (#77); the manual cases remain
+  8.6 (#79).

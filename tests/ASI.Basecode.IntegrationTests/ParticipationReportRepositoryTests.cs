@@ -293,6 +293,142 @@ public sealed class ParticipationReportRepositoryTests(SqlServerDatabaseFixture 
         Assert.Null(absentRow.InvalidatedAt);
     }
 
+    [Fact]
+    public async Task MixedStatusTotalsAreIndependentOfTheRequestedPage()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var now = new DateTime(2026, 7, 1, 9, 0, 0, DateTimeKind.Utc);
+        var suffix = Guid.NewGuid().ToString("N");
+
+        await using var context = Context();
+        var actor = new User
+        {
+            UserId = $"report-mixed-actor-{suffix}@attendta.test",
+            Name = "Report Actor",
+            Password = "test",
+            RoleId = RoleCode.Officer,
+            IsActive = true
+        };
+        context.Users.Add(actor);
+        await context.SaveChangesAsync(ct);
+
+        var eventType = new EventType
+        {
+            TypeName = $"Report mixed type {suffix}",
+            Description = "Report test type",
+            IsActive = true,
+            CreatedBy = actor.Id,
+            CreatedAt = now
+        };
+        var venue = new Venue
+        {
+            RoomName = $"Report mixed room {suffix}",
+            Capacity = 60,
+            ImagePath = "uploads/venues/test.jpg",
+            IsActive = true,
+            CreatedBy = actor.Id,
+            CreatedAt = now
+        };
+        context.EventTypes.Add(eventType);
+        context.Venues.Add(venue);
+        await context.SaveChangesAsync(ct);
+
+        var completed = EventItem(completed: true, now, eventType.TypeId, venue.VenueId, actor.Id, suffix);
+        context.Events.Add(completed);
+        await context.SaveChangesAsync(ct);
+
+        // 30 registrations spread over every status, so the totals must be read from the whole
+        // snapshot rather than from the 25-row page the viewer happens to be on.
+        var members = new List<Member>();
+        for (var index = 1; index <= 30; index++)
+        {
+            members.Add(await SeedMemberAsync(
+                $"report-mixed-{index}-{suffix}@attendta.test",
+                isActive: true,
+                MembershipStatusCode.Active,
+                actor.Id,
+                now,
+                ct,
+                $"Mixed Participant {index:D2}"));
+        }
+
+        var registrations = new List<Registration>();
+        for (var index = 0; index < members.Count; index++)
+        {
+            var status = index switch
+            {
+                < 12 => RegistrationStatusCode.Confirmed,
+                < 18 => RegistrationStatusCode.Pending,
+                < 24 => RegistrationStatusCode.Waitlisted,
+                _ => RegistrationStatusCode.Cancelled
+            };
+            registrations.Add(Registration(
+                completed.EventId,
+                members[index].MemberId,
+                status,
+                index % 2 == 0 ? "BSIT" : "BSED",
+                1 + (index % 4),
+                actor.Id,
+                now));
+        }
+
+        context.Registrations.AddRange(registrations);
+        await context.SaveChangesAsync(ct);
+
+        // Of the 12 confirmed seats: 7 valid attendees, 2 invalidated check-ins, 3 never checked in.
+        var attendance = new List<Attendance>();
+        for (var index = 0; index < 7; index++)
+        {
+            attendance.Add(Attendance(registrations[index].RegistrationId, actor.Id, now));
+        }
+
+        for (var index = 7; index < 9; index++)
+        {
+            attendance.Add(Attendance(registrations[index].RegistrationId, actor.Id, now, invalidatedAt: now));
+        }
+
+        context.AttendanceRecords.AddRange(attendance);
+        await context.SaveChangesAsync(ct);
+
+        var repository = new ParticipationReportRepository(new UnitOfWork(context));
+        var service = new ParticipationReportService(new EventRepository(new UnitOfWork(context)), repository);
+
+        var firstPage = await service.GetReportAsync(completed.EventId, 1, ct);
+        var secondPage = await service.GetReportAsync(completed.EventId, 2, ct);
+        var defaultPage = await service.GetReportAsync(completed.EventId, null, ct);
+
+        // The page carries 25 rows, the totals do not follow it.
+        Assert.Equal(25, firstPage.Rows.Count);
+        Assert.Equal(5, secondPage.Rows.Count);
+        Assert.Equal(25, defaultPage.Rows.Count);
+        Assert.Equal(30, firstPage.TotalCount);
+        Assert.Equal(12, firstPage.ConfirmedCount);
+        Assert.Equal(6, firstPage.PendingCount);
+        Assert.Equal(6, firstPage.WaitlistedCount);
+        Assert.Equal(6, firstPage.CancelledCount);
+        Assert.Equal(7, firstPage.ValidAttendeeCount);
+        Assert.Equal(5, firstPage.NoShowCount);
+        Assert.Equal(7m / 12m, firstPage.AttendanceRate);
+
+        // Every total is identical on the second page: nothing is derived from the visible slice.
+        Assert.Equal(firstPage.TotalCount, secondPage.TotalCount);
+        Assert.Equal(firstPage.ConfirmedCount, secondPage.ConfirmedCount);
+        Assert.Equal(firstPage.PendingCount, secondPage.PendingCount);
+        Assert.Equal(firstPage.WaitlistedCount, secondPage.WaitlistedCount);
+        Assert.Equal(firstPage.CancelledCount, secondPage.CancelledCount);
+        Assert.Equal(firstPage.ValidAttendeeCount, secondPage.ValidAttendeeCount);
+        Assert.Equal(firstPage.NoShowCount, secondPage.NoShowCount);
+        Assert.Equal(firstPage.AttendanceRate, secondPage.AttendanceRate);
+
+        // Distributions count valid attendees only, and the two pages never repeat a row.
+        Assert.Equal(7, firstPage.CourseBreakdown.Sum(item => item.Count));
+        Assert.Equal(7, firstPage.YearBreakdown.Sum(item => item.Count));
+        Assert.Equal(30, firstPage.Rows.Concat(secondPage.Rows)
+            .Select(row => row.RegistrationId)
+            .Distinct()
+            .Count());
+    }
+
     private AsiBasecodeDBContext Context() => new(
         new DbContextOptionsBuilder<AsiBasecodeDBContext>().UseSqlServer(fixture.ConnectionString).Options);
 

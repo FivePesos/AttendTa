@@ -253,6 +253,41 @@ public sealed class MemberEventRegistrationFlowTests(SqlServerDatabaseFixture fi
     }
 
     [Fact]
+    public async Task RegistrationsForSeparateOverlappingEventsAreBothAccepted()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var suffix = Guid.NewGuid().ToString("N");
+        var memberUser = await MemberEventTestSupport.SeedUserAsync(
+            fixture.ConnectionString, $"overlap-{suffix}@attendta.test",
+            MemberEventTestSupport.NewPassword(), RoleCode.Member, ct);
+        await MemberEventTestSupport.SeedMemberAsync(fixture.ConnectionString, memberUser.Id, MembershipStatusCode.Active, ct);
+        var (typeId, venueId) = await MemberEventTestSupport.SeedReferencesAsync(fixture.ConnectionString, memberUser.Id, ct);
+        // Both events run at the same scheduled time: the MVP does not block overlapping
+        // registrations, so both signups must be accepted.
+        var startsAt = new DateTime(2099, 12, 10, 1, 0, 0, DateTimeKind.Utc);
+        var deadline = new DateTime(2099, 12, 9, 1, 0, 0, DateTimeKind.Utc);
+        var first = await MemberEventTestSupport.SeedEventAsync(
+            fixture.ConnectionString, memberUser.Id, typeId, venueId, EventStatusCode.Published,
+            startsAt, deadline, 10, null, $"Overlap A {suffix}", ct);
+        var second = await MemberEventTestSupport.SeedEventAsync(
+            fixture.ConnectionString, memberUser.Id, typeId, venueId, EventStatusCode.Published,
+            startsAt, deadline, 10, null, $"Overlap B {suffix}", ct);
+
+        await using var context = MemberEventTestSupport.Context(fixture.ConnectionString);
+        var service = MemberEventTestSupport.Service(context, memberUser.Id, RoleCodes.Member, TimeProvider.System);
+
+        await service.RegisterAsync(first.EventId, ct);
+        await service.RegisterAsync(second.EventId, ct);
+
+        await using var observer = MemberEventTestSupport.Context(fixture.ConnectionString);
+        var rows = await observer.Registrations.AsNoTracking()
+            .Where(row => row.EventId == first.EventId || row.EventId == second.EventId)
+            .ToListAsync(ct);
+        Assert.Equal(2, rows.Count);
+        Assert.All(rows, row => Assert.Equal(RegistrationStatusCode.Pending, row.RegistrationStatusId));
+    }
+
+    [Fact]
     public async Task FullEventStillCreatesPendingAndWarnsThatNoSeatIsGuaranteed()
     {
         var ct = TestContext.Current.CancellationToken;
