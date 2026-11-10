@@ -80,19 +80,28 @@ The script selects the active Administrator by role (not by a hard-coded email) 
 
 ## 6. Run the app
 
-The connection string is not committed. Set it for the session:
+Neither the connection string nor the setup root is committed. Set both for the session.
+`Common:SetupRoot` must be a private directory outside `wwwroot` and the deployment tree; Data
+Protection keys, uploads and generated certificates live under it.
 
 ```powershell
 $env:ConnectionStrings__DefaultConnection = "Server=(localdb)\MSSQLLocalDB;Database=AttendTaMVP_Test;Trusted_Connection=True;MultipleActiveResultSets=true;TrustServerCertificate=True"
+$env:Common__SetupRoot = "C:\attendta-private"
 dotnet run --project "ASI.Basecode.WebApp\ASI.Basecode.WebApp.csproj"
 ```
 
-The app fails fast with a clear message when `ConnectionStrings:DefaultConnection` is missing.
+The app fails fast with a clear message when configuration is missing or unsafe:
+
+- `ConnectionStrings:DefaultConnection is not configured` when the connection string is unset.
+- `Common:SetupRoot must be configured so Data Protection keys can be stored under its keys folder.`
+  when `Common__SetupRoot` is unset or empty.
+- `Common:SetupRoot must be outside wwwroot and the application deployment directory.` when the
+  setup root points inside `wwwroot` or the deployment tree.
 
 ## 7. Sign in
 
-Open the app and sign in with the `AdminEmail` and password you provisioned. Sign-in is by
-email, not username.
+Open <http://localhost:5000> (the default Kestrel address) and sign in with the `AdminEmail` and
+password you provisioned. Sign-in is by email, not username.
 
 - The cookie is named `AttendTa.Auth`, is non-persistent, lasts 8 hours and does not slide.
 - `OnValidatePrincipal` reloads the account on every request: deactivating the account or

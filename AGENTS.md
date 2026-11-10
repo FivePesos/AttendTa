@@ -11,8 +11,8 @@ attendance check-in, certificate eligibility, and participation reports.
 ## Build & Run
 - Install the .NET 10 SDK before building or running the solution.
 - `dotnet build` — build the full solution.
-- `dotnet run --project "ASI.Basecode.WebApp\ASI.Basecode.WebApp.csproj"` — start the app.
-  (Pass the full path: two `ASI - Backup.*.csproj` files make `dotnet run --project ASI.Basecode.WebApp` ambiguous.)
+- `dotnet run --project "ASI.Basecode.WebApp\ASI.Basecode.WebApp.csproj"` — start the app
+  (listens on <http://localhost:5000> by default).
 - Startup project: `ASI.Basecode.WebApp`. Sign-in is real email + password against `users`
   (Argon2id hash, cookie authentication). There is no default account: provision the first
   Administrator with `database/seed-local-admin.sql` before signing in.
@@ -24,6 +24,11 @@ attendance check-in, certificate eligibility, and participation reports.
 - The connection string is not committed. Set it in the PowerShell session before running:
   `$env:ConnectionStrings__DefaultConnection = "Server=(localdb)\MSSQLLocalDB;Database=AttendTaMVP_Test;Trusted_Connection=True;MultipleActiveResultSets=true;TrustServerCertificate=True"`.
   The app fails fast with a clear message when it is missing.
+- `Common:SetupRoot` is not committed either; `appsettings.json` ships it empty. Set
+  `$env:Common__SetupRoot = "<private directory outside wwwroot and the deployment tree>"`.
+  Data Protection keys, uploads and certificates live under it. The app fails fast when it is
+  unset (`Common:SetupRoot must be configured so Data Protection keys can be stored under its
+  keys folder.`) or when it points inside `wwwroot` or the deployment directory.
 
 ## Architecture
 4-layer solution (Repository → Service → Controller):
@@ -66,8 +71,8 @@ Cookie authentication (`AttendTa.Auth`, 8 hours, non-sliding, non-persistent) is
 `NameIdentifier` = `users.user_id` and `Role` = the lowercase lookup code (`admin`,
 `officer`, `member`). `OnValidatePrincipal` reloads the account on every request and rejects
 an inactive or role-changed session. Endpoints use the named policies `Policies.Management`
-(officer or admin) and `Policies.Administrator`. Every mutation is a POST with antiforgery;
-logout is POST-only. `ICurrentActor` is the only service-layer source of the actor.
+(officer or admin), `Policies.Administrator` and `Policies.Member`. Every mutation is a POST with
+antiforgery; logout is POST-only. `ICurrentActor` is the only service-layer source of the actor.
 
 ### Master Data status toggle
 Members use an active/inactive membership status; event types and venues use `is_active`.
@@ -122,24 +127,33 @@ Reference by path only. The SPEC is the source of truth for planned features not
   Administrator exists. It is idempotent and selects the active admin by role for `created_by`.
 
 ## Test Conventions
-- Run the Services test project directly. `dotnet test` on it reports `Zero tests ran`
-  and exits 5, because that project is `xunit.v3.mtp-v2` with `OutputType=Exe` and never
-  hands off to the in-process runner. Build first, then execute the test host:
+- Service tests (the same invocation CI uses):
+  `dotnet test --project tests/ASI.Basecode.Services.Tests/ASI.Basecode.Services.Tests.csproj --no-build --no-restore --configuration Release`.
+  Build first. Locally, if that reports `Zero tests ran` and exits 5, the project is
+  `xunit.v3.mtp-v2` with `OutputType=Exe` and never hands off to the in-process runner — run the
+  test host directly instead:
   `& "tests\ASI.Basecode.Services.Tests\bin\Debug\net10.0\ASI.Basecode.Services.Tests.exe"`
   Add `-class "<Fully.Qualified.ClassName>"` to run a single test class.
-  Cold `dotnet test` output in CI is a tooling trap, not a failing suite — verify with the
+  Cold `dotnet test` output is a tooling trap, not a failing suite — verify with the
   test host before treating "zero tests" as a red build.
-- Run `dotnet test tests/ASI.Basecode.IntegrationTests/ASI.Basecode.IntegrationTests.csproj`
-  with `ATTENDTA_TEST_SQL` set to a local SQL Server **master** connection string
+- Integration tests (the same invocation CI uses):
+  `dotnet tests/ASI.Basecode.IntegrationTests/bin/Release/net10.0/ASI.Basecode.IntegrationTests.dll -parallelMode none`
+  after `dotnet build ASI.Basecode.sln --configuration Release`. Set `ATTENDTA_TEST_SQL` to a
+  local SQL Server **master** connection string
   (for example `Server=(localdb)\MSSQLLocalDB;Database=master;Trusted_Connection=True;TrustServerCertificate=True`).
   Each test class creates and drops its own `AttendTa_IT_<guid>` database from the canonical script.
   The suite covers the schema, the admin seed, `AccountService`, and the cookie/policy auth flow
-  through `WebApplicationFactory`.
+  through `WebApplicationFactory`. Certificate PDF tests also need Playwright Chromium and
+  Poppler; see `docs/database-setup.md`.
 
 ## Documentation
+- `README.md` — prerequisites, build, run, test and sign-in for this commit.
 - `spec/AttendTa-SPEC.md` — Master Data spec (submodule).
 - `bruno/` — Bruno API collection for manual CRUD testing (no browser needed).
-- `docs/database-setup.md` — MVP LocalDB setup/reset, schema, admin provisioning, and event-type seed instructions.
+- `docs/database-setup.md` — MVP LocalDB setup/reset, schema, admin provisioning, event-type seed, run and sign-in.
+- `docs/demo-quickstart.md` — fresh clone to running demo build.
+- `docs/demo-host-setup.md` — real demo-host provisioning.
+- `docs/release-cleanup-evidence.md` — release sweep record: what was removed, scans, build and CSS results.
 
 ## Review search budget
 Review and audit work is bounded. This applies to code review, `/impeccable critique`, and any study of the repo handed to a read-only agent.
