@@ -8,6 +8,8 @@
     ViewData["Feature"] = "record-dialog";
     var mutable = item.EventStatusId is EventStatusCode.Draft or EventStatusCode.Published;
     var published = item.EventStatusId == EventStatusCode.Published;
+    // Complete event is the dossier's primary only once it can actually act.
+    var completeButtonClass = Model.HasStarted ? "button-primary" : "button-secondary";
     var error = TempData["DossierError"] as string;
     var reopen = TempData["DossierDialog"] as string;
     var failedId = TempData["DossierId"];
@@ -38,7 +40,7 @@
         }
         @if (published)
         {
-            <button type="button" class="button button-primary" data-dialog-open="complete" disabled="@(!Model.HasStarted)">Complete event</button>
+            <button type="button" class="button @completeButtonClass" data-dialog-open="complete" disabled="@(!Model.HasStarted)">Complete event</button>
         }
     </div>
 </header>
@@ -67,7 +69,6 @@
         <p class="dossier-description">@item.Description</p>
     }
     <div class="dossier-checkin">
-        <span class="dossier-checkin-label">Check-in</span>
         <partial name="_CheckInControl" model="new CheckInControlViewModel { EventId = item.EventId, IsCheckInOpen = item.IsCheckInOpen, CanChange = published, Dossier = true }" />
     </div>
     @if (published && !Model.HasStarted) { <p class="muted dossier-hint">Completion becomes available when the event starts.</p> }

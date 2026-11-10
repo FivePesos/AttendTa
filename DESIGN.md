@@ -216,8 +216,9 @@ button, or a card with no outline is not part of this system.
 - **Fact sheet:** schedule and signup deadline as labelled values on the left; confirmed
   capacity as a bordered block on the right with the 26px tabular figure and the remaining-seat
   line. The two stack below 768px.
-- **Check-in:** a labelled row in the fact sheet carrying the state tag and a secondary
-  control. The screen's one primary action stays Complete event.
+- **Check-in:** a row in the fact sheet carrying the state tag and a secondary control; the tag
+  names the row. Complete event is the only primary, and only once the event has started;
+  before that it is a disabled secondary.
 - **Roster:** status keys, table, pager, then the real count. The Asia/Manila note is the
   table caption, not a second count line.
 
@@ -230,11 +231,12 @@ button, or a card with no outline is not part of this system.
 ### Navigation
 - **Rail:** 256px white, 1px Border on the right, grouped under micro labels. Items are 34px,
   6px radius, 13px. Current item: Cobalt Tint ground, Cobalt text, 600 weight. The account
-  block sits at the bottom of the rail, above a 1px Border.
+  block sits at the bottom of the rail, above a 1px Border, and stays pinned there when the
+  rail scrolls.
 - **Top bar:** 64px white, 1px Border below, breadcrumb left, role indicator right. The
   account block lives in the rail, not the top bar.
 - **Member header:** 64px white, 1px Border below, brand left, Events / My Events / My Passes
-  after the brand, account block right.
+  after the brand, account block right. A long account name truncates on one line.
 - **Account block:** a 32px neutral initials avatar, the name and the role tag in a 44px
   trigger with a chevron. The trigger is a rail row with a hover ground and a focus ring, not a
   boxed button; the member header reuses it at content width. It opens a small popover menu

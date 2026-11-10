@@ -201,9 +201,13 @@
 
   /* The account block sits at the bottom of the rail and opens a small menu. */
   .rail > .account-block {
+    position: sticky;
+    bottom: 0;
+    z-index: 1;
     margin-top: auto;
     padding: 12px;
     border-top: 1px solid var(--color-border);
+    background: var(--color-surface);
   }
   .account-block { position: relative; min-width: 0; }
   .account-trigger {
@@ -350,7 +354,12 @@
   .member-brand { flex: 0 0 auto; }
   .member-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; min-width: 0; }
   .member-header .account-block { margin-left: auto; }
-  .member-header .account-trigger { width: auto; }
+  .member-header .account-trigger { width: auto; max-width: min(22rem, 40vw); }
+  .member-header .account-name-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
   .member-header .account-menu { left: auto; right: 16px; top: 72px; bottom: auto; }
   @supports (position-anchor: auto) {
     .member-header .account-menu {
@@ -410,6 +419,7 @@
   .mobile-menu .nav-key { min-height: 44px; }
   .mobile-menu .account-identity { padding: 12px 10px 4px; border-top: 1px solid var(--color-border); margin-top: 8px; }
   .mobile-menu .nav-logout { width: 100%; min-height: 44px; justify-content: flex-start; margin-top: 8px; }
+  .mobile-menu form { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--color-border); }
 
   .main-content {
     grid-area: main;

@@ -559,6 +559,17 @@ Measured in headless Chromium at 1440/1024/768/390: zero page-level horizontal o
 populated tabs; capacity sits right of the schedule at ≥768 and below it at 390; the block keeps
 the panel's 24px inset. No data, route or action changed.
 
+### Refinements after the walkthrough (2026-11-10)
+
+- The account block shows a 32px neutral initials avatar; the identity row is shared with the
+  mobile disclosure through `_AccountIdentity.cshtml`.
+- The member destinations keep a 32px gap from the brand, and a long account name truncates on
+  one line instead of wrapping the 64px header.
+- The rail account block stays pinned at the bottom when the rail scrolls.
+- The mobile disclosure separates Sign out with a divider.
+- `Complete event` is a disabled secondary until the event starts, then the dossier's primary.
+- The dossier check-in row relies on its state tag instead of a duplicate "Check-in" label.
+
 ### Files changed
 
 - `ASI.Basecode.WebApp/Views/Shared/_Header.cshtml`, `_AccountMenu.cshtml` (new), `_AccountIdentity.cshtml` (new), `_Layout.cshtml`
