@@ -490,8 +490,10 @@ the visual authority; `PRODUCT.md` records the two shells.
 
 ### 1. Account block moved to the rail's bottom-left
 
-- `Views/Shared/_AccountMenu.cshtml` is the single account block: a 44px trigger showing the
-  name and the real role tag, plus a chevron, and a native popover menu.
+- `Views/Shared/_AccountMenu.cshtml` is the single account block: a 44px trigger showing a
+  32px neutral initials avatar, the name and the real role tag, plus a chevron, and a native
+  popover menu. The identity row is shared with the mobile disclosure through
+  `_AccountIdentity.cshtml`.
 - Management renders it at the bottom of the rail (`Views/Shared/_Header.cshtml`,
   `.rail > .account-block`, above a 1px border). The trigger opens a small menu with **Sign out**.
 - The menu carries **Profile** for members only. `ProfileController` is `[Authorize(Policy =
@@ -506,8 +508,9 @@ the visual authority; `PRODUCT.md` records the two shells.
 - `_Layout.cshtml` adds `member-shell` for non-management authenticated users; the grid drops the
   rail column and the header spans the top.
 - `_Header.cshtml` renders `header.member-header`: brand left, Events / My Events / My Passes
-  centre, account block right. Below 1024px the destinations and account block collapse into the
-  existing disclosure menu, which still carries the name, role and Sign out.
+  after the brand with a 32px gap, account block right. Below 1024px the destinations and
+  account block collapse into the existing disclosure menu, which still carries the name,
+  role and Sign out.
 - Management keeps `aside.rail` + `header.topbar.management-header`. The top bar now ends with a
   neutral outlined role tag (`Administrator` / `Officer`) because the account block moved out of
   it, so the two management surfaces stay distinguishable at a glance. The mobile menu keeps its
@@ -558,7 +561,7 @@ the panel's 24px inset. No data, route or action changed.
 
 ### Files changed
 
-- `ASI.Basecode.WebApp/Views/Shared/_Header.cshtml`, `_AccountMenu.cshtml` (new), `_Layout.cshtml`
+- `ASI.Basecode.WebApp/Views/Shared/_Header.cshtml`, `_AccountMenu.cshtml` (new), `_AccountIdentity.cshtml` (new), `_Layout.cshtml`
 - `ASI.Basecode.WebApp/Views/Shared/_CheckInControl.cshtml`
 - `ASI.Basecode.WebApp/Views/Event/Details.cshtml`
 - `ASI.Basecode.WebApp/Styles/app.css`, `Styles/features/event-dossier.css`

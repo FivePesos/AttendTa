@@ -81,7 +81,7 @@
             <summary>Menu</summary>
             <nav aria-label="Mobile navigation">
                 <partial name="_NavLinks" />
-                <div class="account-name">@User.Identity?.Name <span class="role-tag">@role</span></div>
+                <partial name="_AccountIdentity" model="role" />
                 <form asp-controller="Account" asp-action="Logout" method="post"><button type="submit" class="nav-logout">Sign out</button></form>
             </nav>
         </details>
@@ -104,7 +104,7 @@ else if (authenticated)
             <summary>Menu</summary>
             <nav aria-label="Mobile navigation">
                 <partial name="_NavLinks" />
-                <div class="account-name">@User.Identity?.Name <span class="role-tag">@role</span></div>
+                <partial name="_AccountIdentity" model="role" />
                 <form asp-controller="Account" asp-action="Logout" method="post"><button type="submit" class="nav-logout">Sign out</button></form>
             </nav>
         </details>
