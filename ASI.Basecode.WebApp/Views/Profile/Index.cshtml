@@ -20,12 +20,12 @@
     <span class="identity-avatar" aria-hidden="true">@initials</span>
     <div class="identity-text">
         <p class="identity-name">@Model.FullName</p>
-        <p class="identity-meta">@Model.Email · @Model.StudentNumber</p>
+        <p class="identity-meta">@Model.Email · <span class="numeric">@Model.StudentNumber</span></p>
     </div>
     <span class="badge @(active ? "badge-active" : "badge-inactive")">@(active ? "Active" : "Inactive")</span>
 </section>
 
-<p class="notice notice-amber" role="status">Profile details are managed by an organization officer. Contact one to request a correction.</p>
+<p class="notice" role="status">Profile details are managed by an organization officer. Contact one to request a correction.</p>
 
 @if (!active)
 {

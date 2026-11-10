@@ -1,4 +1,5 @@
 using System.Threading.Tasks;
+using ASI.Basecode.Resources;
 using ASI.Basecode.Resources.Constants;
 using ASI.Basecode.Services.Interfaces;
 using ASI.Basecode.WebApp.Mvc;
@@ -19,23 +20,32 @@ namespace ASI.Basecode.WebApp.Controllers
     [Route("DeactivationPreview")]
     public sealed class DeactivationPreviewController : ControllerBase<DeactivationPreviewController>
     {
-        private readonly IRegistrationCancellationService _registrationCancellationService;
+        private readonly IAccessDialogService _accessDialogService;
 
         public DeactivationPreviewController(
             IHttpContextAccessor httpContextAccessor,
             ILoggerFactory loggerFactory,
             IConfiguration configuration,
             IMapper mapper,
-            IRegistrationCancellationService registrationCancellationService) : base(httpContextAccessor, loggerFactory, configuration, mapper)
+            IAccessDialogService accessDialogService) : base(httpContextAccessor, loggerFactory, configuration, mapper)
         {
-            _registrationCancellationService = registrationCancellationService;
+            _accessDialogService = accessDialogService;
         }
 
         [HttpGet("{userId:int}")]
         public async Task<IActionResult> Index(int userId)
         {
-            var rows = await _registrationCancellationService.PreviewUpcomingForUserAsync(userId, HttpContext.RequestAborted);
-            return PartialView("_DeactivationPreview", rows);
+            try
+            {
+                // The preview read returns the account's authoritative identity and always lists the
+                // upcoming registrations a deactivation would cancel, regardless of active state.
+                var model = await _accessDialogService.GetDeactivationPreviewAsync(userId, HttpContext.RequestAborted);
+                return PartialView("_DeactivationPreview", model);
+            }
+            catch (DomainException exception) when (exception.Outcome == OutcomeCode.NotFound)
+            {
+                return NotFound();
+            }
         }
     }
 }

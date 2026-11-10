@@ -32,6 +32,11 @@ namespace ASI.Basecode.WebApp.Controllers
         private readonly IRegistrationReviewService _review;
         private readonly TimeProvider _timeProvider;
 
+        private bool IsRecordDialog => Request.Headers["X-Record-Dialog"] == "true";
+
+        private IActionResult Editor(EventViewModel model) =>
+            IsRecordDialog ? PartialView("_Editor", model) : View(model);
+
         public EventController(IHttpContextAccessor httpContextAccessor,
                                ILoggerFactory loggerFactory,
                                IConfiguration configuration,
@@ -121,14 +126,14 @@ namespace ASI.Basecode.WebApp.Controllers
 
         [HttpGet]
         public async Task<IActionResult> Create(CancellationToken cancellationToken) =>
-            View(await WithOptionsAsync(new EventViewModel(), cancellationToken));
+            Editor(await WithOptionsAsync(new EventViewModel(), cancellationToken));
 
         [HttpPost]
         public async Task<IActionResult> Create(EventViewModel model, CancellationToken cancellationToken)
         {
             if (!ModelState.IsValid)
             {
-                return View(await WithOptionsAsync(model, cancellationToken));
+                return Editor(await WithOptionsAsync(model, cancellationToken));
             }
 
             ToUtc(model);
@@ -136,6 +141,7 @@ namespace ASI.Basecode.WebApp.Controllers
             {
                 await _eventService.CreateDraftAsync(model, cancellationToken);
                 TempData["SuccessMessage"] = "Draft event created.";
+                if (IsRecordDialog) return Json(new { saved = true });
                 return RedirectToRoute(EventIndexRoute);
             }
             catch (DomainException ex)
@@ -151,17 +157,19 @@ namespace ASI.Basecode.WebApp.Controllers
             var model = await _eventService.GetEventAsync(id, cancellationToken);
             if (model == null)
             {
+                if (IsRecordDialog) return NotFound();
                 return EventNotFoundResult();
             }
 
             if (model.EventStatusId is not (EventStatusCode.Draft or EventStatusCode.Published))
             {
+                if (IsRecordDialog) return NotFound();
                 TempData["ErrorMessage"] = "Only draft or published events can be edited.";
                 return RedirectToRoute(EventIndexRoute);
             }
 
             ToManila(model);
-            return View(await WithOptionsAsync(model, cancellationToken));
+            return Editor(await WithOptionsAsync(model, cancellationToken));
         }
 
         [HttpPost]
@@ -170,6 +178,12 @@ namespace ASI.Basecode.WebApp.Controllers
             var current = await _eventService.GetEventAsync(model.EventId, cancellationToken);
             if (current == null || current.EventStatusId is not (EventStatusCode.Draft or EventStatusCode.Published))
             {
+                if (IsRecordDialog)
+                {
+                    ModelState.AddModelError(string.Empty, "This event can no longer be edited.");
+                    return Editor(await WithOptionsAsync(model, cancellationToken));
+                }
+
                 TempData["ErrorMessage"] = "This event can no longer be edited.";
                 return RedirectToRoute(EventIndexRoute);
             }
@@ -179,7 +193,7 @@ namespace ASI.Basecode.WebApp.Controllers
             ModelState.Remove(nameof(model.EventStatusId));
             if (!ModelState.IsValid)
             {
-                return View(await WithOptionsAsync(model, cancellationToken));
+                return Editor(await WithOptionsAsync(model, cancellationToken));
             }
 
             ToUtc(model);
@@ -187,6 +201,7 @@ namespace ASI.Basecode.WebApp.Controllers
             {
                 await _eventService.UpdateDraftAsync(model, cancellationToken);
                 TempData["SuccessMessage"] = "Event updated.";
+                if (IsRecordDialog) return Json(new { saved = true });
                 return RedirectToRoute(EventIndexRoute);
             }
             catch (DomainException ex)
@@ -350,6 +365,12 @@ namespace ASI.Basecode.WebApp.Controllers
 
         private async Task<IActionResult> HandleAsync(DomainException exception, EventViewModel model, CancellationToken cancellationToken)
         {
+            if (IsRecordDialog)
+            {
+                ModelState.AddModelError(exception.Field ?? string.Empty, exception.Message);
+                return Editor(await WithOptionsAsync(model, cancellationToken));
+            }
+
             if (exception.Field == null)
             {
                 return HandleDomainException(exception, model, nameof(Index));

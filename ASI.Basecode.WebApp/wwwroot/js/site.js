@@ -112,6 +112,22 @@ $(function () {
 
     let previewRequestId = 0;
 
+    // The fetch triggers sit inside a row-menu popover. Showing the modal hides that popover, so the
+    // clicked button is no longer visible and cannot take focus back. Resolve the popover's own
+    // invoker in the row while the popover is still open, and fall back to the trigger itself.
+    function resolveDialogReturnFocus(trigger) {
+        const popover = trigger.closest('[popover]');
+        if (!popover || !popover.id) return trigger;
+        return document.querySelector('[popovertarget="' + popover.id + '"]') || trigger;
+    }
+
+    // preventScroll keeps the table where the reader left it: the default restore would scroll the
+    // row back into view and move the page under the pointer.
+    function restoreDialogFocus(target) {
+        if (!target || target.isConnected === false) return;
+        target.focus({ preventScroll: true });
+    }
+
     // One delegated handler serves the read-only deactivation preview and the account/membership
     // access dialogs. Each source names its trigger attribute, the dataset key holding the URL and
     // the message shown when the fetch fails.
@@ -124,6 +140,7 @@ $(function () {
 
             const trigger = event.target.closest(source.selector);
             event.preventDefault();
+            const returnFocus = resolveDialogReturnFocus(trigger);
             const requestId = ++previewRequestId;
             clearError();
             previewHost.innerHTML = '';
@@ -144,7 +161,7 @@ $(function () {
                     if (!dialog) throw new Error(source.error);
                     dialog.addEventListener('close', function () {
                         previewHost.innerHTML = '';
-                        trigger.focus();
+                        restoreDialogFocus(returnFocus);
                     }, { once: true });
                     dialog.showModal();
                 })

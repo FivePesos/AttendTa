@@ -3,19 +3,11 @@
     ViewData["Title"] = "Edit Venue";
 }
 
-<h1>Edit Venue</h1>
+<div class="page-heading">
+    <h1>Edit Venue</h1>
+</div>
 
 <div class="form-panel">
-    @if (!string.IsNullOrWhiteSpace(Model.ImagePath))
-    {
-        <div class="field">
-            <p class="field-label">Current photo</p>
-            <a asp-action="Photo" asp-route-id="@Model.VenueId" target="_blank" rel="noopener">
-                <img src="@Url.Action("Photo", new { id = Model.VenueId })" alt="Current venue photo" width="96" height="64" class="venue-thumb" />
-            </a>
-        </div>
-    }
-
     <form asp-action="Edit" method="post" enctype="multipart/form-data">
         <div asp-validation-summary="ModelOnly" class="validation-summary" role="alert"></div>
         <input type="hidden" asp-for="VenueId" />

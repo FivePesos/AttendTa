@@ -12,11 +12,13 @@
     <a asp-action="Create" class="button button-primary" data-record-open="create-event-type" data-record-title="New Event Type">New Event Type</a>
 </div>
 
-<nav class="filter-tabs" aria-label="Event type status">
-    <a class="filter-tab" asp-action="Index" aria-current="@(string.IsNullOrEmpty(statusFilter) ? "page" : null)">All</a>
-    <a class="filter-tab" asp-action="Index" asp-route-status="active" aria-current="@(statusFilter == "active" ? "page" : null)">Active</a>
-    <a class="filter-tab" asp-action="Index" asp-route-status="inactive" aria-current="@(statusFilter == "inactive" ? "page" : null)">Inactive</a>
-</nav>
+<div class="sheet-keys">
+    <nav class="filter-tabs" aria-label="Event type status">
+        <a class="filter-tab" asp-action="Index" aria-current="@(string.IsNullOrEmpty(statusFilter) ? "page" : null)">All</a>
+        <a class="filter-tab" asp-action="Index" asp-route-status="active" aria-current="@(statusFilter == "active" ? "page" : null)">Active</a>
+        <a class="filter-tab" asp-action="Index" asp-route-status="inactive" aria-current="@(statusFilter == "inactive" ? "page" : null)">Inactive</a>
+    </nav>
+</div>
 
 <p class="muted" data-list-status role="status" data-list-busy-label="Loading event types…"></p>
 
@@ -27,7 +29,7 @@
         <a href="@Context.Request.GetEncodedPathAndQuery()">Try again</a>
     </div>
     <div class="table-scroll" role="region" aria-label="Event Type table" tabindex="0" data-list-region>
-        <table class="data-table">
+        <table class="data-table table-sticky">
             <thead>
                 <tr>
                     <th scope="col">Type Name</th>
@@ -42,7 +44,7 @@
 else if (Model.Items.Count == 0)
 {
     <div class="table-scroll" role="region" aria-label="Event Type table" tabindex="0" data-list-region>
-        <table class="data-table">
+        <table class="data-table table-sticky">
             <thead>
                 <tr>
                     <th scope="col">Type Name</th>
@@ -71,7 +73,7 @@ else if (Model.Items.Count == 0)
 else
 {
     <div class="table-scroll" role="region" aria-label="Event Type table" tabindex="0" data-list-region>
-        <table class="data-table">
+        <table class="data-table table-sticky">
             <thead>
                 <tr>
                     <th scope="col">Type Name</th>
@@ -84,15 +86,20 @@ else
                 @foreach (var eventType in Model.Items)
                 {
                     <tr data-type-id="@eventType.TypeId">
-                        <td>@eventType.TypeName</td>
-                        <td>@eventType.Description</td>
+                        <td class="cell-name"><span class="cell-strong">@eventType.TypeName</span></td>
+                        <td class="cell-description">@eventType.Description</td>
                         <td><span class="badge @(eventType.IsActive ? "badge-active" : "badge-inactive")">@(eventType.IsActive ? "Active" : "Inactive")</span></td>
                         <td class="actions">
                             <div class="row-actions">
                                 <a asp-action="Edit" asp-route-id="@eventType.TypeId" class="button button-small button-secondary" data-record-open="edit-event-type-@eventType.TypeId" data-record-title="Edit Event Type">Edit</a>
-                                <form asp-action="ToggleActive" asp-route-id="@eventType.TypeId" method="post" class="inline-form">
+                                <partial name="_RowMenuTrigger" model="@($"row-menu-event-type-{eventType.TypeId}")" />
+                            </div>
+                            <div id="row-menu-event-type-@eventType.TypeId" popover class="row-menu">
+                                <form asp-action="ToggleActive" asp-route-id="@eventType.TypeId" method="post">
                                     <input type="hidden" name="page" value="@Model.PageNumber" />
-                                    <button type="submit" class="button button-small button-secondary" data-submitting-label="@(eventType.IsActive ? "Deactivating…" : "Activating…")">@(eventType.IsActive ? "Deactivate" : "Activate")</button>
+                                    <div class="@(eventType.IsActive ? "row-menu-danger" : null)">
+                                        <button type="submit" class="button" data-submitting-label="@(eventType.IsActive ? "Deactivating…" : "Activating…")">@(eventType.IsActive ? "Deactivate" : "Activate")</button>
+                                    </div>
                                 </form>
                             </div>
                         </td>

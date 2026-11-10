@@ -63,6 +63,31 @@ public sealed class AccessDialogService : IAccessDialogService
         };
     }
 
+    public async Task<AccountAccessViewModel> GetDeactivationPreviewAsync(int accountId, CancellationToken cancellationToken = default)
+    {
+        var account = await _accountAdministrationRepository.GetAccountAsync(accountId, cancellationToken);
+        if (account is null)
+        {
+            throw new DomainException(OutcomeCode.NotFound, "Account not found.");
+        }
+
+        // The preview is read-only, so it always lists the upcoming registrations a deactivation
+        // would cancel and never takes the last-administrator count.
+        var affected = await _registrationCancellationService.PreviewUpcomingForUserAsync(account.AccountId, cancellationToken);
+
+        return new AccountAccessViewModel
+        {
+            AccountId = account.AccountId,
+            UserId = account.AccountId,
+            FullName = account.FullName,
+            Email = account.Email,
+            RoleCode = account.RoleCode,
+            RoleLabel = account.RoleLabel,
+            IsActive = account.IsActive,
+            AffectedRegistrations = affected
+        };
+    }
+
     public async Task<MembershipAccessViewModel> GetMembershipAccessAsync(int memberId, CancellationToken cancellationToken = default)
     {
         var member = await _memberRepository.GetMemberRecordAsync(memberId, cancellationToken);

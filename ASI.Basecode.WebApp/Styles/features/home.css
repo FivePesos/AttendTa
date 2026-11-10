@@ -1,57 +1,44 @@
-/* Home shortcuts: role-aware entry points that replace the old one-line landing panel. */
-.home-section + .home-section {
-    margin-top: 1.5rem;
-}
+/* Home: role-aware destinations as hairline rows in a section panel, never a card grid. */
+@layer components {
+  .home-section + .home-section { margin-top: 24px; }
 
-.home-section h2 {
-    margin-bottom: .75rem;
-    font-size: 1.1rem;
-}
+  .home-section .section-head { margin-bottom: 12px; }
 
-.home-grid {
+  /* The panel is the ground; the rows carry the structure. */
+  .panel.dest-panel { padding: 0; overflow: hidden; }
+
+  .dest-row {
     display: grid;
-    gap: 1rem;
-    grid-template-columns: minmax(0, 1fr);
-}
-
-@media (min-width: 768px) {
-    .home-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-}
-
-@media (min-width: 1280px) {
-    .home-grid {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-}
-
-.home-card {
-    display: block;
-    padding: 1.25rem;
-    color: #090d16;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 2px 16px;
+    padding: 12px 16px;
+    border-top: 1px solid var(--color-border);
+    color: var(--color-ink);
     text-decoration: none;
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 10px;
-    box-shadow: 0 4px 12px -2px #0f172a0d;
-}
+  }
 
-.home-card:hover {
-    color: #090d16;
+  .dest-row:first-child { border-top: 0; }
+
+  .dest-row:hover {
+    background: var(--color-surface-subtle);
+    color: var(--color-ink);
     text-decoration: none;
-    background: #f8fafc;
-    border-color: #cbd5e1;
-}
+  }
 
-.home-card h3 {
-    margin: 0 0 .35rem;
-    font-size: 1.05rem;
-    font-weight: 700;
-}
+  .dest-row:focus-visible { outline: 2px solid var(--color-cobalt); outline-offset: -2px; }
 
-.home-card p {
-    margin: 0;
-    color: #475569;
-    font-size: .95rem;
+  .dest-name { grid-column: 1; font-size: 13.5px; font-weight: 600; line-height: 1.35; }
+
+  .dest-desc { grid-column: 1; margin: 0; color: var(--color-ink-muted); font-size: 12.5px; line-height: 1.4; }
+
+  .dest-arrow { grid-column: 2; grid-row: 1 / span 2; color: var(--color-ink-faint); }
+
+  .dest-arrow svg { display: block; }
+
+  .dest-row:hover .dest-arrow { color: var(--color-cobalt); }
+
+  @media (pointer: coarse) {
+    .dest-row { min-height: 44px; padding: 14px 16px; }
+  }
 }

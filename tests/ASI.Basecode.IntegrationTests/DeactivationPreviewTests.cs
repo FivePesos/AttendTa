@@ -42,6 +42,17 @@ public sealed class DeactivationPreviewTests : IClassFixture<SqlServerDatabaseFi
 
         member = await MemberEventTestSupport.SeedMemberAsync(fixture.ConnectionString, memberUser.Id, MembershipStatusCode.Active, ct);
         emptyMember = await MemberEventTestSupport.SeedMemberAsync(fixture.ConnectionString, emptyUser.Id, MembershipStatusCode.Active, ct);
+
+        // The preview must render the server-read identity as text, so this account carries markup
+        // characters in its display name.
+        emptyUser.Name = "Preview <Empty> & Co";
+        await using (var identityContext = MemberEventTestSupport.Context(fixture.ConnectionString))
+        {
+            var stored = await identityContext.Users.SingleAsync(u => u.Id == emptyUser.Id, ct);
+            stored.Name = emptyUser.Name;
+            await identityContext.SaveChangesAsync(ct);
+        }
+
         var (typeId, venueId) = await MemberEventTestSupport.SeedReferencesAsync(fixture.ConnectionString, admin.Id, ct);
 
         var firstStart = new DateTime(2099, 1, 1, 0, 0, 0, DateTimeKind.Utc);
@@ -99,6 +110,8 @@ public sealed class DeactivationPreviewTests : IClassFixture<SqlServerDatabaseFi
         Assert.Contains("Preview First Event", html, StringComparison.Ordinal);
         Assert.Contains("Preview Second Event", html, StringComparison.Ordinal);
         Assert.DoesNotContain("Preview Attended Event", html, StringComparison.Ordinal);
+        Assert.Contains(memberUser.Name, html, StringComparison.Ordinal);
+        Assert.Contains(memberUser.UserId, html, StringComparison.Ordinal);
         Assert.Contains("Asia/Manila", html, StringComparison.Ordinal);
         Assert.Contains("method=\"dialog\"", html, StringComparison.Ordinal);
         Assert.True(html.IndexOf("Preview First Event", StringComparison.Ordinal) < html.IndexOf("Preview Second Event", StringComparison.Ordinal),
@@ -123,6 +136,56 @@ public sealed class DeactivationPreviewTests : IClassFixture<SqlServerDatabaseFi
         var html = await response.Content.ReadAsStringAsync(ct);
         Assert.Contains("No upcoming registrations will be cancelled.", html, StringComparison.Ordinal);
         Assert.DoesNotContain("data-registration-id=", html, StringComparison.Ordinal);
+        // Identity is shown even with no impact, and the server-read name is encoded as text.
+        Assert.Contains("Preview &lt;Empty&gt; &amp; Co", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("Preview <Empty>", html, StringComparison.Ordinal);
+        Assert.Contains(emptyUser.UserId, html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task UnknownAccountReturnsNotFound()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await MemberEventTestSupport.SignInAsync(client, admin.UserId, password, ct);
+
+        var response = await client.GetAsync($"/DeactivationPreview/{int.MaxValue}", ct);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task InactiveAccountPreviewKeepsIdentityAndUpcomingRegistrations()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var inactiveUser = await MemberEventTestSupport.SeedUserAsync(fixture.ConnectionString,
+            $"preview-inactive-{Guid.NewGuid():N}@attendta.test", MemberEventTestSupport.NewPassword(), RoleCode.Member, ct);
+        var inactiveMember = await MemberEventTestSupport.SeedMemberAsync(fixture.ConnectionString, inactiveUser.Id, MembershipStatusCode.Active, ct);
+        var (typeId, venueId) = await MemberEventTestSupport.SeedReferencesAsync(fixture.ConnectionString, admin.Id, ct);
+        var start = new DateTime(2099, 3, 1, 0, 0, 0, DateTimeKind.Utc);
+        var upcoming = await MemberEventTestSupport.SeedEventAsync(fixture.ConnectionString, admin.Id, typeId, venueId,
+            EventStatusCode.Published, start, start.AddDays(-1), 20, null, "Preview Inactive Upcoming", ct);
+        var registration = await MemberEventTestSupport.SeedRegistrationAsync(fixture.ConnectionString,
+            upcoming.EventId, inactiveMember.MemberId, RegistrationStatusCode.Confirmed, admin.Id, ct);
+
+        // The account is disabled directly, leaving its upcoming registration in place.
+        await using (var db = MemberEventTestSupport.Context(fixture.ConnectionString))
+        {
+            var stored = await db.Users.SingleAsync(row => row.Id == inactiveUser.Id, ct);
+            stored.Name = "Inactive Preview Target";
+            stored.IsActive = false;
+            await db.SaveChangesAsync(ct);
+        }
+
+        await MemberEventTestSupport.SignInAsync(client, admin.UserId, password, ct);
+        var response = await client.GetAsync($"/DeactivationPreview/{inactiveUser.Id}", ct);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var html = await response.Content.ReadAsStringAsync(ct);
+        Assert.Contains("Inactive Preview Target", html, StringComparison.Ordinal);
+        Assert.Contains(inactiveUser.UserId, html, StringComparison.Ordinal);
+        Assert.Contains("data-registration-id=\"" + registration.RegistrationId + "\"", html, StringComparison.Ordinal);
+        Assert.Contains("Preview Inactive Upcoming", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("No upcoming registrations will be cancelled.", html, StringComparison.Ordinal);
     }
 
     [Fact]

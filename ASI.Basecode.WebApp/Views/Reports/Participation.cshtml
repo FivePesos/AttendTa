@@ -24,10 +24,10 @@
 
 @if (Model.EventId is null)
 {
-    <section class="panel empty-state" aria-live="polite">
+    <section class="empty-panel" aria-live="polite">
         @if (Model.Selector.HasOptions)
         {
-            <p>Select an event above and choose Show to load its participation report.</p>
+            <p>Choose Show to load the selected event&rsquo;s participation report.</p>
         }
         else
         {
@@ -37,7 +37,7 @@
 }
 else
 {
-    <section class="report-event" aria-labelledby="report-event-heading">
+    <section class="section-head" aria-labelledby="report-event-heading">
         <div>
             <h2 id="report-event-heading">@Model.EventTitle</h2>
             @if (Model.StartsAt is not null)
@@ -110,7 +110,7 @@ else
         else
         {
             <div class="table-scroll" role="region" aria-label="Participant details" tabindex="0">
-                <table class="data-table">
+                <table class="data-table table-sticky-first">
                     <thead>
                         <tr>
                             <th scope="col">Member</th>
@@ -127,7 +127,7 @@ else
                         {
                             <tr data-registration-id="@row.RegistrationId">
                                 <td>@row.MemberName</td>
-                                <td class="numeric">@row.StudentNumber</td>
+                                <td class="numeric cell-identifier">@row.StudentNumber</td>
                                 <td>@row.Course</td>
                                 <td class="numeric">@row.YearLevel</td>
                                 <td><span class="badge @row.StatusBadgeClass">@row.StatusLabel</span></td>
@@ -141,14 +141,14 @@ else
                                         <span class="badge @row.AttendanceBadgeClass">@row.AttendanceLabel</span>
                                     }
                                 </td>
-                                <td class="numeric">@(row.CheckedInAt is null ? "—" : ManilaTimeFormatter.Format(row.CheckedInAt.Value))</td>
+                                <td class="numeric cell-date">@(row.CheckedInAt is null ? "—" : ManilaTimeFormatter.Format(row.CheckedInAt.Value))</td>
                             </tr>
                         }
                     </tbody>
                 </table>
             </div>
-            <partial name="_ResultCount" model="Model" />
             <partial name="_Pager" model="Model" />
+            <partial name="_ResultCount" model="Model" />
         }
     </section>
 

@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Category standard — Organization Members</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{width:1440px;height:900px;overflow:hidden}
+  body{background:#F9FAFB;color:#111827;font:400 13px/1.45 Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased;display:flex}
+  .side{width:248px;flex:0 0 248px;background:#fff;border-right:1px solid #E5E7EB;padding:18px 14px;display:flex;flex-direction:column}
+  .brand{display:flex;align-items:center;gap:10px;padding:4px 8px 18px;border-bottom:1px solid #F3F4F6;margin-bottom:14px}
+  .tile{width:32px;height:32px;border-radius:8px;background:#111827;display:grid;place-items:center;color:#fff;font-weight:700;font-size:15px}
+  .wordmark{font-weight:700;font-size:15px;letter-spacing:-.01em}
+  .inst{display:block;font-size:10.5px;color:#6B7280;font-weight:500;margin-top:1px}
+  .group{font-size:10.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#9CA3AF;padding:12px 10px 6px}
+  .side a{display:flex;align-items:center;gap:9px;height:34px;padding:0 10px;border-radius:7px;color:#374151;text-decoration:none;font-size:13px;font-weight:500}
+  .side a.on{background:#EFF6FF;color:#1D4ED8;font-weight:600}
+  .dot{width:6px;height:6px;border-radius:2px;background:#D1D5DB;flex:0 0 6px}
+  .side a.on .dot{background:#2563EB}
+  .main{flex:1;display:flex;flex-direction:column;min-width:0}
+  .top{height:60px;background:#fff;border-bottom:1px solid #E5E7EB;display:flex;align-items:center;gap:14px;padding:0 28px}
+  .crumb{font-size:12.5px;color:#6B7280}.crumb b{color:#111827;font-weight:600}
+  .topsearch{margin-left:auto;width:260px;height:34px;border:1px solid #E5E7EB;border-radius:7px;display:flex;align-items:center;padding:0 11px;color:#9CA3AF;font-size:12.5px;background:#F9FAFB}
+  .avatar{width:32px;height:32px;border-radius:999px;background:#E0E7FF;color:#3730A3;display:grid;place-items:center;font-size:11.5px;font-weight:600}
+  .body{padding:24px 28px 0;overflow:hidden}
+  .head{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:18px}
+  h1{font-size:22px;font-weight:600;letter-spacing:-.015em}
+  .sub{color:#6B7280;font-size:13px;margin-top:4px}
+  .primary{height:36px;padding:0 14px;background:#2563EB;color:#fff;border:0;border-radius:7px;font-weight:600;font-size:12.5px}
+  .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:18px}
+  .kpi{background:#fff;border:1px solid #E5E7EB;border-radius:10px;padding:14px 16px}
+  .kpi span{font-size:11.5px;font-weight:500;color:#6B7280}
+  .kpi b{display:block;font-size:26px;font-weight:600;letter-spacing:-.02em;margin-top:4px}
+  .kpi em{font-style:normal;font-size:11.5px;color:#059669;font-weight:500}
+  .tools{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+  .search{display:flex;align-items:center;width:320px;height:36px;background:#fff;border:1px solid #E5E7EB;border-radius:7px;padding:0 11px;color:#9CA3AF;font-size:12.5px}
+  .ghost{height:36px;padding:0 13px;background:#fff;color:#374151;border:1px solid #E5E7EB;border-radius:7px;font-weight:500;font-size:12.5px}
+  .tabs{margin-left:auto;display:flex;gap:4px;background:#F3F4F6;padding:3px;border-radius:8px}
+  .tab{padding:6px 12px;border-radius:6px;font-size:12px;font-weight:500;color:#6B7280}
+  .tab.on{background:#fff;color:#111827;box-shadow:0 1px 2px #11182714}
+  .tab i{font-style:normal;color:#9CA3AF;margin-left:4px}
+  .card{background:#fff;border:1px solid #E5E7EB;border-radius:10px;overflow:hidden}
+  table{width:100%;border-collapse:collapse;table-layout:fixed}
+  th{background:#F9FAFB;color:#6B7280;font-size:11px;font-weight:600;letter-spacing:.03em;text-transform:uppercase;text-align:left;padding:0 12px;height:38px;border-bottom:1px solid #E5E7EB}
+  td{height:50px;padding:0 12px;border-bottom:1px solid #F3F4F6;vertical-align:middle;color:#374151;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  tr:last-child td{border-bottom:0}
+  .num{font-variant-numeric:tabular-nums;color:#111827;font-weight:500}
+  .nm{display:flex;align-items:center;gap:9px}
+  .av{width:28px;height:28px;border-radius:999px;background:#F3F4F6;color:#4B5563;display:grid;place-items:center;font-size:10.5px;font-weight:600;flex:0 0 28px}
+  .nm b{font-weight:600;color:#111827;font-size:12.5px}
+  .pill{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:999px;font-size:11px;font-weight:600}
+  .pill::before{content:"";width:5px;height:5px;border-radius:999px;background:currentColor}
+  .pill.on{background:#ECFDF5;color:#047857}
+  .pill.off{background:#F3F4F6;color:#6B7280}
+  .act a{color:#2563EB;font-weight:500;font-size:12px;text-decoration:none;margin-right:10px}
+  .foot{display:flex;align-items:center;justify-content:space-between;height:46px;padding:0 2px;color:#6B7280;font-size:12px}
+  .pager{display:flex;gap:6px}
+  .pager span{min-width:28px;height:28px;display:grid;place-items:center;border:1px solid #E5E7EB;border-radius:6px;background:#fff;font-size:12px}
+  .pager .cur{background:#2563EB;color:#fff;border-color:#2563EB}
+</style>
+</head>
+<body>
+<aside class="side">
+  <div class="brand"><div class="tile">A</div><div><span class="wordmark">AttendTa</span><span class="inst">University of Cebu</span></div></div>
+  <div class="group">Overview</div>
+  <a><span class="dot"></span>Home</a>
+  <a><span class="dot"></span>Events</a>
+  <a><span class="dot"></span>Check-in</a>
+  <a><span class="dot"></span>Registration review</a>
+  <a><span class="dot"></span>Browse events</a>
+  <div class="group">Records</div>
+  <a class="on"><span class="dot"></span>Members</a>
+  <a><span class="dot"></span>Account requests</a>
+  <a><span class="dot"></span>Accounts</a>
+  <a><span class="dot"></span>Event types</a>
+  <a><span class="dot"></span>Venues</a>
+  <a><span class="dot"></span>Activity log</a>
+  <div class="group">Output</div>
+  <a><span class="dot"></span>Certificates</a>
+  <a><span class="dot"></span>Reports</a>
+</aside>
+<div class="main">
+  <div class="top">
+    <div class="crumb">Records / <b>Members</b></div>
+    <div class="topsearch">Search or jump to…</div>
+    <div class="avatar">JD</div>
+  </div>
+  <div class="body">
+    <div class="head">
+      <div><h1>Organization Members</h1><p class="sub">Member profiles are linked to approved user accounts.</p></div>
+      <button class="primary">New member</button>
+    </div>
+    <div class="kpis">
+      <div class="kpi"><span>Total members</span><b>24</b><em>+3 this month</em></div>
+      <div class="kpi"><span>Active</span><b>19</b><em>79% of roster</em></div>
+      <div class="kpi"><span>Pending requests</span><b>5</b><em>Needs review</em></div>
+    </div>
+    <div class="tools">
+      <div class="search">Search by name or student number</div>
+      <button class="ghost">Filters</button>
+      <div class="tabs"><span class="tab on">All<i>24</i></span><span class="tab">Active<i>19</i></span><span class="tab">Inactive<i>5</i></span></div>
+    </div>
+    <div class="card">
+      <table>
+        <colgroup><col style="width:9%"><col style="width:17%"><col style="width:17%"><col style="width:14%"><col style="width:4.5%"><col style="width:6%"><col style="width:10.5%"><col style="width:8%"><col style="width:8%"><col style="width:6%"></colgroup>
+        <thead><tr><th>Student No.</th><th>Full Name</th><th>Email</th><th>Course</th><th>Year</th><th>Section</th><th>Mobile</th><th>Type</th><th>Status</th><th>Actions</th></tr></thead>
+        <tbody>
+          <tr><td class="num">2023-00184</td><td><div class="nm"><span class="av">MD</span><b>Maria Sofia Dela Cruz</b></div></td><td>sofia.delacruz@uc.edu.ph</td><td>BS Information Technology</td><td>3</td><td>IT-3A</td><td class="num">0917 555 0142</td><td>Regular</td><td><span class="pill on">Active</span></td><td class="act"><a>View</a><a>Edit</a></td></tr>
+          <tr><td class="num">2022-01127</td><td><div class="nm"><span class="av">JV</span><b>Jomar B. Villanueva</b></div></td><td>jomar.villanueva@uc.edu.ph</td><td>BS Computer Engineering</td><td>4</td><td>CPE-4B</td><td class="num">0918 555 0231</td><td>Regular</td><td><span class="pill on">Active</span></td><td class="act"><a>View</a><a>Edit</a></td></tr>
+          <tr><td class="num">2024-00291</td><td><div class="nm"><span class="av">AT</span><b>Alyssa Mae Tampus</b></div></td><td>alyssa.tampus@uc.edu.ph</td><td>BS Information Systems</td><td>2</td><td>IS-2C</td><td class="num">0917 555 0388</td><td>Associate</td><td><span class="pill on">Active</span></td><td class="act"><a>View</a><a>Edit</a></td></tr>
+          <tr><td class="num">2021-00903</td><td><div class="nm"><span class="av">KO</span><b>Kenneth Ryan Ouano</b></div></td><td>kenneth.ouano@uc.edu.ph</td><td>BS Information Technology</td><td>5</td><td>IT-5A</td><td class="num">0920 555 0417</td><td>Regular</td><td><span class="pill off">Inactive</span></td><td class="act"><a>View</a><a>Edit</a></td></tr>
+          <tr><td class="num">2023-00456</td><td><div class="nm"><span class="av">PL</span><b>Patricia Anne Lim</b></div></td><td>patricia.lim@uc.edu.ph</td><td>BS Computer Science</td><td>3</td><td>CS-3A</td><td class="num">0916 555 0529</td><td>Regular</td><td><span class="pill on">Active</span></td><td class="act"><a>View</a><a>Edit</a></td></tr>
+          <tr><td class="num">2024-00112</td><td><div class="nm"><span class="av">DA</span><b>Dominic S. Abellana</b></div></td><td>dominic.abellana@uc.edu.ph</td><td>BS Information Technology</td><td>2</td><td>IT-2B</td><td class="num">0919 555 0674</td><td>Associate</td><td><span class="pill on">Active</span></td><td class="act"><a>View</a><a>Edit</a></td></tr>
+          <tr><td class="num">2022-00738</td><td><div class="nm"><span class="av">HY</span><b>Hannah Grace Ybañez</b></div></td><td>hannah.ybanez@uc.edu.ph</td><td>BS Computer Engineering</td><td>4</td><td>CPE-4A</td><td class="num">0917 555 0733</td><td>Regular</td><td><span class="pill on">Active</span></td><td class="act"><a>View</a><a>Edit</a></td></tr>
+          <tr><td class="num">2023-00502</td><td><div class="nm"><span class="av">RM</span><b>Rafael Luis Mendez</b></div></td><td>rafael.mendez@uc.edu.ph</td><td>BS Information Systems</td><td>3</td><td>IS-3B</td><td class="num">0918 555 0806</td><td>Regular</td><td><span class="pill on">Active</span></td><td class="act"><a>View</a><a>Edit</a></td></tr>
+          <tr><td class="num">2021-00664</td><td><div class="nm"><span class="av">CR</span><b>Charlene Mae Rosales</b></div></td><td>charlene.rosales@uc.edu.ph</td><td>BS Computer Science</td><td>5</td><td>CS-5A</td><td class="num">0920 555 0941</td><td>Regular</td><td><span class="pill off">Inactive</span></td><td class="act"><a>View</a><a>Edit</a></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="foot"><span>Showing 1–9 of 24 members</span><div class="pager"><span class="cur">1</span><span>2</span><span>3</span></div></div>
+  </div>
+</div>
+</body>
+</html>

@@ -12,11 +12,13 @@
     <a asp-action="Create" class="button button-primary" data-record-open="create-venue" data-record-title="New Venue">New Venue</a>
 </div>
 
-<nav class="filter-tabs" aria-label="Venue status">
-    <a class="filter-tab" asp-action="Index" aria-current="@(string.IsNullOrEmpty(statusFilter) ? "page" : null)">All</a>
-    <a class="filter-tab" asp-action="Index" asp-route-status="active" aria-current="@(statusFilter == "active" ? "page" : null)">Active</a>
-    <a class="filter-tab" asp-action="Index" asp-route-status="inactive" aria-current="@(statusFilter == "inactive" ? "page" : null)">Inactive</a>
-</nav>
+<div class="sheet-keys">
+    <nav class="filter-tabs" aria-label="Venue status">
+        <a class="filter-tab" asp-action="Index" aria-current="@(string.IsNullOrEmpty(statusFilter) ? "page" : null)">All</a>
+        <a class="filter-tab" asp-action="Index" asp-route-status="active" aria-current="@(statusFilter == "active" ? "page" : null)">Active</a>
+        <a class="filter-tab" asp-action="Index" asp-route-status="inactive" aria-current="@(statusFilter == "inactive" ? "page" : null)">Inactive</a>
+    </nav>
+</div>
 
 <p class="muted" data-list-status role="status" data-list-busy-label="Loading venues…"></p>
 
@@ -27,7 +29,7 @@
         <a href="@Context.Request.GetEncodedPathAndQuery()">Try again</a>
     </div>
     <div class="table-scroll" role="region" aria-label="Venue table" tabindex="0" data-list-region>
-        <table class="data-table">
+        <table class="data-table table-sticky">
             <thead>
                 <tr>
                     <th scope="col">Room Name</th>
@@ -35,7 +37,6 @@
                     <th scope="col">Location</th>
                     <th scope="col">Availability Notes</th>
                     <th scope="col">Contact Person</th>
-                    <th scope="col">Photo</th>
                     <th scope="col">Status</th>
                     <th scope="col">Actions</th>
                 </tr>
@@ -46,7 +47,7 @@
 else if (Model.Items.Count == 0)
 {
     <div class="table-scroll" role="region" aria-label="Venue table" tabindex="0" data-list-region>
-        <table class="data-table">
+        <table class="data-table table-sticky">
             <thead>
                 <tr>
                     <th scope="col">Room Name</th>
@@ -54,14 +55,13 @@ else if (Model.Items.Count == 0)
                     <th scope="col">Location</th>
                     <th scope="col">Availability Notes</th>
                     <th scope="col">Contact Person</th>
-                    <th scope="col">Photo</th>
                     <th scope="col">Status</th>
                     <th scope="col">Actions</th>
                 </tr>
             </thead>
             <tbody>
                 <tr>
-                    <td colspan="8" class="empty-state">
+                    <td colspan="7" class="empty-state">
                         @if (string.IsNullOrEmpty(statusFilter))
                         {
                             <text>No venues yet. Use "New Venue" to create the first one.</text>
@@ -79,7 +79,7 @@ else if (Model.Items.Count == 0)
 else
 {
     <div class="table-scroll" role="region" aria-label="Venue table" tabindex="0" data-list-region>
-        <table class="data-table">
+        <table class="data-table table-sticky">
             <thead>
                 <tr>
                     <th scope="col">Room Name</th>
@@ -87,7 +87,6 @@ else
                     <th scope="col">Location</th>
                     <th scope="col">Availability Notes</th>
                     <th scope="col">Contact Person</th>
-                    <th scope="col">Photo</th>
                     <th scope="col">Status</th>
                     <th scope="col">Actions</th>
                 </tr>
@@ -96,23 +95,23 @@ else
                 @foreach (var venue in Model.Items)
                 {
                     <tr data-venue-id="@venue.VenueId">
-                        <td>@venue.RoomName</td>
+                        <td class="cell-name"><span class="cell-strong">@venue.RoomName</span></td>
                         <td class="numeric">@venue.Capacity</td>
                         <td>@venue.Location</td>
-                        <td>@venue.AvailabilityNotes</td>
+                        <td class="cell-notes">@venue.AvailabilityNotes</td>
                         <td>@venue.ContactPerson</td>
-                        <td>
-                            <a asp-action="Photo" asp-route-id="@venue.VenueId" target="_blank" rel="noopener">
-                                <img src="@Url.Action("Photo", new { id = venue.VenueId })" alt="Photo of @venue.RoomName" width="96" height="64" class="venue-thumb" />
-                            </a>
-                        </td>
                         <td><span class="badge @(venue.IsActive ? "badge-active" : "badge-inactive")">@(venue.IsActive ? "Active" : "Inactive")</span></td>
                         <td class="actions">
                             <div class="row-actions">
                                 <a asp-action="Edit" asp-route-id="@venue.VenueId" class="button button-small button-secondary" data-record-open="edit-venue-@venue.VenueId" data-record-title="Edit Venue">Edit</a>
-                                <form asp-action="ToggleActive" asp-route-id="@venue.VenueId" method="post" class="inline-form">
+                                <partial name="_RowMenuTrigger" model="@($"row-menu-venue-{venue.VenueId}")" />
+                            </div>
+                            <div id="row-menu-venue-@venue.VenueId" popover class="row-menu">
+                                <form asp-action="ToggleActive" asp-route-id="@venue.VenueId" method="post">
                                     <input type="hidden" name="page" value="@Model.PageNumber" />
-                                    <button type="submit" class="button button-small button-secondary" data-submitting-label="@(venue.IsActive ? "Deactivating…" : "Activating…")">@(venue.IsActive ? "Deactivate" : "Activate")</button>
+                                    <div class="@(venue.IsActive ? "row-menu-danger" : null)">
+                                        <button type="submit" class="button" data-submitting-label="@(venue.IsActive ? "Deactivating…" : "Activating…")">@(venue.IsActive ? "Deactivate" : "Activate")</button>
+                                    </div>
                                 </form>
                             </div>
                         </td>

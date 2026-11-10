@@ -122,8 +122,13 @@ Reference by path only. The SPEC is the source of truth for planned features not
   Administrator exists. It is idempotent and selects the active admin by role for `created_by`.
 
 ## Test Conventions
-- Run `dotnet test tests/ASI.Basecode.Services.Tests/ASI.Basecode.Services.Tests.csproj`
-  (Argon2id hasher rules).
+- Run the Services test project directly. `dotnet test` on it reports `Zero tests ran`
+  and exits 5, because that project is `xunit.v3.mtp-v2` with `OutputType=Exe` and never
+  hands off to the in-process runner. Build first, then execute the test host:
+  `& "tests\ASI.Basecode.Services.Tests\bin\Debug\net10.0\ASI.Basecode.Services.Tests.exe"`
+  Add `-class "<Fully.Qualified.ClassName>"` to run a single test class.
+  Cold `dotnet test` output in CI is a tooling trap, not a failing suite — verify with the
+  test host before treating "zero tests" as a red build.
 - Run `dotnet test tests/ASI.Basecode.IntegrationTests/ASI.Basecode.IntegrationTests.csproj`
   with `ATTENDTA_TEST_SQL` set to a local SQL Server **master** connection string
   (for example `Server=(localdb)\MSSQLLocalDB;Database=master;Trusted_Connection=True;TrustServerCertificate=True`).
@@ -136,8 +141,17 @@ Reference by path only. The SPEC is the source of truth for planned features not
 - `bruno/` — Bruno API collection for manual CRUD testing (no browser needed).
 - `docs/database-setup.md` — MVP LocalDB setup/reset, schema, admin provisioning, and event-type seed instructions.
 
+## Review search budget
+Review and audit work is bounded. This applies to code review, `/impeccable critique`, and any study of the repo handed to a read-only agent.
+
+- Spend at most 40 tool calls on a read-only task; then deliver the partial result and list what is unchecked.
+- Read a file whole rather than paging through it with repeated narrow searches, and open a given file at most twice.
+- A search with no matches means the thing is not present. Record it and move on; never re-run or re-phrase it.
+- If a symbol or rule cannot be found in 2 attempts, list it as "unconfirmed" and continue.
+- A clean result is a valid result. Do not manufacture findings to fill a quota.
+
 ## UI review
-The impeccable design skill is installed at `.opencode/skills/impeccable`, with `/impeccable` in `.opencode/commands`. For any UI-facing ticket — a new screen, form, table, dialog, navigation change, or a refactor sweep that touches Razor or CSS — run `/impeccable critique` on the changed surface and `/impeccable polish` before review. Keep `PRODUCT.md` current; `docs/DESIGN.md` remains the visual authority.
+The impeccable design skill is installed at `.opencode/skills/impeccable`, with `/impeccable` in `.opencode/commands`. For any UI-facing ticket — a new screen, form, table, dialog, navigation change, or a refactor sweep that touches Razor or CSS — run `/impeccable critique` on the changed surface and `/impeccable polish` before review. Keep `PRODUCT.md` current; `DESIGN.md` at the repository root is the visual authority, and `docs/design.md` is superseded as an anti-reference.
 
 Exception (2026-11-06 demo rescope, project owner): tickets in the demo and integration phases of `_bmad-output/initiative-attendta/delivery-queue.md` do not run per-ticket critique or polish. The demo rehearsal (8.15) runs critique and polish once for the demo surface, and 8.12 and 2.11 run them for the integrated app. Each pull request still keeps green CI and one peer approval.
 

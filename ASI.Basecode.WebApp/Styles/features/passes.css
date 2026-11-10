@@ -1,25 +1,28 @@
 /* Door passes: member pass cards, the QR block and its download states. */
 @layer components {
-  .passes-section + .passes-section { margin-top: 1.5rem; }
-  .pass-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1rem; }
-  .pass-card { display: flex; flex-direction: column; gap: .75rem; min-width: 0; padding: 1rem; background: white; border: 1px solid #e2e8f0; border-top: 3px solid #3d5a80; border-radius: 10px; box-shadow: 0 4px 12px -2px #0f172a0d; }
-  .pass-card-head { display: grid; gap: .15rem; min-width: 0; }
-  .pass-event-type { margin: 0; color: #475569; font-size: .75rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
-  .pass-event-title { margin: 0; font-size: 1.05rem; font-weight: 700; line-height: 1.3; overflow-wrap: anywhere; }
-  .pass-event-meta { margin: 0; color: #475569; font-size: .9rem; overflow-wrap: anywhere; }
-  .pass-card-body { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+  .passes-section + .passes-section { margin-top: 24px; }
+  .passes-section .section-head { margin-bottom: 12px; }
+  .pass-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .pass-card {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+    padding: 16px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-panel);
+  }
+  .pass-card-head { display: grid; gap: 2px; min-width: 0; }
+  .pass-event-type { margin: 0; color: var(--color-ink-muted); font-size: 10.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+  .pass-event-title { margin: 0; font-size: 14px; font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; }
+  .pass-event-meta { margin: 0; color: var(--color-ink-muted); font-size: 12.5px; overflow-wrap: anywhere; }
+  .pass-card-body { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 16px; }
   .pass-identity { flex: 1 1 11rem; min-width: 0; }
-  .pass-holder { margin: 0; font-weight: 700; overflow-wrap: anywhere; }
-  .pass-student { margin: .15rem 0 .5rem; color: #334155; }
-  .pass-code { display: grid; justify-items: center; gap: .5rem; }
-  .pass-qr { display: block; width: 168px; max-width: 100%; height: auto; aspect-ratio: 1 / 1; background: white; }
+  .pass-holder { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
+  .pass-student { margin: 2px 0 8px; color: var(--color-ink-secondary); font-variant-numeric: tabular-nums; }
+  .pass-code { display: grid; justify-items: center; gap: 8px; }
+  .pass-qr { display: block; width: 140px; max-width: 100%; height: auto; aspect-ratio: 1 / 1; background: var(--color-surface); }
   .pass-code .button { width: 100%; }
-  .pass-accent-moss { border-top-color: #4d7c0f; }
-  .pass-accent-indigo { border-top-color: #4f46e5; }
-  .pass-accent-teal { border-top-color: #0d9488; }
-  .pass-accent-violet { border-top-color: #7c3aed; }
-  .pass-accent-crimson { border-top-color: #be123c; }
-  .pass-accent-orange { border-top-color: #ea580c; }
-  .pass-accent-slate { border-top-color: #3d5a80; }
   @media (min-width: 768px) { .pass-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 }

@@ -3,6 +3,7 @@
 @using System.Linq
 @{
     ViewData["Title"] = "Account requests";
+    ViewData["ResultNoun"] = "request";
     var filters = new[]
     {
         (Key: "all", Label: "All", Count: Model.AllCount),
@@ -28,10 +29,7 @@
 }
 
 <div class="page-heading">
-    <div>
-        <h1>Membership Account Requests</h1>
-        <p class="muted">Review submitted account requests and record a decision.</p>
-    </div>
+    <h1>Membership Account Requests</h1>
 </div>
 
 @if (decisionError != null && !reopenInDialog)
@@ -48,83 +46,86 @@
     }
 }
 
-<form asp-action="Index" method="get" class="search-group spacing-bottom" role="search">
-    <input type="hidden" name="status" value="@Model.Status" />
-    <input type="hidden" name="sort" value="@Model.Sort" />
-    <input id="request-search"
-           name="search"
-           value="@Model.Search"
-           type="search"
-           placeholder="Search name, email, or student number"
-           aria-label="Search account requests" />
-    <button type="submit" class="button button-secondary">Search</button>
-    @if (!string.IsNullOrWhiteSpace(Model.Search))
-    {
-        <a class="button button-secondary" asp-action="Index" asp-route-status="@Model.Status" asp-route-sort="@Model.Sort">Clear</a>
-    }
-</form>
+<div class="sheet-keys">
+    <form asp-action="Index" method="get" class="search-group" role="search">
+        <input type="hidden" name="status" value="@Model.Status" />
+        <input type="hidden" name="sort" value="@Model.Sort" />
+        <input id="request-search"
+               name="search"
+               value="@Model.Search"
+               type="search"
+               class="field-control"
+               placeholder="Search name, email, or student number"
+               aria-label="Search account requests" />
+        <button type="submit" class="button button-secondary">Search</button>
+        @if (!string.IsNullOrWhiteSpace(Model.Search))
+        {
+            <a class="button button-secondary" asp-action="Index" asp-route-status="@Model.Status" asp-route-sort="@Model.Sort">Clear</a>
+        }
+    </form>
 
-<nav class="filter-tabs" aria-label="Request status">
-    @foreach (var filter in filters)
-    {
-        <a class="filter-tab"
-           asp-action="Index"
-           asp-route-status="@filter.Key"
-           asp-route-search="@Model.Search"
-           asp-route-sort="@Model.Sort"
-           aria-current="@(Model.Status == filter.Key ? "page" : null)">
-            @filter.Label
-            <span class="filter-tab-count">@filter.Count</span>
-        </a>
-    }
-</nav>
+    <nav class="filter-tabs" aria-label="Request status">
+        @foreach (var filter in filters)
+        {
+            <a class="filter-tab"
+               asp-action="Index"
+               asp-route-status="@filter.Key"
+               asp-route-search="@Model.Search"
+               asp-route-sort="@Model.Sort"
+               aria-current="@(Model.Status == filter.Key ? "page" : null)">
+                @filter.Label
+                <span class="filter-tab-count">@filter.Count</span>
+            </a>
+        }
+    </nav>
+</div>
 
-@if (Model.Items.Count == 0)
-{
-    <div class="panel">
-        <p class="empty-state">No @emptyLabel found.</p>
-    </div>
-}
-else
-{
-    <div class="table-scroll" role="region" aria-label="Account request table" tabindex="0">
-        <table class="data-table">
-            <thead>
+<div class="table-scroll" role="region" aria-label="Account request table" tabindex="0">
+    <table class="data-table table-sticky request-table">
+        <thead>
+            <tr>
+                <th scope="col">Full Name</th>
+                <th scope="col">Student Number</th>
+                <th scope="col">Email</th>
+                <th scope="col">Course</th>
+                <th scope="col">Year</th>
+                <th scope="col">Section</th>
+                <th scope="col">Mobile</th>
+                <th scope="col">
+                    <a asp-action="Index"
+                       asp-route-status="@Model.Status"
+                       asp-route-search="@Model.Search"
+                       asp-route-sort="@Model.NextSort"
+                       aria-label="Sort by requested time, currently @(Model.Sort == "oldest" ? "oldest first" : "newest first")">
+                        Requested @(Model.Sort == "oldest" ? "↑" : "↓")
+                    </a>
+                </th>
+                <th scope="col">Status</th>
+                <th scope="col" class="actions actions-wide">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (Model.Items.Count == 0)
+            {
                 <tr>
-                    <th scope="col">
-                        <a asp-action="Index"
-                           asp-route-status="@Model.Status"
-                           asp-route-search="@Model.Search"
-                           asp-route-sort="@Model.NextSort"
-                           aria-label="Sort by requested time, currently @(Model.Sort == "oldest" ? "oldest first" : "newest first")">
-                            Requested @(Model.Sort == "oldest" ? "↑" : "↓")
-                        </a>
-                    </th>
-                    <th scope="col">Student Number</th>
-                    <th scope="col">Full Name</th>
-                    <th scope="col">Email</th>
-                    <th scope="col">Course</th>
-                    <th scope="col">Year</th>
-                    <th scope="col">Section</th>
-                    <th scope="col">Mobile</th>
-                    <th scope="col">Status</th>
-                    <th scope="col" class="actions">Actions</th>
+                    <td colspan="10" class="empty-state">No @emptyLabel found.</td>
                 </tr>
-            </thead>
-            <tbody>
-                @foreach (var request in Model.Items)
+            }
+            else
+            {
+                foreach (var request in Model.Items)
                 {
                     <tr data-request-id="@request.RequestId">
-                        <td class="numeric"><time datetime="@(DateTime.SpecifyKind(request.RequestedAt, DateTimeKind.Utc).ToString("O"))" aria-label="Requested at in Asia/Manila">@ManilaTimeFormatter.Format(request.RequestedAt)</time></td>
-                        <td class="numeric">@request.StudentNumber</td>
-                        <td>@request.FullName</td>
-                        <td>@request.Email</td>
+                        <td class="cell-name"><span class="cell-strong">@request.FullName</span></td>
+                        <td class="numeric cell-identifier">@request.StudentNumber</td>
+                        <td class="cell-email">@request.Email</td>
                         <td>@request.Course</td>
                         <td class="numeric">@request.YearLevel</td>
                         <td>@request.Section</td>
-                        <td class="numeric">@request.MobileNumber</td>
+                        <td class="numeric cell-identifier">@request.MobileNumber</td>
+                        <td class="numeric cell-date"><time datetime="@(DateTime.SpecifyKind(request.RequestedAt, DateTimeKind.Utc).ToString("O"))" aria-label="Requested at in Asia/Manila">@ManilaTimeFormatter.Format(request.RequestedAt)</time></td>
                         <td><span class="@BadgeClass(request.Status)">@request.Status</span></td>
-                        <td class="actions">
+                        <td class="actions actions-wide">
                             @if (request.Status == "Pending")
                             {
                                 <div class="row-actions">
@@ -151,23 +152,13 @@ else
                         </td>
                     </tr>
                 }
-            </tbody>
-        </table>
-    </div>
+            }
+        </tbody>
+    </table>
+</div>
 
-    <partial name="_Pager" model="Model" />
-}
-
-<p class="muted result-count" aria-live="polite">
-    @if (Model.TotalCount == 0)
-    {
-        <span>No requests match this filter.</span>
-    }
-    else
-    {
-        <span>Showing @Model.FirstItemNumber–@Model.LastItemNumber of @Model.TotalCount @(Model.TotalCount == 1 ? "request" : "requests").</span>
-    }
-</p>
+<partial name="_Pager" model="Model" />
+<partial name="_ResultCount" model="Model" />
 
 <dialog id="reject-dialog"
         class="task-dialog"

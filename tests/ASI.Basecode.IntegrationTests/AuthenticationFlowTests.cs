@@ -95,6 +95,30 @@ public class AuthenticationFlowTests : IClassFixture<SqlServerDatabaseFixture>, 
         Assert.Equal(HttpStatusCode.OK, member.StatusCode);
     }
 
+    [Theory]
+    [InlineData(AdminEmail, "Administrator", true)]
+    [InlineData(OfficerEmail, "Officer", true)]
+    [InlineData(MemberEmail, "Member", false)]
+    public async Task AuthenticatedHeaderLabelsTheRealRoleInBothNavigationVariants(string email, string role, bool management)
+    {
+        using var login = await SignInAsync(email, Password);
+        Assert.Equal(HttpStatusCode.Redirect, login.StatusCode);
+        var html = await client.GetStringAsync("/Home/Index", TestContext.Current.CancellationToken);
+        var tags = Regex.Matches(html, "<span class=\"role-tag[^\"]*\">([^<]+)</span>");
+        Assert.NotEmpty(tags);
+        Assert.All(tags.Cast<Match>(), tag => Assert.Equal(role, tag.Groups[1].Value));
+
+        // The account block and the mobile menu always label the role; management also labels the top bar.
+        var accountBlock = Extract(html, "class=\"account-block\"", "</div>");
+        Assert.Contains($"<span class=\"role-tag\">{role}</span>", accountBlock, StringComparison.Ordinal);
+        var mobileMenu = Extract(html, "<details class=\"mobile-menu\"", "</details>");
+        Assert.Contains($"<span class=\"role-tag\">{role}</span>", mobileMenu, StringComparison.Ordinal);
+        if (management)
+        {
+            Assert.Contains($"<span class=\"role-tag topbar-role\">{role}</span>", html, StringComparison.Ordinal);
+        }
+    }
+
     [Fact]
     public async Task MemberIsRedirectedToAccessDenied()
     {
@@ -366,8 +390,38 @@ public class AuthenticationFlowTests : IClassFixture<SqlServerDatabaseFixture>, 
         Assert.Contains("/css/app.css", html, StringComparison.Ordinal);
         Assert.DoesNotContain("https://", html, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("bootstrap", html, StringComparison.OrdinalIgnoreCase);
-        if (management) { Assert.Contains("class=\"management-topbar\"", html, StringComparison.Ordinal); Assert.Contains("/Member", html, StringComparison.Ordinal); Assert.Contains("/EventType", html, StringComparison.Ordinal); Assert.Contains("/Venue", html, StringComparison.Ordinal); Assert.DoesNotContain("/Profile", html, StringComparison.Ordinal); }
-        else { Assert.DoesNotContain("class=\"management-topbar\"", html, StringComparison.Ordinal); Assert.DoesNotContain("/Member", html, StringComparison.Ordinal); Assert.DoesNotContain("/EventType", html, StringComparison.Ordinal); Assert.DoesNotContain("/Venue", html, StringComparison.Ordinal); Assert.Contains("/Profile", html, StringComparison.Ordinal); }
+        if (management)
+        {
+            Assert.Contains("app-shell authenticated", html, StringComparison.Ordinal);
+            Assert.DoesNotContain("member-shell", html, StringComparison.Ordinal);
+            Assert.Contains("class=\"topbar management-header\"", html, StringComparison.Ordinal);
+            var rail = Extract(html, "class=\"rail\"", "</aside>");
+            Assert.Contains("popovertarget=\"account-menu\"", rail, StringComparison.Ordinal);
+            Assert.Contains("class=\"role-tag topbar-role\"", html, StringComparison.Ordinal);
+            var menu = Extract(html, "id=\"account-menu\"", "</div>");
+            Assert.Contains("Sign out", menu, StringComparison.Ordinal);
+            Assert.DoesNotContain("Profile", menu, StringComparison.Ordinal);
+            Assert.Contains("/Member", html, StringComparison.Ordinal);
+            Assert.Contains("/EventType", html, StringComparison.Ordinal);
+            Assert.Contains("/Venue", html, StringComparison.Ordinal);
+            Assert.DoesNotContain("/Profile", html, StringComparison.Ordinal);
+        }
+        else
+        {
+            Assert.Contains("member-shell", html, StringComparison.Ordinal);
+            Assert.DoesNotContain("management-header", html, StringComparison.Ordinal);
+            Assert.Contains("class=\"topbar member-header\"", html, StringComparison.Ordinal);
+            Assert.DoesNotContain("class=\"rail\"", html, StringComparison.Ordinal);
+            var menu = Extract(html, "id=\"account-menu\"", "</div>");
+            Assert.Contains("Sign out", menu, StringComparison.Ordinal);
+            Assert.Contains("Profile", menu, StringComparison.Ordinal);
+            Assert.Contains("/MyEvents", html, StringComparison.Ordinal);
+            Assert.Contains("/Passes", html, StringComparison.Ordinal);
+            Assert.DoesNotContain("/Member", html, StringComparison.Ordinal);
+            Assert.DoesNotContain("/EventType", html, StringComparison.Ordinal);
+            Assert.DoesNotContain("/Venue", html, StringComparison.Ordinal);
+            Assert.Contains("/Profile", html, StringComparison.Ordinal);
+        }
     }
 
     [Fact]
@@ -471,6 +525,59 @@ public class AuthenticationFlowTests : IClassFixture<SqlServerDatabaseFixture>, 
         AssertErrorAssociation(html, second);
     }
 
+    [Fact]
+    public async Task CreateFormsRenderEmptySentinelsAndRetainAttemptedValues()
+    {
+        await SignInAsync(AdminEmail, Password);
+        var ct = TestContext.Current.CancellationToken;
+
+        // A fresh form must not paint the DateTime/int sentinel behind asp-for.
+        var eventHtml = await client.GetStringAsync("/Event/Create", ct);
+        AssertInputValue(eventHtml, "StartsAt", string.Empty);
+        AssertInputValue(eventHtml, "RegistrationDeadline", string.Empty);
+        AssertInputValue(eventHtml, "ParticipantLimit", string.Empty);
+
+        var venueHtml = await client.GetStringAsync("/Venue/Create", ct);
+        AssertInputValue(venueHtml, "Capacity", string.Empty);
+
+        // A rejected save must keep exactly what the officer typed.
+        var eventToken = await GetAntiforgeryTokenAsync("/Event/Create");
+        using var invalidEvent = await client.PostAsync("/Event/Create", new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["__RequestVerificationToken"] = eventToken,
+            ["Title"] = "Retained values",
+            ["StartsAt"] = "not-a-date",
+            ["RegistrationDeadline"] = "not-a-date",
+            ["ParticipantLimit"] = "not-a-number"
+        }), ct);
+        Assert.Equal(HttpStatusCode.OK, invalidEvent.StatusCode);
+        var invalidEventHtml = await invalidEvent.Content.ReadAsStringAsync(ct);
+        AssertInputValue(invalidEventHtml, "StartsAt", "not-a-date");
+        AssertInputValue(invalidEventHtml, "RegistrationDeadline", "not-a-date");
+        AssertInputValue(invalidEventHtml, "ParticipantLimit", "not-a-number");
+
+        var venueToken = await GetAntiforgeryTokenAsync("/Venue/Create");
+        using var invalidVenue = await client.PostAsync("/Venue/Create", new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["__RequestVerificationToken"] = venueToken,
+            ["RoomName"] = "Retained capacity",
+            ["Capacity"] = "not-a-number"
+        }), ct);
+        Assert.Equal(HttpStatusCode.OK, invalidVenue.StatusCode);
+        AssertInputValue(await invalidVenue.Content.ReadAsStringAsync(ct), "Capacity", "not-a-number");
+    }
+
+    private static void AssertInputValue(string html, string field, string expected)
+    {
+        var input = Regex.Match(html, $"<input\\b[^>]*\\bname=\"{field}\"[^>]*>", RegexOptions.IgnoreCase);
+        Assert.True(input.Success, $"No control for {field}.");
+        // The explicit value must be the only value attribute; a duplicate would let the
+        // tag helper's generated sentinel win in the browser.
+        var values = Regex.Matches(input.Value, "\\bvalue=\"([^\"]*)\"", RegexOptions.IgnoreCase);
+        Assert.True(values.Count == 1, $"Expected one value attribute on {field}: {input.Value}");
+        Assert.Equal(expected, values[0].Groups[1].Value);
+    }
+
     [Theory]
     [InlineData("/Member", "No members yet. Members are created when an account request is approved.")]
     [InlineData("/Member?search=%20%20", "No members yet. Members are created when an account request is approved.")]
@@ -512,6 +619,15 @@ public class AuthenticationFlowTests : IClassFixture<SqlServerDatabaseFixture>, 
             }
             await next();
         }
+    }
+
+    private static string Extract(string html, string startMarker, string endMarker)
+    {
+        var start = html.IndexOf(startMarker, StringComparison.Ordinal);
+        Assert.True(start >= 0, $"Missing {startMarker} in the rendered shell.");
+        var end = html.IndexOf(endMarker, start, StringComparison.Ordinal);
+        Assert.True(end > start, $"Missing {endMarker} after {startMarker} in the rendered shell.");
+        return html[start..end];
     }
 
     private async Task<HttpResponseMessage> SignInAsync(string email, string password)
