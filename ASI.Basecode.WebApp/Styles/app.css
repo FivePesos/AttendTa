@@ -1157,6 +1157,7 @@
     .nav-logout,
     .filter-tab { min-height: 44px; }
     .nav-key { min-height: 44px; }
+    .account-menu :is(a, button) { min-height: 44px; }
     .row-menu-trigger { width: 44px; height: 44px; }
     .dialog-close,
     .record-dialog-close { width: 44px; height: 44px; min-width: 44px; min-height: 44px; }

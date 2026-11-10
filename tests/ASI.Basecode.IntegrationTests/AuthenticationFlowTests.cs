@@ -105,9 +105,18 @@ public class AuthenticationFlowTests : IClassFixture<SqlServerDatabaseFixture>, 
         Assert.Equal(HttpStatusCode.Redirect, login.StatusCode);
         var html = await client.GetStringAsync("/Home/Index", TestContext.Current.CancellationToken);
         var tags = Regex.Matches(html, "<span class=\"role-tag[^\"]*\">([^<]+)</span>");
-        // Account block and mobile menu always carry the role; management also labels the top bar.
-        Assert.Equal(management ? 3 : 2, tags.Count);
+        Assert.NotEmpty(tags);
         Assert.All(tags.Cast<Match>(), tag => Assert.Equal(role, tag.Groups[1].Value));
+
+        // The account block and the mobile menu always label the role; management also labels the top bar.
+        var accountBlock = Extract(html, "class=\"account-block\"", "</div>");
+        Assert.Contains($"<span class=\"role-tag\">{role}</span>", accountBlock, StringComparison.Ordinal);
+        var mobileMenu = Extract(html, "<details class=\"mobile-menu\"", "</details>");
+        Assert.Contains($"<span class=\"role-tag\">{role}</span>", mobileMenu, StringComparison.Ordinal);
+        if (management)
+        {
+            Assert.Contains($"<span class=\"role-tag topbar-role\">{role}</span>", html, StringComparison.Ordinal);
+        }
     }
 
     [Fact]
@@ -383,11 +392,15 @@ public class AuthenticationFlowTests : IClassFixture<SqlServerDatabaseFixture>, 
         Assert.DoesNotContain("bootstrap", html, StringComparison.OrdinalIgnoreCase);
         if (management)
         {
-            Assert.Contains("class=\"app-shell authenticated\"", html, StringComparison.Ordinal);
+            Assert.Contains("app-shell authenticated", html, StringComparison.Ordinal);
+            Assert.DoesNotContain("member-shell", html, StringComparison.Ordinal);
             Assert.Contains("class=\"topbar management-header\"", html, StringComparison.Ordinal);
-            Assert.Contains("class=\"rail\"", html, StringComparison.Ordinal);
+            var rail = Extract(html, "class=\"rail\"", "</aside>");
+            Assert.Contains("popovertarget=\"account-menu\"", rail, StringComparison.Ordinal);
             Assert.Contains("class=\"role-tag topbar-role\"", html, StringComparison.Ordinal);
-            Assert.Contains("popovertarget=\"account-menu\"", html, StringComparison.Ordinal);
+            var menu = Extract(html, "id=\"account-menu\"", "</div>");
+            Assert.Contains("Sign out", menu, StringComparison.Ordinal);
+            Assert.DoesNotContain("Profile", menu, StringComparison.Ordinal);
             Assert.Contains("/Member", html, StringComparison.Ordinal);
             Assert.Contains("/EventType", html, StringComparison.Ordinal);
             Assert.Contains("/Venue", html, StringComparison.Ordinal);
@@ -395,11 +408,15 @@ public class AuthenticationFlowTests : IClassFixture<SqlServerDatabaseFixture>, 
         }
         else
         {
-            Assert.Contains("class=\"app-shell authenticated member-shell\"", html, StringComparison.Ordinal);
+            Assert.Contains("member-shell", html, StringComparison.Ordinal);
             Assert.DoesNotContain("management-header", html, StringComparison.Ordinal);
             Assert.Contains("class=\"topbar member-header\"", html, StringComparison.Ordinal);
             Assert.DoesNotContain("class=\"rail\"", html, StringComparison.Ordinal);
-            Assert.Contains("popovertarget=\"account-menu\"", html, StringComparison.Ordinal);
+            var menu = Extract(html, "id=\"account-menu\"", "</div>");
+            Assert.Contains("Sign out", menu, StringComparison.Ordinal);
+            Assert.Contains("Profile", menu, StringComparison.Ordinal);
+            Assert.Contains("/MyEvents", html, StringComparison.Ordinal);
+            Assert.Contains("/Passes", html, StringComparison.Ordinal);
             Assert.DoesNotContain("/Member", html, StringComparison.Ordinal);
             Assert.DoesNotContain("/EventType", html, StringComparison.Ordinal);
             Assert.DoesNotContain("/Venue", html, StringComparison.Ordinal);
@@ -602,6 +619,15 @@ public class AuthenticationFlowTests : IClassFixture<SqlServerDatabaseFixture>, 
             }
             await next();
         }
+    }
+
+    private static string Extract(string html, string startMarker, string endMarker)
+    {
+        var start = html.IndexOf(startMarker, StringComparison.Ordinal);
+        Assert.True(start >= 0, $"Missing {startMarker} in the rendered shell.");
+        var end = html.IndexOf(endMarker, start, StringComparison.Ordinal);
+        Assert.True(end > start, $"Missing {endMarker} after {startMarker} in the rendered shell.");
+        return html[start..end];
     }
 
     private async Task<HttpResponseMessage> SignInAsync(string email, string password)

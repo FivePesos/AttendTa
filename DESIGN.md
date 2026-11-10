@@ -234,12 +234,12 @@ button, or a card with no outline is not part of this system.
 - **Top bar:** 64px white, 1px Border below, breadcrumb left, role indicator right. The
   account block lives in the rail, not the top bar.
 - **Member header:** 64px white, 1px Border below, brand left, Events / My Events / My Passes
-  centre, account block right.
+  after the brand, account block right.
 - **Account block:** the name and role tag in a 44px trigger with a chevron. The trigger is a
-  rail row with a hover ground and a focus ring, not a boxed button. It opens a small popover
-  menu holding Profile (members only) and Sign out. Enter or Space opens, Escape closes, and
-  focus returns to the trigger. Management has no Profile destination, so its menu carries Sign
-  out alone.
+  rail row with a hover ground and a focus ring, not a boxed button; the member header reuses
+  it at content width. It opens a small popover menu holding Profile (members only) and Sign
+  out. Enter or Space opens, Escape closes, and focus returns to the trigger. Management has no
+  Profile destination, so its menu carries Sign out alone.
 - **Role indicator:** the real role is a neutral outlined text tag in the account block, the
   management top bar and the mobile menu. Administrator and Officer remain explicit words, not
   different themes.

@@ -316,6 +316,9 @@ re-litigated:
    Deliberate omission unless the owner wants `UseExceptionHandler`.
 10. **`PassViewModel.AccentClass` is unused** since Session E deleted the accent
    rules. Removing it is a service change, so it stays.
+11. **Actual browser 200% zoom is unverified** (owner decision, 2026-11-10). It stays an open
+   release blocker until a real browser check runs; 616px is the CSS-viewport proxy, not a
+   substitute.
 
 ---
 
@@ -580,4 +583,5 @@ the panel's 24px inset. No data, route or action changed.
   primary GPT session. The critique/polish below is therefore measurement- and source-based, and
   pixel acceptance of the new shell is still open. Fresh scratch captures are in
   `handoff-ui-phases/screenshots/session-shell/` (not committed).
-- Actual browser 200% zoom remains unverified; 616px remains the recorded proxy.
+- Actual browser 200% zoom remains unverified and is recorded as release blocker 11; 616px is
+  the proxy, not a substitute.
