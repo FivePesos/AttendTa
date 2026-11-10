@@ -442,3 +442,37 @@ filter; no global search in the top bar; Save in the form action row on the four
 form routes. The Venue photo column is resolved by owner sign-off (removal intentional);
 the identifier-alignment scope is resolved by this pass; the walkthrough-record question is
 resolved by naming this file.
+
+### Small criticism batch — rendered follow-up, 2026-11-10
+
+- Dossier header actions now use `.page-actions`, not the table-only `.row-actions`:
+  Edit event, Manage cover and Cancel event regain the existing bordered button treatment.
+  Table actions retain their intentional text-link treatment. No endpoints changed.
+- Page-head spacing is 16px (was 20px); toolbar bottom margin is zero (was 8px).
+  The actual extra list gap came from `Styles/features/list-feedback.css`: its reserved
+  loading line plus margin occupied 34px. It now reserves 16px, with no extra margin.
+  The `role="status"` element remains visible to accessibility APIs and loading text
+  remains visible; measured Member/Venue toolbar-to-table gaps are 16px at all four widths.
+- The header and mobile menu show the authenticated role as an outlined neutral tag.
+  A durable `AuthenticationFlowTests` theory checks Administrator, Officer and Member labels
+  in both navigation variants. No role switcher or authorization changes were added.
+- The reported Edit-to-page problem was not reproduced: both Administrator and Officer
+  open the populated edit dialog at 1440/1024/768/390, dismiss with Escape, and return focus
+  to Edit. The officer check also asserts the page URL stays unchanged. The standalone
+  edit route remains the fallback; Manage cover remains its existing separate workflow.
+- Scoped Impeccable critique/polish used primary-GPT screenshot inspection (single-context,
+  not the standard dual-agent review, preserving the owner's no-delegated-visual-judgment
+  instruction). Desktop/mobile Member, Venue and Event lists, admin dossier, officer dossier
+  and mobile officer editor were inspected. The compact spacing and boxed header actions
+  are accepted only within this batch; intermediate widths were interaction/geometry-tested.
+  Changed-view detector returned `[]`. No whole-app acceptance or actual 200% zoom claim.
+- Fresh fixture captures are scratch in
+  `handoff-ui-phases/screenshots/session-small-batch-final/`; the untracked browser harness
+  remains scratch. It blocks browser writes and uses disposable integration databases only.
+- Verification after the final UI edit: integration-project build (including WebApp),
+  0 warnings/errors; full SQL integration suite 466 passed, 1 opt-in browser test skipped;
+  that browser test passed separately with `ATTENDTA_UI_BROWSER=1`; JS 5/5; CSS rebuilt
+  and byte-for-byte regeneration drift check passed. Services were not changed this batch.
+- Deferred: bottom-left account menu, member top-header shell, cover-in-editor conversion,
+  broader dossier information layout and the previously recorded mobile roster crowding.
+  These were not silently implemented or marked accepted. The existing confirmed fixes stay.

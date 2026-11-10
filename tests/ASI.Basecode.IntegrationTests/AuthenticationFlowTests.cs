@@ -95,6 +95,20 @@ public class AuthenticationFlowTests : IClassFixture<SqlServerDatabaseFixture>, 
         Assert.Equal(HttpStatusCode.OK, member.StatusCode);
     }
 
+    [Theory]
+    [InlineData(AdminEmail, "Administrator")]
+    [InlineData(OfficerEmail, "Officer")]
+    [InlineData(MemberEmail, "Member")]
+    public async Task AuthenticatedHeaderLabelsTheRealRoleInBothNavigationVariants(string email, string role)
+    {
+        using var login = await SignInAsync(email, Password);
+        Assert.Equal(HttpStatusCode.Redirect, login.StatusCode);
+        var html = await client.GetStringAsync("/Home/Index", TestContext.Current.CancellationToken);
+        var tags = Regex.Matches(html, "<span class=\"role-tag\">([^<]+)</span>");
+        Assert.Equal(2, tags.Count);
+        Assert.All(tags.Cast<Match>(), tag => Assert.Equal(role, tag.Groups[1].Value));
+    }
+
     [Fact]
     public async Task MemberIsRedirectedToAccessDenied()
     {

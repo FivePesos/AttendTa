@@ -178,6 +178,8 @@ button, or a card with no outline is not part of this system.
 - **Destructive:** Declined Red fill, white text. Requires a confirm dialog.
 - **Hover / Focus:** primary darkens to Cobalt Deep; focus is a 2px Cobalt outline at 2px
   offset, and a 2px white outline inside the rail.
+- **Placement:** page-head action groups use boxed buttons, including the event dossier.
+  The borderless text-link treatment is reserved for table row actions, not page headers.
 
 ### Status Tags
 - **Style:** 4px radius, tinted background, 10.5px 600 uppercase at 0.06em, 22px height, 9px
@@ -199,6 +201,9 @@ button, or a card with no outline is not part of this system.
   directly below the pager, both full-width under the panel. The count is one line
   of Micro type reading the real `PagedResult.TotalCount`; it is not a KPI card and
   never sits above the table.
+- **List spacing:** page heads end with 16px of space. Filter toolbars keep 16px of
+  bottom padding; lists with loading feedback reserve one compact 16px live line before
+  the table, without an additional blank paragraph margin.
 
 ### Inputs / Fields
 - **Style:** white ground, 1px Border Strong, 4px radius, 36px height, 13.5px.
@@ -211,6 +216,8 @@ button, or a card with no outline is not part of this system.
   6px radius, 13px. Current item: Cobalt Tint ground, Cobalt text, 600 weight.
 - **Top bar:** 64px white, 1px Border below, breadcrumb left, search centre-right, account
   right. The account block shows the name and role, never a role switcher.
+- **Role indicator:** the real role is a neutral outlined text tag in the account block
+  and mobile menu. Administrator and Officer remain explicit words, not different themes.
 - **Mobile:** the existing disclosure menu, restyled to the rail's vocabulary; 44px targets.
 
 ### KPI Card (restricted)

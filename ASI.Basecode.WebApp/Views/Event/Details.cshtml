@@ -28,7 +28,7 @@
         <h1 class="dossier-title">@item.Title</h1>
         <p class="muted">@item.TypeName · @item.VenueName</p>
     </div>
-    <div class="row-actions">
+    <div class="page-actions">
         @if (mutable)
         {
             <a asp-action="Edit" asp-route-id="@item.EventId" class="button button-secondary" data-record-open="edit-event-@item.EventId" data-record-title="Edit event" data-record-subtitle="@item.Title">Edit event</a>
