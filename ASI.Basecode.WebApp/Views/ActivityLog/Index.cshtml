@@ -9,7 +9,7 @@
 </div>
 
 <div class="table-scroll" role="region" aria-label="Activity log table" tabindex="0">
-    <table class="data-table">
+    <table class="data-table table-sticky-first">
         <caption>Activity log, newest entries first</caption>
         <thead>
             <tr>
@@ -34,7 +34,7 @@
                 foreach (var log in Model.Items)
                 {
                     <tr data-log-id="@log.LogId">
-                        <td class="numeric cell-date"><time datetime="@log.OccurredAt.ToString("O")" aria-label="Occurred at in Asia/Manila">@ManilaTimeFormatter.Format(log.OccurredAt)</time></td>
+                        <td class="numeric cell-date"><time datetime="@log.OccurredAt.ToString("O")">@ManilaTimeFormatter.Format(log.OccurredAt)</time></td>
                         <td>@log.ActorName</td>
                         <td>@log.ActorType</td>
                         <td>@log.Action</td>

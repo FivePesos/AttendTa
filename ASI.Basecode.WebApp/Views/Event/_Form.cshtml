@@ -22,8 +22,8 @@
     <div class="record-summary" role="group" aria-label="Locked event details">
         <p class="record-summary-row"><span class="record-summary-label">Event type:</span> <span class="record-summary-value">@Model.TypeName</span></p>
         <p class="record-summary-row"><span class="record-summary-label">Venue:</span> <span class="record-summary-value">@Model.VenueName</span></p>
-        <p class="record-summary-row"><span class="record-summary-label">Starts (Asia/Manila):</span> <span class="record-summary-value">@Model.StartsAt.ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture)</span></p>
-        <p class="record-summary-row"><span class="record-summary-label">Signup deadline (Asia/Manila):</span> <span class="record-summary-value">@Model.RegistrationDeadline.ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture)</span></p>
+        <p class="record-summary-row"><span class="record-summary-label">Starts (Asia/Manila):</span> <span class="record-summary-value">@Model.StartsAt.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture)</span></p>
+        <p class="record-summary-row"><span class="record-summary-label">Signup deadline (Asia/Manila):</span> <span class="record-summary-value">@Model.RegistrationDeadline.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture)</span></p>
         <p class="record-summary-row"><span class="record-summary-label">Participant limit:</span> <span class="record-summary-value">@Model.ParticipantLimit</span></p>
     </div>
     <input type="hidden" name="TypeId" value="@Model.TypeId" />

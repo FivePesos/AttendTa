@@ -795,6 +795,17 @@
   }
   .table-sticky th:last-child { z-index: 2; background: var(--color-surface-subtle); }
 
+  /* Tables whose last column is not an action keep only the identifying column in view. */
+  .table-sticky-first th:first-child,
+  .table-sticky-first td:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    background: var(--color-surface);
+    box-shadow: 1px 0 0 var(--color-border);
+  }
+  .table-sticky-first th:first-child { z-index: 2; background: var(--color-surface-subtle); }
+
   .dossier-roster td { overflow-wrap: anywhere; min-width: 8rem; }
 
   /* --- Status tags -------------------------------------------------------- */
@@ -832,6 +843,7 @@
 
   /* --- Dialogs ------------------------------------------------------------ */
   .confirm-dialog {
+    margin: auto;
     width: min(100% - 2rem, 32rem);
     padding: 24px;
     border: 1px solid var(--color-border);
@@ -845,6 +857,7 @@
   .confirm-dialog-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 20px; }
 
   .app-dialog {
+    margin: auto;
     width: min(100% - 2rem, 32rem);
     max-height: calc(100% - 2rem);
     overflow-y: auto;
@@ -862,8 +875,9 @@
   .app-dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
 
   .task-dialog {
+    margin: auto;
     width: min(480px, calc(100vw - 24px));
-    max-height: calc(100vh - 48px);
+    max-height: calc(100dvh - 48px);
     overflow-y: auto;
     padding: 0;
     border: 1px solid var(--color-border);
@@ -875,7 +889,7 @@
   .task-dialog::backdrop { background: rgb(14 15 18 / 0.36); }
   .dialog-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 24px 24px 0; }
   .dialog-header h2 { margin: 0; font-size: 16px; }
-  .dialog-close { min-width: 32px; min-height: 32px; border: 0; border-radius: var(--radius-control); background: transparent; color: var(--color-ink-secondary); font-size: 22px; line-height: 1; cursor: pointer; }
+  .dialog-close { display: inline-flex; align-items: center; justify-content: center; min-width: 36px; min-height: 36px; padding: 0; border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-surface); color: var(--color-ink-secondary); font-size: 22px; line-height: 1; cursor: pointer; }
   .dialog-close:hover { background: var(--color-surface-subtle); }
   .task-dialog form > .muted,
   .task-dialog form > .field { margin: 16px 24px 0; }
@@ -1011,6 +1025,8 @@
     .filter-tab { min-height: 44px; }
     .nav-key { min-height: 44px; }
     .row-menu-trigger { width: 44px; height: 44px; }
+    .dialog-close,
+    .record-dialog-close { width: 44px; height: 44px; min-width: 44px; min-height: 44px; }
   }
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
