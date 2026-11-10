@@ -1,10 +1,12 @@
-@using System.Collections.Generic
-@model IReadOnlyList<UpcomingRegistrationPreview>
+@model AccountAccessViewModel
 @{
-    var rows = Model ?? Array.Empty<UpcomingRegistrationPreview>();
+    var rows = Model.AffectedRegistrations ?? Array.Empty<UpcomingRegistrationPreview>();
 }
 <dialog class="app-dialog" aria-labelledby="deactivation-preview-title">
     <h2 id="deactivation-preview-title">Deactivation impact preview</h2>
+    <p class="muted">
+        <strong>@Model.FullName</strong> &middot; @Model.Email
+    </p>
     @if (rows.Count == 0)
     {
         <p class="empty-state">No upcoming registrations will be cancelled.</p>

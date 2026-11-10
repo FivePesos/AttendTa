@@ -138,6 +138,10 @@ keeps the breadcrumb; below 768px gutters drop to 16px and page heads stack. Wid
 their sticky first and last columns. At 200% zoom the rail collapses before any content is
 clipped.
 
+Account-request exception: the first column is applicant identity. Below 1024px this table
+releases both sticky edges so they cannot obscure the intervening fields; horizontal scrolling
+must expose every field. Other tables retain their existing column policy.
+
 ## Elevation & Depth
 
 Flat. Every surface is a 1px border on the ground or on white. There are no panel shadows, no

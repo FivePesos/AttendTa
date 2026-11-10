@@ -1,9 +1,20 @@
 @model VenueViewModel
+@using System.Globalization
 @{
     var photoRequired = ViewData["PhotoRequired"] is true;
     var photoReselect = ViewData["PhotoReselect"] is true;
     var photoDescribedBy = photoReselect ? "photo-help photo-reselect photo-validation" : "photo-help photo-validation";
     var hasPhoto = !string.IsNullOrWhiteSpace(Model.ImagePath);
+
+    // A rejected save keeps exactly what the officer typed; a fresh form stays empty instead of
+    // showing the int sentinel.
+    var capacityAttempt = ViewData.ModelState.TryGetValue(nameof(VenueViewModel.Capacity), out var capacityEntry)
+        ? capacityEntry.AttemptedValue
+        : null;
+    var capacityValue = capacityAttempt
+        ?? (Model.Capacity > 0 ? Model.Capacity.ToString(CultureInfo.InvariantCulture) : string.Empty);
+    var capacityInvalid = ViewData.ModelState.TryGetValue(nameof(VenueViewModel.Capacity), out var capacityState)
+        && capacityState.Errors.Count > 0;
 }
 
 <fieldset>
@@ -16,7 +27,7 @@
         </div>
         <div class="field">
             <label asp-for="Capacity" class="field-label">Capacity <span class="required" aria-hidden="true">*</span></label>
-            <input asp-for="Capacity" aria-describedby="Capacity-validation" type="number" min="1" class="field-control" required aria-required="true" placeholder="e.g. 400" />
+            <input asp-for="Capacity" aria-describedby="Capacity-validation" type="number" min="1" value="@capacityValue" aria-invalid="@(capacityInvalid ? "true" : null)" class="field-control" required aria-required="true" placeholder="e.g. 400" />
             <span id="Capacity-validation" asp-validation-for="Capacity" class="field-error"></span>
         </div>
         <div class="field">
@@ -58,7 +69,7 @@
         <div class="field @(hasPhoto ? null : "field-span-2")">
             <label for="photo" class="field-label">Venue photo @if (photoRequired) { <span class="required" aria-hidden="true">*</span> }</label>
             <input id="photo" name="photo" aria-describedby="@photoDescribedBy" type="file" accept="image/png,image/jpeg" class="field-control" required="@(photoRequired ? "required" : null)" />
-            <small id="photo-help" class="muted">A JPEG or PNG photo up to 2 MiB is required when creating a venue. Select a new photo to replace the existing one.</small>
+            <small id="photo-help" class="muted">@(photoRequired ? "A JPEG or PNG photo up to 2 MiB is required when creating a venue." : "Select a new JPEG or PNG photo up to 2 MiB to replace the current one.")</small>
             @if (photoReselect)
             {
                 <small id="photo-reselect" class="field-hint" data-photo-reselect>Choose the photo again to replace the current photo; the previous selection was not kept after the failed save.</small>

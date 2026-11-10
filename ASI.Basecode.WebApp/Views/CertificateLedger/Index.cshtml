@@ -61,15 +61,22 @@ else if (Model.Rows.Count > 0)
             {
                 <tr data-registration-id="@row.RegistrationId">
                     <td data-label="Member">@row.MemberName</td>
-                    <td data-label="Student number" class="numeric">@row.StudentNumber</td>
+                    <td data-label="Student number" class="numeric cell-identifier">@row.StudentNumber</td>
                     <td data-label="Event">@row.EventTitle</td>
-                    <td data-label="Attended" class="numeric">@(row.AttendedAt is null ? "Not recorded" : ManilaTimeFormatter.Format(row.AttendedAt.Value))</td>
+                    <td data-label="Attended" class="numeric cell-date">@(row.AttendedAt is null ? "Not recorded" : ManilaTimeFormatter.Format(row.AttendedAt.Value))</td>
                     <td data-label="Eligibility">
                         <span class="badge @row.StatusBadgeClass">@row.StatusLabel</span>
                         @if (!string.IsNullOrWhiteSpace(row.Reason)) { <p class="ledger-reason">@row.Reason</p> }
                     </td>
                     <td data-label="Certificate">
-                        <span class="numeric">@(row.CertificateNumber ?? "Not issued")</span>
+                        @if (row.CertificateNumber is null)
+                        {
+                            <span>Not issued</span>
+                        }
+                        else
+                        {
+                            <span class="numeric">@row.CertificateNumber</span>
+                        }
                         @if (row.IssuedAt is DateTime issuedAt) { <p class="muted ledger-issued-at">@ManilaTimeFormatter.Format(issuedAt)</p> }
                     </td>
                     <td data-label="Actions" class="actions">

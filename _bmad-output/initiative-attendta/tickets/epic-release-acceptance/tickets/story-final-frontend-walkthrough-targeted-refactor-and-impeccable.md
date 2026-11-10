@@ -316,3 +316,129 @@ re-litigated:
    Deliberate omission unless the owner wants `UseExceptionHandler`.
 10. **`PassViewModel.AccentClass` is unused** since Session E deleted the accent
    rules. Removing it is a service change, so it stays.
+
+---
+
+## Alignment pass — 2026-11-10 (scope, exceptions and evidence)
+
+This pass kept every owner-confirmed criticism fix and brought the working tree back
+inside this ticket's scope. It did not change the visual world or re-open the walkthrough.
+This file is the authoritative record; the files under
+`_bmad-output/initiative-attendta/handoff-ui-phases/` are scratch.
+
+### Declared exceptions to "frontend only, zero functional diff"
+
+The owner-confirmed criticism fixes require these non-view changes. They are declared here
+rather than split into another ticket.
+
+| File | Change | Why |
+|---|---|---|
+| `ASI.Basecode.Services/Interfaces/IAccessDialogService.cs`, `Services/AccessDialogService.cs` | New `GetDeactivationPreviewAsync` | The deactivation preview must show the server-read target name and email; the controller must not trust client data. |
+| `ASI.Basecode.WebApp/Controllers/DeactivationPreviewController.cs` | Uses the new read; unknown account → 404; Management policy unchanged | Same fix. |
+| `Views/Shared/_DeactivationPreview.cshtml` | Renders the server-read identity above the impact list | Same fix. |
+| `wwwroot/js/site.js` | Row-menu dismissal returns focus to the visible popover invoker with `preventScroll` | Owner-confirmed keyboard fix; the previous restore targeted the hidden child. |
+| `DESIGN.md`, `PRODUCT.md` | Record the account-request table exception and the focus/preview behaviour | "Implement the world recorded in `DESIGN.md`" is only true if the record matches. |
+| `tests/ASI.Basecode.IntegrationTests/DeactivationPreviewTests.cs` | Regression coverage for the preview identity, the empty state and the 404 | Evidence for the preview fix. |
+| `tests/ASI.Basecode.IntegrationTests/AuthenticationFlowTests.cs` | Rendered-form regression for empty sentinels and attempted-value retention | Proves the `asp-for` + explicit `value` markup, below. |
+| `tests/ASI.Basecode.IntegrationTests/VenuePagedListTests.cs` | Asserts the intentional no-thumbnail list contract | See "Venue photo column". |
+| `ASI.Basecode.WebApp/tests/site.test.js` | Focus-return regressions | Test-only. |
+
+Copy changes in the views are usability findings this ticket already allows fixing. No
+route, field, permission, validation rule, state transition or data rule changed.
+
+### Venue photo column — removal confirmed intentional
+
+`cc8e474` removed the Venue list Photo column and deleted the assertions in
+`VenuePagedListTests`. The owner confirmed on 2026-11-10 that the removal was deliberate:
+the list stays text-only, and the photo remains reachable through the Venue Photo endpoint
+and the edit form. The test now asserts that contract explicitly (`DoesNotContain`
+`venue-thumb` / `/Venue/Photo?id=` in the row) and still checks that
+`/Venue/Photo?id=` returns a JPEG, so the omission is a recorded decision rather than a
+silent regression. This supersedes the earlier "restore the column" instruction.
+
+### `asp-for` plus explicit `value` — proven, not dead markup
+
+`Views/Event/_Form.cshtml` and `Views/Venue/_Form.cshtml` render `asp-for` and an explicit
+`value`. The concern was that the input tag helper's generated value would win, painting
+`0001-01-01T00:00` and `0`. A rendered check
+(`CreateFormsRenderEmptySentinelsAndRetainAttemptedValues`) fetches the real pages through
+the MVC pipeline and asserts:
+
+- `/Event/Create` renders exactly one `value=""` on `StartsAt`, `RegistrationDeadline` and
+  `ParticipantLimit`.
+- `/Venue/Create` renders exactly one `value=""` on `Capacity`.
+- A rejected POST keeps the attempted strings (`not-a-date`, `not-a-number`) on all four.
+- The edit route renders the stored values; `EventDraftFlowTests` already asserts
+  `2026-12-10T09:00` and `2026-12-09T17:30` on `/Event/Edit?id=`.
+
+The explicit value wins and appears once; the tag helper still emits `data-val-*` and
+`name`/`id`. No `DateTime?`/`int?` change was needed, which keeps the change frontend-only
+as this ticket requires.
+
+### `required` on Participant limit — kept
+
+`ParticipantLimit` gained `required`/`aria-required`. `EventViewModel.ParticipantLimit`
+carries `[Range(1, int.MaxValue)]` on a non-nullable `int`, so the control is in fact
+required; the attribute matches the server rule and is kept.
+
+### Identifier alignment — applied consistently
+
+`.cell-identifier` now marks every student number and mobile number in a table:
+`Event/Details`, `CertificateLedger`, `AccountRequest`, `Member`, `CheckIn` (both tables)
+and `Reports/Participation`. Year level, participant limit, counts and record ids stay
+`.numeric` because they are compared as numbers. Dates stay `.cell-date`. The browser
+harness asserts computed `text-align: left` and `tabular-nums` on the AccountRequest and
+Member identifier cells at all four widths, so the class is proven in the rendered page,
+not just in source.
+
+### Authoritative walkthrough record
+
+The "Walkthrough evidence — Session G" section above is the authoritative record for the
+1233/1024/768/390/616 matrix. `handoff-ui-phases/handoff-ui-phases.md` is scratch and its
+"breakpoint walk still unproven" line predates Session G; it now points here.
+
+### Keyboard/dialog evidence
+
+`UiReviewFixesBrowserTests` was run once with `ATTENDTA_UI_BROWSER=1` against a disposable
+`AttendTa_IT_<guid>` database and real headless Chromium. The harness is untracked scratch
+(it is opt-in and CI never runs it); it exists to produce this evidence, not as a
+deliverable.
+
+- 1440/1024/768/390 widths.
+- All ten account-request fields hit-tested at each width.
+- AccountRequest and Member identifier cells compute `text-align: left` with `tabular-nums`.
+- Both populated dossier statuses: identifier left-aligned, tabular figures.
+- 60 real row-menu dismissal cases (Escape, Cancel/Close, close icon, backdrop) across
+  account, reactivation, member and preview dialogs: focus returns to the visible row-menu
+  button and scroll position is unchanged.
+- 14 screenshots captured at 1440 and 390.
+
+Result: 1 test, passed. Screenshots live in
+`handoff-ui-phases/screenshots/session-browser-evidence/` — **scratch, not committed**.
+This run is the evidence for the keyboard/dialog pass; the durable regressions are the
+focus-return cases in `tests/site.test.js` and the preview identity cases in
+`DeactivationPreviewTests`. Actual browser 200% zoom remains unverified; 616px is the
+CSS-viewport proxy recorded in the matrix.
+
+### Verification
+
+- `dotnet build ASI.Basecode.WebApp` — 0 warnings, 0 errors.
+- `dotnet build tests/ASI.Basecode.IntegrationTests` — 0 warnings, 0 errors.
+- `VenuePagedListTests` + the new form test — 2/2 passed.
+- `DeactivationPreviewTests` — passed in the focused run.
+- `AuthenticationFlowTests` (whole class, including the new form test) — 34/34 passed.
+- Whole integration suite — 464 total, 463 passed, 1 skipped (the opt-in browser test).
+- `UiReviewFixesBrowserTests` with `ATTENDTA_UI_BROWSER=1` — 1/1 passed, including the
+  identifier-alignment assertions.
+- Services test host — 321 passed, 0 failed.
+- `npm run css:build` — regenerated; `npm run test:js` — 5/5 passed.
+- `git diff --check` — clean apart from generated-CSS line-ending advisories.
+
+### Still open (owner decisions, unchanged)
+
+Duplicate event row action; missing loading states on Event, AdminAccounts, ActivityLog
+and AccountRequest; `Reports/Participation` column order at narrow widths; `ActivityLog`
+filter; no global search in the top bar; Save in the form action row on the four standalone
+form routes. The Venue photo column is resolved by owner sign-off (removal intentional);
+the identifier-alignment scope is resolved by this pass; the walkthrough-record question is
+resolved by naming this file.

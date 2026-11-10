@@ -1,6 +1,9 @@
 /* Certificate eligibility ledger and PDF viewer. */
 @layer components {
-  .ledger-table { margin-top: 1rem; }
+  /* The scroll region is the containing block for the absolutely positioned visually-hidden
+     spans inside it, so their off-screen boxes stay inside this scroller instead of widening
+     the document. */
+  .ledger-table { margin-top: 1rem; position: relative; }
   .ledger-table .data-table { min-width: 960px; }
   .ledger-table .data-table th:nth-child(3), .ledger-table .data-table td:nth-child(3) { position: static; box-shadow: none; }
   .ledger-table .data-table th:first-child, .ledger-table .data-table td:first-child { min-width: 11rem; }
@@ -21,7 +24,11 @@
     .ledger-table .data-table tbody { display: block; }
     .ledger-table .data-table tr { display: block; padding: .75rem 0; border-bottom: 1px solid var(--color-border); }
     .ledger-table .data-table tr:last-child { border-bottom: 0; }
-    .ledger-table .data-table td { display: block; border-bottom: 0; padding: .4rem 1rem; overflow-wrap: anywhere; white-space: normal; }
+    /* A stacked field is sized by its content: the desktop 48px row height would clip the
+       block and overlap the next field whenever a rejection reason wraps. */
+    .ledger-table .data-table td { display: block; height: auto; min-height: 0; border-bottom: 0; padding: .4rem 1rem; text-align: left; overflow-wrap: anywhere; white-space: normal; }
+    /* Stacked fields read as a label over a value, so dates and identifiers keep the left edge. */
+    .ledger-table .data-table .cell-date { white-space: normal; }
     .ledger-table .data-table td:first-child { min-width: 0; font-weight: 600; font-size: 1rem; }
     .ledger-table .data-table td:nth-child(2) { max-width: none; }
     .ledger-table .data-table td:last-child { position: static; box-shadow: none; padding-top: .75rem; }

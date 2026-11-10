@@ -1,6 +1,26 @@
 @model EventViewModel
 @using ASI.Basecode.Data.Models.Lookups
 @using System.Globalization
+@{
+    // A rejected save keeps exactly what the officer typed; a fresh form stays empty instead of
+    // showing the DateTime/int sentinel. A native date or number control cannot paint an
+    // unparsable string, but the attempted value still travels in the markup.
+    string Attempted(string name) =>
+        ViewData.ModelState.TryGetValue(name, out var entry) ? entry.AttemptedValue : null;
+    bool Invalid(string name) =>
+        ViewData.ModelState.TryGetValue(name, out var entry) && entry.Errors.Count > 0;
+
+    var startsValue = Attempted(nameof(EventViewModel.StartsAt))
+        ?? (Model.StartsAt == default ? string.Empty : Model.StartsAt.ToString("yyyy-MM-ddTHH:mm", CultureInfo.InvariantCulture));
+    var deadlineValue = Attempted(nameof(EventViewModel.RegistrationDeadline))
+        ?? (Model.RegistrationDeadline == default ? string.Empty : Model.RegistrationDeadline.ToString("yyyy-MM-ddTHH:mm", CultureInfo.InvariantCulture));
+    var limitValue = Attempted(nameof(EventViewModel.ParticipantLimit))
+        ?? (Model.ParticipantLimit > 0 ? Model.ParticipantLimit.ToString(CultureInfo.InvariantCulture) : string.Empty);
+
+    var startsInvalid = Invalid(nameof(EventViewModel.StartsAt));
+    var deadlineInvalid = Invalid(nameof(EventViewModel.RegistrationDeadline));
+    var limitInvalid = Invalid(nameof(EventViewModel.ParticipantLimit));
+}
 
 <fieldset>
     <legend>Event details</legend>
@@ -62,19 +82,19 @@ else
             </div>
             <div class="field">
                 <label asp-for="StartsAt" class="field-label">Starts (Asia/Manila) <span class="required" aria-hidden="true">*</span></label>
-                <input asp-for="StartsAt" type="datetime-local" aria-describedby="StartsAt-validation StartsAt-help" class="field-control" required />
+                <input asp-for="StartsAt" type="datetime-local" value="@startsValue" aria-describedby="StartsAt-validation StartsAt-help" aria-required="true" aria-invalid="@(startsInvalid ? "true" : null)" class="field-control" required />
                 <small id="StartsAt-help" class="muted">Enter the start date and time in Asia/Manila.</small>
                 <span id="StartsAt-validation" asp-validation-for="StartsAt" class="field-error"></span>
             </div>
             <div class="field">
                 <label asp-for="RegistrationDeadline" class="field-label">Signup deadline (Asia/Manila) <span class="required" aria-hidden="true">*</span></label>
-                <input asp-for="RegistrationDeadline" type="datetime-local" aria-describedby="RegistrationDeadline-validation RegistrationDeadline-help" class="field-control" required />
+                <input asp-for="RegistrationDeadline" type="datetime-local" value="@deadlineValue" aria-describedby="RegistrationDeadline-validation RegistrationDeadline-help" aria-required="true" aria-invalid="@(deadlineInvalid ? "true" : null)" class="field-control" required />
                 <small id="RegistrationDeadline-help" class="muted">The signup deadline cannot be after the event start.</small>
                 <span id="RegistrationDeadline-validation" asp-validation-for="RegistrationDeadline" class="field-error"></span>
             </div>
             <div class="field">
                 <label asp-for="ParticipantLimit" class="field-label">Participant limit <span class="required" aria-hidden="true">*</span></label>
-                <input asp-for="ParticipantLimit" type="number" min="1" aria-describedby="ParticipantLimit-validation" class="field-control" placeholder="e.g. 100" />
+                <input asp-for="ParticipantLimit" type="number" min="1" value="@limitValue" aria-describedby="ParticipantLimit-validation" aria-required="true" aria-invalid="@(limitInvalid ? "true" : null)" class="field-control" required placeholder="e.g. 100" />
                 <span id="ParticipantLimit-validation" asp-validation-for="ParticipantLimit" class="field-error"></span>
             </div>
         </div>

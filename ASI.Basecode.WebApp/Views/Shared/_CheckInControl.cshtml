@@ -19,7 +19,7 @@
     @if (Model.Dossier)
     {
         <span class="badge @stateBadge">@stateLabel</span>
-        <button type="button" class="button button-secondary" data-dialog-open="check-in-@Model.EventId">@actionText</button>
+        <button type="button" class="button @(Model.IsCheckInOpen ? "button-secondary" : "button-primary")" data-dialog-open="check-in-@Model.EventId">@actionText</button>
         <dialog id="check-in-@Model.EventId" class="task-dialog" aria-labelledby="check-in-title-@Model.EventId">
             <form asp-controller="Event" asp-action="@action" method="post">
                 <input type="hidden" name="id" value="@Model.EventId" />
@@ -39,7 +39,7 @@
             <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
         }
         <span class="badge @stateBadge">@stateLabel</span>
-        <button type="submit" class="button button-secondary button-small" aria-label="@actionLabel">@actionText</button>
+        <button type="submit" class="button @(Model.IsCheckInOpen ? "button-secondary" : "button-primary") button-small" aria-label="@actionLabel">@actionText</button>
         @if (!string.IsNullOrWhiteSpace(stateMeta))
         {
             <span class="check-in-meta">@stateMeta</span>

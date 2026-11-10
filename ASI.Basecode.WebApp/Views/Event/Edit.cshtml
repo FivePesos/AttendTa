@@ -5,8 +5,10 @@
 }
 
 <div class="page-heading">
-    <h1>Edit event</h1>
-    <p>Status: @Model.StatusLabel.@(Model.EventStatusId == EventStatusCode.Published ? " Only title and description can be edited." : "")</p>
+    <div>
+        <h1>Edit event</h1>
+        <p>Status: @Model.StatusLabel.@(Model.EventStatusId == EventStatusCode.Published ? " Only title and description can be edited." : "")</p>
+    </div>
 </div>
 
 <form asp-action="Edit" method="post" class="form-panel">

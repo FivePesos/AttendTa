@@ -60,7 +60,7 @@ else
                 <p class="scanner-camera-note" data-camera-note>Point the camera at the member's pass.</p>
             </div>
             <div class="scanner-actions">
-                <button type="button" class="button button-primary" data-camera-start>Start camera</button>
+                <button type="button" class="button @(Model.IsCheckInOpen ? "button-primary" : "button-secondary")" data-camera-start>Start camera</button>
                 <button type="button" class="button button-secondary" data-camera-stop hidden>Stop camera</button>
                 <button type="button" class="button button-secondary" data-scan-next hidden>Scan next</button>
             </div>
@@ -74,7 +74,7 @@ else
                     <input id="scan-token" name="token" class="field-control" autocomplete="off" autocapitalize="off" spellcheck="false" required placeholder="Paste the pass code" />
                     <span class="field-hint">Paste or type the code shown on the member's pass.</span>
                 </div>
-                <button type="submit" class="button button-primary" data-submitting-label="Checking&hellip;">Check in</button>
+                <button type="submit" class="button @(Model.IsCheckInOpen ? "button-primary" : "button-secondary")" data-submitting-label="Checking&hellip;">Check in</button>
             </form>
         </div>
 
@@ -113,7 +113,7 @@ else
                             {
                                 <tr data-registration-id="@row.RegistrationId">
                                     <td>@row.MemberName</td>
-                                    <td class="numeric">@row.StudentNumber</td>
+                                    <td class="numeric cell-identifier">@row.StudentNumber</td>
                                     <td>
                                         @if (row.IsInvalidated)
                                         {
@@ -211,8 +211,8 @@ else
                         {
                             <tr data-registration-id="@result.RegistrationId">
                                 <td>@result.MemberName</td>
-                                <td class="numeric">@result.StudentNumber</td>
-                                <td class="numeric">@ManilaTimeFormatter.Format(result.RecordedAt)</td>
+                                <td class="numeric cell-identifier">@result.StudentNumber</td>
+                                <td class="numeric cell-date">@ManilaTimeFormatter.Format(result.RecordedAt)</td>
                                 <td>
                                     @if (result.IsInvalidated)
                                     {

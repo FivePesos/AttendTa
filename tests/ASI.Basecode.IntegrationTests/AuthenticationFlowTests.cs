@@ -471,6 +471,59 @@ public class AuthenticationFlowTests : IClassFixture<SqlServerDatabaseFixture>, 
         AssertErrorAssociation(html, second);
     }
 
+    [Fact]
+    public async Task CreateFormsRenderEmptySentinelsAndRetainAttemptedValues()
+    {
+        await SignInAsync(AdminEmail, Password);
+        var ct = TestContext.Current.CancellationToken;
+
+        // A fresh form must not paint the DateTime/int sentinel behind asp-for.
+        var eventHtml = await client.GetStringAsync("/Event/Create", ct);
+        AssertInputValue(eventHtml, "StartsAt", string.Empty);
+        AssertInputValue(eventHtml, "RegistrationDeadline", string.Empty);
+        AssertInputValue(eventHtml, "ParticipantLimit", string.Empty);
+
+        var venueHtml = await client.GetStringAsync("/Venue/Create", ct);
+        AssertInputValue(venueHtml, "Capacity", string.Empty);
+
+        // A rejected save must keep exactly what the officer typed.
+        var eventToken = await GetAntiforgeryTokenAsync("/Event/Create");
+        using var invalidEvent = await client.PostAsync("/Event/Create", new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["__RequestVerificationToken"] = eventToken,
+            ["Title"] = "Retained values",
+            ["StartsAt"] = "not-a-date",
+            ["RegistrationDeadline"] = "not-a-date",
+            ["ParticipantLimit"] = "not-a-number"
+        }), ct);
+        Assert.Equal(HttpStatusCode.OK, invalidEvent.StatusCode);
+        var invalidEventHtml = await invalidEvent.Content.ReadAsStringAsync(ct);
+        AssertInputValue(invalidEventHtml, "StartsAt", "not-a-date");
+        AssertInputValue(invalidEventHtml, "RegistrationDeadline", "not-a-date");
+        AssertInputValue(invalidEventHtml, "ParticipantLimit", "not-a-number");
+
+        var venueToken = await GetAntiforgeryTokenAsync("/Venue/Create");
+        using var invalidVenue = await client.PostAsync("/Venue/Create", new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["__RequestVerificationToken"] = venueToken,
+            ["RoomName"] = "Retained capacity",
+            ["Capacity"] = "not-a-number"
+        }), ct);
+        Assert.Equal(HttpStatusCode.OK, invalidVenue.StatusCode);
+        AssertInputValue(await invalidVenue.Content.ReadAsStringAsync(ct), "Capacity", "not-a-number");
+    }
+
+    private static void AssertInputValue(string html, string field, string expected)
+    {
+        var input = Regex.Match(html, $"<input\\b[^>]*\\bname=\"{field}\"[^>]*>", RegexOptions.IgnoreCase);
+        Assert.True(input.Success, $"No control for {field}.");
+        // The explicit value must be the only value attribute; a duplicate would let the
+        // tag helper's generated sentinel win in the browser.
+        var values = Regex.Matches(input.Value, "\\bvalue=\"([^\"]*)\"", RegexOptions.IgnoreCase);
+        Assert.True(values.Count == 1, $"Expected one value attribute on {field}: {input.Value}");
+        Assert.Equal(expected, values[0].Groups[1].Value);
+    }
+
     [Theory]
     [InlineData("/Member", "No members yet. Members are created when an account request is approved.")]
     [InlineData("/Member?search=%20%20", "No members yet. Members are created when an account request is approved.")]

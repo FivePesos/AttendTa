@@ -12,7 +12,8 @@
     <input type="hidden" asp-for="MemberId" />
     <div class="field">
         <label asp-for="Email" class="field-label">Email</label>
-        <input asp-for="Email" class="field-control" readonly aria-readonly="true" />
+        <input asp-for="Email" class="field-control" readonly aria-readonly="true" aria-describedby="Email-help" />
+        <small id="Email-help" class="muted">The sign-in email belongs to the account and cannot be changed here.</small>
     </div>
     <partial name="_Form" model="Model" />
     <div class="form-actions">

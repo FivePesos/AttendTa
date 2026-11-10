@@ -36,7 +36,18 @@
 
 @if (!Model.Items.Any())
 {
-    <div class="empty-panel"><p>No registrations found.</p></div>
+    var statusFilter = (string)ViewBag.Status;
+    <div class="empty-panel">
+        <p>No @statusFilter registrations found.</p>
+        @if (!string.Equals(statusFilter, "pending", StringComparison.OrdinalIgnoreCase))
+        {
+            <p class="muted">Change the status filter or <a asp-action="Index">show pending registrations</a>.</p>
+        }
+        else
+        {
+            <p class="muted">New registrations appear here once members sign up for an event.</p>
+        }
+    </div>
 }
 else
 {

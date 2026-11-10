@@ -14,6 +14,14 @@ public interface IAccessDialogService
     /// <exception cref="ASI.Basecode.Resources.DomainException">The account does not exist.</exception>
     Task<AccountAccessViewModel> GetAccountAccessAsync(int accountId, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Builds the read-only deactivation impact preview for one account. It returns the same
+    /// authoritative identity as the access dialog but always reads the upcoming registrations,
+    /// whatever the account's active state, and never takes the last-administrator count.
+    /// </summary>
+    /// <exception cref="ASI.Basecode.Resources.DomainException">The account does not exist.</exception>
+    Task<AccountAccessViewModel> GetDeactivationPreviewAsync(int accountId, CancellationToken cancellationToken = default);
+
     /// <summary>Builds the membership access dialog for one member.</summary>
     /// <exception cref="ASI.Basecode.Resources.DomainException">The member does not exist.</exception>
     Task<MembershipAccessViewModel> GetMembershipAccessAsync(int memberId, CancellationToken cancellationToken = default);

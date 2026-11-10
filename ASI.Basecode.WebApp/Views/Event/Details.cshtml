@@ -103,7 +103,7 @@
                                 <span class="name-text">@row.MemberName</span>
                             </span>
                         </td>
-                        <td class="numeric">@row.StudentNumber</td>
+                        <td class="numeric cell-identifier">@row.StudentNumber</td>
                         <td class="numeric cell-date">@ManilaTimeFormatter.Format(row.SubmittedAt)</td>
                         <td><span class="badge @(cutoffLabel ? "badge-closed" : RegistrationStatusDisplay.BadgeClass(row.Status, false))">@(cutoffLabel ? "Not confirmed before cutoff" : row.Status.ToString())</span></td>
                         <td class="actions"><div class="row-actions">
