@@ -361,6 +361,41 @@ public class HotspotHttpsOptionsTests
         }
     }
 
+    [Theory]
+    [InlineData("GET", "/Account/Login", false, true)]
+    [InlineData("HEAD", "/Account/Login", false, false)]
+    [InlineData("POST", "/Account/Login", false, false)]
+    [InlineData("GET", "/CheckIn", false, false)]
+    [InlineData("GET", "/css/app.css", false, false)]
+    [InlineData("GET", "/CheckIn", true, true)]
+    [InlineData("POST", "/Account/Login", true, true)]
+    public void LoopbackHttpListenerOnlyServesTheReadinessRequest(
+        string method,
+        string path,
+        bool https,
+        bool expected)
+    {
+        var context = new DefaultHttpContext();
+        context.Request.Method = method;
+        context.Request.Path = path;
+        context.Request.Scheme = https ? "https" : "http";
+        context.Connection.LocalIpAddress = IPAddress.Loopback;
+
+        Assert.Equal(expected, HotspotHttps.AllowsLoopbackRequest(context));
+    }
+
+    [Fact]
+    public void NonLoopbackRequestIsNotRestricted()
+    {
+        var context = new DefaultHttpContext();
+        context.Request.Method = "GET";
+        context.Request.Path = "/CheckIn";
+        context.Request.Scheme = "http";
+        context.Connection.LocalIpAddress = IPAddress.Parse("192.168.137.1");
+
+        Assert.True(HotspotHttps.AllowsLoopbackRequest(context));
+    }
+
     private static int GetFreePort()
     {
         using var listener = new TcpListener(IPAddress.Loopback, 0);

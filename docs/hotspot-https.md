@@ -79,6 +79,10 @@ $env:Hotspot__CertificatePassword = '<runtime secret>'
 certificate path must be absolute. Hotspot mode configures the Kestrel listeners explicitly, so
 leave `ASPNETCORE_URLS` unset; it does not add a second listener in this mode.
 
+`Hotspot:HttpPort` must match the port in `ATTENDTA_READINESS_LOGIN_URL` (for example, both
+`5080`). The readiness command reads its URL from the environment, not from the `Hotspot` section,
+so changing one without the other makes the check fail.
+
 Startup validates before listening and refuses with a message naming the key when:
 
 - the PFX is missing (`Hotspot:CertificatePath`);
@@ -109,7 +113,8 @@ Adjust the subnet to the hotspot adapter's actual network. Do not open the port 
    (a dedicated service account is fine). If the key store is unavailable, pre-import the PFX for
    that identity or use a machine key store before starting.
 2. Confirm the loopback readiness endpoint still returns HTTP 200:
-   `http://127.0.0.1:5080/Account/Login`.
+   `http://127.0.0.1:5080/Account/Login`. In hotspot mode this listener is readiness-only: it serves
+   only `GET /Account/Login`. Use the HTTPS URL for the actual UI.
 3. On the host, open `https://<hotspot-ip>:5443/Account/Login`. Trust the root CA in the Windows
    Trusted Root store first, or expect a one-time warning.
 4. Run `--demo-readiness` with `ATTENDTA_READINESS_LOGIN_URL` set to the loopback HTTP URL.

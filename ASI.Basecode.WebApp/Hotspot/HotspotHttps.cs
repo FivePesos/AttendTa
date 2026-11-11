@@ -5,6 +5,7 @@ using System.Net;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.AspNetCore.Server.Kestrel.Https;
 
@@ -57,11 +58,38 @@ public static class HotspotHttps
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(certificate);
 
-        kestrel.Listen(IPAddress.Loopback, options.HttpPort);
+        // ListenLocalhost binds both 127.0.0.1 and [::1], matching the readiness validator's
+        // acceptance of localhost, 127.0.0.1 and [::1].
+        kestrel.ListenLocalhost(options.HttpPort);
         kestrel.Listen(
             IPAddress.Parse(options.LanAddress),
             options.HttpsPort,
             listen => listen.UseHttps(certificate));
+    }
+
+    /// <summary>
+    /// True when the request may be served on the loopback HTTP listener. In hotspot mode that
+    /// listener exists only for the readiness check, so a plain-HTTP loopback request is limited to
+    /// <c>GET /Account/Login</c>. HTTPS requests and requests that did not arrive on a loopback
+    /// address are not restricted here.
+    /// </summary>
+    public static bool AllowsLoopbackRequest(HttpContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        if (context.Request.IsHttps)
+        {
+            return true;
+        }
+
+        if (context.Connection.LocalIpAddress is null
+            || !IPAddress.IsLoopback(context.Connection.LocalIpAddress))
+        {
+            return true;
+        }
+
+        return HttpMethods.IsGet(context.Request.Method)
+            && string.Equals(context.Request.Path.Value, "/Account/Login", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>

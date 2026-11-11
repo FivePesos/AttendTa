@@ -4,6 +4,7 @@ using ASI.Basecode.WebApp.Hotspot;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -145,7 +146,23 @@ namespace ASI.Basecode.WebApp
             // Hotspot mode serves HTTPS directly on the hotspot adapter IP. Redirecting the loopback
             // HTTP readiness endpoint would present a certificate that may not name 127.0.0.1, so
             // the redirect stays off while hotspot HTTPS is on.
-            if (!HotspotHttpsOptions.FromConfiguration(this.Configuration).Enabled)
+            var hotspotEnabled = HotspotHttpsOptions.FromConfiguration(this.Configuration).Enabled;
+            if (hotspotEnabled)
+            {
+                // The loopback HTTP listener exists only for the readiness check in hotspot mode.
+                // Serve only its GET /Account/Login request; every other request must use HTTPS.
+                this._app.Use(async (context, next) =>
+                {
+                    if (!HotspotHttps.AllowsLoopbackRequest(context))
+                    {
+                        context.Response.StatusCode = StatusCodes.Status404NotFound;
+                        return;
+                    }
+
+                    await next();
+                });
+            }
+            else
             {
                 this._app.UseHttpsRedirection();
             }
