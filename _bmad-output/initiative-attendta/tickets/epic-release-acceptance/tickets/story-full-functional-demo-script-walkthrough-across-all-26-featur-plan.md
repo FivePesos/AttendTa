@@ -59,7 +59,7 @@ deferred: []
 ## Tasks & Acceptance
 
 **Execution:**
-- [x] `demo-walkthrough-evidence.md` — author the header (ticket, tested commit, build, date, operator, OS/runtime, database, app process, private store, browser, reused evidence), the result legend, and the journey table skeleton.
+- [x] `demo-walkthrough-evidence.md` — author the header (ticket, tested commit, build, date, operator, OS/runtime, database, app process, private store, reused evidence), the result legend, and the journey table skeleton.
 - [x] Same file — provision: reset `AttendTaMVP_Test`, apply `attendta-mvp-schema.sql`, generate three Argon2id hashes with `--hash-password`, run `seed-local-admin.sql`, `seed-event-types.sql`, `seed-demo-scenario.sql`, copy the private images, start the app Production on `http://localhost:5080`.
 - [x] Same file — execute the public request beat (FR-1), admin approval (FR-2), and sign-in as the newly created member (FR-3); confirm the approved account is Member role with the submitted course/year/section.
 - [x] Same file — execute A1–A7: home, request queue, member search, event-type/venue/member editors, draft event + cover + publish, access preview/deactivate, activity log.
@@ -83,7 +83,7 @@ deferred: []
 
 Executed 2026-11-11 on `84b3f54` against a freshly seeded `AttendTaMVP_Test`, Production build on
 `http://localhost:5080`. The record is `_bmad-output/initiative-attendta/demo-walkthrough-evidence.md`
-(68 journey rows, 36 FR rows, 26 functional-ID rows, 6 blocked rows, 0 defects).
+(68 journey rows, 36 FR rows, 26 functional-ID rows, 7 blocked rows, 0 defects).
 
 - The journey member is Ava Mendoza (`UC-2026-0111`), created by the public request and approval;
   the seeded member Liza Fernandez holds the issued certificate because the certificate leg needs a
@@ -95,8 +95,9 @@ Executed 2026-11-11 on `84b3f54` against a freshly seeded `AttendTaMVP_Test`, Pr
 - Two check-in methods ran: pass-code scan on the new event and manual lookup on the started event.
 - FR-17 (promotion) is REUSED because the journey had no full event; FR-19's exact start boundary is
   REUSED and only the post-completion refusal was observed.
-- Two stale demo-script expectations are recorded as notes, not defects: `MemberEvents/Details?id=2`
-  returns 404 for a cancelled event, and the seeded confirmed registrations carry no QR token.
+- Three demo-script and demo-data discrepancies are recorded as notes, not defects: `MemberEvents/Details?id=2`
+  returns 404 for a cancelled event, the seeded confirmed registrations carry no QR token, and
+  `demo-script.md` §5's "the token is read from the pass page" is stale.
 - Verification: `dotnet build ASI.Basecode.sln --configuration Release` 0 warnings / 0 errors; a
   coverage script confirmed 36 FR rows and 26 functional-ID rows with no missing or duplicate ids;
   `git diff --check` clean. The record and this plan are the only files added.
@@ -131,7 +132,7 @@ One record file, not an edit of `demo-script.md`: the script is the presenter's 
 - `git diff --check` — expected: clean.
 
 **Manual checks (if no CLI):**
-- Open the record: every journey row has the role, the action, the observed outcome, the evidence and a result; every BLOCKED row names its missing input.
+- Open the record: every journey row has the role, the action, the observed outcome and a result; every BLOCKED row names its missing input.
 
 ## Auto Run Result
 

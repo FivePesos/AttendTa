@@ -40,13 +40,13 @@ The 8.4 manifest was produced on `fa9ae82`. The tested commit here is `84b3f54`,
 only by documentation and evidence commits (the 8.6 record and the PR #224 merge). The manifest's
 own rule is that documentation and evidence-only commits do not invalidate it, so it is cited
 unchanged and no suite was re-run for this ticket. The manifest records .NET SDK 10.0.403, the
-same patch level used here.
+same SDK version used here.
 
 ## 2. Result legend
 
 | Result | Meaning |
 |---|---|
-| **PASS** | Executed on the tested commit and environment above; the evidence field names the observation. |
+| **PASS** | Executed on the tested commit and environment above; the observed-outcome cell names the observation. |
 | **FAIL** | Executed; the observed result contradicts the expected outcome. The row names the defect. |
 | **BLOCKED** | Not executable here. The row names the exact missing input and the evidence file that owns it. A closed issue, a merged tool or a planning document is never substituted. |
 | **REUSED** | Covered by the cited automated suite or walkthrough; not re-run for this ticket. |
@@ -147,7 +147,7 @@ issued certificate.
 | J62 | FR-8 | Admin | `POST /Venue/Edit` with a replacement JPEG | "Venue updated successfully."; the served photo changed from 170,275 to 179,839 bytes and the stored path is a new area-prefixed file | PASS |
 | J63 | FR-19 | Officer | Administratively cancel a confirmed registration on the completed event | Refused with "Event status changed. Refresh and try again."; the registration stays confirmed | PASS (refusal observed; exact start boundary REUSED) |
 | J64 | FR-34 | Officer | `GET /admin/auditlogs` | 302 to `/Account/AccessDenied?ReturnUrl=%2Fadmin%2Fauditlogs` | PASS |
-| J65 | FR-3 | Member | `POST /Account/Logout`, then `GET /Home/Index` | 302 to `/`; the next request 302s to `/Account/Login?ReturnUrl=%2FHome%2FIndex`; the `AttendTa.Auth` cookie is gone | PASS |
+| J65 | FR-3 | Member | `POST /Account/Logout`, then `GET /Home/Index` | 302 to `/Account/Login`; the next request 302s to `/Account/Login?ReturnUrl=%2FHome%2FIndex`; the `AttendTa.Auth` cookie is gone | PASS |
 | J66 | FR-35 | Operator | Re-run `seed-local-admin.sql` on the seeded database, then run it with no variables | 1 active Administrator before and after; exactly 1 `user.provisioned` audit row before and after; the stored hash is Argon2id and no plaintext is stored; with no variables sqlcmd refuses with "'AdminName' scripting variable not defined." and exit 1 | PASS |
 | J67 | FR-36 | Anon | Submit 26 real requests through the public form | 26 × 302 to the acknowledgment page; pending requests rise to 27 | PASS |
 | J68 | FR-36 | Admin | Page, filter and empty-state the request queue | Page 1 shows 25 rows, "Page 1 of 2", Next only; page 2 shows 2 rows, "Page 2 of 2", Previous only; `page=0` shows page 1; `page=99` shows page 2; `search=zzzzz` shows "No pending account requests found." with no pager; `/Venue` shows 3 rows with no pager | PASS |
