@@ -275,7 +275,7 @@ it closes. All cited commits are confirmed ancestors of `4eac1b9`.
 | **R3** | prd SM-4 — the seat, attendance and certificate concurrency tests pass together on SQL Server with zero overbooking or duplicates | Row 1 (8.4), mapped by row 2 §7 | **PASS.** Zero overbooked events, zero duplicate attendance, zero duplicate certificates, zero duplicate registrations, all inside one 479-test SQL Server run with 0 failed. |
 | **R4** | prd NFR-1, NFR-6, Q2 — officers' phones scan a QR Pass in Chrome over the hotspot through trusted HTTPS on the demo host, with manual lookup still available | Rows 8, 9, 3 (ATT-03) | **BLOCKED.** The pass-code scan and the manual-lookup fallback are proven (8.7 J33–J36); the camera path on the real HTTPS origin is not. Missing: a real demo host with the hotspot HTTPS binding, its root CA on a real officer phone, and a phone on the hotspot subnet. |
 | **R5** | prd NFR-4 — SQL Server and stored images and certificates survive app restart and redeploy and are backed up and restored together into a disposable location | Rows 9, 10, 3 (OPS-01, OPS-02) | **BLOCKED.** Missing: a real host, a dedicated service identity and SQL login, an approved backup destination, an approved empty restore target, a maintenance window and an approver. |
-| **R6** | prd SM-3; addendum D — Tier 3 manual E2E passes and `dev` is released to `main` | Row 5 (8.8) + this record | **HALF OPEN.** The Tier 3 matrix is complete and T3-01/T3-02/T3-03/T3-04/T3-06 are settled, but **T3-05 is BLOCKED on seven rows** and **T3-07 (the human Tier 3 decision) is BLANK**. The release pull request is prepared in §8 and not opened. |
+| **R6** | prd SM-3; addendum D — Tier 3 manual E2E passes and `dev` is released to `main` | Row 5 (8.8) + this record | **HALF OPEN.** The Tier 3 matrix is complete and T3-01/T3-02/T3-03/T3-04/T3-06 are settled, but **T3-05 is BLOCKED on seven rows** and **T3-07 (the human Tier 3 decision) is BLANK**. The release pull request is opened as #231 and not merged. |
 
 **R2 and R3 are closed outright. R1 passes with 5 BLOCKED rows and 2 BLOCKED sub-fields — the same
 host, phone and human inputs that block R4 and R5 — so it is not cleanly closed. R4 and R5 are
@@ -399,9 +399,10 @@ should be held for retroactive approvals.
 
 This record does not resolve any of §7.1–§7.3 and does not recommend a verdict.
 
-## 8. Prepared pull request — a human step this ticket does not execute
+## 8. Release pull request — opened, not merged
 
-**Not opened. Not merged. Do not treat this section as an approval.**
+**Opened as [#231](https://github.com/rainyDayssss/AttendTa/pull/231) on 2026-11-12, after this record
+was written. Not merged. Do not treat this section as an approval.**
 
 The pull request is `release/82-main-submission` → `main`, not `dev` → `main`. A `dev` → `main` pull
 request would merge the planning, evidence, agent and tooling trees into the submission branch; §6
@@ -413,11 +414,10 @@ explains what is excluded and why. The release branch carries `dev`'s applicatio
 release: AttendTa MVP submission tree for main
 ```
 
-### 8.2 Command
+### 8.2 Command — already run
 
-Run from the repository root, once the human has decided §7 and the sign-off in §9 is filled. First
-save the §8.3 body to a file (any path works; the example uses the session temp directory), then
-open the pull request:
+This command was run on 2026-11-12 and produced [#231](https://github.com/rainyDayssss/AttendTa/pull/231).
+It is recorded here so the pull request can be reproduced or reopened if it is closed without merging:
 
 ```powershell
 gh pr create --repo rainyDayssss/AttendTa --base main --head release/82-main-submission `
@@ -426,8 +426,8 @@ gh pr create --repo rainyDayssss/AttendTa --base main --head release/82-main-sub
 ```
 
 If the reviewer would rather carry the whole record as the PR body, point `--body-file` at
-`_bmad-output/initiative-attendta/release-preparation-record.md` instead. Either way the command is
-a human step; this ticket does not run it.
+`_bmad-output/initiative-attendta/release-preparation-record.md` instead. Opening the pull request is
+not the decision: the merge is, and that remains a human step.
 
 ### 8.3 Reviewable body
 
@@ -562,9 +562,9 @@ on `dev`.
 | Affected retests | — (blank until the decision is recorded) |
 
 **The release is not approved by this file.** The merge decision, the approver, the date and the
-retest fields are empty on purpose. R4 and R5 are blocked, R6 is half open on T3-05 and T3-07, the
-peer-approval exception in §7.3 is undecided, and the pull request in §8 has not been opened. Only
-the human sign-off in this section can close the gate.
+retest fields are empty on purpose. R1 passes with blocked rows, R4 and R5 are blocked, R6 is half open
+on T3-05 and T3-07, the peer-approval exception in §7.3 is undecided, and the release pull request in
+§8 is open (#231) but unmerged. Only the human sign-off in this section can close the gate.
 
 ## 10. Defects found
 
