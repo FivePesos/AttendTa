@@ -21,8 +21,8 @@ The merge decision and every sign-off field in §9 are deliberately blank.
 | Repository | `rainyDayssss/AttendTa` |
 | **`dev` head (the integration commit)** | `4eac1b9bb72c26b54a02547e5a95dc428eab5d9a` — *Merge pull request #228 from wigglebop25/docs/225-review-record*, 2026-11-12 22:23:33 +0800 |
 | **`main` head (the merge target)** | `174d1fd7e20c6a8b9095d9a351e1d058da550511` — *Initial commit* |
-| **Release branch** | `release/82-main-submission` at `ce699b09ef62304a5330cf44321f59e7ac0d0a53` — the filtered tree proposed for `main` (§8) |
-| **Release tree** | **10 top-level entries, 502 files**: `.gitignore`, `ASI.Basecode.Data`, `ASI.Basecode.Resources`, `ASI.Basecode.Services`, `ASI.Basecode.WebApp`, `ASI.Basecode.sln`, `README.md`, `database/`, `docs/`, `tests/` |
+| **Release branch** | `release/82-main-submission` at `ec95549` — the filtered tree proposed for `main` (§8) |
+| **Release tree** | **11 top-level entries, 503 files**: `.gitignore`, `ASI.Basecode.Data`, `ASI.Basecode.Resources`, `ASI.Basecode.Services`, `ASI.Basecode.WebApp`, `ASI.Basecode.sln`, `README.md`, `database/`, `docs/`, `global.json`, `tests/` |
 | Divergence | `dev` is **396 commits ahead** of `main` and **0 behind** (`git rev-list --count upstream/main..4eac1b9` = 396, `4eac1b9..upstream/main` = 0). Of the 396, **162 are merge commits** — 117 of them first-parent, one per merged pull request — and **234 are non-merge commits**. The branch is fast-forwardable: `main` has no commit that `dev` lacks. |
 | Merge base | `174d1fd7e20c6a8b9095d9a351e1d058da550511` — `main` is a strict ancestor of `dev` |
 | Date | 2026-11-12 |
@@ -287,7 +287,7 @@ R6 and does not state that the release is approved.
 ### 6.1 What `main` receives — a filtered tree, not a plain `dev` merge
 
 `main` is the submission branch and holds the application only. A plain merge of `dev` into `main`
-would change 1 664 files, of which **1 138** are planning, evidence, agent and tooling files that do
+would change 1 664 files, of which **1 137** are planning, evidence, agent and tooling files that do
 not belong in a submission. The release therefore ships a **filtered tree**: the `dev` head content of
 ten top-level entries, committed on `release/82-main-submission` on top of `main`.
 
@@ -298,15 +298,16 @@ ten top-level entries, committed on `release/82-main-submission` on top of `main
 | `.gitignore` | Keeps build output, private storage and key material out of the tree |
 | `README.md` | Prerequisites, build, database, run, test and sign-in |
 | `database/` | Canonical schema, reset, admin seed, event-type seed, venue migration, demo provisioning |
+| `global.json` | Selects the `Microsoft.Testing.Platform` runner, without which the documented `dotnet test --project` command fails (§6.4) |
 | `tests/` | The 321-test service suite and the 479-test integration suite CI runs |
 | `docs/` | Setup guides, architecture, ERD, sequence diagrams and the evidence records they cite |
 
-Release tree: **10 top-level entries, 502 tracked files**. `main` before the release: 7 entries, 133
+Release tree: **11 top-level entries, 503 tracked files**. `main` before the release: 7 entries, 133
 files.
 
 ### 6.2 What is deliberately not released
 
-1 138 of the 1 664 files that `dev` changes stay out of `main`:
+1 137 of the 1 664 files that `dev` changes stay out of `main`:
 
 | Excluded top-level entry | Files changed `main..dev` | Reason |
 |---|---|---|
@@ -319,14 +320,14 @@ files.
 | `bruno/` | 12 | Manual API collection |
 | `newdocs/` | 8 | Superseded design notes |
 | `tools/` | 2 | Host tooling |
-| `AGENTS.md`, `DESIGN.md`, `PRODUCT.md`, `AttendTa-User-Stories.md`, `global.json`, `opencode.jsonc`, `skills-lock.json`, `.gitmodules`, `spec/`, `.github/` | 10 | Agent instructions, design authority, submodule wiring and the CI workflow, none of which the submission needs |
+| `AGENTS.md`, `DESIGN.md`, `PRODUCT.md`, `AttendTa-User-Stories.md`, `opencode.jsonc`, `skills-lock.json`, `.gitmodules`, `spec/`, `.github/` | 9 | Agent instructions, design authority, submodule wiring and the CI workflow, none of which the submission needs |
 
 `spec/` is a private submodule and `.github/workflows/ci.yml` triggers only on pull requests to `dev`;
 shipping either would add a broken submodule or a workflow that never runs on `main`.
 
 ### 6.3 The release diff
 
-`git diff --shortstat upstream/main release/82-main-submission` → **528 files changed, 71 371
+`git diff --shortstat upstream/main release/82-main-submission` → **529 files changed, 71 376
 insertions(+), 65 300 deletions(-)**.
 
 | Area | Files changed |
@@ -338,23 +339,24 @@ insertions(+), 65 300 deletions(-)**.
 | `docs/` | 37 |
 | `ASI.Basecode.Resources` | 7 |
 | `database/` | 7 |
-| `.gitignore`, `ASI.Basecode.sln`, `README.md` | 3 |
-| **Total** | **528** |
+| `.gitignore`, `ASI.Basecode.sln`, `README.md`, `global.json` | 4 |
+| **Total** | **529** |
 
 The large deletion count is the BaseCode template being replaced by the AttendTa implementation:
 `main` is the template, `dev` is the finished MVP.
 
-### 6.4 Two release-branch adjustments
+### 6.4 Three release-branch decisions
 
-The filtered tree needed two changes that are not on `dev`. Both are confined to the release branch and
-both are disclosed here rather than folded in silently.
+The filtered tree needed three decisions that are not on `dev`. All are confined to the release branch
+and all are disclosed here rather than folded in silently.
 
 | File | Change | Why |
 |---|---|---|
 | `tests/ASI.Basecode.IntegrationTests/ASI.Basecode.IntegrationTests.csproj` | The `Content Include` for the venue-upload fixture now points at `TestAssets\venue-upload.jpg` inside the test project; the file was copied there byte-identically from `_bmad-output/initiative-attendta/ux-attendta/imports/prototype-assets/event-cyber.jpg` (blob `1f03f88`, 175 060 bytes, `git hash-object` matches) | The test project referenced a planning folder. Without the copy the solution does not build once `_bmad-output/` is excluded: `error MSB3030: Could not copy the file ... because it was not found`. This is a real coupling defect on `dev`, recorded in §10. |
+| `global.json` | Added to the release tree (it was in the first draft's excluded set) | It is not an SDK pin. Its only content is `{"test": {"runner": "Microsoft.Testing.Platform"}}`, which is what makes `dotnet test --project` work. Without it the documented command fails with `MSB1001: Unknown switch. ... Switch: --project`, and the README tells readers to run exactly that command. |
 | `README.md` | Removed the `_bmad-output/initiative-attendta/demo-script.md` / `demo-rehearsal-findings.md` sentence and the `AGENTS.md` bullet | Both point at paths that are not in the release tree. Every remaining README link resolves inside the released tree. |
 
-The release tree is therefore `dev`'s application content plus these two adjustments, not a byte-exact
+The release tree is therefore `dev`'s application content plus these three decisions, not a byte-exact
 subset of `dev`. Nothing in `ASI.Basecode.*/` differs from `dev`.
 
 What a reviewer is approving, in product terms: the full AttendTa MVP across platform access, master
@@ -398,6 +400,38 @@ whether committed review artifacts plus the 107 green runs are sufficient, or wh
 should be held for retroactive approvals.
 
 This record does not resolve any of §7.1–§7.3 and does not recommend a verdict.
+
+### 7.4 Local evidence obtained after this record was written
+
+Five of the seven rows were exercised on a local workstation on 2026-11-12 and 2026-11-13, after the
+record was first drafted. **None of them is closed by this** — they prove the mechanics and the
+software path, not the host, the phone or the human. The rows in §7.1 stay BLOCKED until those inputs
+exist.
+
+| Row | What was executed | Result | Still missing |
+|---|---|---|---|
+| **ATT-03** | Generated the root CA and server certificate with `--new-hotspot-cert --host 192.168.1.106 --host attendta-demo.local`; verified the chain; bound Kestrel with `Hotspot:Enabled`; then drove the origin over TLS with `curl --cacert <root>.pem` | Root CA `CN=AttendTa Hotspot Root CA`; server `CN=192.168.1.106` with `SANs DNS:attendta-demo.local, IP:192.168.1.106`, valid 2026-11-13 → 2027-12-15 (397 days). Chain builds server → root (2 elements). Kestrel bound `https://192.168.1.106:5443`. `/Account/Login` over HTTPS → **200**, presented subject `CN=192.168.1.106` / issuer `CN=AttendTa Hotspot Root CA`, chain verified. Same origin with `Host: attendta-demo.local` → **200**. A client that does not trust the root is rejected (`curl` exit 60). Sign-in over HTTPS → **302** to `/Home/Index`; `/CheckIn` → **200** with the scanner referenced; `/js/features/scanner-camera.js` → **200**, 6 074 bytes — so the camera page is served in a secure context, which `getUserMedia` requires. | A real officer phone on the hotspot subnet with the root CA installed, and the scan itself. |
+| **OPS-01** | Ran `--demo-readiness` twice: once with the workstation's Windows identity, then with a dedicated SQL login provisioned by `provision-demo-runtime.sql` and `ATTENDTA_RUNTIME_SQL_LOGIN` set | With the Windows identity: `FAIL runtime SQL identity and audit permissions`, `PASS private storage`, `PASS Playwright Chromium PDF rendering`, `PASS localhost login HTTP 200`. With the dedicated runtime login: **all four PASS**, exit 0. `INFO Offline status not verified; a disconnected-host run requires separate operator evidence.` | The actual demo host, its service identity, `AttendTa_Demo` on that host, and the disconnected-host evidence. |
+| **M-AUTH-01** | Signed in on a Production build, then made three further authenticated requests 2 s apart and compared the `AttendTa.Auth` cookie value; read the configured lifetime | Cookie value **byte-identical** across all four samples, so it does not slide — the configured `SlidingExpiration = false` is now observed, not just declared. `Expires = 0001-01-01`, so it is a session cookie (non-persistent). `HttpOnly = true`. `AuthCookie.LifetimeHours = 8`. | The 8-hour absolute boundary. Needs an 8-hour idle observation or a decision that the configured 8 h is sufficient. |
+| **OPS-02** | `BACKUP DATABASE` of a disposable database (665 pages) then `RESTORE` to a **separate** target database; separately, a recursive copy of the whole `SetupRoot` | Restored row counts identical to the source (1 user, 6 event types, 2 activity_logs, 3 roles, 1 admin) and a marker row survived with its description. All **7** `SetupRoot` files — venue upload, certificate, two Data Protection keys and three log files — restored with identical SHA-256 hashes. | A real host, an approved backup destination, an approved empty restore target, a maintenance window and an approver. |
+| **M-AUD-01** | Created a dedicated SQL login and user, ran `database/provision-demo-runtime.sql` against `AttendTa_Demo`, then connected **as that login** and both read effective permissions and attempted real DML | `activity_logs`: `SELECT=1`, `INSERT=1`, `UPDATE=0`, `DELETE=0`; database `CONTROL=0`; **0** column-level `UPDATE` grants; other tables full CRUD. Behaviourally, `INSERT` succeeded and both `UPDATE` and `DELETE` failed with `Msg 229 ... permission was denied`. | A provisioned runtime SQL login on a demo host. |
+
+Three incidental findings from these runs:
+
+- `activity_logs` carries `TR_activity_logs_append_only`, an `INSTEAD OF UPDATE, DELETE` trigger. It
+  refused a `DELETE` **even as the database administrator**, so the audit log is append-only by
+  trigger as well as by grant. That is defence in depth beyond what §7.1 describes.
+- The provisioning script could not be run as shipped; see D-3 in §10. The first M-AUD-01 probe
+  pre-substituted its variable and ran it with `sqlcmd -x`. After the D-3 fix it runs with plain
+  `-v`, which is how the OPS-01 runtime identity was provisioned.
+- The first `--demo-readiness` run failed the SQL check because `ATTENDTA_RUNTIME_SQL_LOGIN` was not
+  set, not because of a host gap. That is a configuration precondition of the check itself, and it is
+  worth stating so the next operator does not read the failure as a defect.
+
+Every probe login, its user, the restored database and the backup file were removed afterwards, and
+`AttendTa_Demo` was returned to its original state (4 users, 17 `activity_logs` rows, 18 tables,
+trigger re-enabled). The generated certificates and the disposable databases remain under the session
+temp directory and can be deleted freely.
 
 ## 8. Release pull request — opened, not merged
 
@@ -443,26 +477,27 @@ planning, evidence, agent and tooling trees on `dev`.
 
 ## What `main` receives
 
-10 top-level entries, 502 files:
+11 top-level entries, 503 files:
 
 ```
 .gitignore  ASI.Basecode.Data  ASI.Basecode.Resources  ASI.Basecode.Services
-ASI.Basecode.WebApp  ASI.Basecode.sln  README.md  database/  docs/  tests/
+ASI.Basecode.WebApp  ASI.Basecode.sln  README.md  database/  docs/  global.json  tests/
 ```
 
-1 138 of the 1 664 files `dev` changes are deliberately excluded: `.agents/` (558), `_bmad-output/`
+1 137 of the 1 664 files `dev` changes are deliberately excluded: `.agents/` (558), `_bmad-output/`
 (398), `.opencode/` (88), `_bmad/` (32), `.impeccable/` (17), `docsss/` (13), `bruno/` (12),
-`newdocs/` (8), `tools/` (2) and ten root files including `AGENTS.md`, `DESIGN.md`, `PRODUCT.md`,
-`global.json`, `.gitmodules`, `spec/` and `.github/`. `spec/` is a private submodule and `ci.yml`
-triggers only on pull requests to `dev`, so neither belongs on `main`.
+`newdocs/` (8), `tools/` (2) and nine root files including `AGENTS.md`, `DESIGN.md`, `PRODUCT.md`,
+`.gitmodules`, `spec/` and `.github/`. `spec/` is a private submodule and `ci.yml` triggers only on
+pull requests to `dev`, so neither belongs on `main`.
 
-Diff against `main`: **528 files changed, 71 371 insertions(+), 65 300 deletions(-)**.
+Diff against `main`: **529 files changed, 71 376 insertions(+), 65 300 deletions(-)**.
 
-## Two adjustments not on `dev`
+## Three decisions not on `dev`
 
 | File | Change |
 |---|---|
 | `tests/ASI.Basecode.IntegrationTests/ASI.Basecode.IntegrationTests.csproj` | The venue-upload fixture now points at `TestAssets\venue-upload.jpg` inside the test project, copied byte-identically from the planning folder it used to reference. Without it the solution fails to build once `_bmad-output/` is excluded (`MSB3030`). |
+| `global.json` | Shipped. It is not an SDK pin — its only content selects the `Microsoft.Testing.Platform` runner, without which the documented `dotnet test --project` command fails with `MSB1001`. |
 | `README.md` | Dropped the two references to paths outside the release tree, so every link resolves. |
 
 Nothing in `ASI.Basecode.*/` differs from `dev`.
@@ -495,9 +530,15 @@ this pull request body.
 | `npm --prefix ASI.Basecode.WebApp run test:js` | exit 0 — 5 tests, 5 pass, 0 fail |
 | `dotnet test --project tests/ASI.Basecode.Services.Tests/... --configuration Release` | exit 0 — 321 total, 321 succeeded, 0 failed, 0 skipped |
 | `dotnet build ASI.Basecode.sln --configuration Release` on the release tree | exit 0 — 0 warnings, 0 errors |
+| `dotnet test --project tests/ASI.Basecode.Services.Tests/... --configuration Release` on the release tree | exit 0 — 321 total, 321 succeeded, 0 failed, 0 skipped |
+| `dotnet tests/ASI.Basecode.IntegrationTests/bin/Release/net10.0/ASI.Basecode.IntegrationTests.dll -parallelMode none` on the release tree | exit 0 — **479 total, 479 passed, 0 failed, 0 skipped, 0 not run**, 714.6 s |
+| `npm --prefix ASI.Basecode.WebApp run test:js` on the release tree | exit 0 — 5 tests, 5 pass, 0 fail |
 
-The 479-test integration suite was not re-run: `git diff --name-only fa9ae82..4eac1b9` touches
-only `_bmad-output/`, so the 8.4 manifest is still valid under its own rule.
+The 479-test integration suite was **run on the release tree**, not just on `dev`, so the release
+branch is not resting on the 8.4 manifest's validity argument. On `dev` it was not re-run:
+`git diff --name-only fa9ae82..4eac1b9` touches only `_bmad-output/`, so the 8.4 manifest is still
+valid under its own rule. The full CI job also ran green on PR #230 (`build-and-test`, 7m 28s, run
+43242205714) for the same application content.
 
 ## CI status — reported as observed
 
@@ -540,9 +581,9 @@ only `_bmad-output/`, so the 8.4 manifest is still valid under its own rule.
 ## Not in this PR
 
 No product change, no Razor, CSS, schema or `.github/workflows/ci.yml` change. Nothing in
-`ASI.Basecode.*/` differs from `dev`. The only non-`dev` edits are the two adjustments above: the
-test-project fixture path and two README lines. The planning, evidence, agent and tooling trees stay
-on `dev`.
+`ASI.Basecode.*/` differs from `dev`. The only non-`dev` items are the three decisions above: the
+test-project fixture path, the shipped `global.json`, and two README lines. The planning, evidence,
+agent and tooling trees stay on `dev`.
 ```
 
 ## 9. Sign-off block
@@ -575,6 +616,8 @@ and 0 product defects across 8.4–8.11.
 | Id | Area | Observation | Severity | Filed |
 |---|---|---|---|---|
 | D-1 | `tests/ASI.Basecode.IntegrationTests/ASI.Basecode.IntegrationTests.csproj` | The integration test project copies its venue-upload fixture from `_bmad-output/initiative-attendta/ux-attendta/imports/prototype-assets/event-cyber.jpg`. The test project therefore cannot build unless a planning folder is present, which blocks any release tree that excludes `_bmad-output/`. Observed as `error MSB3030: Could not copy the file ... because it was not found`. Worked around on the release branch (§6.4); the coupling itself remains on `dev`. | Low — build portability, no runtime effect | Not filed; follow-up needed on `dev` |
+| D-2 | `global.json` | The file is not an SDK pin. Its only content is `{"test": {"runner": "Microsoft.Testing.Platform"}}`, which is what makes `dotnet test --project` work. Any tree that omits it — a release tree, a submission archive, a fresh clone without it — fails the README's documented test command with `MSB1001: Unknown switch. ... Switch: --project`. Found while verifying the release tree, not on `dev`. | Low — tooling, no runtime effect | Not filed; the release tree now ships it (§6.4) |
+| D-3 | `database/provision-demo-runtime.sql` | **The script cannot be parsed by `sqlcmd` at all.** Line 9 guards against an unsubstituted variable with `@user LIKE N'%$(%'`, and `sqlcmd` reads `$(` as the start of its own variable substitution, so it aborts with `Sqlcmd: Error: Syntax error at line 9 near command '%'`. Minimal repro: a file containing only `SELECT N'%$(%';` fails identically by default and succeeds under `sqlcmd -x`. This is why the demo-runtime grant path was never exercised: the script that provisions it never ran. Worked around for the M-AUD-01 probe by pre-substituting the variable and running with `-x`; the script itself is unchanged on `dev`. | Medium — a shipped provisioning script that cannot execute | **Fixed in #233**; verified by running it with plain `-v` and no `-x` |
 
 Three record-level observations, none of them a product defect and none of them fixed here:
 
