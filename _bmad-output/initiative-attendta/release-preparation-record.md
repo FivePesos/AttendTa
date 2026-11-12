@@ -277,9 +277,10 @@ it closes. All cited commits are confirmed ancestors of `4eac1b9`.
 | **R5** | prd NFR-4 — SQL Server and stored images and certificates survive app restart and redeploy and are backed up and restored together into a disposable location | Rows 9, 10, 3 (OPS-01, OPS-02) | **BLOCKED.** Missing: a real host, a dedicated service identity and SQL login, an approved backup destination, an approved empty restore target, a maintenance window and an approver. |
 | **R6** | prd SM-3; addendum D — Tier 3 manual E2E passes and `dev` is released to `main` | Row 5 (8.8) + this record | **HALF OPEN.** The Tier 3 matrix is complete and T3-01/T3-02/T3-03/T3-04/T3-06 are settled, but **T3-05 is BLOCKED on seven rows** and **T3-07 (the human Tier 3 decision) is BLANK**. The release pull request is prepared in §8 and not opened. |
 
-**R1, R2 and R3 are closed. R4 and R5 are blocked on host, phone and restore inputs. R6 is half open
-on T3-05 and the human decision.** This record does not close R4, R5 or R6 and does not state that
-the release is approved.
+**R2 and R3 are closed outright. R1 passes with 5 BLOCKED rows and 2 BLOCKED sub-fields — the same
+host, phone and human inputs that block R4 and R5 — so it is not cleanly closed. R4 and R5 are
+blocked. R6 is half open on T3-05 and the human decision.** This record does not close R1, R4, R5 or
+R6 and does not state that the release is approved.
 
 ## 6. Release scope
 
