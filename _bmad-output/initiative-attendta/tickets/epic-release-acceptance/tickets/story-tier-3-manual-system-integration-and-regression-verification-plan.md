@@ -11,9 +11,10 @@ risk: 'high'
 review: 'quick'
 review_source: 'pinned'
 lenses_ran: ['quick']
-review_loop_iteration: 0
+review_loop_iteration: 1
 context:
   - '{project-root}/_bmad-output/initiative-attendta/manual-acceptance-checklist.md'
+  - '{project-root}/_bmad-output/initiative-attendta/demo-walkthrough-evidence.md'
   - '{project-root}/_bmad-output/initiative-attendta/execution-manifest-fa9ae82.md'
   - '{project-root}/_bmad-output/initiative-attendta/acceptance-coverage-matrix.md'
   - '{project-root}/docs/hotspot-https-evidence.md'
@@ -51,8 +52,10 @@ context:
 - `_bmad-output/initiative-attendta/tier-3-verification-record.md` (new) — the deliverable.
 - `_bmad-output/initiative-attendta/execution-manifest-fa9ae82.md` — 8.4 evidence: commit `fa9ae82`, 321 service / 479 integration, 0 failed; states its own invalidation rule. Read-only.
 - `_bmad-output/initiative-attendta/manual-acceptance-checklist.md` — 8.6 execution record on `d8046bf`: 8 PASS, 5 BLOCKED, 2 BLOCKED sub-fields, evaluator decision blank. Read-only.
-- `_bmad-output/initiative-attendta/acceptance-coverage-matrix.md` — 8.5 case ids and residuals; the id list the record cross-references. Read-only.
+- `_bmad-output/initiative-attendta/demo-walkthrough-evidence.md` — 8.7 / #80 execution record on `84b3f54`, merged at `71e7373`: 68 journey rows, 36 FR rows, 26 functional-ID rows, 7 blocked host/phone rows; the T3-04 evidence. Read-only.
+- `_bmad-output/initiative-attendta/acceptance-coverage-matrix.md` — 8.5 coverage map and residuals, not execution evidence. Read-only.
 - `_bmad-output/initiative-attendta/finale-test-cases.md` §"One finale execution programme" — the 8.8 step definition. Read-only.
+- `_bmad-output/initiative-attendta/demo-script.md` — 8.15 presenter beats; the journey definition, not execution evidence. Read-only.
 - `docs/hotspot-https-evidence.md`, `docs/demo-host-readiness-evidence.md`, `docs/storage-survival-evidence.md` — every real-host row `BLOCKED`; source of ATT-03, OPS-01, OPS-02, M-AUD-01. Read-only.
 - `database/migrate-venue-image-paths.sql` — allow-list guard (lines 9–15), `venues/%` update (47–49); the migration under test. Read-only.
 - `database/attendta-mvp-schema.sql`, `reset-local-mvp-test-db.sql`, `seed-local-admin.sql`, `seed-event-types.sql` — disposable fixture. Read-only.
@@ -62,10 +65,10 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [x] `_bmad-output/initiative-attendta/tier-3-verification-record.md` — author the record: header (ticket, tested commit, environment, operator, date), result legend (PASS/FAIL/BLOCKED/REUSED/NOT RUN), evidence-reuse table with each source's commit and validity verdict, the Tier 3 matrix, the blockers table, and the sign-off block with the decision blank.
-- [x] Same file — Tier 3 matrix rows: T3-01 cross-feature compatibility (REUSED from 8.6 UI-01/UI-02 and the 8.4 suite), T3-02 integrated build (executed: `dotnet build` Release, `css:build`, `test:js`, service tests), T3-03 database migration checks (executed), T3-04 request-to-certificate/report integration journey (8.7, BLOCKED), T3-05 environment rows ATT-03/OPS-01/OPS-02/M-AUD-01/M-AUTH-01/CERT-03-signatory (BLOCKED), T3-06 affected retests after fixes (none required — no source change since `fa9ae82`), T3-07 human Tier 3 decision (blank).
+- [x] `_bmad-output/initiative-attendta/tier-3-verification-record.md` — author the record: header (ticket, tested commit, environment, operator, date), result legend (PASS/FAIL/BLOCKED/REUSED/NOT RUN/PASS (none required)/BLANK), evidence-reuse table with each source's commit and validity verdict, the Tier 3 matrix, the blockers table, and the sign-off block with the decision blank.
+- [x] Same file — Tier 3 matrix rows: T3-01 cross-feature compatibility (REUSED from 8.6 UI-01/UI-02 and the 8.4 suite), T3-02 integrated build (executed: `dotnet build` Release, `css:build`, `test:js`, service tests), T3-03 database migration checks (executed), T3-04 request-to-certificate/report integration journey (8.7, REUSED after PR #226 merged the 8.7 record), T3-05 environment rows ATT-03/OPS-01/OPS-02/M-AUD-01/M-AUTH-01/CERT-03-signatory/M-ADM-01 (BLOCKED), T3-06 affected retests after fixes (none required — no source change since `fa9ae82`), T3-07 human Tier 3 decision (blank).
 - [x] Same file — execute T3-03 against a disposable `AttendTa_IT_<guid>` database: schema load, legacy `venues/<name>` fixture rows, run the migration, assert the `uploads/venues/` prefix, rerun for idempotence, assert the guard refuses a non-allow-listed name, and assert an over-length path aborts with no rows changed. Record the commands and observed output.
-- [x] Same file — fill the blockers table: 8.7 (#80) not executed, ATT-03 phone scan, OPS-01 demo host, OPS-02 backup/restore, M-AUD-01 runtime SQL login, M-AUTH-01 8-hour expiry, CERT-03 signatory approval; each with owner and unblocking action.
+- [x] Same file — fill the blockers table: ATT-03 phone scan, OPS-01 demo host, OPS-02 backup/restore, M-AUD-01 runtime SQL login, M-AUTH-01 8-hour expiry, CERT-03 signatory approval; each with owner and unblocking action.
 
 **Acceptance Criteria:**
 - Given the finished record, when a reader looks for the tested commit, then one exact commit and its environment are stated, and every reused source names its own commit.
@@ -79,14 +82,19 @@ context:
 - 2026-11-11 - one new file, `_bmad-output/initiative-attendta/tier-3-verification-record.md`; no product, Razor, CSS, schema, test or CI change. `dotnet build ASI.Basecode.sln --configuration Release` gave 0 warnings, 0 errors on `84b3f54`.
 - T3-02 re-ran the integrated build, `css:build`, `test:js` and the 321 service tests; all exit 0. The 479-test integration suite was not re-run because `git diff --stat fa9ae82..84b3f54` touches five files, all under `_bmad-output/`, so the 8.4 manifest's own invalidation rule still holds.
 - T3-03 ran on a disposable `AttendTa_IT_t3mig523f203e` created from the canonical schema: legacy `venues/<name>` keys gained exactly one `uploads/` prefix, the rerun was a no-op, the allow-list guard refused a non-allow-listed database with exit 1 before any DML, and an over-length path aborted with exit 1 while the row checksum stayed unchanged. The prefix, idempotence and over-length assertions are also automated by `VenueImagePathMigrationTests` inside the 479 suite; only the guard is new evidence. A second probe database proved the guard; both were dropped afterwards.
-- The record leaves T3-04 (8.7 demo journey) and T3-05 (seven host/device/signatory/race rows) BLOCKED with the missing input and owning file named, and leaves T3-07 and section 8 blank. Sign-off is stated as blocked, never approved.
+- The record originally left T3-04 (8.7 demo journey) and T3-05 (seven host/device/signatory/race rows) BLOCKED with the missing input and owning file named, and left T3-07 and section 8 blank. Sign-off is stated as blocked, never approved.
+- 2026-11-12 — after PR #226 merged `demo-walkthrough-evidence.md` (8.7 / #80) into `dev` at `71e7373`, T3-04 was reclassified **REUSED** against that record, which was executed on the same `84b3f54` commit. The 8.7 blocker row was removed; §3 gained the 8.7 source; §8 now names only T3-05 as open. No product, Razor, CSS, schema, test or CI change.
 - A pre-existing untracked `story-full-functional-demo-script-walkthrough-across-all-26-featur-plan.md` (ticket 7 / #80) was in the working tree before this run. It is not part of this change and was left untracked and unmodified.
 
 ## Plan Change Log
 
+- 2026-11-12 — human renegotiation: T3-04 reclassified from BLOCKED to REUSED after PR #226 merged the 8.7 / #80 execution record. The frozen Approach's "marks every unmet row BLOCKED" is superseded for this row. Added the 8.7 source and the `demo-script.md` definition to §3 and the plan's Context/Code Map, corrected the `demo-script.md` owner to 8.15 / #135, removed the 8.7 blocker from §7, and updated §8 to name only T3-05 as open. Documentation-only; no source, test, schema or CI change.
+- 2026-11-12 — formal walkthrough review (adversarial, edge-case, structure, prose) on `1f5e8d9`: 12 substantive findings, 5 gate-affecting, all patched in this change.
+
 ## Review Triage Log
 
-- 2026-11-11 — quick lens, 6 findings: 0 high, 4 medium, 1 low, 0 false, 0 maybe-false. Routes: 5 patch, 0 rejected.
+- 2026-11-11 — quick lens, 5 findings: 0 high, 4 medium, 1 low, 0 false, 0 maybe-false. Routes: 5 patch, 0 rejected.
+- 2026-11-12 — formal walkthrough review (adversarial, edge-case, structure, prose) on `1f5e8d9`: 12 substantive findings, 5 gate-affecting, all patched in this change.
 
 | # | Finding | Verdict | Route | Evidence / action |
 |---|---|---|---|---|
@@ -98,7 +106,7 @@ context:
 
 ## Design Notes
 
-8.6 already executed the manual remainder and 8.4 already ran the combined suite, so 8.8 is a decision record, not a third checklist. Only two rows are genuinely unexecuted and locally runnable: the integrated build on this exact commit, and the venue image path migration's allow-list guard, which Tier 3 names and no earlier ticket ran — the prefix, idempotence and over-length assertions are already automated in `VenueImagePathMigrationTests` inside the 479 suite, so only the guard is new evidence. Everything else is either reused with a stated validity rule or blocked on a human or host input.
+8.6 already executed the manual remainder, 8.4 already ran the combined suite, and 8.7 executed the continuous journey, so 8.8 is a decision record, not a third checklist. Only two rows are genuinely unexecuted and locally runnable: the integrated build on this exact commit, and the venue image path migration's allow-list guard, which Tier 3 names and no earlier ticket ran — the prefix, idempotence and over-length assertions are already automated in `VenueImagePathMigrationTests` inside the 479 suite, so only the guard is new evidence. T3-04 now reuses the 8.7 record, which was executed on the same `84b3f54` commit and merged at `71e7373`. Everything else is either reused with a stated validity rule or blocked on a human or host input.
 
 The migration check is recorded as commands and observed output rather than a new script: the ticket is evidence-only, and a one-off run on a disposable database matches the 8.6 precedent without adding tooling that 8.9 would then have to maintain.
 
