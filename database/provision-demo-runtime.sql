@@ -6,7 +6,7 @@ IF DB_NAME() <> N'AttendTa_Demo'
     THROW 51100, 'Run only in AttendTa_Demo.', 1;
 
 DECLARE @user sysname = N'$(RuntimeUser)';
-IF @user IS NULL OR @user LIKE N'%$(%' OR @user IN (N'dbo', N'guest', N'public', N'INFORMATION_SCHEMA', N'sys')
+IF @user IS NULL OR @user LIKE N'%' + NCHAR(36) + N'(%' OR @user IN (N'dbo', N'guest', N'public', N'INFORMATION_SCHEMA', N'sys')
    OR DATABASE_PRINCIPAL_ID(@user) IS NULL
    OR NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE name = @user AND type IN ('S','U'))
     THROW 51101, 'Supply an existing, dedicated runtime database user.', 1;
