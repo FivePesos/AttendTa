@@ -401,6 +401,31 @@ should be held for retroactive approvals.
 
 This record does not resolve any of §7.1–§7.3 and does not recommend a verdict.
 
+### 7.4 Local evidence obtained after this record was written
+
+Three of the seven rows were exercised on a local workstation on 2026-11-12, after the record was
+first drafted. **None of them is closed by this** — they prove the mechanics, not the host. The rows in
+§7.1 stay BLOCKED until the host, phone and human inputs exist.
+
+| Row | What was executed | Result | Still missing |
+|---|---|---|---|
+| **M-AUTH-01** | Signed in on a Production build, then made three further authenticated requests 2 s apart and compared the `AttendTa.Auth` cookie value | Cookie value **byte-identical** across all four samples, so it does not slide. `Expires = 0001-01-01`, so it is a session cookie (non-persistent). `HttpOnly = true`. | The 8-hour absolute boundary. Needs an 8-hour idle observation or a decision that the configured 8 h in `Startup.Auth.cs` is sufficient. |
+| **OPS-02** | `BACKUP DATABASE` of a disposable database (665 pages) then `RESTORE` to a **separate** target database; separately, a recursive copy of the whole `SetupRoot` | Restored row counts identical to the source (1 user, 6 event types, 2 activity_logs, 3 roles, 1 admin) and a marker row survived with its description. All **7** `SetupRoot` files — venue upload, certificate, two Data Protection keys and three log files — restored with identical SHA-256 hashes. | A real host, an approved backup destination, an approved empty restore target, a maintenance window and an approver. |
+| **M-AUD-01** | Created a dedicated SQL login and user, ran `database/provision-demo-runtime.sql` against `AttendTa_Demo`, then connected **as that login** and both read effective permissions and attempted real DML | `activity_logs`: `SELECT=1`, `INSERT=1`, `UPDATE=0`, `DELETE=0`; database `CONTROL=0`; **0** column-level `UPDATE` grants; other tables full CRUD. Behaviourally, `INSERT` succeeded and both `UPDATE` and `DELETE` failed with `Msg 229 ... permission was denied`. | A provisioned runtime SQL login on a demo host. |
+
+Two incidental findings from the M-AUD-01 run:
+
+- `activity_logs` carries `TR_activity_logs_append_only`, an `INSTEAD OF UPDATE, DELETE` trigger. It
+  refused a `DELETE` **even as the database administrator**, so the audit log is append-only by
+  trigger as well as by grant. That is defence in depth beyond what §7.1 describes.
+- The provisioning script itself could not be run as shipped; see D-3 in §10. The probe pre-substituted
+  its variable and ran it with `sqlcmd -x` so the script's own verification block still executed and
+  passed.
+
+The probe login, its user, the restored database and the backup file were all removed afterwards, and
+`AttendTa_Demo` was returned to its original state (4 users, 17 `activity_logs` rows, 18 tables, trigger
+re-enabled).
+
 ## 8. Release pull request — opened, not merged
 
 **Opened as [#231](https://github.com/rainyDayssss/AttendTa/pull/231) on 2026-11-12, after this record
@@ -585,6 +610,7 @@ and 0 product defects across 8.4–8.11.
 |---|---|---|---|---|
 | D-1 | `tests/ASI.Basecode.IntegrationTests/ASI.Basecode.IntegrationTests.csproj` | The integration test project copies its venue-upload fixture from `_bmad-output/initiative-attendta/ux-attendta/imports/prototype-assets/event-cyber.jpg`. The test project therefore cannot build unless a planning folder is present, which blocks any release tree that excludes `_bmad-output/`. Observed as `error MSB3030: Could not copy the file ... because it was not found`. Worked around on the release branch (§6.4); the coupling itself remains on `dev`. | Low — build portability, no runtime effect | Not filed; follow-up needed on `dev` |
 | D-2 | `global.json` | The file is not an SDK pin. Its only content is `{"test": {"runner": "Microsoft.Testing.Platform"}}`, which is what makes `dotnet test --project` work. Any tree that omits it — a release tree, a submission archive, a fresh clone without it — fails the README's documented test command with `MSB1001: Unknown switch. ... Switch: --project`. Found while verifying the release tree, not on `dev`. | Low — tooling, no runtime effect | Not filed; the release tree now ships it (§6.4) |
+| D-3 | `database/provision-demo-runtime.sql` | **The script cannot be parsed by `sqlcmd` at all.** Line 9 guards against an unsubstituted variable with `@user LIKE N'%$(%'`, and `sqlcmd` reads `$(` as the start of its own variable substitution, so it aborts with `Sqlcmd: Error: Syntax error at line 9 near command '%'`. Minimal repro: a file containing only `SELECT N'%$(%';` fails identically by default and succeeds under `sqlcmd -x`. This is why the demo-runtime grant path was never exercised: the script that provisions it never ran. Worked around for the M-AUD-01 probe by pre-substituting the variable and running with `-x`; the script itself is unchanged on `dev`. | Medium — a shipped provisioning script that cannot execute | Not filed; needs a fix on `dev` |
 
 Three record-level observations, none of them a product defect and none of them fixed here:
 
