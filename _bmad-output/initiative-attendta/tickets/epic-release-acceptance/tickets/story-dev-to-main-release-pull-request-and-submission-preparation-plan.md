@@ -134,6 +134,17 @@ deferred: []
   branch is 7 commits ahead of the remote and is not what a pull request merges into. Corrected in the
   record's §1, §6, §8, §9 and §10. The ticket plan's original 396 was right.
 
+- 2026-11-12 — **the release tree was verified, not assumed.** Built it (0 warnings, 0 errors) and ran
+  the full suites against it: **479/479 integration tests passed** (714.6 s, 0 failed, 0 skipped, 0 not
+  run) and 321/321 service tests passed, plus 5/5 JS tests. The release branch is therefore not resting
+  on the 8.4 manifest's validity argument.
+- 2026-11-12 — **found and fixed a defect in the release tree while verifying it (D-2).** The first
+  draft excluded `global.json`, which is not an SDK pin: its only content is
+  `{"test": {"runner": "Microsoft.Testing.Platform"}}`, and without it the README's documented
+  `dotnet test --project` command fails with `MSB1001: Unknown switch. ... Switch: --project`. Added
+  it to the release tree; the tree is now 11 entries / 503 files and the diff against `main` is 529
+  files, +71 376 / −65 300.
+
 ## Plan Change Log
 
 - 2026-11-12 — **supersedes the divergence correction below.** The 389 figure was measured against the
