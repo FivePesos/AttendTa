@@ -226,7 +226,7 @@ namespace ASI.Basecode.Services.Services
 
         private static void Normalize(MemberViewModel model)
         {
-            model.FullName = model.FullName?.Trim();
+            model.FullName = ProfileOptions.NormalizeName(model.FullName);
             model.StudentNumber = model.StudentNumber?.Trim();
             model.Course = ProfileOptions.NormalizeCourse(model.Course);
             model.Section = ProfileOptions.NormalizeSection(model.Section);

@@ -13,8 +13,4 @@ internal static class ProfileFixtures
     /// <summary>Eight digits, so the value satisfies <c>ProfileOptions.StudentNumberPattern</c>.</summary>
     public static string NewStudentNumber() =>
         Interlocked.Increment(ref studentNumberSeed).ToString("D8", CultureInfo.InvariantCulture);
-
-    /// <summary>Eight digits that start with a zero, to prove identifiers stay strings.</summary>
-    public static string NewLeadingZeroStudentNumber() =>
-        "0" + Interlocked.Increment(ref studentNumberSeed).ToString(CultureInfo.InvariantCulture)[1..];
 }
