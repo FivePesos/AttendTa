@@ -587,6 +587,7 @@ These are delivered across the 20 HLD screens, together with FR-35 (initial admi
 | Pagination size | FR-36 (25 rows per page) vs the shipped build (validated 5–25 Auto-fit) | Validated size, default 5, 1–25, Auto-fit to the window (FR-36). 25 rows does not fit a laptop screen under the shell header. |
 | Profile field formats | PRD silent; professor review 2026-11-15 | Course BSCS/BSIT, year 1–4, section A–F, eight-digit student number, eleven-digit mobile, password of at least eight characters with a letter and a digit (FR-1, FR-5) |
 | Section values | Alignment handoff 2026-11-15: do not restrict to A–F because the form only suggests them; professor review: validate section | A–F on new submissions; stored legacy values stay readable (FR-1, FR-5) |
+| Legacy profile values | Alignment handoff 2026-11-15: decide a correction path before enforcing the rules; project owner 2026-11-15: the data is disposable | No correction path. The only database is the disposable demo, reset and reseeded with compliant values, and the seed and test fixtures must generate compliant values (FR-1, FR-5) |
 
 ### 9.1 Accepted Risks & Known Limitations
 
@@ -595,7 +596,7 @@ These are delivered across the 20 HLD screens, together with FR-35 (initial admi
 - **Student-number reuse.** A number freed by a correction (FR-5) can be claimed by a new Applicant. Corrections are rare and audited.
 - **Late ineligibility.** A Member made inactive after an Event starts cannot be checked in and counts as a No-show (FR-32), per SPEC §5.
 - **Mistyped login email.** It cannot be corrected in this MVP (FR-5); there is no self-service email-change or credential-recovery flow.
-- **Legacy profile records.** Records created before the field rules may hold a year level outside 1–4, a formatted student number, or a section outside A–F. They stay readable, but approving an old pending request or editing such a Member is refused until the value is corrected. The correction path is §10 Q3.
+- **Legacy profile records.** No correction path exists for a record that predates the field rules. This is accepted because the only database is the disposable demo: it is reset and reseeded with compliant values, and the seed script and test fixtures must generate values that pass FR-1. Any future import must be validated before load rather than repaired afterwards.
 
 ## 10. Open Questions
 
@@ -605,7 +606,6 @@ None of these blocks UX, architecture, or epic planning. Each is deferred with a
 |---|---|---|---|
 | Q1 | **Authorized certificate signatory.** The certificate requires the authorized person's name, title and signature. Their actual details remain to be supplied before official issuance. The fixed HTML/CSS template and Asia/Manila timezone follow the current project documents. | PM (Talisic) | Before official certificate issuance |
 | Q2 | **Hotspot setup.** Configure storage, the host address and trusted HTTPS so a phone can scan with Chrome over a hotspot. | Technical Manager (Gabutan) | Before the demo |
-| Q3 | **Correcting legacy profile values.** Records that predate the FR-1 field rules cannot pass them. Decide whether an unrelated edit may leave such a value unchanged, or whether the record must be corrected first, and who corrects it. | Project owner | Before the member-edit validation entry ships |
 
 ## 11. Assumptions Index
 
