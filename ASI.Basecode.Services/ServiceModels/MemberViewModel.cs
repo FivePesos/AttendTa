@@ -17,7 +17,7 @@ namespace ASI.Basecode.Services.ServiceModels
         public string Email { get; set; }
 
         [Required(ErrorMessage = "Student number is required.")]
-        [RegularExpression(ProfileOptions.StudentNumberPattern, ErrorMessage = "Enter an 8-digit student number starting with 2.")]
+        [RegularExpression(ProfileOptions.StudentNumberPattern, ErrorMessage = "Enter an 8-digit student number.")]
         public string StudentNumber { get; set; }
 
         [StringLength(500, ErrorMessage = "The correction reason cannot exceed 500 characters.")]
