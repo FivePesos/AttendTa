@@ -238,9 +238,9 @@ public sealed class CertificateLedgerFlowTests(SqlServerDatabaseFixture fixture)
             await page.ScreenshotAsync(new() { Path = Path.Combine(Path.GetTempPath(), $"attendta-pdf-modal-{width}.png"), FullPage = true });
             await page.Keyboard.PressAsync("Escape");
             Assert.False(await page.Locator("#certificate-preview").EvaluateAsync<bool>("dialog => dialog.open"));
-            Assert.True(await pdfTrigger.EvaluateAsync<bool>("link => link === document.activeElement"));
+            await Assertions.Expect(page.Locator("[data-pdf-pages] canvas")).ToHaveCountAsync(0);
+            await Assertions.Expect(pdfTrigger).ToBeFocusedAsync();
             Assert.Equal(originUrl, page.Url);
-            Assert.Equal(0, await page.Locator("[data-pdf-pages] canvas").CountAsync());
         }
         failNextPdf = true;
         await page.Locator("[data-certificate-pdf]").ClickAsync();
