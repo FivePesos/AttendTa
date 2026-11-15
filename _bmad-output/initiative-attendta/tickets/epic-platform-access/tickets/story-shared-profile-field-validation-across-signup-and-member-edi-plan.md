@@ -48,11 +48,11 @@ context: []
 
 ## Code Map
 
-- `ASI.Basecode.Resources/Constants/ProfileOptions.cs` — `Courses` L7, `YearLevels` L18 (today 1–5), `Sections` L21 (A–F), `NormalizeCourse` L10–15. No `NormalizeSection`, no patterns.
-- `ASI.Basecode.Services/ServiceModels/AccountRequestViewModel.cs` — `StudentNumber` L11, `Course` L27 (already `^(BSCS|BSIT)$`), `YearLevel` L33 (`Range(1, int.MaxValue)`), `Section` L38, `MobileNumber` L43, `Password` L47, `ConfirmPassword` L52. Only Required/StringLength today.
-- `ASI.Basecode.Services/ServiceModels/MemberViewModel.cs` — `StudentNumber` L18, `Course` L25, `YearLevel` L30 (non-nullable `int`), `Section` L33, `MobileNumber` L37.
-- `ASI.Basecode.Services/Services/AccountRequestService.cs` — `Normalize` L276–284 then `Validate` L286–297 (`Validator.TryValidateObject`, `validateAllProperties: true`) from `SubmitAsync` L72–73. `ApproveAsync` L167–175 feeds request values into `MemberViewModel`, so approval re-validates.
-- `ASI.Basecode.Services/Services/MemberService.cs` — `Normalize` L227–238, `Validate` L240–251, called at L85–86 (create) and L136/L158 (update).
+- `ASI.Basecode.Resources/Constants/ProfileOptions.cs` — `Courses` L7 (BSCS/BSIT), `NormalizeCourse` L10–15, `YearLevels` L18 (today 1–5), `Sections` L21 (A–F). No `NormalizeSection`, no patterns.
+- `ASI.Basecode.Services/ServiceModels/AccountRequestViewModel.cs` — `StudentNumber` L11, `Course` L27 (already `^(BSCS|BSIT)$`), `YearLevel` L32 (`Range(1, int.MaxValue)`), `Section` L37, `MobileNumber` L42, `Password` L46, `ConfirmPassword` L51. Only Required/StringLength on the rest.
+- `ASI.Basecode.Services/ServiceModels/MemberViewModel.cs` — `StudentNumber` L18, `Course` L25, `YearLevel` L29 (non-nullable `int`), `Section` L32, `MobileNumber` L36.
+- `ASI.Basecode.Services/Services/AccountRequestService.cs` — `Normalize` L276–284 then `Validate` L286–289 (`Validator.TryValidateObject`, `validateAllProperties: true`) from `SubmitAsync` L72–73. `ApproveAsync` L167–175 feeds request values into `MemberViewModel`, so approval re-validates.
+- `ASI.Basecode.Services/Services/MemberService.cs` — `Normalize` L227–238, `Validate` L240–243, called at L85–86 (create) and L136/L158 (update).
 - `ASI.Basecode.WebApp/Views/AccountRequest/Request.cshtml` — year select from `ProfileOptions.YearLevels` L43–50; section is free text + datalist L54–64; student number L13–17 and mobile L65–69 lack `inputmode`/`maxlength`.
 - `ASI.Basecode.WebApp/Views/Member/_Form.cshtml` — year L45–52, section free text + datalist L56–66, student number L15–19, mobile L73–77.
 - `ASI.Basecode.WebApp/Models/ListToolbarViewModel.cs` L13–14 — course/year filters already read `ProfileOptions`; no change.
@@ -61,7 +61,7 @@ context: []
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `ASI.Basecode.Resources/Constants/ProfileOptions.cs` — `YearLevels` becomes `{1,2,3,4}`; add `StudentNumberPattern` `^[0-9]{8}$`, `MobileNumberPattern` `^[0-9]{11}$`, `SectionPattern` `^[A-Fa-f]$`, `PasswordPattern` `^(?=.*[A-Za-z])(?=.*[0-9]).{8,}$`; add `NormalizeSection` (trim, upper-invariant, blank→null) beside `NormalizeCourse`.
+- [ ] `ASI.Basecode.Resources/Constants/ProfileOptions.cs` — `YearLevels` becomes `{1,2,3,4}`; add `StudentNumberPattern` `^[0-9]{8}$`, `MobileNumberPattern` `^[0-9]{11}$`, `SectionPattern` `^[A-Fa-f]$`, `PasswordPattern` `^(?=.*[A-Za-z])(?=.*[0-9]).{8,}$`; add `NormalizeSection` (trim, upper-invariant, blank→null) beside `NormalizeCourse`. The list filters in `ListToolbarViewModel` read `YearLevels`, so they follow automatically.
 - [ ] `ASI.Basecode.Services/ServiceModels/AccountRequestViewModel.cs` — annotate the five fields with the patterns; `Range(1, 4, ErrorMessage = "Choose a year level from 1 to 4.")`.
 - [ ] `ASI.Basecode.Services/ServiceModels/MemberViewModel.cs` — the same four, minus password.
 - [ ] `ASI.Basecode.Services/Services/AccountRequestService.cs` and `MemberService.cs` — replace the bare `Section?.Trim()` with `ProfileOptions.NormalizeSection(...)` in both `Normalize` methods.
