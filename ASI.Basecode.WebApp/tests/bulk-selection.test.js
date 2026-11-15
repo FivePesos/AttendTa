@@ -20,6 +20,7 @@ function element(tagName) {
         disabled: false,
         indeterminate: false,
         setAttribute() {},
+        focus() { this.focused = true; },
         addEventListener(name, handler) { this.listeners[name] = handler; },
         replaceChildren(...nodes) { this.children = nodes; nodes.forEach(node => { node.parent = this; }); },
         matches(selector) { return selector === '[data-bulk-row]' && this.isRow === true; }
@@ -35,6 +36,7 @@ function setup({ rows = 3 } = {}) {
     const ids = element('div');
     const summary = element('p');
     const list = element('ul');
+    const heading = element('h2');
     const dialog = Object.assign(element('dialog'), { showModal() { this.open = true; } });
 
     const rowElements = Array.from({ length: rows }, (_, index) => {
@@ -63,7 +65,8 @@ function setup({ rows = 3 } = {}) {
     dialog.querySelector = selector => ({
         '[data-bulk-dialog-ids]': ids,
         '[data-bulk-dialog-summary]': summary,
-        '[data-bulk-dialog-list]': list
+        '[data-bulk-dialog-list]': list,
+        'h2': heading
     })[selector] || null;
 
     const pageHandlers = {};
@@ -79,7 +82,7 @@ function setup({ rows = 3 } = {}) {
 
     vm.runInNewContext(source, context);
     const api = context.window.AttendTaBulkSelection.initialize()[0];
-    return { api, root, rows: rowElements, count, toggleAll, openButton, clearButton, selectAllButton, dialog, ids, summary, list, pageHandlers };
+    return { api, root, rows: rowElements, count, toggleAll, openButton, clearButton, selectAllButton, dialog, ids, summary, list, heading, pageHandlers };
 }
 
 test('selection updates the count, the header state and the action', () => {
@@ -152,6 +155,15 @@ test('opening the action button opens the dialog with the current selection', ()
     openButton.listeners.click();
     assert.equal(dialog.open, true);
     assert.deepEqual(ids.children.map(input => input.value), ['8']);
+});
+
+test('opening the dialog moves focus to the heading, not the close button', () => {
+    const { api, rows, heading, dialog } = setup();
+
+    rows[0].checked = true;
+    assert.equal(api.open(), true);
+    assert.equal(dialog.open, true);
+    assert.equal(heading.focused, true);
 });
 
 test('the dialog refuses to open with nothing selected', () => {

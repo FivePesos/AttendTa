@@ -80,6 +80,12 @@
     font-size: 13px;
   }
   .bulk-dialog-list li { overflow-wrap: anywhere; }
+  /* The list scrolls past roughly eight names, so it takes focus to stay reachable by
+     keyboard. Match the shared focus ring. */
+  .bulk-dialog-list:focus-visible {
+    outline: 2px solid var(--color-cobalt);
+    outline-offset: 2px;
+  }
 
   /* The result panel reports each record on its own line, with a text label beside the tint. */
   .bulk-result {

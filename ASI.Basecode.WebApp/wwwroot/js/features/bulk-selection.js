@@ -91,6 +91,11 @@
             // site.js's delegated [data-dialog-open] handler would show the dialog before the ids
             // exist, so this feature opens the dialog itself once the form is populated.
             dialog.showModal();
+            // showModal() focuses the first focusable descendant, which is the close button.
+            // Land on the heading instead: the summary and consequence are linked to the
+            // dialog through aria-describedby, so the reader hears what is about to happen.
+            const heading = dialog.querySelector('h2');
+            if (heading) heading.focus();
             return true;
         }
 
