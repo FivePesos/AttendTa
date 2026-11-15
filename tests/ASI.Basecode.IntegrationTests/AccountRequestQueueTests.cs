@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Text.RegularExpressions;
 using ASI.Basecode.Data;
@@ -15,6 +16,10 @@ public sealed class AccountRequestQueueTests : IClassFixture<SqlServerDatabaseFi
 {
     private const string Password = "QueueTest#2026";
     private const string PasswordHashMarker = "$argon2id$queue-secret-";
+
+    private static int studentNumberSeed = 20000000;
+
+    private static string NewStudentNumber() => Interlocked.Increment(ref studentNumberSeed).ToString(CultureInfo.InvariantCulture);
 
     private readonly SqlServerDatabaseFixture fixture;
     private readonly Argon2PasswordHasher hasher = new();
@@ -197,7 +202,7 @@ public sealed class AccountRequestQueueTests : IClassFixture<SqlServerDatabaseFi
         var requestedAt = new DateTime(2026, 11, 5, 12, 30, 0, DateTimeKind.Utc);
         var requests = Enumerable.Range(1, 26).Select(index => new AccountRequest
         {
-            StudentNumber = $"QUEUE-{Guid.NewGuid():N}",
+            StudentNumber = NewStudentNumber(),
             FullName = $"Pending Queue Request {index:D2}",
             Email = $"pending-{Guid.NewGuid():N}@attendta.test",
             PasswordHash = PasswordHashMarker + index,
@@ -210,7 +215,7 @@ public sealed class AccountRequestQueueTests : IClassFixture<SqlServerDatabaseFi
         }).ToList();
         requests.Add(new AccountRequest
         {
-            StudentNumber = $"QUEUE-{Guid.NewGuid():N}",
+            StudentNumber = NewStudentNumber(),
             FullName = "Rejected Queue Request",
             Email = $"rejected-{Guid.NewGuid():N}@attendta.test",
             PasswordHash = null!,

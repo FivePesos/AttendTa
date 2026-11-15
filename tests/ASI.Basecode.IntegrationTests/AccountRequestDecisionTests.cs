@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -543,7 +544,10 @@ public sealed class AccountRequestDecisionTests(SqlServerDatabaseFixture fixture
     }
 
     private static string UniqueEmail(string prefix) => $"{prefix}-{Guid.NewGuid():N}@attendta.test";
-    private static string UniqueStudentNumber() => $"2026-{Guid.NewGuid():N}";
+
+    private static int studentNumberSeed = 20000000;
+
+    private static string UniqueStudentNumber() => Interlocked.Increment(ref studentNumberSeed).ToString(CultureInfo.InvariantCulture);
 
     private sealed record UserSeed(int Id, string Email);
 

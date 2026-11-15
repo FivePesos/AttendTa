@@ -18,6 +18,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging.Abstractions;
+using System.Globalization;
 using System.Security.Claims;
 using Xunit;
 
@@ -69,6 +70,10 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
 
     private static string UniqueName(string prefix) => $"{prefix}-{Guid.NewGuid():N}";
 
+    private static int studentNumberSeed = 20000000;
+
+    private static string UniqueStudentNumber() => Interlocked.Increment(ref studentNumberSeed).ToString(CultureInfo.InvariantCulture);
+
     private static User NewUser() => new()
     {
         Name = "Master Data Actor",
@@ -95,7 +100,7 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
         Course = "BSIT",
         YearLevel = 1,
         Section = "A",
-        MobileNumber = "555-0100",
+        MobileNumber = "09171234567",
         MembershipType = "Regular",
         Status = "active"
     };
@@ -274,7 +279,7 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
         var unitOfWork = new UnitOfWork(writer);
         var (actorId, linkedUserId) = await SeedUsersAsync(ct);
         var service = MemberWriter(new MemberRepositoryThatSavesThenFails(new MemberRepository(unitOfWork), unitOfWork), unitOfWork, actorId);
-        var studentNumber = UniqueName("SN");
+        var studentNumber = UniqueStudentNumber();
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => service.CreateMemberFromApprovedAccountRequestAsync(linkedUserId, MemberModel(studentNumber), ct));
 
@@ -291,7 +296,7 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
         var unitOfWork = new UnitOfWork(writer);
         var (actorId, linkedUserId) = await SeedUsersAsync(ct);
         var service = MemberWriter(new MemberRepository(unitOfWork), unitOfWork, actorId);
-        var studentNumber = UniqueName("SN");
+        var studentNumber = UniqueStudentNumber();
 
         await service.CreateMemberFromApprovedAccountRequestAsync(linkedUserId, MemberModel(studentNumber), ct);
 
@@ -307,7 +312,7 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
         var unitOfWork = new UnitOfWork(writer);
         var (actorId, linkedUserId) = await SeedUsersAsync(ct);
         var service = MemberWriter(new MemberRepository(unitOfWork), unitOfWork, actorId);
-        var studentNumber = UniqueName("SN");
+        var studentNumber = UniqueStudentNumber();
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => unitOfWork.ExecuteInTransactionAsync(async inner =>
         {
@@ -373,7 +378,7 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
         var unitOfWork = new UnitOfWork(writer);
         var (actorId, linkedUserId) = await SeedUsersAsync(ct);
         var service = MemberWriter(new MemberRepository(unitOfWork), unitOfWork, actorId);
-        var studentNumber = UniqueName("SN");
+        var studentNumber = UniqueStudentNumber();
 
         var unauthenticated = MemberWriter(new MemberRepository(unitOfWork), unitOfWork, new TestActor(actorId, authenticated: false));
         Assert.Equal(OutcomeCode.Forbidden, (await Assert.ThrowsAsync<DomainException>(() => unauthenticated.CreateMemberFromApprovedAccountRequestAsync(linkedUserId, MemberModel(studentNumber), ct))).Outcome);
@@ -382,7 +387,7 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
         Assert.False(await observer.Members.AnyAsync(m => m.StudentNumber == studentNumber, ct));
 
         await service.CreateMemberFromApprovedAccountRequestAsync(linkedUserId, MemberModel(studentNumber), ct);
-        var duplicateProfile = await Assert.ThrowsAsync<DomainException>(() => service.CreateMemberFromApprovedAccountRequestAsync(linkedUserId, MemberModel(UniqueName("SN")), ct));
+        var duplicateProfile = await Assert.ThrowsAsync<DomainException>(() => service.CreateMemberFromApprovedAccountRequestAsync(linkedUserId, MemberModel(UniqueStudentNumber()), ct));
         Assert.Equal(OutcomeCode.Duplicate, duplicateProfile.Outcome);
 
         var otherUserId = await SeedUserAsync(ct);

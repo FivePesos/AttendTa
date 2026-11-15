@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using ASI.Basecode.Resources.Constants;
 
 namespace ASI.Basecode.Services.ServiceModels
 {
@@ -16,6 +17,7 @@ namespace ASI.Basecode.Services.ServiceModels
         public string Email { get; set; }
 
         [Required(ErrorMessage = "Student number is required.")]
+        [RegularExpression(ProfileOptions.StudentNumberPattern, ErrorMessage = "Enter an 8-digit student number.")]
         [StringLength(50, ErrorMessage = "Student number cannot exceed 50 characters.")]
         public string StudentNumber { get; set; }
 
@@ -27,13 +29,15 @@ namespace ASI.Basecode.Services.ServiceModels
         [StringLength(100)]
         public string Course { get; set; }
 
-        [Range(1, int.MaxValue, ErrorMessage = "Year level must be greater than 0.")]
+        [Range(1, 4, ErrorMessage = "Choose a year level from 1 to 4.")]
         public int YearLevel { get; set; }
 
         [Required(ErrorMessage = "Section is required.")]
+        [RegularExpression(ProfileOptions.SectionPattern, ErrorMessage = "Choose a section from A to F.")]
         [StringLength(50)]
         public string Section { get; set; }
 
+        [RegularExpression(ProfileOptions.MobileNumberPattern, ErrorMessage = "Enter an 11-digit mobile number starting with 09.")]
         [StringLength(30)]
         public string MobileNumber { get; set; }
 
