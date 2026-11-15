@@ -36,6 +36,9 @@ namespace ASI.Basecode.Resources.Constants
         public static string? NormalizeSection(string? section) =>
             string.IsNullOrWhiteSpace(section) ? null : section.Trim().ToUpperInvariant();
 
+        // Suffixes that read as numerals rather than words: a name ending in III keeps its capitals.
+        private static readonly string[] NameSuffixes = { "II", "III", "IV", "V", "VI" };
+
         // Title-case a name without changing its structure: initials, hyphens and apostrophes survive.
         public static string? NormalizeName(string? name)
         {
@@ -44,8 +47,24 @@ namespace ASI.Basecode.Resources.Constants
                 return null;
             }
 
-            var collapsed = string.Join(' ', name.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
-            var characters = collapsed.ToCharArray();
+            var words = name.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+            for (var index = 0; index < words.Length; index++)
+            {
+                words[index] = TitleCaseWord(words[index]);
+            }
+
+            return string.Join(' ', words);
+        }
+
+        private static string TitleCaseWord(string word)
+        {
+            var bare = word.TrimEnd('.');
+            if (bare.Length > 0 && Array.Exists(NameSuffixes, suffix => string.Equals(suffix, bare, StringComparison.OrdinalIgnoreCase)))
+            {
+                return bare.ToUpperInvariant() + word[bare.Length..];
+            }
+
+            var characters = word.ToCharArray();
             var startOfWord = true;
 
             for (var index = 0; index < characters.Length; index++)
