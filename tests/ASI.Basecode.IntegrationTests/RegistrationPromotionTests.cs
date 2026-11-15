@@ -356,7 +356,7 @@ public sealed class RegistrationPromotionTests(SqlServerDatabaseFixture fixture)
         Assert.Contains("Promote next eligible participant", queue, StringComparison.Ordinal);
         Assert.DoesNotContain("Promote next eligible participant", await officer.GetStringAsync($"/RegistrationReview/Index?status=pending&eventId={setup.Event.EventId}", ct), StringComparison.Ordinal);
         Assert.DoesNotContain("Promote next eligible participant", await officer.GetStringAsync("/RegistrationReview/Index?status=waitlisted", ct), StringComparison.Ordinal);
-        var events = await officer.GetStringAsync("/Event", ct);
+        var events = await officer.GetStringAsync("/Event?pageSize=25", ct);
         Assert.Contains($"/Event/Details?id={setup.Event.EventId}", events, StringComparison.Ordinal);
 
         var missingToken = await officer.PostAsync($"/RegistrationReview/Promote?eventId={setup.Event.EventId}", MemberEventTestSupport.Form(new()), ct);

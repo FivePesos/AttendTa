@@ -36,7 +36,7 @@ public sealed class EventCoverFlowTests(SqlServerDatabaseFixture fixture) : ICla
         using var officerClient = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
         await EventDraftTestSupport.SignInAsync(officerClient, officerEmail, password, ct);
 
-        var eventList = await officerClient.GetStringAsync("/Event", ct);
+        var eventList = await officerClient.GetStringAsync("/Event?pageSize=25", ct);
         Assert.Contains($"href=\"/Event/Cover?id={draftId}\"", eventList, StringComparison.Ordinal);
         Assert.Contains($"href=\"/Event/Cover?id={publishedId}\"", eventList, StringComparison.Ordinal);
 

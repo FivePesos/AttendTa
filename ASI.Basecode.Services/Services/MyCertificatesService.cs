@@ -17,8 +17,8 @@ namespace ASI.Basecode.Services.Services;
 /// The real member certificate history (R2, 6.9). The page is owner-scoped: the actor's own
 /// non-cancelled event ids, each event's own confirmed registration, and that registration's
 /// certificate row decide the state, so another member's record never appears. A row carries a
-/// document only when it is Issued and the row has a retained <c>file_path</c>; the seeded issued row
-/// has none and stays a controlled not-found. The PDF read adds the member guard and then delegates to
+/// document only when it is Issued and its retained PDF is readable. Missing documents do not change
+/// the recorded issuance state. The PDF read adds the member guard and then delegates to
 /// the ledger's authorized retained-file retrieval (6.8), which rechecks ownership on every request.
 /// </summary>
 public sealed class MyCertificatesService(
@@ -26,7 +26,7 @@ public sealed class MyCertificatesService(
     IEventRepository events,
     ICertificateRepository certificates,
     ICertificateLedgerService ledger,
-    ICurrentActor actor) : IMyCertificatesService
+    ICurrentActor actor, IPrivateFileStore files, ListReadOptions readOptions = null) : IMyCertificatesService
 {
     public async Task<PagedResult<MyEventCertificateRowViewModel>> GetPageAsync(
         int? page,
@@ -61,11 +61,8 @@ public sealed class MyCertificatesService(
                 CertificateStatusCode.Issued => MyCertificateState.Issued,
                 _ => MyCertificateState.Unavailable
             };
-            var hasDocument = state == MyCertificateState.Issued && !string.IsNullOrWhiteSpace(review?.FilePath);
-            if (state == MyCertificateState.Issued && !hasDocument)
-            {
-                state = MyCertificateState.Unavailable;
-            }
+            var hasDocument = state == MyCertificateState.Issued
+                && await CertificateFileAvailability.IsAvailableAsync(files, review?.FilePath, cancellationToken);
 
             rows.Add(new MyEventCertificateRowViewModel
             {
@@ -84,15 +81,17 @@ public sealed class MyCertificatesService(
         }
 
         var ordered = rows
+            .Where(row => string.IsNullOrWhiteSpace(readOptions?.Search) || row.EventTitle.Contains(readOptions.Search, StringComparison.OrdinalIgnoreCase))
+            .Where(row => string.IsNullOrWhiteSpace(readOptions?.Filter) || string.Equals(row.State.ToString(), readOptions.Filter, StringComparison.OrdinalIgnoreCase))
             .OrderByDescending(row => row.StartsAt)
             .ThenByDescending(row => row.CertificateId)
             .ToList();
-        var request = new PageRequest(page);
+        var request = new PageRequest(page, readOptions?.PageSize);
         var normalized = request.NormalizePageNumber(ordered.Count);
         return new PagedResult<MyEventCertificateRowViewModel>(
-            ordered.Skip(request.GetOffset(normalized)).Take(PageRequest.FixedPageSize).ToList(),
+            ordered.Skip(request.GetOffset(normalized)).Take(PageRequest.NormalizeSize(readOptions?.PageSize)).ToList(),
             normalized,
-            ordered.Count);
+            ordered.Count, PageRequest.NormalizeSize(readOptions?.PageSize));
     }
 
     /// <summary>

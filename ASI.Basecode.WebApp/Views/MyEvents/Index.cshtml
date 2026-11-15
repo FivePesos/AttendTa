@@ -1,6 +1,8 @@
 @model MyEventsViewModel
 @{
+    ViewData["ListControls"] = true;
     ViewData["Title"] = "Participation History";
+    ViewData["CertificatePreview"] = Model.ActiveTab == MyEventsTab.Certificates;
     var tabs = new[]
     {
         (Tab: MyEventsTab.Registrations, Label: "My Registrations", Action: "Registrations"),
@@ -30,11 +32,13 @@
     </div>
 </div>
 
+<partial name="_ListToolbar" model='@(new ListToolbarViewModel("Search event title"))' />
+<p class="muted" data-list-status role="status" data-list-busy-label="Loading records…"></p>
 <div class="panel my-events-panel">
     <nav class="filter-tabs" aria-label="Participation history sections">
         @foreach (var tab in tabs)
         {
-            <a class="filter-tab" asp-action="@tab.Action" aria-current="@(Model.ActiveTab == tab.Tab ? "page" : null)">
+            <a class="filter-tab" href='@ListNavigation.Url(Context.Request, new Dictionary<string, string> { ["filter"] = null }, Url.Action(tab.Action))' aria-current="@(Model.ActiveTab == tab.Tab ? "page" : null)">
                 @tab.Label
             </a>
         }

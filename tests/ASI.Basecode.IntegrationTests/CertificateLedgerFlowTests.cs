@@ -86,10 +86,37 @@ public sealed class CertificateLedgerFlowTests(SqlServerDatabaseFixture fixture)
         var token = await MemberEventTestSupport.AntiforgeryTokenAsync(client, "/Certificates", ct);
 
         using var playwright = await Playwright.CreateAsync();
-        await using var browser = await playwright.Chromium.LaunchAsync(new() { Headless = true });
+        await using var browser = await playwright.Chromium.LaunchAsync(new() { Headless = true, Channel = "chromium" });
         var page = await browser.NewPageAsync();
+        var relayFailure = string.Empty;
+        var failNextPdf = false;
+        var failNextModule = true;
+        var delayNextPdf = false;
+        var pdfRequestStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releasePdfRequest = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var previewErrors = new List<string>();
+        page.PageError += (_, error) => previewErrors.Add(error);
+        var browserClient = client;
         await page.RouteAsync("**/*", async route =>
         {
+            if (failNextModule && route.Request.Url.Contains("/lib/pdfjs/pdf.min.mjs", StringComparison.Ordinal))
+            {
+                failNextModule = false;
+                await route.FulfillAsync(new() { Status = 503, ContentType = "text/plain", Body = "Temporarily unavailable" });
+                return;
+            }
+            if (delayNextPdf && route.Request.Url.Contains("/Certificates/Pdf/", StringComparison.Ordinal))
+            {
+                delayNextPdf = false;
+                pdfRequestStarted.TrySetResult();
+                await releasePdfRequest.Task.WaitAsync(ct);
+            }
+            if (failNextPdf && route.Request.Url.Contains("/Certificates/Pdf/", StringComparison.Ordinal))
+            {
+                failNextPdf = false;
+                await route.FulfillAsync(new() { Status = 404, ContentType = "text/html", Body = "Document unavailable" });
+                return;
+            }
             using var request = new HttpRequestMessage(new HttpMethod(route.Request.Method), route.Request.Url);
             if (route.Request.PostDataBuffer is byte[] body)
             {
@@ -97,15 +124,17 @@ public sealed class CertificateLedgerFlowTests(SqlServerDatabaseFixture fixture)
                 if (route.Request.Headers.TryGetValue("content-type", out var contentType))
                     request.Content.Headers.TryAddWithoutValidation("Content-Type", contentType);
             }
-            var response = await client.SendAsync(request, ct);
-            // TestServer has no listening socket; resolve redirects inside the browser relay.
+            var response = await browserClient.SendAsync(request, ct);
+            // TestServer has no listening socket; resolve redirects inside the relay.
             for (var redirects = 0; (int)response.StatusCode is 301 or 302 or 303 && redirects < 5; redirects++)
             {
                 var location = new Uri(new Uri(route.Request.Url), response.Headers.Location!);
                 response.Dispose();
-                response = await client.GetAsync(location, ct);
+                response = await browserClient.GetAsync(location, ct);
             }
             using var finalResponse = response;
+            if ((int)finalResponse.StatusCode >= 400)
+                relayFailure = $"{route.Request.Method} {route.Request.Url}: {finalResponse.StatusCode}; content type {request.Content?.Headers.ContentType}";
             var headers = finalResponse.Headers.Concat(finalResponse.Content.Headers)
                 .Where(header => header.Key is not ("Transfer-Encoding" or "Content-Length" or "Content-Encoding"))
                 .ToDictionary(header => header.Key, header => string.Join(", ", header.Value));
@@ -135,6 +164,7 @@ public sealed class CertificateLedgerFlowTests(SqlServerDatabaseFixture fixture)
             Assert.Equal(CertificateStatusCode.PendingApproval, pending.CertificateStatusId);
         }
         Assert.Contains("Enter a decline reason", await client.GetStringAsync("/Certificates", ct), StringComparison.Ordinal);
+        await page.GotoAsync("http://localhost/Certificates?search=Participant%204&pageSize=5&fit=1");
         await page.Locator($"[data-certificate-open='decline-certificate'][data-id='{registrationIds[3]}']").ClickAsync();
         await page.Locator("#certificate-decline-reason").FillAsync("Participation requirements not met.");
         await page.ScreenshotAsync(new() { Path = Path.Combine(Path.GetTempPath(), "attendta-6-12-decline-phone.png") });
@@ -143,6 +173,7 @@ public sealed class CertificateLedgerFlowTests(SqlServerDatabaseFixture fixture)
         Assert.True(await page.GetByText("Certificate eligibility declined.", new() { Exact = true }).IsVisibleAsync(),
             page.Url + "\n" + await page.Locator("body").InnerTextAsync());
         await page.SetViewportSizeAsync(1440, 900);
+        await page.GotoAsync("http://localhost/Certificates?search=Participant%202&pageSize=5&fit=1");
         await page.Locator($"[data-certificate-open='approve-certificate'][data-id='{registrationIds[1]}']").ClickAsync();
         await page.Locator("#approve-certificate button[type='submit']").ClickAsync();
         await page.GetByText("Certificate eligibility approved.", new() { Exact = true }).WaitForAsync();
@@ -156,10 +187,20 @@ public sealed class CertificateLedgerFlowTests(SqlServerDatabaseFixture fixture)
             Assert.Equal(CertificateStatusCode.NotEligible, declined.CertificateStatusId);
             Assert.Null(declined.FilePath);
         }
+        // The relay displays redirect content at the POST URL. Re-enter the GET route
+        // before the next decision so its return context matches a real browser.
+        await page.GotoAsync("http://localhost/Certificates?search=Participant%202&pageSize=5&fit=1");
         await page.Locator($"[data-certificate-open='issue-certificate'][data-id='{registrationIds[1]}']").ClickAsync();
         await page.ScreenshotAsync(new() { Path = Path.Combine(Path.GetTempPath(), "attendta-6-12-issue-desktop.png") });
         await page.Locator("#issue-certificate button[type='submit']").ClickAsync();
-        await page.GetByText("Certificate issued. View it in the Issued Registry.", new() { Exact = true }).WaitForAsync();
+        try
+        {
+            await page.GetByText("Certificate issued. View it in the Issued Registry.", new() { Exact = true }).WaitForAsync();
+        }
+        catch (TimeoutException)
+        {
+            Assert.Fail(relayFailure + "\n" + page.Url + "\n" + await page.Locator("body").InnerTextAsync());
+        }
         await using (var issuedCheck = MemberEventTestSupport.Context(fixture.ConnectionString))
         {
             var issued = await issuedCheck.Certificates.AsNoTracking()
@@ -169,6 +210,55 @@ public sealed class CertificateLedgerFlowTests(SqlServerDatabaseFixture fixture)
         }
         var registry = await client.GetStringAsync("/Certificates?tab=issued", ct);
         Assert.Contains("Participant 2", registry, StringComparison.Ordinal);
+        var missingRow = System.Text.RegularExpressions.Regex.Match(registry, $"<tr data-registration-id=\"{registrationIds[0]}\".*?</tr>", System.Text.RegularExpressions.RegexOptions.Singleline).Value;
+        Assert.Contains("Document unavailable", missingRow);
+        Assert.DoesNotContain("data-certificate-pdf", missingRow);
+        await page.GotoAsync($"http://localhost/Certificates?tab=issued&eventId={eventItem.EventId}&search=Participant%202&fit=2");
+        await page.Locator("[data-certificate-pdf]").ClickAsync();
+        await page.Locator("[data-pdf-retry]").WaitForAsync();
+        Assert.Contains("preview could not be displayed", await page.Locator("[data-pdf-message]").InnerTextAsync());
+        await page.Locator("[data-pdf-retry]").ClickAsync();
+        await page.GetByText("Certificate loaded.", new() { Exact = true }).WaitForAsync();
+        await page.Keyboard.PressAsync("Escape");
+        foreach (var width in new[] { 1440, 390 })
+        {
+            await page.SetViewportSizeAsync(width, 900);
+            await page.GotoAsync($"http://localhost/Certificates?tab=issued&eventId={eventItem.EventId}&search=Participant%202&fit=2");
+            var originUrl = page.Url;
+            var pdfTrigger = page.Locator("[data-certificate-pdf]");
+            await pdfTrigger.ClickAsync();
+            await page.GetByText("Certificate loaded.", new() { Exact = true }).WaitForAsync();
+            Assert.True(await page.Locator("#certificate-preview").EvaluateAsync<bool>("dialog => dialog.open"));
+            Assert.Equal(1, await page.Locator("[data-pdf-pages] canvas").CountAsync());
+            Assert.Contains("Participant 2", await page.Locator("[data-pdf-pages] .sr-only").InnerTextAsync(), StringComparison.OrdinalIgnoreCase);
+            Assert.True(await page.Locator("[data-pdf-pages] canvas").EvaluateAsync<bool>("canvas => { const pixels = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data; for(let i = 0; i < pixels.length; i += 400) if(pixels[i] < 220 || pixels[i + 1] < 220 || pixels[i + 2] < 220) return true; return false; }"));
+            Assert.StartsWith("%PDF-", await page.EvaluateAsync<string>("async () => new TextDecoder().decode((await (await fetch(document.querySelector('[data-pdf-download]').href)).arrayBuffer()).slice(0, 5))"), StringComparison.Ordinal);
+            Assert.EndsWith(".pdf", await page.Locator("[data-pdf-download]").GetAttributeAsync("download"), StringComparison.Ordinal);
+            Assert.True(await page.EvaluateAsync<bool>("document.documentElement.scrollWidth <= innerWidth"));
+            await page.ScreenshotAsync(new() { Path = Path.Combine(Path.GetTempPath(), $"attendta-pdf-modal-{width}.png"), FullPage = true });
+            await page.Keyboard.PressAsync("Escape");
+            Assert.False(await page.Locator("#certificate-preview").EvaluateAsync<bool>("dialog => dialog.open"));
+            await Assertions.Expect(page.Locator("[data-pdf-pages] canvas")).ToHaveCountAsync(0);
+            await Assertions.Expect(pdfTrigger).ToBeFocusedAsync();
+            Assert.Equal(originUrl, page.Url);
+        }
+        failNextPdf = true;
+        await page.Locator("[data-certificate-pdf]").ClickAsync();
+        await page.Locator("[data-pdf-retry]").WaitForAsync();
+        Assert.False(await page.Locator("[data-pdf-pages]").IsVisibleAsync());
+        Assert.Contains("unavailable", await page.Locator("[data-pdf-message]").InnerTextAsync());
+        await page.Locator("[data-pdf-retry]").ClickAsync();
+        await page.GetByText("Certificate loaded.", new() { Exact = true }).WaitForAsync();
+        await page.Keyboard.PressAsync("Escape");
+        delayNextPdf = true;
+        await page.Locator("[data-certificate-pdf]").ClickAsync();
+        try
+        {
+            await pdfRequestStarted.Task.WaitAsync(TimeSpan.FromSeconds(10), ct);
+            await page.Keyboard.PressAsync("Escape");
+            Assert.False(await page.Locator("#certificate-preview").EvaluateAsync<bool>("dialog => dialog.open"));
+        }
+        finally { releasePdfRequest.TrySetResult(); }
         var viewer = await client.GetStringAsync($"/Certificates/Viewer/{registrationIds[1]}", ct);
         Assert.Contains("Download PDF", viewer, StringComparison.Ordinal);
         var pdf = await client.GetAsync($"/Certificates/Pdf/{registrationIds[1]}", ct);
@@ -192,6 +282,12 @@ public sealed class CertificateLedgerFlowTests(SqlServerDatabaseFixture fixture)
         await MemberEventTestSupport.SignInAsync(ownerClient, memberEmails[1], password, ct);
         var memberHistory = await ownerClient.GetStringAsync("/MyEvents/Certificates", ct);
         Assert.Contains($"AT-2026-{registrationIds[1]:D6}", memberHistory, StringComparison.Ordinal);
+        browserClient = ownerClient;
+        await page.GotoAsync("http://localhost/MyEvents/Certificates?fit=2");
+        await page.Locator("[data-certificate-pdf]").ClickAsync();
+        await page.GetByText("Certificate loaded.", new() { Exact = true }).WaitForAsync();
+        await page.Keyboard.PressAsync("Escape");
+        browserClient = client;
         var memberPdf = await ownerClient.GetAsync($"/MyEvents/Certificates/{registrationIds[1]}/Pdf", ct);
         Assert.Equal(HttpStatusCode.OK, memberPdf.StatusCode);
         Assert.StartsWith("%PDF-",
@@ -249,6 +345,7 @@ public sealed class CertificateLedgerFlowTests(SqlServerDatabaseFixture fixture)
         await page.GotoAsync($"http://localhost/Certificates/Viewer/{registrationIds[1]}");
         await page.ScreenshotAsync(new() { Path = Path.Combine(Path.GetTempPath(), "attendta-6-12-certificate-viewer-phone.png"), FullPage = true });
         await page.CloseAsync();
+        Assert.Empty(previewErrors);
         await using var observer = MemberEventTestSupport.Context(fixture.ConnectionString);
         // The seeded reviews already exist, so the completion hook finds nothing to add and the
         // decisions update the seeded rows in SQL.
@@ -304,8 +401,27 @@ public sealed class CertificateLedgerFlowTests(SqlServerDatabaseFixture fixture)
         }
         File.Delete(venueImage);
 
+        // A corrupt or missing retained file does not turn an issued row into an unissued row.
+        await File.WriteAllTextAsync(retained, "Not a PDF document", ct);
+        var corruptRegistry = await client.GetStringAsync($"/Certificates?tab=issued&search=Participant%202&eventId={eventItem.EventId}", ct);
+        Assert.Contains("Document unavailable", corruptRegistry);
+        Assert.DoesNotContain("data-certificate-pdf=", corruptRegistry);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"/Certificates/Pdf/{registrationIds[1]}", ct)).StatusCode);
+        await File.WriteAllBytesAsync(retained, retainedBytes, ct);
+        var restoredRegistry = await client.GetStringAsync($"/Certificates?tab=issued&search=Participant%202&eventId={eventItem.EventId}", ct);
+        Assert.Contains("data-certificate-pdf=", restoredRegistry);
+
         // A retained file missing on disk is a controlled not-found, not an unhandled 500.
         File.Delete(retained);
+        var unavailableRegistry = await client.GetStringAsync($"/Certificates?tab=issued&search=Participant%202&eventId={eventItem.EventId}", ct);
+        Assert.Contains("Document unavailable", unavailableRegistry);
+        Assert.DoesNotContain("data-certificate-pdf=", unavailableRegistry);
+        var unavailableHistory = await ownerClient.GetStringAsync("/MyEvents/Certificates", ct);
+        Assert.Contains("Document unavailable", unavailableHistory);
+        Assert.Contains($"AT-2026-{registrationIds[1]:D6}", unavailableHistory);
+        Assert.Contains("Issued", unavailableHistory);
+        Assert.DoesNotContain("data-certificate-pdf=", unavailableHistory);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"/Certificates/Viewer/{registrationIds[1]}", ct)).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"/Certificates/Pdf/{registrationIds[1]}", ct)).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await ownerClient.GetAsync($"/Certificates/Pdf/{registrationIds[1]}", ct)).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await ownerClient.GetAsync($"/MyEvents/Certificates/{registrationIds[1]}/Pdf", ct)).StatusCode);

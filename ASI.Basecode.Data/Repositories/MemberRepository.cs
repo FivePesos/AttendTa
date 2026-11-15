@@ -1,3 +1,4 @@
+using ASI.Basecode.Data.Queries;
 using ASI.Basecode.Data.Interfaces;
 using ASI.Basecode.Data.Models;
 using ASI.Basecode.Data.Models.Lookups;
@@ -13,8 +14,10 @@ namespace ASI.Basecode.Data.Repositories
 {
     public class MemberRepository : BaseRepository, IMemberRepository
     {
-        public MemberRepository(IUnitOfWork unitOfWork) : base(unitOfWork)
+        private readonly ListReadOptions _readOptions;
+        public MemberRepository(IUnitOfWork unitOfWork, ListReadOptions readOptions = null) : base(unitOfWork)
         {
+            _readOptions = readOptions;
         }
 
         public IQueryable<MemberRecord> GetMemberRecords()
@@ -69,6 +72,12 @@ namespace ASI.Basecode.Data.Repositories
         private IQueryable<MemberRecord> FilterMembers(string search, string status)
         {
             var query = GetMemberRecords();
+            if (!string.IsNullOrWhiteSpace(_readOptions?.Course)) {
+                var course = _readOptions.Course;
+                var legacy = course == "BSIT" ? "BS Information Technology" : course == "BSCS" ? "BS Computer Science" : course;
+                query = query.Where(row => row.Course == course || row.Course == legacy);
+            }
+            if (_readOptions?.Year is int year) query = query.Where(row => row.YearLevel == year);
             if (!string.IsNullOrWhiteSpace(search))
             {
                 query = query.Where(member => member.FullName.Contains(search) || member.Email.Contains(search) || member.StudentNumber.Contains(search));

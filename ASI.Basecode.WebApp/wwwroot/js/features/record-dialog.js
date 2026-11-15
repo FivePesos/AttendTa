@@ -7,6 +7,7 @@
     const recovery = dialog.querySelector('[data-record-recovery]');
     const subtitle = dialog.querySelector('[data-record-subtitle]');
     let trigger, busy = false, request, previewUrl;
+    const lockedControls = new Set();
     const headers = { 'X-Record-Dialog': 'true' };
     const restoreKey = 'attendta-record-focus';
     const previous = sessionStorage.getItem(restoreKey);
@@ -50,7 +51,14 @@
     function setBusy(value) {
         busy = value;
         dialog.setAttribute('aria-busy', String(value));
-        dialog.querySelectorAll('button').forEach(button => { button.disabled = value; });
+        if (value) {
+            dialog.querySelectorAll('button, input, select, textarea').forEach(control => {
+                if (!control.disabled) { lockedControls.add(control); control.disabled = true; }
+            });
+        } else {
+            lockedControls.forEach(control => { control.disabled = false; });
+            lockedControls.clear();
+        }
     }
     async function load() {
         request?.abort();
@@ -67,6 +75,7 @@
             if (request !== current || !dialog.open) return;
             body.innerHTML = html;
             message.textContent = '';
+            window.AttendTaDialogs?.track(dialog, true);
             focusForm();
         } catch (error) {
             if (error.name === 'AbortError' || request !== current) return;
@@ -90,7 +99,7 @@
         load();
     });
     dialog.addEventListener('click', event => {
-        if (event.target.closest('[data-record-close]') && !busy) dialog.close();
+        if (event.target.closest('[data-record-close]') && !busy) window.AttendTaDialogs?.requestClose(dialog);
         if (event.target.closest('[data-record-retry]') && !busy) load();
     });
     dialog.addEventListener('cancel', event => { if (busy) event.preventDefault(); });

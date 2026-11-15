@@ -24,6 +24,7 @@ namespace ASI.Basecode.Services.Services
     /// </summary>
     public class EventLifecycleService : IEventLifecycleService
     {
+        private readonly ListReadOptions _readOptions;
         private readonly IEventRepository _events;
         private readonly IEventTypeRepository _eventTypes;
         private readonly IVenueRepository _venues;
@@ -53,8 +54,9 @@ namespace ASI.Basecode.Services.Services
             IActivityLogWriter audit,
             ICurrentActor actor,
             IPrivateFileStore files,
-            ILogger<EventLifecycleService> logger)
+            ILogger<EventLifecycleService> logger, ListReadOptions readOptions = null)
         {
+            _readOptions = readOptions;
             _events = events;
             _eventTypes = eventTypes;
             _venues = venues;
@@ -73,14 +75,14 @@ namespace ASI.Basecode.Services.Services
         public async Task<PagedResult<EventViewModel>> GetPageAsync(int? pageNumber, CancellationToken cancellationToken = default)
         {
             var totalCount = await _events.CountAsync(cancellationToken);
-            var pageRequest = new PageRequest(pageNumber);
+            var pageRequest = new PageRequest(pageNumber, _readOptions?.PageSize);
             var normalizedPage = pageRequest.NormalizePageNumber(totalCount);
             var rows = await _events.GetPageAsync(
                 pageRequest.GetOffset(normalizedPage),
-                PageRequest.FixedPageSize,
+                PageRequest.NormalizeSize(_readOptions?.PageSize),
                 cancellationToken);
             var items = _mapper.Map<List<EventViewModel>>(rows);
-            return new PagedResult<EventViewModel>(items, normalizedPage, totalCount);
+            return new PagedResult<EventViewModel>(items, normalizedPage, totalCount, PageRequest.NormalizeSize(_readOptions?.PageSize));
         }
 
         public async Task<EventViewModel> GetEventAsync(int id, CancellationToken cancellationToken = default)
@@ -91,6 +93,14 @@ namespace ASI.Basecode.Services.Services
             model.TypeName = _eventTypes.GetEventType(eventItem.TypeId)?.TypeName;
             model.VenueName = _venues.GetVenue(eventItem.VenueId)?.RoomName;
             return model;
+        }
+
+        public async Task<IReadOnlyList<EventTypeOption>> GetTypeFilterOptionsAsync(CancellationToken cancellationToken = default)
+        {
+            var count = await _eventTypes.CountEventTypesAsync(null, cancellationToken);
+            if (count == 0) return Array.Empty<EventTypeOption>();
+            return (await _eventTypes.GetEventTypesPageAsync(null, 0, count, cancellationToken))
+                .Select(item => new EventTypeOption(item.TypeId, item.TypeName)).ToList();
         }
 
         public async Task<EventFormOptions> GetFormOptionsAsync(CancellationToken cancellationToken = default)

@@ -118,8 +118,9 @@ family is drift, not a variation.
 
 ## Layout
 
-A fixed left rail (256px) and a top bar (64px) frame a full-width content area with 28px
-gutters and a 1440px working width. The content is a sheet of stacked sections, never a grid
+A fixed left rail (256px) and a top bar (64px) frame a full-width content area with 24px
+gutters. Management lists use the available width and align with the breadcrumb rather than
+centering a capped sheet away from the sidebar. The content is a sheet of stacked sections, never a grid
 of floating cards.
 
 Management (administrator and officer) works from the rail shell: the rail carries the brand,
@@ -185,8 +186,10 @@ button, or a card with no outline is not part of this system.
 - **Destructive:** Declined Red fill, white text. Requires a confirm dialog.
 - **Hover / Focus:** primary darkens to Cobalt Deep; focus is a 2px Cobalt outline at 2px
   offset, and a 2px white outline inside the rail.
-- **Placement:** page-head action groups use boxed buttons, including the event dossier.
-  The borderless text-link treatment is reserved for table row actions, not page headers.
+- **Placement:** page heads, table rows and dialogs use bordered buttons. Row controls use a
+  compact 32px height; touch surfaces use at least 44px. Ordinary inline navigation remains a link.
+- **Heading alignment:** page titles start at the same top edge. The heading row reserves at
+  least 36px whether or not a Create button is present; controls do not bottom-align the title.
 
 ### Status Tags
 - **Style:** 4px radius, tinted background, 10.5px 600 uppercase at 0.06em, 22px height, 9px
@@ -195,6 +198,7 @@ button, or a card with no outline is not part of this system.
 - **Pending / Waitlisted:** Pending Ochre on `#F7EEDD`.
 - **Declined / Cancelled:** Declined Red on `#FBEAE8`.
 - **Inactive / Draft:** Neutral Grey on `#F1F2F4`.
+- **Completed:** muted blue `#245C76` on `#E8F1F7`; event cancellation uses Declined Red.
 - **Rule:** the label is always present. Colour is never the only signal.
 
 ### Tables / Rosters
@@ -203,11 +207,49 @@ button, or a card with no outline is not part of this system.
 - **Rows:** 48px, 1px Border between, hover Surface Subtle, no zebra striping.
 - **Cells:** 13px, Ink Secondary; the name cell is 600 Ink with a 26px initials tile.
 - **Numbers:** tabular figures, Ink, right-aligned where the column is numeric.
-- **Actions:** text links at 12.5px, cobalt, one per row plus Edit.
-- **Count and pager:** the pager sits directly below the table and the result count
-  directly below the pager, both full-width under the panel. The count is one line
-  of Micro type reading the real `PagedResult.TotalCount`; it is not a KPI card and
-  never sits above the table.
+- **Actions:** compact bordered buttons with 8px gaps. Use an overflow menu for secondary actions.
+- **Record details:** Show details lives in the row's single three-dot menu. Reuse an existing
+  menu where available. Keep frequent Edit, Approve, Decline and PDF actions visible. Close the
+  popover before opening its dialog, and restore focus to the visible menu trigger on dismissal.
+  The menu is always the final action on the right, in both DOM and visual order.
+  Include a details action only when it adds information. Preserve a little identity context;
+  omit repeated table facts and unavailable certificate fields. Event classifications expand
+  clipped descriptions inline with Read more/Read less, without a generic details modal. Short
+  descriptions have no disclosure; without JavaScript the full description remains readable.
+- **Density:** keep identity and decision facts visible; combine related fields and put
+  secondary information in a shared Show details dialog. No internal table scroll region.
+  Below 640px, rows become labelled blocks with natural page scrolling.
+  Members show Email alongside name/student number and course/year/section; reserve compact
+  widths for Status and Edit/menu actions. Venues group Room Name and Location before the
+  compact Capacity, Status and Actions columns. Capacity headings and values align right.
+- **Search and filters:** each list declares appropriate fields through the shared Razor
+  toolbar. Search keeps its action label. One Reset control clears search and list filters,
+  preserving the selected event and history section. Preserve unrelated query criteria across
+  paging and native decisions.
+  Search has the same visible label/field structure as dropdowns, so its top spacing does not
+  change when filters are present. Use the shared 16px block spacing; loading feedback follows tabs.
+- **Count and pager:** one full-width footer directly below the table shows the actual
+  range and filtered total, Auto size, page number, and visible disabled boundaries.
+  Zero results show a count without a fabricated page. Auto-fit starts at five records,
+  measures rows/cards to use the available viewport (1–25 records), and holds that size while
+  paging until filters or viewport dimensions change. Never clip content to force a fit.
+  The event dossier keeps a five-row minimum because its summary precedes the table;
+  its count names the selected registration status. Small scrollbar-width changes do not refit.
+- **Account role changes:** reuse the shared record editor dialog, including its field spacing,
+  validation, loading/recovery states, unsaved-change protection, and focus restoration. Keep
+  the full-page form available as a fallback; both paths use the same fields and audited command.
+- **Certificate preview:** View PDF opens a read-only modal from the issued registry and member
+  history, preserving the current list and focus. Render retained PDF pages with locally bundled
+  PDF.js; provide Open in new tab and Download PDF as native document alternatives. Loading is
+  cancellable, errors offer Retry, and closing cancels work and releases document resources.
+  Check retained PDF availability before showing links. Missing/corrupt files show Document
+  unavailable while the original Issued state and metadata remain intact. Never regenerate an
+  issued certificate as part of viewing or availability checks.
+- **Filter scope:** Members and Membership Requests share BSCS/BSIT Course and Year choices.
+  Event Management uses existing classification IDs in a dropdown; Registration Review chooses
+  a specific event. Campus Events uses Search and Active/Completed tabs, with Active including
+  upcoming published events. Activity Log keeps Search and Action; personal history keeps Search
+  within its existing sections. Retired filters do not survive invisibly in links or forms.
 - **List spacing:** page heads end with 16px of space. Filter toolbars keep 16px of
   bottom padding; lists with loading feedback reserve one compact 16px live line before
   the table, without an additional blank paragraph margin.
@@ -219,8 +261,8 @@ button, or a card with no outline is not part of this system.
 - **Check-in:** a row in the fact sheet carrying the state tag and a secondary control; the tag
   names the row. Complete event is the only primary, and only once the event has started;
   before that it is a disabled secondary.
-- **Roster:** status keys, table, pager, then the real count. The Asia/Manila note is the
-  table caption, not a second count line.
+- **Roster:** status keys, compact table and consistent pagination/count footer. Repeated timezone
+  captions are omitted; UTC storage and Manila display conversion remain unchanged.
 
 ### Inputs / Fields
 - **Style:** white ground, 1px Border Strong, 4px radius, 36px height, 13.5px.
@@ -259,6 +301,10 @@ The dossier's confirmed-capacity block is the Event details instance.
 8px radius, white, 1px Border, the single dialog shadow, 24px padding. Title at 16px 600,
 actions right-aligned with the primary last. Focus is contained, Escape closes, and the
 backdrop is `rgba(14, 15, 18, 0.36)`.
+
+Edited dialogs ask before discarding unsaved input. The discard prompt stays inside the existing
+dialog, with Keep editing and Discard changes actions; dialogs are never stacked for confirmation.
+Unchanged and read-only dialogs dismiss immediately. A busy save cannot be dismissed.
 
 ## Do's and Don'ts
 
