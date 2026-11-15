@@ -119,11 +119,11 @@ BEGIN TRY
 
     IF @OfficerMemberId IS NULL
     BEGIN
-        IF EXISTS (SELECT 1 FROM dbo.members WHERE [student_number] = N'20260101')
+        IF EXISTS (SELECT 1 FROM dbo.members WHERE [student_number] = N'23184502')
             THROW 51039, 'The scenario officer student number already belongs to another member; resolve it manually.', 1;
 
         INSERT INTO dbo.members ([user_id], [student_number], [course], [year_level], [section], [mobile_number], [membership_type], [membership_status_id], [created_by])
-        VALUES (@OfficerUserId, N'20260101', N'BSIT', 4, N'A', N'09170000101', N'Officer', 1, @AdminUserId);
+        VALUES (@OfficerUserId, N'23184502', N'BSIT', 4, N'A', N'09170000101', N'Officer', 1, @AdminUserId);
         SET @OfficerMemberId = CAST(SCOPE_IDENTITY() AS int);
     END
 
@@ -143,14 +143,14 @@ BEGIN TRY
 
     INSERT INTO @Participants ([Ordinal], [FullName], [Email], [StudentNumber], [Course], [YearLevel], [Section], [MembershipType])
     VALUES
-        (1, @MemberName,      @MemberEmail,                 N'20260102', N'BSIT', 3, N'B', N'Regular'),
-        (2, N'Joshua Reyes',  N'joshua.reyes@uc.edu.ph',    N'20260103', N'BSCS',       3, N'A', N'Regular'),
-        (3, N'Angela Dela Cruz', N'angela.delacruz@uc.edu.ph', N'20260104', N'BSIT', 2, N'C', N'Regular'),
-        (4, N'Mark Villanueva', N'mark.villanueva@uc.edu.ph', N'20260105', N'BSCS',     4, N'B', N'Regular'),
-        (5, N'Sofia Mendoza', N'sofia.mendoza@uc.edu.ph',   N'20260106', N'BSIT', 2, N'A', N'Regular'),
-        (6, N'Daniel Navarro', N'daniel.navarro@uc.edu.ph', N'20260107', N'BSCS',       1, N'C', N'Regular'),
-        (7, N'Beatrice Lim',  N'beatrice.lim@uc.edu.ph',    N'20260108', N'BSIT',    3, N'B', N'Regular'),
-        (8, N'Paolo Gutierrez', N'paolo.gutierrez@uc.edu.ph', N'20260109', N'BSIT', 4, N'A', N'Regular');
+        (1, @MemberName,      @MemberEmail,                 N'22771903', N'BSIT', 3, N'B', N'Regular'),
+        (2, N'Joshua Reyes',  N'joshua.reyes@uc.edu.ph',    N'24150382', N'BSCS',       3, N'A', N'Regular'),
+        (3, N'Angela Dela Cruz', N'angela.delacruz@uc.edu.ph', N'23771946', N'BSIT', 2, N'C', N'Regular'),
+        (4, N'Mark Villanueva', N'mark.villanueva@uc.edu.ph', N'21945028', N'BSCS',     4, N'B', N'Regular'),
+        (5, N'Sofia Mendoza', N'sofia.mendoza@uc.edu.ph',   N'23018475', N'BSIT', 2, N'A', N'Regular'),
+        (6, N'Daniel Navarro', N'daniel.navarro@uc.edu.ph', N'24560219', N'BSCS',       1, N'C', N'Regular'),
+        (7, N'Beatrice Lim',  N'beatrice.lim@uc.edu.ph',    N'22730184', N'BSIT',    3, N'B', N'Regular'),
+        (8, N'Paolo Gutierrez', N'paolo.gutierrez@uc.edu.ph', N'23294861', N'BSIT', 4, N'A', N'Regular');
 
     DECLARE @MemberIds TABLE ([Ordinal] int PRIMARY KEY, [UserId] int NOT NULL, [MemberId] int NOT NULL);
 
@@ -551,10 +551,10 @@ BEGIN TRY
        only inserted when that email has no account and no pending request yet. */
     IF NOT EXISTS (SELECT 1 FROM dbo.users WHERE [email] = N'camille.torres@uc.edu.ph')
        AND NOT EXISTS (SELECT 1 FROM dbo.account_requests WHERE [email] = N'camille.torres@uc.edu.ph' AND [account_request_status_id] = 1)
-       AND NOT EXISTS (SELECT 1 FROM dbo.account_requests WHERE [student_number] = N'20260110' AND [account_request_status_id] = 1)
+       AND NOT EXISTS (SELECT 1 FROM dbo.account_requests WHERE [student_number] = N'21887640' AND [account_request_status_id] = 1)
     BEGIN
         INSERT INTO dbo.account_requests ([student_number], [full_name], [email], [password_hash], [course], [year_level], [section], [mobile_number], [account_request_status_id], [requested_at])
-        VALUES (N'20260110', N'Camille Torres', N'camille.torres@uc.edu.ph', @MemberPasswordHash,
+        VALUES (N'21887640', N'Camille Torres', N'camille.torres@uc.edu.ph', @MemberPasswordHash,
                 N'BSIT', 2, N'C', N'09170000110', 1, DATEADD(hour, -4, @Now));
     END
 
