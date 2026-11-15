@@ -24,7 +24,7 @@ namespace ASI.Basecode.Resources.Constants
         public const string StudentNumberPattern = "^[0-9]{8}$";
 
         /// <summary>Mobile numbers are optional, but a supplied number is exactly eleven ASCII digits.</summary>
-        public const string MobileNumberPattern = "^[0-9]{11}$";
+        public const string MobileNumberPattern = "^09[0-9]{9}$";
 
         /// <summary>A section is one letter from the offered set; the service upper-cases what it stores.</summary>
         public const string SectionPattern = "^[A-Fa-f]$";

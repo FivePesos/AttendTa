@@ -43,7 +43,7 @@ namespace ASI.Basecode.Services.ServiceModels
         [Display(Name = "Section")]
         public string Section { get; set; }
 
-        [RegularExpression(ProfileOptions.MobileNumberPattern, ErrorMessage = "Enter an 11-digit mobile number.")]
+        [RegularExpression(ProfileOptions.MobileNumberPattern, ErrorMessage = "Enter an 11-digit mobile number starting with 09.")]
         [StringLength(30, ErrorMessage = "Mobile number cannot exceed 30 characters.")]
         [Display(Name = "Mobile number")]
         public string MobileNumber { get; set; }

@@ -37,7 +37,7 @@ namespace ASI.Basecode.Services.ServiceModels
         [StringLength(50)]
         public string Section { get; set; }
 
-        [RegularExpression(ProfileOptions.MobileNumberPattern, ErrorMessage = "Enter an 11-digit mobile number.")]
+        [RegularExpression(ProfileOptions.MobileNumberPattern, ErrorMessage = "Enter an 11-digit mobile number starting with 09.")]
         [StringLength(30)]
         public string MobileNumber { get; set; }
 

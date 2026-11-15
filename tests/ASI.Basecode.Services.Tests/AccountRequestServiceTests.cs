@@ -216,6 +216,8 @@ public class AccountRequestServiceTests
     [InlineData(nameof(AccountRequestViewModel.StudentNumber), "2000012A")]
     [InlineData(nameof(AccountRequestViewModel.MobileNumber), "0917-123-4567")]
     [InlineData(nameof(AccountRequestViewModel.MobileNumber), "0917123456")]
+    [InlineData(nameof(AccountRequestViewModel.MobileNumber), "12345678901")]
+    [InlineData(nameof(AccountRequestViewModel.MobileNumber), "08171234567")]
     [InlineData(nameof(AccountRequestViewModel.Section), "G")]
     [InlineData(nameof(AccountRequestViewModel.Section), "3A")]
     public async Task ProfileValueOutsideTheSharedRulesIsRejectedWithItsFieldName(string field, string value)
