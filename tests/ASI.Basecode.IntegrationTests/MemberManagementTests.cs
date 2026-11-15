@@ -329,7 +329,6 @@ public sealed class MemberManagementTests(SqlServerDatabaseFixture fixture) : IC
 
     [Theory]
     [InlineData(nameof(MemberViewModel.StudentNumber), "2024001")]
-    [InlineData(nameof(MemberViewModel.StudentNumber), "31234567")]
     [InlineData(nameof(MemberViewModel.MobileNumber), "555-0111")]
     [InlineData(nameof(MemberViewModel.Section), "G")]
     public async Task ProfileValueOutsideTheSharedRulesIsRejectedOnTheMemberEditPath(string field, string value)

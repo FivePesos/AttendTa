@@ -214,7 +214,6 @@ public class AccountRequestServiceTests
     [InlineData(nameof(AccountRequestViewModel.StudentNumber), "1234567")]
     [InlineData(nameof(AccountRequestViewModel.StudentNumber), "123456789")]
     [InlineData(nameof(AccountRequestViewModel.StudentNumber), "2000012A")]
-    [InlineData(nameof(AccountRequestViewModel.StudentNumber), "31234567")]
     [InlineData(nameof(AccountRequestViewModel.MobileNumber), "0917-123-4567")]
     [InlineData(nameof(AccountRequestViewModel.MobileNumber), "0917123456")]
     [InlineData(nameof(AccountRequestViewModel.MobileNumber), "12345678901")]
@@ -237,18 +236,16 @@ public class AccountRequestServiceTests
     }
 
     [Fact]
-    public async Task StudentNumberNotStartingWithTwoIsRejectedOnTheStudentNumberField()
+    public async Task StudentNumberWithALeadingZeroIsStoredAsEntered()
     {
         var harness = new Harness();
         var model = ValidModel();
         model.StudentNumber = "01234567";
 
-        var exception = await Assert.ThrowsAsync<DomainException>(
-            () => harness.Service.SubmitAsync(model, TestContext.Current.CancellationToken));
+        await harness.Service.SubmitAsync(model, TestContext.Current.CancellationToken);
 
-        Assert.Equal(OutcomeCode.Invalid, exception.Outcome);
-        Assert.Equal(nameof(AccountRequestViewModel.StudentNumber), exception.Field);
-        Assert.Empty(harness.Requests.Requests);
+        var request = Assert.Single(harness.Requests.Requests);
+        Assert.Equal("01234567", request.StudentNumber);
     }
 
     [Fact]

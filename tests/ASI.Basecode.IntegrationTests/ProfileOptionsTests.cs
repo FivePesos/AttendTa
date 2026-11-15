@@ -39,13 +39,12 @@ public class ProfileOptionsTests
     }
 
     [Fact]
-    public void StudentNumberPatternRequiresEightDigitsStartingWithTwo()
+    public void StudentNumberPatternKeepsLeadingZeroesAndRejectsWrongLengths()
     {
         var pattern = new Regex(ProfileOptions.StudentNumberPattern);
 
-        Assert.Matches(pattern, "20000001");
-        Assert.DoesNotMatch(pattern, "10000001");
-        Assert.DoesNotMatch(pattern, "01234567");
+        Assert.Matches(pattern, "00000001");
+        Assert.Matches(pattern, "31234567");
         Assert.DoesNotMatch(pattern, "1234567");
         Assert.DoesNotMatch(pattern, "123456789");
         Assert.DoesNotMatch(pattern, "2023-0123");

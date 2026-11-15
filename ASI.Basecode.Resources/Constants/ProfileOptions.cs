@@ -29,8 +29,8 @@ namespace ASI.Basecode.Resources.Constants
         /// <summary>Sections offered by the form.</summary>
         public static readonly IReadOnlyList<string> Sections = new[] { "A", "B", "C" };
 
-        /// <summary>Student numbers are exactly eight ASCII digits starting with 2; the value stays a string so the column keeps its shape.</summary>
-        public const string StudentNumberPattern = "^2[0-9]{7}$";
+        /// <summary>Student numbers are exactly eight ASCII digits; the value stays a string so leading zeroes survive.</summary>
+        public const string StudentNumberPattern = "^[0-9]{8}$";
 
         /// <summary>Mobile numbers are optional; a supplied Philippine number is eleven digits starting with 09.</summary>
         public const string MobileNumberPattern = "^09[0-9]{9}$";

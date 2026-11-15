@@ -7,7 +7,7 @@
     so it is safe to run against any database, including a shared one.
 
     A row is listed when any of these is true:
-      - student_number is not eight digits starting with 2
+      - student_number is not exactly eight digits
       - section is not A-C
       - year_level is not 1-4
       - mobile_number is present and is not eleven digits starting with 09
@@ -20,7 +20,7 @@
 
 SET NOCOUNT ON;
 
-DECLARE @eight_digits varchar(20) = '2[0-9][0-9][0-9][0-9][0-9][0-9][0-9]';
+DECLARE @eight_digits varchar(20) = '[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]';
 DECLARE @ph_mobile varchar(30) = '09[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]';
 
 PRINT 'Pending account requests outside the profile rules:';
