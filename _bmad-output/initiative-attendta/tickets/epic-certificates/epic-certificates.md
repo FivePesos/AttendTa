@@ -107,3 +107,4 @@ The bullets below stand where the demo rescope above does not replace them.
 - Decision: 2026-11-06 — review of the demo rescope: Split M-10 and M-11 into lettered rows with single removers, add 1.14 demo-seam dependency, and clarify that 6.5 replaces the 1.14 store invalidation rule.
 - Decision: 2026-11-15 — replan: 6.14 adds bounded certificate-eligibility bulk approval with no bulk issuance, and 6.15 aligns the member certificate history and keeps the viewer return context, both phase `ui`. The six Issued records with missing originals stay an operational open question on 6.8. Reason: phases 4 and 6 of the UI plan.
 - Decision: 2026-11-15 — 6.14 and 6.15 are withdrawn; eligibility approval and member certificate history shipped, and bulk issuance stays out of scope. Reason: no open requirement.
+- Decision: 2026-11-15 — 6.14 (certificate eligibility bulk approval) is restored; 6.15 stays withdrawn. Bulk issuance remains out of scope.
