@@ -9,7 +9,7 @@ hitl: false
 risk: medium
 tracker_id: "58"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/58"
-tracker_status: backlog
+tracker_status: done
 ---
 
 # Member membership reactivation restoring eligibility only

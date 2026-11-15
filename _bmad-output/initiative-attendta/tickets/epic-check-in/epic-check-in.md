@@ -47,6 +47,7 @@ For Officers at the door, check-in becomes fast and duplicate-proof, shown by UJ
 - R8 (parent R33): Check-in toggles, each new Attendance Record and each invalidation append an Activity Log entry.
 - R9 (parent R36): Manual search results and attendance histories are paged.
 
+- R37 (parent R37): Every list this epic exposes uses the one list pattern — a labelled search, the filters the surface owns, one Reset that keeps the selected event or history section, the R36 footer, and a row details dialog for secondary facts — with the same pattern everywhere and a stacked layout on narrow screens.
 ## Constraints
 
 - Passwords only as salted Argon2id hashes; signed expiring cookies; antiforgery on every mutation; ownership checks on personal resources; every time, capacity and state guard on the server; secrets, hashes and QR tokens never logged; no login throttling (parent Constraints; prd NFR-1; AD-7, AD-8, AD-15).
@@ -103,3 +104,5 @@ For Officers at the door, check-in becomes fast and duplicate-proof, shown by UJ
 - Note: 2026-11-06 — no container status change and no implementation starts from this planning edit.
 - Decision: 2026-11-06 — demo rescope: frontend slices 4.11 (door scanner and manual lookup, with the browser QR decoder moved from 4.4 so passes can be scanned in the demo; adds M-05, M-06, M-07 and calls 1.13's M-04), 4.10 (pass cards with QR and download; adds M-03), 4.12 (attendance history; adds M-08), and 4.13 (profile action to My Passes; no demo data) run in the demo phase with demo data behind DemoData:Enabled and no visible sign in the UI. Integration tickets 4.1–4.7 replace demo data with real backend implementations.
 - Decision: 2026-11-06 — review of the demo rescope: 4.10 and 4.12 decouple from 3.17 to wait on 1.13 and 1.14, 4.11 waits on 1.13, 1.14 and 4.10, 4.3 adds dependency on 4.1 and becomes sole remover of M-05 while 4.4 removes no row, and refusal and invalidation rules align with demo register rules 8, 10 and 12.
+- Decision: 2026-11-15 — replan: 4.14 aligns the member journeys (passes, attendance history, profile) to the shared pattern, phase `ui`. 4.13 stays as it is. Reason: phase 6 of the UI plan.
+- Decision: 2026-11-15 — 4.14 is withdrawn; the member journeys were aligned by the shipped work. Reason: no open requirement.

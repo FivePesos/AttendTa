@@ -8,7 +8,7 @@ hitl: false
 risk: high
 tracker_id: "151"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/151"
-tracker_status: backlog
+tracker_status: done
 ---
 
 # Final backend hardening and cross-module integration cleanup

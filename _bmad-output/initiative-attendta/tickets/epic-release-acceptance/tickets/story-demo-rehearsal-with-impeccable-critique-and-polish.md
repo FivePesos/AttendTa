@@ -8,7 +8,7 @@ hitl: true
 risk: medium
 tracker_id: "135"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/135"
-tracker_status: backlog
+tracker_status: done
 ---
 
 # Demo rehearsal with Impeccable critique and polish

@@ -9,7 +9,7 @@ hitl: true
 risk: high
 tracker_id: "47"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/47"
-tracker_status: backlog
+tracker_status: done
 ---
 
 # In-browser camera QR scanner on localhost

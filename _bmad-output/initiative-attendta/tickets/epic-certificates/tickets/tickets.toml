@@ -173,3 +173,19 @@ risk = "low"
 phase = "finale"
 area = "backend"
 queue = 480
+
+[[entry]]
+id = 14
+type = "story"
+title = "Certificate eligibility bulk approval"
+description = "Add bounded bulk approval of pending Certificate Reviews on the eligibility screen, reusing CertificateLedgerService.DecideAsync. Approval marks eligibility only and issues no PDF; issuance and declines stay individual. Re-read status, Valid Attendance and completion at execution time, serialize against invalidation, keep one audit entry per successful change, and return a per-record result. Selection is per page, clears on page, event, search or filter change, and individual approval stays available."
+verify = "Approving a mixed selection marks each eligible review and reports each refusal with its reason; no PDF is generated; an issued or already-decided review is refused; a repeat submit creates no duplicate decision; declines and issuance remain individual and unchanged."
+covers = ["R27", "R33", "R37"]
+after = [6, 12, "1.16"]
+hitl = false
+risk = "high"
+phase = "ui"
+area = "backend"
+queue = 128
+references = ["docs/handoffs/ui-ux-backend-alignment-handoff.md", "docs/ui-ux-implementation-plan.md"]
+notes = ["Phase 4 of the UI plan. No bulk issuance: eligibility approval is a separate step from individual PDF issuance.", "Restored 2026-11-15 after the phase-entry withdrawal; the project owner kept bulk approval in scope."]

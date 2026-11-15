@@ -40,6 +40,7 @@ For the organization, participation evidence for advisers comes straight from re
 - R1 (parent R30): Management views per-Event participation: Registrations by status, Confirmed and Valid attendees, No-shows (Completed Events only), attendance rate (N/A with no Confirmed), attendee course/year distribution from signup snapshots, and detail rows (name, student number, course, registration status, attendance result, check-in time). Totals cover the full dataset; inactivity never hides history.
 - R2 (parent R36): Report detail rows are paged while totals cover the full dataset.
 
+- R37 (parent R37): Every list this epic exposes uses the one list pattern — a labelled search, the filters the surface owns, one Reset that keeps the selected event or history section, the R36 footer, and a row details dialog for secondary facts — with the same pattern everywhere and a stacked layout on narrow screens.
 ## Constraints
 
 - Passwords only as salted Argon2id hashes; signed expiring cookies; antiforgery on every mutation; ownership checks on personal resources; every time, capacity and state guard on the server; secrets, hashes and QR tokens never logged; no login throttling (parent Constraints; prd NFR-1).
@@ -87,3 +88,5 @@ For the organization, participation evidence for advisers comes straight from re
 - Note: 2026-11-06 — no container status change and no implementation starts from this planning edit.
 - Decision: 2026-11-06 — demo rescope: the client demo is close, so frontend-only demo work comes first against demo data recorded in `demo-mock-register.md` with no visible sign in the UI. 7.4 is demo-critical (queue 60) and reads demo data M-13; 7.1–7.3 are integration tickets replacing M-13 in parts until 7.3 sets M-13 removed. Per-ticket Impeccable critique and polish are replaced by 8.15 demo rehearsal and 8.12.
 - Decision: 2026-11-06 — review of the demo rescope: 7.4 waits on 1.13 and 1.14 and verifies against seeded data only; M-13 is split into M-13a (7.1), M-13b (7.2) and M-13c (7.3) with each ticket the sole remover.
+- Decision: 2026-11-15 — replan: 7.5 aligns the report summary, baselines and breakdown panels and keeps the shared list pattern for the detail rows, phase `ui`. Report precedence is unchanged. Reason: phase 5 of the UI plan.
+- Decision: 2026-11-15 — 7.5 is withdrawn; the report shipped and its alignment is covered by the shipped list pattern. Reason: no open requirement.

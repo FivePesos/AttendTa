@@ -50,13 +50,13 @@ does not split the hashes:
 
 ```sql
 :setvar AdminName "Maria Clara Dizon"
-:setvar AdminEmail "maria.dizon@uc.edu.ph"
+:setvar AdminEmail "maria.dizon@gmail.com"
 :setvar AdminPasswordHash "<admin hash>"
 :setvar OfficerName "Rafael Santos"
-:setvar OfficerEmail "rafael.santos@uc.edu.ph"
+:setvar OfficerEmail "rafael.santos@gmail.com"
 :setvar OfficerPasswordHash "<officer hash>"
 :setvar MemberName "Liza Fernandez"
-:setvar MemberEmail "liza.fernandez@uc.edu.ph"
+:setvar MemberEmail "liza.fernandez@gmail.com"
 :setvar MemberPasswordHash "<member hash>"
 :r C:\path\to\AttendTaBMAD\database\seed-local-admin.sql
 :r C:\path\to\AttendTaBMAD\database\seed-event-types.sql

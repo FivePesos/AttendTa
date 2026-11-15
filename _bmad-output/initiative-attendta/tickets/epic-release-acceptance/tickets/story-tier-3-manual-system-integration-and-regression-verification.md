@@ -9,7 +9,7 @@ hitl: true
 risk: medium
 tracker_id: "81"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/81"
-tracker_status: backlog
+tracker_status: done
 ---
 
 # Tier 3 manual system integration and regression verification
