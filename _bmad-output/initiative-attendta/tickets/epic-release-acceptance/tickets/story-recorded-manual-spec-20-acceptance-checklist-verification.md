@@ -9,7 +9,7 @@ hitl: true
 risk: medium
 tracker_id: "79"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/79"
-tracker_status: backlog
+tracker_status: done
 ---
 
 # Recorded manual SPEC §20 acceptance checklist verification

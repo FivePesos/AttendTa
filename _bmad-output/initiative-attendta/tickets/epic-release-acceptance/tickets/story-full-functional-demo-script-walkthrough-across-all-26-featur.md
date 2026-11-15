@@ -9,7 +9,7 @@ hitl: true
 risk: low
 tracker_id: "80"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/80"
-tracker_status: backlog
+tracker_status: done
 ---
 
 # Full functional demo script walkthrough across all 26 feature IDs

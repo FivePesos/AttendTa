@@ -9,7 +9,7 @@ hitl: false
 risk: medium
 tracker_id: "149"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/149"
-tracker_status: backlog
+tracker_status: done
 ---
 
 # Frontend account and membership access dialogs

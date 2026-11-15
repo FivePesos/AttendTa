@@ -9,7 +9,7 @@ hitl: false
 risk: low
 tracker_id: "146"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/146"
-tracker_status: backlog
+tracker_status: done
 ---
 
 # Frontend member certificate history and download-link states

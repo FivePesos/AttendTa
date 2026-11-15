@@ -220,3 +220,19 @@ area = "frontend"
 queue = 120
 references = ["docs/DESIGN.md", "_bmad-output/initiative-attendta/delivery-queue.md", "_bmad-output/initiative-attendta/demo-mock-register.md"]
 notes = ["Demo phase (2026-11-06 demo rescope): frontend only, real backend only; this ticket adds no demo data.", "Done check: `dotnet build`, `npm run css:build` when views or styles change, and one look at the changed screen with `DemoData__Enabled=true`. No new automated tests, no per-ticket Impeccable critique or polish and no separate code-review pass; the pull request keeps green existing CI and one peer approval. Critique, polish and the full Verify line run once in 8.15."]
+
+[[entry]]
+id = 20
+type = "story"
+title = "Registration review and dossier bulk approval"
+description = "Add bounded bulk approval of pending Registrations on the review screen and the event dossier roster, reusing RegistrationReviewService.ApproveAsync. Accept a bounded, deduplicated list of ids and the selected event context; re-read status, actor, account and membership activity and event facts at execution time; keep the existing transaction, locking, capacity, cutoff, waitlist-priority and audit rules; return a per-record result naming the actual outcome (confirmed, waitlisted or refused with the reason). Selection is per page, shows a count, clears on page, event, search or filter change, and never implies a bulk command that does not exist. Individual approval stays available."
+verify = "Approving a mixed selection reports each participant's actual outcome and audits one entry per successful change; a stale, already-decided, duplicate, over-capacity, past-cutoff or wrong-event id is refused with its reason and changes nothing; a repeat submit creates no duplicate effect; a selection does not survive a page or filter change; individual approval still works."
+covers = ["R16", "R33", "R37"]
+after = [7, "1.16"]
+hitl = false
+risk = "high"
+phase = "ui"
+area = "backend"
+queue = 122
+references = ["docs/handoffs/ui-ux-backend-alignment-handoff.md", "docs/ui-ux-implementation-plan.md"]
+notes = ["Phase 4 of the UI plan. Partial success with per-record results is the recommended batch semantic; never wrap the existing transaction-owning command in an unreviewed nested transaction.", "Do not add checkboxes that imply a working bulk command before this entry ships.", "Restored 2026-11-15 after the phase-entry withdrawal; the project owner kept bulk approval in scope."]
