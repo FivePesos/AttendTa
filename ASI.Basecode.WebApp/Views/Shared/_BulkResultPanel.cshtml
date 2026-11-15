@@ -1,11 +1,13 @@
 @model BulkResultViewModel
 @*
-    The per-record result panel. A live region so the outcome is announced after the re-render,
-    and a real list so every selected person keeps their own result line.
+    The per-record result panel: a real list so every selected person keeps their own result
+    line. It keeps the status role for hosts that update the region in place; this queue
+    re-renders the whole page, so the panel is read as ordinary page content, and the heading
+    names the outcome for anyone arriving at it.
 *@
-<section class="bulk-result" role="status" aria-live="polite">
-    <h2 class="bulk-result-title">@Model.Title</h2>
-    <p class="bulk-result-counts">@Model.SucceededCount of @Model.TotalCount succeeded</p>
+<section class="bulk-result" role="status" aria-live="polite" aria-labelledby="bulk-result-title">
+    <h2 class="bulk-result-title" id="bulk-result-title">@Model.Title</h2>
+    <p class="bulk-result-counts">@Model.SucceededCount of @Model.TotalCount succeeded@(Model.FailedCount > 0 ? ". The rest were left unchanged." : "")</p>
     <ul class="bulk-result-list">
         @foreach (var item in Model.Items)
         {

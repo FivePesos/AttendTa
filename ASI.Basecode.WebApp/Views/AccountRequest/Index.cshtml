@@ -33,7 +33,13 @@
         var value = Context.Request.Query[key].ToString();
         if (!string.IsNullOrWhiteSpace(value)) bulkRoute[key] = value;
     }
-    bulkRoute["status"] = "pending";
+    // The dialog posts to the page the reader is on, so a batch approved from "All" stays on
+    // "All" instead of being dropped onto Pending.
+    bulkRoute["status"] = Model.Status;
+    // Only a pending row can be selected, so the selection surface and its column appear only
+    // where there is something to select. A decided-only tab shows the table alone.
+    var hasSelectableRows = Model.Items.Any(item => item.Status == "Pending");
+    var columnCount = hasSelectableRows ? 6 : 5;
     var bulkSelection = new BulkSelectionViewModel
     {
         ActionLabel = "Approve selected",
@@ -100,17 +106,23 @@
 <p class="muted" data-list-status role="status" data-list-busy-label="Loading records…"></p>
 
 <div data-bulk-root data-bulk-noun="request">
-    <partial name="_BulkSelectionBar" model="bulkSelection" />
+    @if (hasSelectableRows)
+    {
+        <partial name="_BulkSelectionBar" model="bulkSelection" />
+    }
 
     <div class="table-scroll" role="region" aria-label="Account request table" tabindex="0" data-list-region>
         <table class="data-table table-sticky request-table">
             <thead>
                 <tr>
-                    <th scope="col" class="select-column">
-                        <label class="select-target">
-                            <input type="checkbox" data-bulk-all aria-label="Select all pending requests on this page" />
-                        </label>
-                    </th>
+                    @if (hasSelectableRows)
+                    {
+                        <th scope="col" class="select-column">
+                            <label class="select-target">
+                                <input type="checkbox" data-bulk-all aria-label="Select all pending requests on this page" />
+                            </label>
+                        </th>
+                    }
                     <th scope="col">Full Name</th>
                     <th scope="col">Course / year</th>
                     <th scope="col">
@@ -127,7 +139,7 @@
                 @if (Model.Items.Count == 0)
                 {
                     <tr>
-                        <td colspan="6" class="empty-state">No @emptyLabel found.</td>
+                        <td colspan="@columnCount" class="empty-state">No @emptyLabel found.</td>
                     </tr>
                 }
                 else
@@ -135,21 +147,24 @@
                     foreach (var request in Model.Items)
                     {
                         <tr data-request-id="@request.RequestId">
-                            @if (request.Status == "Pending")
+                            @if (hasSelectableRows)
                             {
-                                <td data-label="Select" class="select-column">
-                                    <label class="select-target">
-                                        <input type="checkbox"
-                                               data-bulk-row
-                                               value="@request.RequestId"
-                                               data-bulk-label="@request.FullName (@request.StudentNumber)"
-                                               aria-label="Select @request.FullName" />
-                                    </label>
-                                </td>
-                            }
-                            else
-                            {
-                                <td class="select-column"></td>
+                                if (request.Status == "Pending")
+                                {
+                                    <td data-label="Select" class="select-column">
+                                        <label class="select-target">
+                                            <input type="checkbox"
+                                                   data-bulk-row
+                                                   value="@request.RequestId"
+                                                   data-bulk-label="@request.FullName (@request.StudentNumber)"
+                                                   aria-label="Select @request.FullName (@request.StudentNumber)" />
+                                        </label>
+                                    </td>
+                                }
+                                else
+                                {
+                                    <td class="select-column" aria-hidden="true"></td>
+                                }
                             }
                             <td data-label="Full Name" class="cell-name"><span class="cell-strong">@request.FullName<small class="cell-meta">@request.StudentNumber</small></span></td>
                             <td data-label="Course / year">@request.Course · @request.YearLevel</td>
@@ -186,7 +201,10 @@
         </table>
     </div>
 
-    <partial name="_BulkConfirmDialog" model="bulkSelection" />
+    @if (hasSelectableRows)
+    {
+        <partial name="_BulkConfirmDialog" model="bulkSelection" />
+    }
 </div>
 
 <partial name="_Pager" model="Model" />

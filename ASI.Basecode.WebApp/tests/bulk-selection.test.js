@@ -183,11 +183,28 @@ test('select all and deselect all are disabled when the page has no selectable r
     assert.equal(openButton.disabled, true);
 });
 
-test('select all and deselect all are enabled when the page has selectable rows', () => {
-    const { selectAllButton, clearButton } = setup();
+test('the page actions follow the current selection', () => {
+    const { api, rows, selectAllButton, clearButton } = setup();
 
+    // Nothing ticked: selecting all is the only action that would change anything.
+    assert.equal(selectAllButton.disabled, false);
+    assert.equal(clearButton.disabled, true);
+
+    rows[0].checked = true;
+    api.sync();
     assert.equal(selectAllButton.disabled, false);
     assert.equal(clearButton.disabled, false);
+
+    // Every row ticked: there is nothing left to select.
+    rows.forEach(row => { row.checked = true; });
+    api.sync();
+    assert.equal(selectAllButton.disabled, true);
+    assert.equal(clearButton.disabled, false);
+
+    rows.forEach(row => { row.checked = false; });
+    api.sync();
+    assert.equal(selectAllButton.disabled, false);
+    assert.equal(clearButton.disabled, true);
 });
 
 test('selection is never persisted', () => {

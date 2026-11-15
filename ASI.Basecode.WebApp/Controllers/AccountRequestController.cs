@@ -51,13 +51,7 @@ namespace ASI.Basecode.WebApp.Controllers
         [Route("AccountRequest/Index")]
         public async Task<IActionResult> Index(string status = "pending", string search = null, string sort = "newest", int? page = null)
         {
-            var normalizedStatus = status?.Trim().ToLowerInvariant() switch
-            {
-                "approved" => "approved",
-                "rejected" => "rejected",
-                "all" => "all",
-                _ => "pending"
-            };
+            var normalizedStatus = NormalizeStatus(status);
             var normalizedSort = string.Equals(sort, "oldest", StringComparison.OrdinalIgnoreCase) ? "oldest" : "newest";
             ViewBag.Status = normalizedStatus;
             var result = await _accountRequestQueueService.GetPageAsync(normalizedStatus, page, search, normalizedSort, HttpContext.RequestAborted);
@@ -103,8 +97,9 @@ namespace ASI.Basecode.WebApp.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> ApproveSelected(int[] ids, string status = "pending", string search = null, string sort = "newest", int? page = null)
         {
+            var normalizedStatus = NormalizeStatus(status);
             var normalizedSort = string.Equals(sort, "oldest", StringComparison.OrdinalIgnoreCase) ? "oldest" : "newest";
-            ViewBag.Status = "pending";
+            ViewBag.Status = normalizedStatus;
             ViewData["PagerPath"] = Url.Action(nameof(Index));
             ViewData["ListPath"] = Url.Action(nameof(Index));
 
@@ -140,8 +135,23 @@ namespace ASI.Basecode.WebApp.Controllers
                 }
             }
 
-            var result = await _accountRequestQueueService.GetPageAsync("pending", page, search, normalizedSort, HttpContext.RequestAborted);
+            var result = await _accountRequestQueueService.GetPageAsync(normalizedStatus, page, search, normalizedSort, HttpContext.RequestAborted);
             return View("Index", result);
+        }
+
+        /// <summary>
+        /// Accepts only the queue's own status keys, so a posted or hand-edited value cannot
+        /// render a page the queue service does not understand.
+        /// </summary>
+        private static string NormalizeStatus(string status)
+        {
+            return status?.Trim().ToLowerInvariant() switch
+            {
+                "approved" => "approved",
+                "rejected" => "rejected",
+                "all" => "all",
+                _ => "pending"
+            };
         }
 
         private static string Label(AccountRequestApprovalOutcome outcome)

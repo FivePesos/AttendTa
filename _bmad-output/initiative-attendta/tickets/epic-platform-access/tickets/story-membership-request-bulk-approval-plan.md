@@ -12,7 +12,7 @@ review: 'quick'
 review_source: 'pinned'
 lenses_ran: ['quick']
 review_loop_iteration: 0
-followup_review_recommended: true
+followup_review_recommended: false
 context:
   - 'AGENTS.md'
   - 'DESIGN.md'
@@ -106,6 +106,16 @@ Surprise: a leftover integration-test host from the subagent's run held the Rele
   - `[medium]` `[patch]` The row checkbox hit area was the 16px box inside a 44px cell, short of the 44px touch target `DESIGN.md` requires — verified in `bulk-actions.css` (`.select-column input { width:16px }`, cell padding left as the only surrounding space). Fixed: header and row checkboxes wrapped in a 44×44 `<label class="select-target">`, column padding zeroed, visual box kept at 16px.
   - `[false]` `[reject]` The result panel cannot distinguish two applicants who share a name — refuted: the reviewed diff already builds each row with `Label(outcome)` (`AccountRequestController`), which appends the server-resolved student number, and `AccountRequestApprovalOutcome.StudentNumber` is populated by `ApproveManyAsync`.
 
+### 2026-11-16 — Review pass (follow-up)
+- verdicts: 6 findings — high 0, medium 1, low 4, false 0, maybe-false 0
+- findings:
+  - `[low]` `[patch]` `bulk-selection.js` `sync()` left "Select all on this page" and "Deselect all" enabled while they could do nothing — the previous pass gated them on `total === 0` only, so on the ordinary first render (rows present, nothing ticked) Deselect was enabled and inert, and with every row ticked Select all was. Fixed: each page action now follows the selection (Select all disabled at zero rows or when every row is ticked, Deselect disabled at zero selected), and the node test walks the four states.
+  - `[low]` `[reject]` The bulk POST re-renders at `/AccountRequest/ApproveSelected`, so a refresh re-posts and a GET of that URL is a 405 — real, but the intent-contract's matrix fixes the response as "200 with per-record results", so a redirect is excluded by the intent itself; the harm is a resubmit prompt and a bookmark 405, and the fix needs TempData plumbing rather than a direct correction. The in-page link damage was already patched in the previous pass through `ListPath`.
+  - `[low]` `[reject]` The result panel's `role="status"` cannot announce on a full re-render — the live region is inert, but nothing is lost: the panel is part of the initial document and is read as page content, and the Code Map specified the role. Fixing it properly means an in-place update, which is structural rather than a correction.
+  - `[low]` `[patch]` `ApproveSelected` accepted and discarded its `status` parameter, dropping a reader who bulk-approved from "All" onto Pending — Fixed: `NormalizeStatus` is shared with `Index`, the action uses the posted status for both the page read and the re-render, and the dialog carries `Model.Status` in its route values.
+  - `[low]` `[patch]` The 44px header label grew the table head past DESIGN.md's 38px — Fixed: the header label is 38px on fine pointers and 44px under `(pointer: coarse)`; body-row targets stay 44px.
+  - `[medium]` `[patch]` The required Impeccable critique and polish pass was not run, and ticket 1.16 appears in neither the demo nor the integration phase queue, so the AGENTS.md exception does not apply — Fixed: ran `/impeccable critique` (isolated design review plus the bundled detector, which returned 0 findings on the four markup files) and `/impeccable polish` on the changed surface. Polish applied: a ticked row carries the Cobalt Tint the system reserves for selected rows; the bar, dialog and select column render only where a pending row can be selected; the bulk action is secondary so the screen keeps one cobalt primary; the row checkbox label carries the student number; a decided row's select cell is `aria-hidden`; the result panel states that unapproved records were left unchanged.
+
 ## Design Notes
 
 Per-record transactions are the point: `ApproveAsync` already owns its transaction, so calling it in a loop yields partial success with one audit per committed record and no nesting hazard. A batch-level transaction would turn one bad row into a failed batch.
@@ -133,28 +143,30 @@ The result panel is fed by a server-side name lookup, not the posted form: a cli
 - `ASI.Basecode.Resources/Constants/BulkApproval.cs` — the 25-id bound and the two notices, shared by service and controller.
 - `ASI.Basecode.Data/Models/AccountRequestSummary.cs` — display-only identity read model.
 - `ASI.Basecode.Data/Interfaces/IAccountRequestRepository.cs`, `Repositories/AccountRequestRepository.cs` — read-only `GetSummariesAsync`.
-- `ASI.Basecode.Services/ServiceModels/AccountRequestApprovalOutcome.cs` — one result row per decided id.
+- `ASI.Basecode.Services/ServiceModels/AccountRequestApprovalOutcome.cs` — one result row per decided id, carrying the server-resolved student number.
 - `ASI.Basecode.Services/Interfaces/IAccountRequestService.cs`, `Services/AccountRequestService.cs` — `ApproveManyAsync`; `ApproveAsync` untouched.
 - `ASI.Basecode.WebApp/Models/BulkSelectionViewModel.cs`, `BulkResultViewModel.cs` — reusable selection and result view models.
 - `ASI.Basecode.WebApp/Views/Shared/_BulkSelectionBar.cshtml`, `_BulkConfirmDialog.cshtml`, `_BulkResultPanel.cshtml` — the three shared components.
 - `ASI.Basecode.WebApp/wwwroot/js/features/bulk-selection.js` — selection state, count, tri-state header, dialog population, bfcache reset.
-- `ASI.Basecode.WebApp/Styles/features/bulk-actions.css`, `Styles/app.css`, `wwwroot/css/app.css` — feature styles, import and rebuilt output.
-- `ASI.Basecode.WebApp/Controllers/AccountRequestController.cs` — antiforgery `ApproveSelected` POST and the list-path fix.
-- `ASI.Basecode.WebApp/Views/AccountRequest/Index.cshtml` — selection column, bar, result panel, dialog and list-path links.
+- `ASI.Basecode.WebApp/Styles/features/bulk-actions.css`, `Styles/app.css`, `wwwroot/css/app.css` — feature styles (including the selected-row tint), import and rebuilt output.
+- `ASI.Basecode.WebApp/Controllers/AccountRequestController.cs` — antiforgery `ApproveSelected` POST, the list-path fix and the shared status normaliser.
+- `ASI.Basecode.WebApp/Views/AccountRequest/Index.cshtml` — selection column, bar, result panel, dialog and list-path links, all rendered only where a pending row can be selected.
 - `ASI.Basecode.WebApp/Views/Shared/_ListToolbar.cshtml`, `Models/ListNavigation.cs` — optional `targetPath` so a POST re-render keeps GET links.
 - `tests/ASI.Basecode.Services.Tests/AccountRequestServiceTests.cs` — 8 batch tests, one transaction per id.
-- `tests/ASI.Basecode.IntegrationTests/AccountRequestDecisionTests.cs` — 5 endpoint and browser tests.
+- `tests/ASI.Basecode.IntegrationTests/AccountRequestDecisionTests.cs` — 7 endpoint and browser tests.
 - `ASI.Basecode.WebApp/tests/bulk-selection.test.js` — 10 node tests.
 
-**Review findings:** 4 reported — 2 medium patched, 1 low patched, 1 rejected as false. No deferred items. Patched: the POST-URL list links (medium), the inert page actions on tabs with no selectable rows (low), and the 16px checkbox hit area (medium). Rejected: the same-name result-panel claim, refuted because the reviewed diff already composes the label from the server-resolved name and student number.
+**Review findings:** 10 reported across two passes — 4 medium patched, 4 low patched, 2 rejected. First pass: 4 findings (2 medium, 1 low patched; 1 rejected as false). Follow-up pass: 6 findings (1 medium, 3 low patched; 2 rejected). Patched across both passes: the POST-URL list links, the inert page actions on tabs with no selectable rows and at partial selection, the 16px checkbox hit area, the discarded `status` parameter, the 44px header row, and the missing Impeccable critique and polish gate. Rejected: the same-name result-panel claim (refuted — the label is composed from the server-resolved name and student number); the POST re-render URL (the intent-contract fixes the response as a 200 with per-record results, so a redirect is excluded, and the harm is a resubmit prompt and a bookmark 405); the inert `role="status"` (the panel is initial page content, so the outcome is still conveyed, and an in-place update is structural).
 
-**Follow-up review recommendation:** `true`. Two medium entries were patched on this first pass. Unverified risk: the list-path fix assumes every link on the re-rendered queue page flows through `ListNavigation.Url` or `ViewData["ListPath"]`; the pager uses `PagerPath` and the auto-fit reload is disabled in fixed paging mode, but no browser test performs two consecutive bulk submits and then follows a tab or sort link.
+**Design gate:** `/impeccable critique` ran as two isolated assessments — a design review (22/40, Operate mode) and the bundled detector, which returned 0 findings on all four markup files after a probe confirmed the engine parses Razor. `/impeccable polish` then fixed the P1/P2 drift it found: selected rows now carry the Cobalt Tint DESIGN.md reserves for them, the selection surface renders only where a pending row can be selected, the batch action is secondary so the screen keeps one cobalt primary, the row checkbox label carries the student number, a decided row's select cell is `aria-hidden`, and the result panel states that unapproved records were left unchanged. Deliberately not done: cross-page selection, an editable confirmation list, and a "select all matching" action — each is a new interaction the intent did not ask for.
+
+**Follow-up review recommendation:** `false`. This was a follow-up pass and it patched no `high` entry; the work has converged.
 
 **Verification performed:**
 - `dotnet build ASI.Basecode.sln --configuration Release` — 0 warnings, 0 errors.
 - Services test project — 365 passed, 0 failed.
 - Integration suite (`-parallelMode none`, LocalDB) — 524 passed, 0 failed, 0 skipped.
-- `npm --prefix ASI.Basecode.WebApp run css:build` — deterministic; committed `wwwroot/css/app.css` matches the build.
+- `npm --prefix ASI.Basecode.WebApp run css:build` — deterministic; two consecutive builds are byte-identical.
 - `npm --prefix ASI.Basecode.WebApp run test:js` — 34 passed.
 
-**Residual risks:** the bulk POST re-renders in place rather than redirecting, so a browser refresh re-posts the batch (safe: every row returns stale and no duplicate is created, but the panel is replaced by refusals). The bar renders on every tab and is inert where no row is selectable. `AccountRequestApprovalOutcome` carries no outcome code, only the message, so a future surface that needs to branch on the refusal reason would have to add one.
+**Residual risks:** the bulk POST re-renders in place rather than redirecting, so a browser refresh re-posts the batch (safe — every row returns stale and no duplicate is created — but the panel is replaced by refusals, and a GET of that URL is a 405). The polish changes were made after the review lens ran, so the selected-row tint, the conditional surface and the secondary batch action have not themselves been through a review lens; they are covered by the build, the 524-test suite and the CSS/JS checks. `AccountRequestApprovalOutcome` carries no outcome code, only the message, so a future surface that needs to branch on the refusal reason would have to add one.

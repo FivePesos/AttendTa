@@ -35,10 +35,11 @@
 
             if (count) count.textContent = chosen.length + ' selected';
             if (openButton) openButton.disabled = chosen.length === 0;
-            // An enabled control that cannot act is forbidden, so both page actions follow the
-            // same rule as the bulk action: disabled when the page has no selectable rows.
-            if (selectAllButton) selectAllButton.disabled = total === 0;
-            if (clearButton) clearButton.disabled = total === 0;
+            // An enabled control that cannot act is forbidden, so each page action is disabled
+            // exactly when it would change nothing: select all when there is nothing left to
+            // tick, deselect all when nothing is ticked (which also covers a page with no rows).
+            if (selectAllButton) selectAllButton.disabled = total === 0 || chosen.length === total;
+            if (clearButton) clearButton.disabled = chosen.length === 0;
             if (toggleAll) {
                 toggleAll.disabled = total === 0;
                 toggleAll.checked = total > 0 && chosen.length === total;

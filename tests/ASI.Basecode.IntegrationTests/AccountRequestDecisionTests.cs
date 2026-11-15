@@ -701,7 +701,7 @@ public sealed class AccountRequestDecisionTests(SqlServerDatabaseFixture fixture
     }
 
     [Fact]
-    public async Task BulkSelectionStartsEmptyAndDisabledOnEveryQueuePage()
+    public async Task BulkSelectionAppearsOnlyWherePendingRowsCanBeSelected()
     {
         var ct = TestContext.Current.CancellationToken;
         var actor = await SeedUserAsync(RoleCode.Officer, "bulk-surface-actor", ActorPassword, ct);
@@ -717,7 +717,7 @@ public sealed class AccountRequestDecisionTests(SqlServerDatabaseFixture fixture
             "/AccountRequest?status=pending",
             $"/AccountRequest?status=pending&search={Uri.EscapeDataString(email)}",
             "/AccountRequest?status=pending&sort=oldest",
-            "/AccountRequest?status=approved"
+            "/AccountRequest?status=all"
         })
         {
             var html = await client.GetStringAsync(url, ct);
@@ -729,19 +729,22 @@ public sealed class AccountRequestDecisionTests(SqlServerDatabaseFixture fixture
             Assert.Contains("0 selected", html, StringComparison.Ordinal);
             Assert.Matches(new Regex("<button[^>]*data-bulk-open=\"bulk-approve-dialog\"[^>]*disabled"), html);
 
-            if (url.Contains("status=pending", StringComparison.Ordinal))
-            {
-                // Pending rows are selectable, but nothing arrives already ticked.
-                var rowInput = Regex.Match(html, "<input[^>]*data-bulk-row[^>]*>").Value;
-                Assert.False(string.IsNullOrWhiteSpace(rowInput));
-                Assert.DoesNotContain("checked", rowInput, StringComparison.OrdinalIgnoreCase);
-            }
-            else
-            {
-                // A decided row is never selectable.
-                Assert.DoesNotContain("data-bulk-row", html, StringComparison.Ordinal);
-            }
+            // The dialog posts back to the tab the reader is on, not to Pending.
+            var expectedStatus = url.Contains("status=all", StringComparison.Ordinal) ? "all" : "pending";
+            Assert.Contains($"action=\"/AccountRequest/ApproveSelected?status={expectedStatus}", html, StringComparison.Ordinal);
+
+            // Pending rows are selectable, but nothing arrives already ticked.
+            var rowInput = Regex.Match(html, "<input[^>]*data-bulk-row[^>]*>").Value;
+            Assert.False(string.IsNullOrWhiteSpace(rowInput));
+            Assert.DoesNotContain("checked", rowInput, StringComparison.OrdinalIgnoreCase);
         }
+
+        // A tab with nothing selectable renders the table alone: no bar, no dialog, no column.
+        var decided = await client.GetStringAsync("/AccountRequest?status=approved", ct);
+        Assert.DoesNotContain("data-bulk-open", decided, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-bulk-dialog", decided, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-bulk-row", decided, StringComparison.Ordinal);
+        Assert.DoesNotContain("select-column", decided, StringComparison.Ordinal);
     }
 
     private static FormUrlEncodedContent BulkForm(IEnumerable<int> ids, string? token, string status = "pending")

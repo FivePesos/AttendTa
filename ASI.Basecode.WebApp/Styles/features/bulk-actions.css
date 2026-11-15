@@ -26,6 +26,14 @@
     gap: 8px;
   }
 
+  /* A ticked row carries the system's selected-row tint, so the selection is legible in the
+     table itself and not only in the count above it. The :hover variant outranks the shared
+     row-hover ground, which would otherwise erase the tint under the pointer. */
+  .data-table tbody tr:has(input[data-bulk-row]:checked) td,
+  .data-table tbody tr:has(input[data-bulk-row]:checked):hover td {
+    background: var(--color-cobalt-tint);
+  }
+
   /* The selection column: the 44px label is the target; the box stays 16px. */
   .data-table th.select-column,
   .data-table td.select-column {
@@ -48,6 +56,12 @@
     height: 16px;
     margin: 0;
     accent-color: var(--color-cobalt);
+  }
+  /* The head row keeps its 38px height on fine-pointer surfaces; only touch surfaces grow the
+     header target to 44px. Body rows keep their 44px targets everywhere. */
+  .data-table th.select-column .select-target { height: 38px; }
+  @media (pointer: coarse) {
+    .data-table th.select-column .select-target { height: 44px; }
   }
   .select-column input:focus-visible {
     outline: 2px solid var(--color-cobalt);
