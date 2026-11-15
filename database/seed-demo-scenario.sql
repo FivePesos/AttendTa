@@ -144,13 +144,13 @@ BEGIN TRY
     INSERT INTO @Participants ([Ordinal], [FullName], [Email], [StudentNumber], [Course], [YearLevel], [Section], [MembershipType])
     VALUES
         (1, @MemberName,      @MemberEmail,                 N'22771903', N'BSIT', 3, N'B', N'Regular'),
-        (2, N'Joshua Reyes',  N'joshua.reyes@uc.edu.ph',    N'24150382', N'BSCS',       3, N'A', N'Regular'),
-        (3, N'Angela Dela Cruz', N'angela.delacruz@uc.edu.ph', N'23771946', N'BSIT', 2, N'C', N'Regular'),
-        (4, N'Mark Villanueva', N'mark.villanueva@uc.edu.ph', N'21945028', N'BSCS',     4, N'B', N'Regular'),
-        (5, N'Sofia Mendoza', N'sofia.mendoza@uc.edu.ph',   N'23018475', N'BSIT', 2, N'A', N'Regular'),
-        (6, N'Daniel Navarro', N'daniel.navarro@uc.edu.ph', N'24560219', N'BSCS',       1, N'C', N'Regular'),
-        (7, N'Beatrice Lim',  N'beatrice.lim@uc.edu.ph',    N'22730184', N'BSIT',    3, N'B', N'Regular'),
-        (8, N'Paolo Gutierrez', N'paolo.gutierrez@uc.edu.ph', N'23294861', N'BSIT', 4, N'A', N'Regular');
+        (2, N'Joshua Reyes',  N'joshua.reyes@gmail.com',    N'24150382', N'BSCS',       3, N'A', N'Regular'),
+        (3, N'Angela Dela Cruz', N'angela.delacruz@gmail.com', N'23771946', N'BSIT', 2, N'C', N'Regular'),
+        (4, N'Mark Villanueva', N'mark.villanueva@gmail.com', N'21945028', N'BSCS',     4, N'B', N'Regular'),
+        (5, N'Sofia Mendoza', N'sofia.mendoza@gmail.com',   N'23018475', N'BSIT', 2, N'A', N'Regular'),
+        (6, N'Daniel Navarro', N'daniel.navarro@gmail.com', N'24560219', N'BSCS',       1, N'C', N'Regular'),
+        (7, N'Beatrice Lim',  N'beatrice.lim@gmail.com',    N'22730184', N'BSIT',    3, N'B', N'Regular'),
+        (8, N'Paolo Gutierrez', N'paolo.gutierrez@gmail.com', N'23294861', N'BSIT', 4, N'A', N'Regular');
 
     DECLARE @MemberIds TABLE ([Ordinal] int PRIMARY KEY, [UserId] int NOT NULL, [MemberId] int NOT NULL);
 
@@ -549,12 +549,12 @@ BEGIN TRY
     /* One pending membership request, so the Account requests queue opens populated and the
        presenter can demonstrate approval without leaving the signed-in session. The request is
        only inserted when that email has no account and no pending request yet. */
-    IF NOT EXISTS (SELECT 1 FROM dbo.users WHERE [email] = N'camille.torres@uc.edu.ph')
-       AND NOT EXISTS (SELECT 1 FROM dbo.account_requests WHERE [email] = N'camille.torres@uc.edu.ph' AND [account_request_status_id] = 1)
+    IF NOT EXISTS (SELECT 1 FROM dbo.users WHERE [email] = N'camille.torres@gmail.com')
+       AND NOT EXISTS (SELECT 1 FROM dbo.account_requests WHERE [email] = N'camille.torres@gmail.com' AND [account_request_status_id] = 1)
        AND NOT EXISTS (SELECT 1 FROM dbo.account_requests WHERE [student_number] = N'21887640' AND [account_request_status_id] = 1)
     BEGIN
         INSERT INTO dbo.account_requests ([student_number], [full_name], [email], [password_hash], [course], [year_level], [section], [mobile_number], [account_request_status_id], [requested_at])
-        VALUES (N'21887640', N'Camille Torres', N'camille.torres@uc.edu.ph', @MemberPasswordHash,
+        VALUES (N'21887640', N'Camille Torres', N'camille.torres@gmail.com', @MemberPasswordHash,
                 N'BSIT', 2, N'C', N'09170000110', 1, DATEADD(hour, -4, @Now));
     END
 
