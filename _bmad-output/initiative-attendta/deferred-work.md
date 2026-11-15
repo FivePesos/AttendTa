@@ -77,3 +77,10 @@
   summary: The Bruno `Members - Edit` request cannot run against the app: it posts with `auth: none`, no antiforgery token, and a stale `https://localhost:51629` port.
   status: deferred
   evidence: `bruno/Members - Edit.bru` has no `__RequestVerificationToken` and no sign-in step, so the endpoint returns a redirect or a 400 regardless of payload. This ticket only made the payload shape-compliant (`20240001`, section `B`). AGENTS.md documents the collection as the browser-free manual CRUD harness, so the gap is worth closing separately.
+
+## Deferred from: code review of plan-1-15-profile-validation (2026-11-15)
+
+- source_plan: `_bmad-output/initiative-attendta/plan-1-15-profile-validation.md`
+  summary: `MemberService.UpdateMemberAsync` validates the view model inside the transaction, after the user row lock is taken.
+  status: deferred
+  evidence: Already recorded above under the plan's own review; this review confirmed the same ordering at `MemberService.cs:136` (normalize) and `:158` (validate). Nothing is mutated on refusal, so the exposure is a momentarily held lock on a request that is about to be refused. Moving `Validate` beside `Normalize` would close it.

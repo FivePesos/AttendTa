@@ -13,6 +13,7 @@ using ASI.Basecode.Services.Interfaces;
 using ASI.Basecode.Services.Security;
 using ASI.Basecode.Services.ServiceModels;
 using ASI.Basecode.Services.Services;
+using ASI.Basecode.IntegrationTests.Support;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
@@ -105,6 +106,31 @@ public sealed class AccountRequestDecisionTests(SqlServerDatabaseFixture fixture
         Assert.DoesNotContain(studentNumber, otherMembers);
         using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
         await SignInAsync(client, applicantEmail, ApplicantPassword, ct);
+    }
+
+    [Fact]
+    public async Task ApprovalOfARequestStoredBeforeTheProfileRulesIsRefusedOnTheStudentNumberField()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var actor = await SeedUserAsync(RoleCode.Officer, "legacy-approval-actor", ActorPassword, ct);
+        var (requestId, _) = await SeedRequestAsync(UniqueEmail("legacy-approval"), "2023-01234", ct);
+
+        await using (var writer = Context())
+        {
+            var service = CreateService(writer, new TestActor(actor.Id, RoleCodes.Officer));
+
+            var exception = await Assert.ThrowsAsync<DomainException>(() => service.ApproveAsync(requestId, actor.Id, ct));
+
+            Assert.Equal(OutcomeCode.Invalid, exception.Outcome);
+            Assert.Equal(nameof(MemberViewModel.StudentNumber), exception.Field);
+        }
+
+        await using var observer = Context();
+        var request = await observer.AccountRequests.AsNoTracking().SingleAsync(item => item.RequestId == requestId, ct);
+        Assert.Equal(AccountRequestStatusCode.Pending, request.AccountRequestStatusId);
+        Assert.Null(request.CreatedUserId);
+        Assert.False(await observer.Users.AnyAsync(item => item.UserId == request.Email, ct));
+        Assert.False(await observer.ActivityLogs.AnyAsync(item => item.EntityType == "account_requests" && item.EntityId == requestId, ct));
     }
 
     [Fact]
@@ -545,9 +571,7 @@ public sealed class AccountRequestDecisionTests(SqlServerDatabaseFixture fixture
 
     private static string UniqueEmail(string prefix) => $"{prefix}-{Guid.NewGuid():N}@attendta.test";
 
-    private static int studentNumberSeed = 20000000;
-
-    private static string UniqueStudentNumber() => Interlocked.Increment(ref studentNumberSeed).ToString(CultureInfo.InvariantCulture);
+    private static string UniqueStudentNumber() => ProfileFixtures.NewStudentNumber();
 
     private sealed record UserSeed(int Id, string Email);
 

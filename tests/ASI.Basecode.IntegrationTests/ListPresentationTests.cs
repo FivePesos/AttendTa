@@ -83,6 +83,7 @@ public sealed class ListPresentationTests
         Assert.Equal("BSIT", ASI.Basecode.Resources.Constants.ProfileOptions.NormalizeCourse(" BS Information Technology "));
         Assert.Equal("BSCS", ASI.Basecode.Resources.Constants.ProfileOptions.NormalizeCourse("bscs"));
         Assert.Equal(new[] { "BSCS", "BSIT" }, ListToolbarViewModel.Course.Options!.Select(item => item.Value));
+        Assert.Equal(new[] { "1", "2", "3", "4" }, ListToolbarViewModel.Year.Options!.Select(item => item.Value));
     }
 
     [Fact]

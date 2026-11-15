@@ -7,6 +7,7 @@ using ASI.Basecode.Data.Interfaces;
 using ASI.Basecode.Data.Models;
 using ASI.Basecode.Data.Models.Lookups;
 using ASI.Basecode.Data.Repositories;
+using ASI.Basecode.IntegrationTests.Support;
 using ASI.Basecode.Resources;
 using ASI.Basecode.Resources.Constants;
 using ASI.Basecode.Services.Interfaces;
@@ -328,7 +329,7 @@ public sealed class MemberManagementTests(SqlServerDatabaseFixture fixture) : IC
 
     [Theory]
     [InlineData(nameof(MemberViewModel.StudentNumber), "2024001")]
-    [InlineData(nameof(MemberViewModel.MobileNumber), "555-0100")]
+    [InlineData(nameof(MemberViewModel.MobileNumber), "555-0111")]
     [InlineData(nameof(MemberViewModel.Section), "G")]
     public async Task ProfileValueOutsideTheSharedRulesIsRejectedOnTheMemberEditPath(string field, string value)
     {
@@ -477,19 +478,23 @@ public sealed class MemberManagementTests(SqlServerDatabaseFixture fixture) : IC
         {
             ["__RequestVerificationToken"] = token,
             ["MemberId"] = seeded.MemberId.ToString(),
-            ["FullName"] = "Off-rule mobile",
+            ["FullName"] = "Off-rule profile",
             ["Email"] = "off-rule@example.invalid",
             ["StudentNumber"] = seeded.StudentNumber,
             ["StudentNumberCorrectionReason"] = "",
             ["Course"] = "BSIT",
-            ["YearLevel"] = "2",
-            ["Section"] = "A",
+            ["YearLevel"] = "5",
+            ["Section"] = "G",
             ["MobileNumber"] = "555-0100"
         }), ct);
         Assert.Equal(HttpStatusCode.OK, offRuleResponse.StatusCode);
         var offRuleHtml = await offRuleResponse.Content.ReadAsStringAsync(ct);
-        Assert.Contains("Enter an 11-digit mobile number starting with 09.", offRuleHtml, StringComparison.Ordinal);
+        AssertFieldError(offRuleHtml, "MobileNumber");
+        AssertFieldError(offRuleHtml, "YearLevel");
+        AssertFieldError(offRuleHtml, "Section");
         Assert.Contains("value=\"555-0100\"", offRuleHtml, StringComparison.Ordinal);
+        Assert.Contains("value=\"5\" selected", offRuleHtml, StringComparison.Ordinal);
+        Assert.Contains("value=\"G\" selected", offRuleHtml, StringComparison.Ordinal);
 
         await using (var observer = Context())
         {
@@ -511,6 +516,30 @@ public sealed class MemberManagementTests(SqlServerDatabaseFixture fixture) : IC
         using var denied = await memberClient.GetAsync($"/Member/Edit/{seeded.MemberId}", ct);
         Assert.Equal(HttpStatusCode.Redirect, denied.StatusCode);
         Assert.Contains("AccessDenied", denied.Headers.Location?.ToString(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
+    [InlineData("C", "C")]
+    [InlineData("3A", "3A")]
+    public async Task EditFormRendersTheStoredSectionAsTheSelectedOption(string storedSection, string expectedOption)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var seeded = await SeedMemberAsync(MembershipStatusCode.Active, ct, withLoginPasswords: true);
+        await using (var writer = Context())
+        {
+            var member = await writer.Members.SingleAsync(item => item.MemberId == seeded.MemberId, ct);
+            member.Section = storedSection;
+            await writer.SaveChangesAsync(ct);
+        }
+
+        using var factory = new AttendTaWebApplicationFactory(fixture.ConnectionString);
+        using var managementClient = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
+        await SignInAsync(managementClient, seeded.ActorEmail, ManagementPassword, ct);
+
+        using var page = await managementClient.GetAsync($"/Member/Edit/{seeded.MemberId}", ct);
+        Assert.Equal(HttpStatusCode.OK, page.StatusCode);
+        var html = await page.Content.ReadAsStringAsync(ct);
+        Assert.Contains($"value=\"{expectedOption}\" selected", html, StringComparison.Ordinal);
     }
 
     private async Task<SeededMember> SeedMemberAsync(MembershipStatusCode status, CancellationToken cancellationToken, bool withLoginPasswords = false)
@@ -606,9 +635,17 @@ public sealed class MemberManagementTests(SqlServerDatabaseFixture fixture) : IC
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
     }
 
-    private static int studentNumberSeed = 20000000;
+    private static string UniqueStudentNumber() => ProfileFixtures.NewStudentNumber();
 
-    private static string UniqueStudentNumber() => Interlocked.Increment(ref studentNumberSeed).ToString(CultureInfo.InvariantCulture);
+    private static void AssertFieldError(string html, string field)
+    {
+        var input = Regex.Match(html, $"<(?:input|select|textarea)\\b[^>]*\\bname=\"{field}\"[^>]*>", RegexOptions.IgnoreCase);
+        Assert.True(input.Success, $"No control for {field}.");
+        Assert.Contains($"aria-describedby=\"{field}-validation\"", input.Value, StringComparison.Ordinal);
+        var error = Regex.Match(html, $"<span[^>]*id=\"{field}-validation\"[^>]*>(.*?)</span>", RegexOptions.Singleline | RegexOptions.IgnoreCase);
+        Assert.True(error.Success, $"No error container for {field}.");
+        Assert.False(string.IsNullOrWhiteSpace(Regex.Replace(error.Groups[1].Value, "<[^>]+>", "")), $"No server error for {field}.");
+    }
 
     private static string UniqueEmail(string prefix) => $"{prefix}-{Guid.NewGuid():N}@attendta.test";
 

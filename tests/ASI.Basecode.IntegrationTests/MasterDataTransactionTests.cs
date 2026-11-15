@@ -3,6 +3,7 @@ using ASI.Basecode.Data.Interfaces;
 using ASI.Basecode.Data.Models;
 using ASI.Basecode.Data.Models.Lookups;
 using ASI.Basecode.Data.Repositories;
+using ASI.Basecode.IntegrationTests.Support;
 using ASI.Basecode.Resources;
 using ASI.Basecode.Services.Interfaces;
 using ASI.Basecode.Services.ServiceModels;
@@ -70,9 +71,7 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
 
     private static string UniqueName(string prefix) => $"{prefix}-{Guid.NewGuid():N}";
 
-    private static int studentNumberSeed = 20000000;
-
-    private static string UniqueStudentNumber() => Interlocked.Increment(ref studentNumberSeed).ToString(CultureInfo.InvariantCulture);
+    private static string UniqueStudentNumber() => ProfileFixtures.NewStudentNumber();
 
     private static User NewUser() => new()
     {
