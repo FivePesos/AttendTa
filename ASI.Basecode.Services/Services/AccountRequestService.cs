@@ -153,7 +153,7 @@ namespace ASI.Basecode.Services.Services
                 var user = new User
                 {
                     UserId = request.Email,
-                    Name = request.FullName,
+                    Name = ProfileOptions.NormalizeName(request.FullName),
                     Password = request.PasswordHash,
                     RoleId = RoleCode.Member,
                     IsActive = true,
@@ -276,7 +276,7 @@ namespace ASI.Basecode.Services.Services
         private static void Normalize(AccountRequestViewModel model)
         {
             model.StudentNumber = model.StudentNumber?.Trim();
-            model.FullName = model.FullName?.Trim();
+            model.FullName = ProfileOptions.NormalizeName(model.FullName);
             model.Email = model.Email?.Trim();
             model.Course = ProfileOptions.NormalizeCourse(model.Course);
             model.Section = ProfileOptions.NormalizeSection(model.Section);

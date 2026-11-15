@@ -323,7 +323,7 @@ public sealed class MemberManagementTests(SqlServerDatabaseFixture fixture) : IC
         }
 
         await using var observer = Context();
-        Assert.Equal("After lock release", (await observer.Users.AsNoTracking().SingleAsync(item => item.Id == seeded.UserId, ct)).Name);
+        Assert.Equal("After Lock Release", (await observer.Users.AsNoTracking().SingleAsync(item => item.Id == seeded.UserId, ct)).Name);
     }
 
     [Theory]
@@ -406,6 +406,29 @@ public sealed class MemberManagementTests(SqlServerDatabaseFixture fixture) : IC
         await using var observer = Context();
         var member = await observer.Members.AsNoTracking().SingleAsync(item => item.MemberId == seeded.MemberId, ct);
         Assert.Equal("B", member.Section);
+    }
+
+    [Fact]
+    public async Task NameIsStoredInTitleCaseOnTheMemberEditPath()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var seeded = await SeedMemberAsync(MembershipStatusCode.Active, ct);
+        await using (var writer = Context())
+        {
+            await CreateService(writer, seeded.ActorId).UpdateMemberAsync(new MemberViewModel
+            {
+                MemberId = seeded.MemberId,
+                FullName = "JOHN PAUL A. SINGCO",
+                StudentNumber = seeded.StudentNumber,
+                Course = "BSIT",
+                YearLevel = 2,
+                Section = "A"
+            }, ct);
+        }
+
+        await using var observer = Context();
+        var user = await observer.Users.AsNoTracking().SingleAsync(item => item.Id == seeded.UserId, ct);
+        Assert.Equal("John Paul A. Singco", user.Name);
     }
 
     [Fact]

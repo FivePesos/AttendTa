@@ -10,7 +10,7 @@ namespace ASI.Basecode.Services.ServiceModels
     public class AccountRequestViewModel
     {
         [Required(ErrorMessage = "Student number is required.")]
-        [RegularExpression(ProfileOptions.StudentNumberPattern, ErrorMessage = "Enter an 8-digit student number.")]
+        [RegularExpression(ProfileOptions.StudentNumberPattern, ErrorMessage = "Enter an 8-digit student number starting with 2.")]
         [StringLength(50, ErrorMessage = "Student number cannot exceed 50 characters.")]
         [Display(Name = "Student number")]
         public string StudentNumber { get; set; }
