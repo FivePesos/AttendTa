@@ -4,10 +4,10 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-function load({ height = 720, top = 250, rowHeight = 50, total = 50, url = 'http://localhost/Member?pageSize=5', editing = false, expanded = false, search = null, paging = true, grid = false, mode = 'auto' } = {}) {
+function load({ height = 720, top = 250, rowHeight = 50, total = 50, url = 'http://localhost/Member?pageSize=5', editing = false, expanded = false, search = null, paging = true, grid = false, mode = 'auto', fit = null } = {}) {
     const events = {}, changes = [], forms = [];
     const table = { getBoundingClientRect: () => ({ top }), querySelector: () => ({ getBoundingClientRect: () => ({ height: 40 }) }), querySelectorAll: () => Array.from({ length: 5 }, () => ({ querySelector: () => null, getBoundingClientRect: () => ({ top: top + 40, height: rowHeight }) })) };
-    const footer = { dataset: { pagingSize: '5', pagingPage: new URL(url).searchParams.get('page') || '1', pagingMode: mode, pagingTotal: String(total) }, getBoundingClientRect: () => ({ height: 64 }), parentElement: { querySelector: () => grid ? null : table } };
+    const footer = { dataset: { pagingSize: '5', pagingPage: new URL(url).searchParams.get('page') || '1', pagingMode: mode, pagingTotal: String(total), pagingFit: fit }, getBoundingClientRect: () => ({ height: 64 }), parentElement: { querySelector: () => grid ? null : table } };
     const cards = { children: Array.from({ length: 5 }, (_, i) => ({ querySelector: () => null, getBoundingClientRect: () => ({ top: top + Math.floor(i / 2) * 220, height: 200 }) })), getBoundingClientRect: () => ({ top }) };
     if (search) forms.push(search);
     const document = {
@@ -94,4 +94,15 @@ test('list POSTs preserve their original view and do not replace the action rout
 test('event cards fit complete grid rows within the supported capacity', () => {
     const { changes } = load({ height: 600, grid: true });
     assert.equal(new URL(changes[0]).searchParams.get('pageSize'), '2');
+});
+
+test('a POST re-render is never refitted, on load or on resize', () => {
+    // A batch POST re-renders on its own POST-only action, so any fit would GET that action and 405.
+    const url = 'http://localhost/RegistrationReview/ApproveSelected?status=pending&pageSize=5';
+    const { changes, events } = load({ height: 1000, fit: 'off', url });
+    assert.equal(changes.length, 0);
+    // The fit never wires itself up, so a resize cannot navigate to the POST-only action either.
+    assert.equal(events.resize, undefined);
+    // The same page as a GET view still fits, so the mark is what stops it, not the URL.
+    assert.equal(new URL(load({ height: 1000, url }).changes[0]).searchParams.get('pageSize'), '12');
 });

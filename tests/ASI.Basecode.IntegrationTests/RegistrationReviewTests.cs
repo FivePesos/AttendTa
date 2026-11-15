@@ -587,6 +587,57 @@ public sealed class RegistrationReviewTests(SqlServerDatabaseFixture fixture) : 
     }
 
     [Fact]
+    public async Task BulkApprovalKeepsThePageSizeAndMarksThePostRerenderAsUnfittable()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var setup = await SetupAsync(ct);
+        var password = MemberEventTestSupport.NewPassword();
+        var officerEmail = $"sized-officer-{Guid.NewGuid():N}@test.invalid";
+        await MemberEventTestSupport.SeedUserAsync(fixture.ConnectionString, officerEmail, password, RoleCode.Officer, ct);
+        var ids = await SeedQueueAsync(setup, ct);
+
+        using var factory = new AttendTaWebApplicationFactory(fixture.ConnectionString);
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
+        await MemberEventTestSupport.SignInAsync(client, officerEmail, password, ct);
+
+        // A page the fit sized above the default carries that size into the batch dialog, or the
+        // re-render comes back at the default and the reader loses their place.
+        const string sized = "/RegistrationReview/Index?status=pending&pageSize=12";
+        var queue = await client.GetStringAsync(sized, ct);
+        Assert.Contains("data-paging-size=\"12\"", queue, StringComparison.Ordinal);
+        Assert.Contains("pageSize=12", Regex.Match(queue, "<form[^>]*action=\"[^\"]*ApproveSelected[^\"]*\"[^>]*>").Value, StringComparison.Ordinal);
+        // A GET view is fittable; only a document a POST produced stands the fit down.
+        Assert.DoesNotContain("data-paging-fit=\"off\"", queue, StringComparison.Ordinal);
+
+        var token = await MemberEventTestSupport.AntiforgeryTokenAsync(client, sized, ct);
+        using var response = await client.PostAsync(
+            "/RegistrationReview/ApproveSelected?status=pending&pageSize=12",
+            BulkForm(new[] { ids[0] }, token, "pending"),
+            ct);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var html = await response.Content.ReadAsStringAsync(ct);
+        // The re-render sits on the POST-only action, so its pager must stop the fit: a fit there
+        // would issue a GET to that action and land the reader on a 405.
+        Assert.Contains("data-paging-fit=\"off\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-paging-size=\"12\"", html, StringComparison.Ordinal);
+        // Taking another batch from the re-render still posts the reader's size.
+        Assert.Contains("pageSize=12", Regex.Match(html, "<form[^>]*action=\"[^\"]*ApproveSelected[^\"]*\"[^>]*>").Value, StringComparison.Ordinal);
+
+        // The dossier re-render sits on its own POST-only bulk action, so its pager stands the fit
+        // down for the same reason.
+        var dossierToken = await MemberEventTestSupport.AntiforgeryTokenAsync(client, $"/Event/Details?id={setup.Event.EventId}&status=pending", ct);
+        using var dossier = await client.PostAsync(
+            $"/Event/ApproveSelected?id={setup.Event.EventId}",
+            BulkForm(new[] { ids[1] }, dossierToken, "pending", setup.Event.EventId, "id"),
+            ct);
+
+        Assert.Equal(HttpStatusCode.OK, dossier.StatusCode);
+        var dossierHtml = await dossier.Content.ReadAsStringAsync(ct);
+        Assert.Contains("data-paging-fit=\"off\"", dossierHtml, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task BulkApprovalOnTheDossierRefusesARegistrationOfAnotherEvent()
     {
         var ct = TestContext.Current.CancellationToken;
