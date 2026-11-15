@@ -48,6 +48,7 @@ The bullets below stand where the demo rescope above does not replace them.
 - R7 (parent R33): Certificate decisions and issuance each append an Activity Log entry.
 - R8 (parent R36): Certificate review and issuance queues are paged.
 
+- R37 (parent R37): Every list this epic exposes uses the one list pattern — a labelled search, the filters the surface owns, one Reset that keeps the selected event or history section, the R36 footer, and a row details dialog for secondary facts — with the same pattern everywhere and a stacked layout on narrow screens.
 ## Constraints
 
 - Passwords only as salted Argon2id hashes (AD-15); signed expiring cookies, per-request active and role checks and antiforgery on every mutation (AD-8); ownership checks on personal resources (AD-8); every time, capacity and state guard on the server (AD-4, AD-11); secrets, password and token hashes, QR tokens, file paths and scan payloads never logged (Consistency Conventions, Diagnostics); no login throttling (AD-8; prd NFR-1).
@@ -104,3 +105,4 @@ The bullets below stand where the demo rescope above does not replace them.
 - Note: 2026-11-06 — no container status change and no implementation starts from this planning edit.
 - Decision: 2026-11-06 — demo rescope: 6.12 (queue 50) and 6.13 (queue 90) are demo-critical frontend slices using demo data (M-10, M-11, M-12) with no visible signs on screen; integration tickets 6.4–6.9 replace each mock with real backend implementation and remove their register rows. Done checks are build, CSS build, and screen check with demo data on; Impeccable critique and polish run once in 8.15 and 8.12.
 - Decision: 2026-11-06 — review of the demo rescope: Split M-10 and M-11 into lettered rows with single removers, add 1.14 demo-seam dependency, and clarify that 6.5 replaces the 1.14 store invalidation rule.
+- Decision: 2026-11-15 — replan: 6.14 adds bounded certificate-eligibility bulk approval with no bulk issuance, and 6.15 aligns the member certificate history and keeps the viewer return context, both phase `ui`. The six Issued records with missing originals stay an operational open question on 6.8. Reason: phases 4 and 6 of the UI plan.

@@ -67,3 +67,19 @@ notes = [
   "Summary/distribution query work starts earlier; this final real-detail integration verifies actual invalidation effects from 4.6, pinning the epic's attendance handoff without gating the frontend or initial report reads.",
   "Removes demo data M-13c (2026-11-06 demo rescope): implement the real source behind the contract the demo provider serves, delete the provider classes and their registration, and set the rows to `removed` with the commit in `demo-mock-register.md`. The screen should not change visibly. No per-ticket Impeccable critique or polish; 8.12 covers it.",
 ]
+
+[[entry]]
+id = 5
+type = "story"
+title = "Report summary and breakdown alignment"
+description = "Align the participation report summary cards, value baselines and breakdown panels across final, non-final, cancelled and empty states; keep event-wide metrics visibly distinct from participant-table filtering and label their scope; keep the shared list pattern for the detail rows."
+verify = "Final, non-final, cancelled and empty reports line up on the same baselines with no empty fixed-height gaps; a reader can tell which figures are event-wide and which follow the table filter; the detail table uses the shared search, filter and footer."
+covers = ["R30", "R37"]
+after = [4]
+hitl = false
+risk = "low"
+phase = "ui"
+area = "frontend"
+queue = 132
+references = ["docs/ui-ux-implementation-plan.md"]
+notes = ["Phase 5 of the UI plan. Report precedence stays the recorded 2026-11-06 decision; no new cross-event metric."]
