@@ -14,4 +14,17 @@ public static class BulkApproval
 
     /// <summary>The notice shown when a bulk approval carries more ids than the bound allows.</summary>
     public static string OverBoundMessage => $"You can approve up to {MaxBatchSize} account requests at a time.";
+
+    /// <summary>
+    /// The notice shown when a bulk approval surface that names its own record type carries no ids.
+    /// The noun is singular ("review"), so the reader is never told to select another surface's records.
+    /// </summary>
+    public static string EmptySelectionMessageFor(string noun) => $"Select at least one {noun} to approve.";
+
+    /// <summary>
+    /// The notice shown when a bulk approval surface that names its own record type carries more ids
+    /// than the bound allows. The bound comes from <see cref="MaxBatchSize"/>, so the wording cannot
+    /// drift from the enforced limit.
+    /// </summary>
+    public static string OverBoundMessageFor(string noun) => $"You can approve up to {MaxBatchSize} {noun}s at a time.";
 }

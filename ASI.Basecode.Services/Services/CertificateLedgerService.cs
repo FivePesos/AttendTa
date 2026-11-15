@@ -181,6 +181,74 @@ public sealed class CertificateLedgerService(
             cancellationToken);
     }
 
+    /// <summary>
+    /// Approves the selected pending reviews through <see cref="DecideAsync"/>, one record at a time.
+    /// Each call owns its transaction, lock order and audit entry, so a refusal rolls back only that
+    /// record and the next id still runs. Display identity is resolved in one read before any
+    /// decision, because an approved row has already left the pending page by the time the result
+    /// panel renders.
+    /// </summary>
+    public async Task<IReadOnlyList<CertificateApprovalOutcome>> ApproveManyAsync(
+        IReadOnlyCollection<int> registrationIds,
+        CancellationToken cancellationToken = default)
+    {
+        // Validate the actor once for the whole batch. DecideAsync re-checks it per record, which is
+        // defence in depth rather than a second authorization path.
+        RequireManagement();
+
+        if (registrationIds is null || registrationIds.Count == 0)
+        {
+            throw new DomainException(OutcomeCode.Invalid, BulkApproval.EmptySelectionMessageFor("review"));
+        }
+
+        if (registrationIds.Count > BulkApproval.MaxBatchSize)
+        {
+            throw new DomainException(OutcomeCode.Invalid, BulkApproval.OverBoundMessageFor("review"));
+        }
+
+        // Deduplicate in first-seen order so a repeated id is decided once and reported once.
+        var distinctIds = new List<int>(registrationIds.Count);
+        var seen = new HashSet<int>();
+        foreach (var registrationId in registrationIds)
+        {
+            if (seen.Add(registrationId))
+            {
+                distinctIds.Add(registrationId);
+            }
+        }
+
+        var summaries = await certificates.GetDecisionSummariesAsync(distinctIds, cancellationToken);
+        var identities = new Dictionary<int, CertificateReviewSummary>(summaries.Count);
+        foreach (var summary in summaries)
+        {
+            identities[summary.RegistrationId] = summary;
+        }
+
+        var outcomes = new List<CertificateApprovalOutcome>(distinctIds.Count);
+        foreach (var registrationId in distinctIds)
+        {
+            var identity = identities.TryGetValue(registrationId, out var summary) ? summary : null;
+            var label = string.IsNullOrWhiteSpace(identity?.MemberName)
+                ? $"Registration {registrationId}"
+                : identity.MemberName;
+
+            // No outer transaction: DecideAsync owns its transaction, so a refusal rolls back only
+            // its own record. Catch only DomainException -- cancellation and unexpected faults must
+            // surface instead of becoming a refusal.
+            try
+            {
+                await DecideAsync(registrationId, true, null, cancellationToken);
+                outcomes.Add(new CertificateApprovalOutcome(registrationId, label, identity?.StudentNumber, true, "Approved."));
+            }
+            catch (DomainException exception)
+            {
+                outcomes.Add(new CertificateApprovalOutcome(registrationId, label, identity?.StudentNumber, false, exception.Message));
+            }
+        }
+
+        return outcomes;
+    }
+
     public async Task IssueAsync(int registrationId, CancellationToken cancellationToken = default)
     {
         var actorUserId = RequireManagement();

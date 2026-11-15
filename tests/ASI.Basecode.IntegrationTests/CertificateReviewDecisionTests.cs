@@ -265,6 +265,186 @@ public sealed class CertificateReviewDecisionTests(SqlServerDatabaseFixture fixt
         }
     }
 
+    [Fact]
+    public async Task BulkApprovalApprovesPendingReviewsAndRefusesTheDeclinedOne()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var setup = await SeedAsync(reviewStatuses:
+        [
+            CertificateStatusCode.PendingApproval,
+            CertificateStatusCode.PendingApproval,
+            CertificateStatusCode.PendingApproval,
+            CertificateStatusCode.NotEligible
+        ]);
+        var declinedId = setup.RegistrationIds[3];
+        var declinedCertificateId = setup.CertificateIds[declinedId];
+        var declinedReviewedAt = Now.AddDays(-1);
+
+        // The declined row already carries a reviewer, a time and a reason; the batch must not touch them.
+        await using (var writer = EventDraftTestSupport.Context(fixture.ConnectionString))
+        {
+            var row = await writer.Certificates.SingleAsync(item => item.CertificateId == declinedCertificateId, ct);
+            row.ReviewedBy = setup.OfficerId;
+            row.ReviewedAt = declinedReviewedAt;
+            row.ReviewNotes = "Not eligible.";
+            await writer.SaveChangesAsync(ct);
+        }
+
+        await using var context = EventDraftTestSupport.Context(fixture.ConnectionString);
+        var service = Service(context, setup.OfficerId, RoleCodes.Officer);
+
+        var outcomes = await service.ApproveManyAsync(setup.RegistrationIds, ct);
+
+        Assert.Equal(4, outcomes.Count);
+        Assert.Equal(3, outcomes.Count(outcome => outcome.Succeeded));
+        var refused = outcomes.Single(outcome => !outcome.Succeeded);
+        Assert.Equal(declinedId, refused.RegistrationId);
+        Assert.Equal("This review has already been decided.", refused.Message);
+        Assert.False(string.IsNullOrWhiteSpace(refused.MemberName));
+        Assert.False(string.IsNullOrWhiteSpace(refused.StudentNumber));
+
+        await using var observer = EventDraftTestSupport.Context(fixture.ConnectionString);
+        foreach (var registrationId in setup.RegistrationIds.Take(3))
+        {
+            var certificate = await observer.Certificates.AsNoTracking()
+                .SingleAsync(row => row.CertificateId == setup.CertificateIds[registrationId], ct);
+            Assert.Equal(CertificateStatusCode.Eligible, certificate.CertificateStatusId);
+            Assert.Equal(setup.OfficerId, certificate.ReviewedBy);
+            Assert.Equal(Now, certificate.ReviewedAt);
+            Assert.Null(certificate.ReviewNotes);
+            Assert.Equal(1, await observer.ActivityLogs.AsNoTracking()
+                .CountAsync(row => row.EntityType == "certificates"
+                                   && row.EntityId == certificate.CertificateId
+                                   && row.Action == AuditActions.CertificateApproved, ct));
+        }
+
+        var declined = await observer.Certificates.AsNoTracking()
+            .SingleAsync(row => row.CertificateId == declinedCertificateId, ct);
+        Assert.Equal(CertificateStatusCode.NotEligible, declined.CertificateStatusId);
+        Assert.Equal(setup.OfficerId, declined.ReviewedBy);
+        Assert.Equal(declinedReviewedAt, declined.ReviewedAt);
+        Assert.Equal("Not eligible.", declined.ReviewNotes);
+        Assert.Equal(0, await AuditCountForAsync(declinedCertificateId, ct));
+    }
+
+    [Theory]
+    [InlineData(CertificateStatusCode.Issued)]
+    [InlineData(CertificateStatusCode.NotEligible)]
+    public async Task BulkApprovalRefusesAnAlreadyDecidedReviewAndLeavesItUnchanged(CertificateStatusCode status)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var setup = await SeedAsync(reviewStatuses: [CertificateStatusCode.PendingApproval, status]);
+        var pendingId = setup.RegistrationIds[0];
+        var decidedId = setup.RegistrationIds[1];
+        var decidedCertificateId = setup.CertificateIds[decidedId];
+        var decidedReviewedAt = Now.AddDays(-1);
+
+        await using (var writer = EventDraftTestSupport.Context(fixture.ConnectionString))
+        {
+            var row = await writer.Certificates.SingleAsync(item => item.CertificateId == decidedCertificateId, ct);
+            row.ReviewedBy = setup.OfficerId;
+            row.ReviewedAt = decidedReviewedAt;
+            row.ReviewNotes = "Decided earlier.";
+            await writer.SaveChangesAsync(ct);
+        }
+
+        var auditBefore = await AuditCountForAsync(decidedCertificateId, ct);
+        await using var context = EventDraftTestSupport.Context(fixture.ConnectionString);
+        var service = Service(context, setup.OfficerId, RoleCodes.Officer);
+
+        var outcomes = await service.ApproveManyAsync(setup.RegistrationIds, ct);
+
+        Assert.Equal(2, outcomes.Count);
+        Assert.True(outcomes.Single(outcome => outcome.RegistrationId == pendingId).Succeeded);
+        var refused = outcomes.Single(outcome => outcome.RegistrationId == decidedId);
+        Assert.False(refused.Succeeded);
+        Assert.Equal("This review has already been decided.", refused.Message);
+
+        await using var observer = EventDraftTestSupport.Context(fixture.ConnectionString);
+        var decided = await observer.Certificates.AsNoTracking()
+            .SingleAsync(row => row.CertificateId == decidedCertificateId, ct);
+        Assert.Equal(status, decided.CertificateStatusId);
+        Assert.Equal(setup.OfficerId, decided.ReviewedBy);
+        Assert.Equal(decidedReviewedAt, decided.ReviewedAt);
+        Assert.Equal("Decided earlier.", decided.ReviewNotes);
+        Assert.Equal(auditBefore, await AuditCountForAsync(decidedCertificateId, ct));
+    }
+
+    [Fact]
+    public async Task BulkApprovalDecidesADuplicateIdOnceAndWritesOneAuditEntry()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var setup = await SeedAsync(reviewStatuses: [CertificateStatusCode.PendingApproval, CertificateStatusCode.PendingApproval]);
+        var duplicatedId = setup.RegistrationIds[0];
+        var otherId = setup.RegistrationIds[1];
+        await using var context = EventDraftTestSupport.Context(fixture.ConnectionString);
+        var service = Service(context, setup.OfficerId, RoleCodes.Officer);
+
+        var outcomes = await service.ApproveManyAsync(new[] { duplicatedId, duplicatedId, otherId }, ct);
+
+        Assert.Equal(2, outcomes.Count);
+        Assert.Equal(new[] { duplicatedId, otherId }, outcomes.Select(outcome => outcome.RegistrationId).ToArray());
+        Assert.All(outcomes, outcome => Assert.True(outcome.Succeeded));
+        Assert.Equal(1, await AuditCountForAsync(setup.CertificateIds[duplicatedId], ct));
+
+        await using var observer = EventDraftTestSupport.Context(fixture.ConnectionString);
+        var certificate = await observer.Certificates.AsNoTracking()
+            .SingleAsync(row => row.CertificateId == setup.CertificateIds[duplicatedId], ct);
+        Assert.Equal(CertificateStatusCode.Eligible, certificate.CertificateStatusId);
+    }
+
+    [Fact]
+    public async Task BulkApprovalIssuesNoCertificateAndWritesNoFile()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var setup = await SeedAsync(confirmedCount: 2);
+        await using var context = EventDraftTestSupport.Context(fixture.ConnectionString);
+        var service = Service(context, setup.OfficerId, RoleCodes.Officer);
+
+        var outcomes = await service.ApproveManyAsync(setup.RegistrationIds, ct);
+
+        Assert.All(outcomes, outcome => Assert.True(outcome.Succeeded));
+        await using var observer = EventDraftTestSupport.Context(fixture.ConnectionString);
+        var certificateIds = setup.CertificateIds.Values.ToList();
+        var rows = await observer.Certificates.AsNoTracking()
+            .Where(row => certificateIds.Contains(row.CertificateId))
+            .ToListAsync(ct);
+        Assert.Equal(2, rows.Count);
+        Assert.All(rows, row =>
+        {
+            Assert.NotEqual(CertificateStatusCode.Issued, row.CertificateStatusId);
+            Assert.Null(row.FilePath);
+            Assert.Null(row.CertificateNumber);
+            Assert.Null(row.IssuedAt);
+        });
+        // The harness's renderer and file store throw on any use, so a successful batch proves the
+        // approval path never rendered or wrote a PDF.
+    }
+
+    [Fact]
+    public async Task BulkApprovalRefusesInvalidatedAttendancePerRecordAndLeavesTheReviewsPending()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var setup = await SeedAsync(confirmedCount: 2, invalidateAttendance: true);
+        await using var context = EventDraftTestSupport.Context(fixture.ConnectionString);
+        var service = Service(context, setup.OfficerId, RoleCodes.Officer);
+
+        var outcomes = await service.ApproveManyAsync(setup.RegistrationIds, ct);
+
+        Assert.Equal(2, outcomes.Count);
+        Assert.All(outcomes, outcome =>
+        {
+            Assert.False(outcome.Succeeded);
+            Assert.Contains("attendance is no longer valid", outcome.Message, StringComparison.Ordinal);
+            Assert.False(string.IsNullOrWhiteSpace(outcome.MemberName));
+        });
+        foreach (var registrationId in setup.RegistrationIds)
+        {
+            await AssertUnchangedAsync(setup.CertificateIds[registrationId], CertificateStatusCode.PendingApproval);
+            Assert.Equal(0, await AuditCountForAsync(setup.CertificateIds[registrationId], ct));
+        }
+    }
+
     private static CertificateLedgerService Service(
         AsiBasecodeDBContext context,
         int actorId,
@@ -292,7 +472,8 @@ public sealed class CertificateReviewDecisionTests(SqlServerDatabaseFixture fixt
         CertificateStatusCode? reviewStatus = CertificateStatusCode.PendingApproval,
         bool invalidateAttendance = false,
         bool seedReview = true,
-        bool cancelRegistration = false)
+        bool cancelRegistration = false,
+        IReadOnlyList<CertificateStatusCode>? reviewStatuses = null)
     {
         var ct = TestContext.Current.CancellationToken;
         var officerId = await EventDraftTestSupport.SeedActorAsync(fixture.ConnectionString, ct);
@@ -312,7 +493,10 @@ public sealed class CertificateReviewDecisionTests(SqlServerDatabaseFixture fixt
 
         var registrationIds = new List<int>();
         var certificateIds = new Dictionary<int, int>();
-        for (var index = 0; index < confirmedCount; index++)
+        // A per-record status list carries its own count, so a mixed batch seeds exactly the rows it
+        // describes; otherwise every registration shares the single review status.
+        var total = reviewStatuses?.Count ?? confirmedCount;
+        for (var index = 0; index < total; index++)
         {
             var user = await MemberEventTestSupport.SeedUserAsync(
                 fixture.ConnectionString,
@@ -358,7 +542,9 @@ public sealed class CertificateReviewDecisionTests(SqlServerDatabaseFixture fixt
                 var certificate = new Certificate
                 {
                     RegistrationId = registration.RegistrationId,
-                    CertificateStatusId = reviewStatus!.Value,
+                    CertificateStatusId = reviewStatuses is not null && index < reviewStatuses.Count
+                        ? reviewStatuses[index]
+                        : reviewStatus!.Value,
                     CreatedBy = officerId,
                     CreatedAt = Now.AddDays(-2)
                 };
@@ -381,6 +567,14 @@ public sealed class CertificateReviewDecisionTests(SqlServerDatabaseFixture fixt
         return await observer.ActivityLogs.AsNoTracking()
             .CountAsync(row => row.Action == AuditActions.CertificateApproved
                                || row.Action == AuditActions.CertificateDeclined, cancellationToken);
+    }
+
+    /// <summary>Counts every audit entry written against one certificate row.</summary>
+    private async Task<int> AuditCountForAsync(int certificateId, CancellationToken cancellationToken)
+    {
+        await using var observer = EventDraftTestSupport.Context(fixture.ConnectionString);
+        return await observer.ActivityLogs.AsNoTracking()
+            .CountAsync(row => row.EntityType == "certificates" && row.EntityId == certificateId, cancellationToken);
     }
 
     private async Task AssertUnchangedAsync(int certificateId, CertificateStatusCode expected)
