@@ -580,6 +580,156 @@ public class AccountRequestServiceTests
         Assert.Equal(AccountRequestStatusCode.Pending, harness.Requests.Requests[1].AccountRequestStatusId);
     }
 
+    [Fact]
+    public async Task BulkApprovalApprovesEveryValidRecordAndReportsTheRefusedOne()
+    {
+        var harness = new Harness();
+        var first = PendingRequest(7, "first@example.com", "20230007", "First Person");
+        var second = PendingRequest(8, "second@example.com", "20230008", "Second Person");
+        var taken = PendingRequest(9, "third@example.com", "20230009", "Third Person");
+        harness.Requests.Requests.AddRange(first, second, taken);
+        harness.Members.Members.Add(new Member
+        {
+            StudentNumber = "20230009",
+            MembershipStatusId = MembershipStatusCode.Active
+        });
+
+        var outcomes = await harness.Service.ApproveManyAsync(
+            new[] { 7, 8, 9 },
+            harness.Actor.UserId,
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(3, outcomes.Count);
+        Assert.True(outcomes.Single(outcome => outcome.RequestId == 7).Succeeded);
+        Assert.True(outcomes.Single(outcome => outcome.RequestId == 8).Succeeded);
+        var refused = outcomes.Single(outcome => outcome.RequestId == 9);
+        Assert.False(refused.Succeeded);
+        Assert.Equal("Third Person", refused.FullName);
+        Assert.Equal("This student number is already in use.", refused.Message);
+        Assert.Equal(2, harness.Users.Users.Count);
+        Assert.Equal(2, harness.MemberService.Calls.Count);
+        Assert.Equal(2, harness.Audit.Entries.Count);
+        Assert.Equal(AccountRequestStatusCode.Pending, taken.AccountRequestStatusId);
+        Assert.Equal(3, harness.UnitOfWork.TransactionCount);
+    }
+
+    [Fact]
+    public async Task BulkApprovalRefusesARecordDecidedElsewhereWithoutWritingAnything()
+    {
+        var harness = new Harness();
+        var decided = PendingRequest(11, "decided@example.com", "20230011", "Decided Person");
+        decided.AccountRequestStatusId = AccountRequestStatusCode.Approved;
+        decided.PasswordHash = null;
+        harness.Requests.Requests.Add(decided);
+
+        var outcomes = await harness.Service.ApproveManyAsync(
+            new[] { 11 },
+            harness.Actor.UserId,
+            TestContext.Current.CancellationToken);
+
+        var outcome = Assert.Single(outcomes);
+        Assert.False(outcome.Succeeded);
+        Assert.Equal("Decided Person", outcome.FullName);
+        Assert.Equal("This account request has already been decided.", outcome.Message);
+        Assert.Empty(harness.Users.Users);
+        Assert.Empty(harness.MemberService.Calls);
+        Assert.Empty(harness.Audit.Entries);
+        Assert.Equal(AccountRequestStatusCode.Approved, decided.AccountRequestStatusId);
+    }
+
+    [Fact]
+    public async Task BulkApprovalDecidesADuplicateIdOnceAndReportsItOnce()
+    {
+        var harness = new Harness();
+        harness.Requests.Requests.Add(PendingRequest(7, "seven@example.com", "20230007", "Seven"));
+        harness.Requests.Requests.Add(PendingRequest(8, "eight@example.com", "20230008", "Eight"));
+
+        var outcomes = await harness.Service.ApproveManyAsync(
+            new[] { 7, 7, 8 },
+            harness.Actor.UserId,
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(2, outcomes.Count);
+        Assert.Equal(new[] { 7, 8 }, outcomes.Select(outcome => outcome.RequestId).ToArray());
+        Assert.All(outcomes, outcome => Assert.True(outcome.Succeeded));
+        Assert.Equal(2, harness.Users.Users.Count);
+        Assert.Equal(2, harness.Audit.Entries.Count);
+        Assert.Equal(2, harness.UnitOfWork.TransactionCount);
+    }
+
+    [Fact]
+    public async Task RepeatingTheSameBatchRefusesEveryRowAndWritesNothingNew()
+    {
+        var harness = new Harness();
+        harness.Requests.Requests.Add(PendingRequest(7, "seven@example.com", "20230007", "Seven"));
+        harness.Requests.Requests.Add(PendingRequest(8, "eight@example.com", "20230008", "Eight"));
+
+        var first = await harness.Service.ApproveManyAsync(
+            new[] { 7, 8 },
+            harness.Actor.UserId,
+            TestContext.Current.CancellationToken);
+        var second = await harness.Service.ApproveManyAsync(
+            new[] { 7, 8 },
+            harness.Actor.UserId,
+            TestContext.Current.CancellationToken);
+
+        Assert.All(first, outcome => Assert.True(outcome.Succeeded));
+        Assert.All(second, outcome => Assert.False(outcome.Succeeded));
+        Assert.All(second, outcome => Assert.Equal("This account request has already been decided.", outcome.Message));
+        Assert.Equal(2, harness.Users.Users.Count);
+        Assert.Equal(2, harness.MemberService.Calls.Count);
+        Assert.Equal(2, harness.Audit.Entries.Count);
+    }
+
+    [Fact]
+    public async Task EmptyBatchIsRejectedBeforeAnyDecision()
+    {
+        var harness = new Harness();
+        harness.Requests.Requests.Add(PendingRequest(7, "seven@example.com", "20230007", "Seven"));
+
+        var exception = await Assert.ThrowsAsync<DomainException>(
+            () => harness.Service.ApproveManyAsync(Array.Empty<int>(), harness.Actor.UserId, TestContext.Current.CancellationToken));
+
+        Assert.Equal(OutcomeCode.Invalid, exception.Outcome);
+        Assert.Equal("Select at least one account request to approve.", exception.Message);
+        Assert.Empty(harness.Users.Users);
+        Assert.Equal(0, harness.UnitOfWork.TransactionCount);
+    }
+
+    [Fact]
+    public async Task OverBoundBatchIsRejectedBeforeAnyDecision()
+    {
+        var harness = new Harness();
+        var ids = Enumerable.Range(1, BulkApproval.MaxBatchSize + 1).ToArray();
+
+        var exception = await Assert.ThrowsAsync<DomainException>(
+            () => harness.Service.ApproveManyAsync(ids, harness.Actor.UserId, TestContext.Current.CancellationToken));
+
+        Assert.Equal(OutcomeCode.Invalid, exception.Outcome);
+        Assert.Equal($"You can approve up to {BulkApproval.MaxBatchSize} account requests at a time.", exception.Message);
+        Assert.Empty(harness.Users.Users);
+        Assert.Equal(0, harness.UnitOfWork.TransactionCount);
+    }
+
+    [Theory]
+    [InlineData(false, "officer", 42)]
+    [InlineData(true, "member", 42)]
+    [InlineData(true, "admin", 43)]
+    public async Task BulkApprovalRequiresAnAuthenticatedMatchingManagementActor(bool authenticated, string role, int actorId)
+    {
+        var harness = new Harness();
+        harness.Actor.IsAuthenticatedValue = authenticated;
+        harness.Actor.RoleValue = role;
+        harness.Requests.Requests.Add(PendingRequest(7, "seven@example.com", "20230007", "Seven"));
+
+        var exception = await Assert.ThrowsAsync<DomainException>(
+            () => harness.Service.ApproveManyAsync(new[] { 7 }, actorId, TestContext.Current.CancellationToken));
+
+        Assert.Equal(OutcomeCode.Forbidden, exception.Outcome);
+        Assert.Empty(harness.Users.Users);
+        Assert.Equal(0, harness.UnitOfWork.TransactionCount);
+    }
+
     private static AccountRequestViewModel ValidModel()
     {
         return new AccountRequestViewModel
@@ -596,12 +746,14 @@ public class AccountRequestServiceTests
         };
     }
 
-    private static AccountRequest PendingRequest() => new()
+    private static AccountRequest PendingRequest() => PendingRequest(1, "ana.reyes@example.com", "20230123", "Ana Reyes");
+
+    private static AccountRequest PendingRequest(int requestId, string email, string studentNumber, string fullName) => new()
     {
-        RequestId = 1,
-        StudentNumber = "20230123",
-        FullName = "Ana Reyes",
-        Email = "ana.reyes@example.com",
+        RequestId = requestId,
+        StudentNumber = studentNumber,
+        FullName = fullName,
+        Email = email,
         PasswordHash = "$argon2id$original-approved-hash",
         Course = "BSIT",
         YearLevel = 2,
@@ -681,6 +833,20 @@ public class AccountRequestServiceTests
 
         public Task<AccountRequestStatusCounts> GetStatusCountsAsync(string search, CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
+
+        public Task<IReadOnlyList<AccountRequestSummary>> GetSummariesAsync(IReadOnlyCollection<int> requestIds, CancellationToken cancellationToken = default)
+        {
+            IReadOnlyList<AccountRequestSummary> summaries = Requests
+                .Where(request => requestIds.Contains(request.RequestId))
+                .Select(request => new AccountRequestSummary
+                {
+                    RequestId = request.RequestId,
+                    FullName = request.FullName,
+                    StudentNumber = request.StudentNumber
+                })
+                .ToList();
+            return Task.FromResult(summaries);
+        }
 
         public Task<AccountRequest> LockAccountRequestAsync(int requestId, CancellationToken cancellationToken = default)
         {

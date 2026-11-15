@@ -478,6 +478,287 @@ public sealed class AccountRequestDecisionTests(SqlServerDatabaseFixture fixture
         Assert.False(await observer.ActivityLogs.AnyAsync(item => item.EntityType == "account_requests" && item.EntityId == id, ct));
     }
 
+    [Fact]
+    public async Task BulkApprovalApprovesEveryValidRecordAndReportsTheRefusedOne()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var actor = await SeedUserAsync(RoleCode.Officer, "bulk-mixed-actor", ActorPassword, ct);
+        var takenNumber = UniqueStudentNumber();
+        var first = await SeedRequestAsync(UniqueEmail("bulk-first"), UniqueStudentNumber(), ct);
+        var second = await SeedRequestAsync(UniqueEmail("bulk-second"), UniqueStudentNumber(), ct);
+        var refused = await SeedRequestAsync(UniqueEmail("bulk-refused"), takenNumber, ct);
+
+        await using (var seed = Context())
+        {
+            seed.Members.Add(new Member
+            {
+                UserId = actor.Id,
+                StudentNumber = takenNumber,
+                Course = "BSIT",
+                YearLevel = 1,
+                Section = "A",
+                MembershipStatusId = MembershipStatusCode.Active,
+                CreatedBy = actor.Id
+            });
+            await seed.SaveChangesAsync(ct);
+        }
+
+        using var factory = new AttendTaWebApplicationFactory(fixture.ConnectionString);
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
+        await SignInAsync(client, actor.Email, ActorPassword, ct);
+        var token = await GetLayoutAntiforgeryTokenAsync(client, ct);
+
+        using var response = await client.PostAsync(
+            "/AccountRequest/ApproveSelected?status=pending",
+            BulkForm(new[] { first.RequestId, second.RequestId, refused.RequestId }, token),
+            ct);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var html = await response.Content.ReadAsStringAsync(ct);
+        Assert.Contains("Approval results", html, StringComparison.Ordinal);
+        Assert.Contains("2 of 3 succeeded", html, StringComparison.Ordinal);
+        Assert.Contains("This student number is already in use.", html, StringComparison.Ordinal);
+        Assert.Contains($"data-request-id=\"{refused.RequestId}\"", html, StringComparison.Ordinal);
+        Assert.DoesNotContain($"data-request-id=\"{first.RequestId}\"", html, StringComparison.Ordinal);
+        Assert.DoesNotContain($"data-request-id=\"{second.RequestId}\"", html, StringComparison.Ordinal);
+
+        await using var observer = Context();
+        foreach (var approved in new[] { first, second })
+        {
+            var request = await observer.AccountRequests.AsNoTracking().SingleAsync(item => item.RequestId == approved.RequestId, ct);
+            Assert.Equal(AccountRequestStatusCode.Approved, request.AccountRequestStatusId);
+            Assert.NotNull(request.CreatedUserId);
+            Assert.Equal(1, await observer.Users.CountAsync(user => user.Id == request.CreatedUserId, ct));
+            Assert.Equal(1, await observer.Members.CountAsync(member => member.UserId == request.CreatedUserId, ct));
+            Assert.Equal(1, await observer.ActivityLogs.CountAsync(log => log.EntityType == "account_requests" && log.EntityId == approved.RequestId, ct));
+        }
+
+        var stillPending = await observer.AccountRequests.AsNoTracking().SingleAsync(item => item.RequestId == refused.RequestId, ct);
+        Assert.Equal(AccountRequestStatusCode.Pending, stillPending.AccountRequestStatusId);
+        Assert.False(await observer.ActivityLogs.AnyAsync(log => log.EntityType == "account_requests" && log.EntityId == refused.RequestId, ct));
+    }
+
+    [Fact]
+    public async Task BulkApprovalRefusesARecordDecidedAfterThePageRendered()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var actor = await SeedUserAsync(RoleCode.Officer, "bulk-stale-actor", ActorPassword, ct);
+        var email = UniqueEmail("bulk-stale");
+        var studentNumber = UniqueStudentNumber();
+        var (requestId, _) = await SeedRequestAsync(email, studentNumber, ct);
+
+        await using (var writer = Context())
+        {
+            await CreateService(writer, new TestActor(actor.Id, RoleCodes.Officer)).ApproveAsync(requestId, actor.Id, ct);
+        }
+
+        using var factory = new AttendTaWebApplicationFactory(fixture.ConnectionString);
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
+        await SignInAsync(client, actor.Email, ActorPassword, ct);
+        var token = await GetLayoutAntiforgeryTokenAsync(client, ct);
+
+        using var response = await client.PostAsync(
+            "/AccountRequest/ApproveSelected?status=pending",
+            BulkForm(new[] { requestId }, token),
+            ct);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var html = await response.Content.ReadAsStringAsync(ct);
+        Assert.Contains("0 of 1 succeeded", html, StringComparison.Ordinal);
+        Assert.Contains("This account request has already been decided.", html, StringComparison.Ordinal);
+
+        await using var observer = Context();
+        Assert.Equal(1, await observer.Users.CountAsync(item => item.UserId == email, ct));
+        Assert.Equal(1, await observer.Members.CountAsync(item => item.StudentNumber == studentNumber, ct));
+        Assert.Equal(1, await observer.ActivityLogs.CountAsync(item => item.EntityType == "account_requests" && item.EntityId == requestId, ct));
+    }
+
+    [Fact]
+    public async Task BulkApprovalSubmittedTwiceCreatesNoDuplicateRows()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var actor = await SeedUserAsync(RoleCode.Officer, "bulk-repeat-actor", ActorPassword, ct);
+        var firstEmail = UniqueEmail("bulk-repeat-first");
+        var secondEmail = UniqueEmail("bulk-repeat-second");
+        var firstNumber = UniqueStudentNumber();
+        var secondNumber = UniqueStudentNumber();
+        var first = await SeedRequestAsync(firstEmail, firstNumber, ct);
+        var second = await SeedRequestAsync(secondEmail, secondNumber, ct);
+        var ids = new[] { first.RequestId, second.RequestId };
+
+        using var factory = new AttendTaWebApplicationFactory(fixture.ConnectionString);
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
+        await SignInAsync(client, actor.Email, ActorPassword, ct);
+        var token = await GetLayoutAntiforgeryTokenAsync(client, ct);
+
+        using (var accepted = await client.PostAsync("/AccountRequest/ApproveSelected?status=pending", BulkForm(ids, token), ct))
+        {
+            Assert.Equal(HttpStatusCode.OK, accepted.StatusCode);
+            Assert.Contains("2 of 2 succeeded", await accepted.Content.ReadAsStringAsync(ct), StringComparison.Ordinal);
+        }
+
+        using (var repeated = await client.PostAsync("/AccountRequest/ApproveSelected?status=pending", BulkForm(ids, token), ct))
+        {
+            Assert.Equal(HttpStatusCode.OK, repeated.StatusCode);
+            var html = await repeated.Content.ReadAsStringAsync(ct);
+            Assert.Contains("0 of 2 succeeded", html, StringComparison.Ordinal);
+            Assert.Contains("This account request has already been decided.", html, StringComparison.Ordinal);
+        }
+
+        await using var observer = Context();
+        Assert.Equal(2, await observer.Users.CountAsync(item => item.UserId == firstEmail || item.UserId == secondEmail, ct));
+        Assert.Equal(2, await observer.Members.CountAsync(item => item.StudentNumber == firstNumber || item.StudentNumber == secondNumber, ct));
+        Assert.Equal(2, await observer.ActivityLogs.CountAsync(item => item.EntityType == "account_requests" && (item.EntityId == first.RequestId || item.EntityId == second.RequestId), ct));
+    }
+
+    [Fact]
+    public async Task BulkApprovalOverTheBoundDecidesNothingAndStatesTheLimit()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var actor = await SeedUserAsync(RoleCode.Officer, "bulk-bound-actor", ActorPassword, ct);
+        var (requestId, _) = await SeedRequestAsync(UniqueEmail("bulk-bound"), UniqueStudentNumber(), ct);
+        var ids = new[] { requestId }.Concat(Enumerable.Range(100000, BulkApproval.MaxBatchSize)).ToArray();
+
+        using var factory = new AttendTaWebApplicationFactory(fixture.ConnectionString);
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
+        await SignInAsync(client, actor.Email, ActorPassword, ct);
+        var token = await GetLayoutAntiforgeryTokenAsync(client, ct);
+
+        using var response = await client.PostAsync("/AccountRequest/ApproveSelected?status=pending", BulkForm(ids, token), ct);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var html = await response.Content.ReadAsStringAsync(ct);
+        Assert.Contains($"You can approve up to {BulkApproval.MaxBatchSize} account requests at a time.", html, StringComparison.Ordinal);
+
+        await using var observer = Context();
+        Assert.Equal(AccountRequestStatusCode.Pending,
+            (await observer.AccountRequests.AsNoTracking().SingleAsync(item => item.RequestId == requestId, ct)).AccountRequestStatusId);
+        Assert.False(await observer.ActivityLogs.AnyAsync(item => item.EntityType == "account_requests" && item.EntityId == requestId, ct));
+    }
+
+    [Fact]
+    public async Task BulkApprovalEndpointRequiresAntiforgeryAndManagementPolicy()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var officer = await SeedUserAsync(RoleCode.Officer, "bulk-guard-officer", ActorPassword, ct);
+        var member = await SeedUserAsync(RoleCode.Member, "bulk-guard-member", ActorPassword, ct);
+        var (requestId, _) = await SeedRequestAsync(UniqueEmail("bulk-guard"), UniqueStudentNumber(), ct);
+
+        using var factory = new AttendTaWebApplicationFactory(fixture.ConnectionString);
+
+        using (var anonymous = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true }))
+        using (var response = await anonymous.PostAsync("/AccountRequest/ApproveSelected?status=pending", BulkForm(new[] { requestId }, null), ct))
+        {
+            Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        }
+
+        using (var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true }))
+        {
+            await SignInAsync(client, member.Email, ActorPassword, ct);
+            var token = await GetLayoutAntiforgeryTokenAsync(client, ct);
+            using var response = await client.PostAsync("/AccountRequest/ApproveSelected?status=pending", BulkForm(new[] { requestId }, token), ct);
+            Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+            Assert.Contains("AccessDenied", response.Headers.Location!.ToString(), StringComparison.Ordinal);
+        }
+
+        using (var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true }))
+        {
+            await SignInAsync(client, officer.Email, ActorPassword, ct);
+            using var response = await client.PostAsync("/AccountRequest/ApproveSelected?status=pending", BulkForm(new[] { requestId }, null), ct);
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        }
+
+        await using var observer = Context();
+        Assert.Equal(AccountRequestStatusCode.Pending,
+            (await observer.AccountRequests.AsNoTracking().SingleAsync(item => item.RequestId == requestId, ct)).AccountRequestStatusId);
+        Assert.False(await observer.ActivityLogs.AnyAsync(item => item.EntityType == "account_requests" && item.EntityId == requestId, ct));
+    }
+
+    [Fact]
+    public async Task BulkApprovalWithoutASelectionDecidesNothingAndAsksForOne()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var actor = await SeedUserAsync(RoleCode.Officer, "bulk-empty-actor", ActorPassword, ct);
+        var (requestId, _) = await SeedRequestAsync(UniqueEmail("bulk-empty"), UniqueStudentNumber(), ct);
+
+        using var factory = new AttendTaWebApplicationFactory(fixture.ConnectionString);
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
+        await SignInAsync(client, actor.Email, ActorPassword, ct);
+        var token = await GetLayoutAntiforgeryTokenAsync(client, ct);
+
+        using var response = await client.PostAsync(
+            "/AccountRequest/ApproveSelected?status=pending",
+            BulkForm(Array.Empty<int>(), token),
+            ct);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("Select at least one account request to approve.", await response.Content.ReadAsStringAsync(ct), StringComparison.Ordinal);
+
+        await using var observer = Context();
+        Assert.Equal(AccountRequestStatusCode.Pending,
+            (await observer.AccountRequests.AsNoTracking().SingleAsync(item => item.RequestId == requestId, ct)).AccountRequestStatusId);
+        Assert.False(await observer.ActivityLogs.AnyAsync(item => item.EntityType == "account_requests" && item.EntityId == requestId, ct));
+    }
+
+    [Fact]
+    public async Task BulkSelectionStartsEmptyAndDisabledOnEveryQueuePage()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var actor = await SeedUserAsync(RoleCode.Officer, "bulk-surface-actor", ActorPassword, ct);
+        var email = UniqueEmail("bulk-surface");
+        await SeedRequestAsync(email, UniqueStudentNumber(), ct);
+
+        using var factory = new AttendTaWebApplicationFactory(fixture.ConnectionString);
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
+        await SignInAsync(client, actor.Email, ActorPassword, ct);
+
+        foreach (var url in new[]
+        {
+            "/AccountRequest?status=pending",
+            $"/AccountRequest?status=pending&search={Uri.EscapeDataString(email)}",
+            "/AccountRequest?status=pending&sort=oldest",
+            "/AccountRequest?status=approved"
+        })
+        {
+            var html = await client.GetStringAsync(url, ct);
+
+            // Every navigation is a fresh server render: the shared bar and dialog are present,
+            // the count starts at zero and the bulk action starts disabled.
+            Assert.Contains("data-bulk-root", html, StringComparison.Ordinal);
+            Assert.Contains("data-bulk-dialog", html, StringComparison.Ordinal);
+            Assert.Contains("0 selected", html, StringComparison.Ordinal);
+            Assert.Matches(new Regex("<button[^>]*data-bulk-open=\"bulk-approve-dialog\"[^>]*disabled"), html);
+
+            if (url.Contains("status=pending", StringComparison.Ordinal))
+            {
+                // Pending rows are selectable, but nothing arrives already ticked.
+                var rowInput = Regex.Match(html, "<input[^>]*data-bulk-row[^>]*>").Value;
+                Assert.False(string.IsNullOrWhiteSpace(rowInput));
+                Assert.DoesNotContain("checked", rowInput, StringComparison.OrdinalIgnoreCase);
+            }
+            else
+            {
+                // A decided row is never selectable.
+                Assert.DoesNotContain("data-bulk-row", html, StringComparison.Ordinal);
+            }
+        }
+    }
+
+    private static FormUrlEncodedContent BulkForm(IEnumerable<int> ids, string? token, string status = "pending")
+    {
+        var values = new List<KeyValuePair<string, string>>
+        {
+            new("status", status)
+        };
+        values.AddRange(ids.Select(id => new KeyValuePair<string, string>("ids", id.ToString(CultureInfo.InvariantCulture))));
+        if (token is not null)
+        {
+            values.Add(new KeyValuePair<string, string>("__RequestVerificationToken", token));
+        }
+
+        return new FormUrlEncodedContent(values);
+    }
+
     private AccountRequestService CreateService(
         AsiBasecodeDBContext context,
         ICurrentActor actor,

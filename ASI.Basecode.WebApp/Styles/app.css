@@ -17,6 +17,7 @@
 @import "./features/home.css";
 @import "./features/registration-review.css";
 @import "./features/event-admin.css";
+@import "./features/bulk-actions.css";
 @source "../Views/**/*.cshtml";
 @source "../wwwroot/js/**/*.js";
 /* Dynamic status and shell classes are enumerated so they survive source scanning. */

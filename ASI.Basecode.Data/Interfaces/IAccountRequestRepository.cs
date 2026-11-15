@@ -20,6 +20,12 @@ public interface IAccountRequestRepository
     Task<AccountRequestStatusCounts> GetStatusCountsAsync(string search, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Reads display-only identity for the given requests in one query. Used to name people in a
+    /// bulk result panel after the decided rows have left the pending page.
+    /// </summary>
+    Task<IReadOnlyList<AccountRequestSummary>> GetSummariesAsync(IReadOnlyCollection<int> requestIds, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Stages a new account request. The caller saves through the unit of work.
     /// </summary>
     Task AddAsync(AccountRequest request, CancellationToken cancellationToken = default);

@@ -1,0 +1,19 @@
+@model BulkResultViewModel
+@*
+    The per-record result panel. A live region so the outcome is announced after the re-render,
+    and a real list so every selected person keeps their own result line.
+*@
+<section class="bulk-result" role="status" aria-live="polite">
+    <h2 class="bulk-result-title">@Model.Title</h2>
+    <p class="bulk-result-counts">@Model.SucceededCount of @Model.TotalCount succeeded</p>
+    <ul class="bulk-result-list">
+        @foreach (var item in Model.Items)
+        {
+            <li class="bulk-result-item">
+                <span class="bulk-result-label">@item.Label</span>
+                <span class="badge @(item.Succeeded ? "badge-approved" : "badge-rejected")">@(item.Succeeded ? Model.SuccessLabel : Model.FailureLabel)</span>
+                <span class="bulk-result-message">@item.Message</span>
+            </li>
+        }
+    </ul>
+</section>

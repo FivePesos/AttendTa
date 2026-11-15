@@ -3,6 +3,7 @@
 @using System.Linq
 @{
     ViewData["ListControls"] = true;
+    ViewData["Feature"] = "bulk-selection";
     ViewData["Title"] = "Account requests";
     ViewData["ResultNoun"] = "request";
     var filters = new[]
@@ -20,6 +21,31 @@
     var reopenInDialog = isRejection && decisionRequestId is not null && Model.Items.Any(item => item.RequestId == decisionRequestId);
     var reasonHintId = reopenInDialog ? $"reason-error-{decisionRequestId}" : "reject-reason-hint";
     var query = Context.Request.QueryString.ToString();
+    // A POST re-render sets ListPath so every list link keeps pointing at the GET queue route.
+    var listPath = ViewData["ListPath"] as string;
+    var bulkError = ViewBag.BulkError as string;
+    var bulkResult = ViewBag.BulkResult as BulkResultViewModel;
+    // Carry the current view into the POST so the queue re-renders where the reader was. The
+    // course/year filters feed ListReadOptions from the POST query string.
+    var bulkRoute = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+    foreach (var key in new[] { "status", "search", "sort", "course", "year", "page" })
+    {
+        var value = Context.Request.Query[key].ToString();
+        if (!string.IsNullOrWhiteSpace(value)) bulkRoute[key] = value;
+    }
+    bulkRoute["status"] = "pending";
+    var bulkSelection = new BulkSelectionViewModel
+    {
+        ActionLabel = "Approve selected",
+        DialogId = "bulk-approve-dialog",
+        DialogTitle = "Approve selected requests",
+        Consequence = "Each approved request creates an active member account and lets the applicant sign in with the password they chose. A request that cannot be approved is reported on its own and stays pending.",
+        SubmitLabel = "Approve selected",
+        SubmittingLabel = "Approving…",
+        Controller = "AccountRequest",
+        Action = "ApproveSelected",
+        RouteValues = bulkRoute
+    };
 
     string BadgeClass(string status) => status switch
     {
@@ -47,13 +73,23 @@
     }
 }
 
+@if (bulkError != null)
+{
+    <div class="notice notice-error" role="alert">@bulkError</div>
+}
+
+@if (bulkResult != null)
+{
+    <partial name="_BulkResultPanel" model="bulkResult" />
+}
+
 <partial name="_ListToolbar" model='@(new ListToolbarViewModel("Search name, email, or student number", new ListFilterField[] { ListToolbarViewModel.Course, ListToolbarViewModel.Year }))' />
 <div class="sheet-keys">
 
     <nav class="filter-tabs" aria-label="Request status">
         @foreach (var filter in filters)
         {
-            <a href='@ListNavigation.Url(Context.Request, new Dictionary<string, string> { ["status"] = filter.Key })' class="filter-tab"
+            <a href='@ListNavigation.Url(Context.Request, new Dictionary<string, string> { ["status"] = filter.Key }, listPath)' class="filter-tab"
                aria-current="@(Model.Status == filter.Key ? "page" : null)">
                 @filter.Label
                 <span class="filter-tab-count">@filter.Count</span>
@@ -63,67 +99,94 @@
 </div>
 <p class="muted" data-list-status role="status" data-list-busy-label="Loading records…"></p>
 
-<div class="table-scroll" role="region" aria-label="Account request table" tabindex="0" data-list-region>
-    <table class="data-table table-sticky request-table">
-        <thead>
-            <tr>
-                <th scope="col">Full Name</th>
-                <th scope="col">Course / year</th>
-                <th scope="col">
-                    <a href='@ListNavigation.Url(Context.Request, new Dictionary<string, string> { ["sort"] = Model.NextSort })'
-                       aria-label="Sort by requested time, currently @(Model.Sort == "oldest" ? "oldest first" : "newest first")">
-                        Requested @(Model.Sort == "oldest" ? "↑" : "↓")
-                    </a>
-                </th>
-                <th scope="col">Status</th>
-                <th scope="col" class="actions actions-wide">Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-            @if (Model.Items.Count == 0)
-            {
+<div data-bulk-root data-bulk-noun="request">
+    <partial name="_BulkSelectionBar" model="bulkSelection" />
+
+    <div class="table-scroll" role="region" aria-label="Account request table" tabindex="0" data-list-region>
+        <table class="data-table table-sticky request-table">
+            <thead>
                 <tr>
-                    <td colspan="5" class="empty-state">No @emptyLabel found.</td>
+                    <th scope="col" class="select-column">
+                        <label class="select-target">
+                            <input type="checkbox" data-bulk-all aria-label="Select all pending requests on this page" />
+                        </label>
+                    </th>
+                    <th scope="col">Full Name</th>
+                    <th scope="col">Course / year</th>
+                    <th scope="col">
+                        <a href='@ListNavigation.Url(Context.Request, new Dictionary<string, string> { ["sort"] = Model.NextSort }, listPath)'
+                           aria-label="Sort by requested time, currently @(Model.Sort == "oldest" ? "oldest first" : "newest first")">
+                            Requested @(Model.Sort == "oldest" ? "↑" : "↓")
+                        </a>
+                    </th>
+                    <th scope="col">Status</th>
+                    <th scope="col" class="actions actions-wide">Actions</th>
                 </tr>
-            }
-            else
-            {
-                foreach (var request in Model.Items)
+            </thead>
+            <tbody>
+                @if (Model.Items.Count == 0)
                 {
-                    <tr data-request-id="@request.RequestId">
-                        <td data-label="Full Name" class="cell-name"><span class="cell-strong">@request.FullName<small class="cell-meta">@request.StudentNumber</small></span></td>
-                        <td data-label="Course / year">@request.Course · @request.YearLevel</td>
-                        <td data-label="Requested" class="numeric cell-date"><time datetime="@(DateTime.SpecifyKind(request.RequestedAt, DateTimeKind.Utc).ToString("O"))" aria-label="Requested at in Asia/Manila">@ManilaTimeFormatter.Format(request.RequestedAt)</time></td>
-                        <td data-label="Status"><span class="@BadgeClass(request.Status)">@request.Status</span></td>
-                        <td data-label="Actions" class="actions actions-wide">
-                            <div class="row-actions">
-
-                            @if (request.Status == "Pending")
-                            {
-
-                                    <button type="button"
-                                            class="button button-small button-primary"
-                                            data-dialog-open="approve-dialog"
-                                            data-dialog-value-id="@request.RequestId"
-                                            data-dialog-value-summary="Approve @request.FullName (@request.StudentNumber)?">
-                                        Approve
-                                    </button>
-                                    <button type="button"
-                                            class="button button-small button-quiet-danger"
-                                            data-dialog-open="reject-dialog"
-                                            data-dialog-value-id="@request.RequestId"
-                                            data-dialog-value-summary="Decline the request from @request.FullName (@request.StudentNumber)?">
-                                        Decline
-                                    </button>
-                            }
-                                <partial name="_DetailsButton" model='@(new RecordDetailsViewModel($"request-details-{request.RequestId}", request.FullName, new Dictionary<string, string> { ["Student number"] = request.StudentNumber, ["Email"] = request.Email, ["Course"] = request.Course, ["Year"] = request.YearLevel.ToString(), ["Section"] = request.Section, ["Mobile"] = request.MobileNumber, ["Requested"] = ManilaTimeFormatter.Format(request.RequestedAt), ["Review notes"] = request.ReviewNotes }, null))' />
-                        </div>
-                        </td>
+                    <tr>
+                        <td colspan="6" class="empty-state">No @emptyLabel found.</td>
                     </tr>
                 }
-            }
-        </tbody>
-    </table>
+                else
+                {
+                    foreach (var request in Model.Items)
+                    {
+                        <tr data-request-id="@request.RequestId">
+                            @if (request.Status == "Pending")
+                            {
+                                <td data-label="Select" class="select-column">
+                                    <label class="select-target">
+                                        <input type="checkbox"
+                                               data-bulk-row
+                                               value="@request.RequestId"
+                                               data-bulk-label="@request.FullName (@request.StudentNumber)"
+                                               aria-label="Select @request.FullName" />
+                                    </label>
+                                </td>
+                            }
+                            else
+                            {
+                                <td class="select-column"></td>
+                            }
+                            <td data-label="Full Name" class="cell-name"><span class="cell-strong">@request.FullName<small class="cell-meta">@request.StudentNumber</small></span></td>
+                            <td data-label="Course / year">@request.Course · @request.YearLevel</td>
+                            <td data-label="Requested" class="numeric cell-date"><time datetime="@(DateTime.SpecifyKind(request.RequestedAt, DateTimeKind.Utc).ToString("O"))" aria-label="Requested at in Asia/Manila">@ManilaTimeFormatter.Format(request.RequestedAt)</time></td>
+                            <td data-label="Status"><span class="@BadgeClass(request.Status)">@request.Status</span></td>
+                            <td data-label="Actions" class="actions actions-wide">
+                                <div class="row-actions">
+
+                                @if (request.Status == "Pending")
+                                {
+
+                                        <button type="button"
+                                                class="button button-small button-primary"
+                                                data-dialog-open="approve-dialog"
+                                                data-dialog-value-id="@request.RequestId"
+                                                data-dialog-value-summary="Approve @request.FullName (@request.StudentNumber)?">
+                                            Approve
+                                        </button>
+                                        <button type="button"
+                                                class="button button-small button-quiet-danger"
+                                                data-dialog-open="reject-dialog"
+                                                data-dialog-value-id="@request.RequestId"
+                                                data-dialog-value-summary="Decline the request from @request.FullName (@request.StudentNumber)?">
+                                            Decline
+                                        </button>
+                                }
+                                    <partial name="_DetailsButton" model='@(new RecordDetailsViewModel($"request-details-{request.RequestId}", request.FullName, new Dictionary<string, string> { ["Student number"] = request.StudentNumber, ["Email"] = request.Email, ["Course"] = request.Course, ["Year"] = request.YearLevel.ToString(), ["Section"] = request.Section, ["Mobile"] = request.MobileNumber, ["Requested"] = ManilaTimeFormatter.Format(request.RequestedAt), ["Review notes"] = request.ReviewNotes }, null))' />
+                            </div>
+                            </td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <partial name="_BulkConfirmDialog" model="bulkSelection" />
 </div>
 
 <partial name="_Pager" model="Model" />

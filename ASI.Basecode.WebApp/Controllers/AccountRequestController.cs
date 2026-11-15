@@ -1,10 +1,12 @@
 using System;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using ASI.Basecode.Resources;
 using ASI.Basecode.Resources.Constants;
 using ASI.Basecode.Services.Interfaces;
 using ASI.Basecode.Services.ServiceModels;
+using ASI.Basecode.WebApp.Models;
 using ASI.Basecode.WebApp.Mvc;
 using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
@@ -96,6 +98,59 @@ namespace ASI.Basecode.WebApp.Controllers
             }
         }
 
+        [HttpPost]
+        [Authorize(Policy = Policies.Management)]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ApproveSelected(int[] ids, string status = "pending", string search = null, string sort = "newest", int? page = null)
+        {
+            var normalizedSort = string.Equals(sort, "oldest", StringComparison.OrdinalIgnoreCase) ? "oldest" : "newest";
+            ViewBag.Status = "pending";
+            ViewData["PagerPath"] = Url.Action(nameof(Index));
+            ViewData["ListPath"] = Url.Action(nameof(Index));
+
+            var selectedIds = ids ?? Array.Empty<int>();
+            if (selectedIds.Length == 0)
+            {
+                ViewBag.BulkError = BulkApproval.EmptySelectionMessage;
+            }
+            else if (selectedIds.Length > BulkApproval.MaxBatchSize)
+            {
+                // The batch bound is a request-shape problem, so it is refused before the service
+                // is called; the service keeps the same guard for direct callers.
+                ViewBag.BulkError = BulkApproval.OverBoundMessage;
+            }
+            else
+            {
+                try
+                {
+                    var outcomes = await _accountRequestService.ApproveManyAsync(
+                        selectedIds,
+                        GetActorUserId(),
+                        HttpContext.RequestAborted);
+
+                    ViewBag.BulkResult = new BulkResultViewModel(
+                        "Approval results",
+                        outcomes.Select(outcome => new BulkResultItem(Label(outcome), outcome.Succeeded, outcome.Message)).ToList(),
+                        "Approved",
+                        "Not approved");
+                }
+                catch (DomainException exception)
+                {
+                    ViewBag.BulkError = exception.Message;
+                }
+            }
+
+            var result = await _accountRequestQueueService.GetPageAsync("pending", page, search, normalizedSort, HttpContext.RequestAborted);
+            return View("Index", result);
+        }
+
+        private static string Label(AccountRequestApprovalOutcome outcome)
+        {
+            return string.IsNullOrWhiteSpace(outcome.StudentNumber)
+                ? outcome.FullName
+                : $"{outcome.FullName} ({outcome.StudentNumber})";
+        }
+
         private async Task<IActionResult> DecisionError(DomainException exception, int id, string reason, bool isRejection, int? page, string search, string sort)
         {
             var normalizedSort = string.Equals(sort, "oldest", StringComparison.OrdinalIgnoreCase) ? "oldest" : "newest";
@@ -105,6 +160,7 @@ namespace ASI.Basecode.WebApp.Controllers
             ViewBag.DecisionReason = reason;
             ViewBag.IsRejection = isRejection;
             ViewData["PagerPath"] = Url.Action(nameof(Index));
+            ViewData["ListPath"] = Url.Action(nameof(Index));
             var result = await _accountRequestQueueService.GetPageAsync("pending", page, search, normalizedSort, HttpContext.RequestAborted);
             return View("Index", result);
         }
