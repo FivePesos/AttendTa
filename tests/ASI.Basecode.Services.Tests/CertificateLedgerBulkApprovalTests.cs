@@ -35,8 +35,8 @@ public sealed class CertificateLedgerBulkApprovalTests
             () => service.ApproveManyAsync(Array.Empty<int>(), TestContext.Current.CancellationToken));
 
         Assert.Equal(OutcomeCode.Invalid, exception.Outcome);
-        Assert.Equal(BulkApproval.EmptySelectionMessageFor("review"), exception.Message);
-        Assert.Equal("Select at least one review to approve.", exception.Message);
+        Assert.Equal(BulkApproval.EmptySelectionMessageFor("certificate review"), exception.Message);
+        Assert.Equal("Select at least one certificate review to approve.", exception.Message);
     }
 
     [Fact]
@@ -49,8 +49,8 @@ public sealed class CertificateLedgerBulkApprovalTests
             () => service.ApproveManyAsync(ids, TestContext.Current.CancellationToken));
 
         Assert.Equal(OutcomeCode.Invalid, exception.Outcome);
-        Assert.Equal(BulkApproval.OverBoundMessageFor("review"), exception.Message);
-        Assert.Equal($"You can approve up to {BulkApproval.MaxBatchSize} reviews at a time.", exception.Message);
+        Assert.Equal(BulkApproval.OverBoundMessageFor("certificate review"), exception.Message);
+        Assert.Equal($"You can approve up to {BulkApproval.MaxBatchSize} certificate reviews at a time.", exception.Message);
     }
 
     [Theory]

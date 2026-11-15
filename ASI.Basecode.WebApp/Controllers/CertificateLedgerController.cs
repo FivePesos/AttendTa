@@ -85,7 +85,7 @@ public sealed class CertificateLedgerController : ControllerBase<CertificateLedg
     /// </summary>
     [HttpPost, ValidateAntiForgeryToken]
     [Authorize(Policy = Policies.Management)]
-    public async Task<IActionResult> ApproveSelected(int[] ids, int? eventId, string tab, string search, string filter, int? page)
+    public async Task<IActionResult> ApproveSelected(int[] ids, int? eventId, string tab, int? page)
     {
         var activeTab = ParseTab(tab);
 
@@ -96,11 +96,11 @@ public sealed class CertificateLedgerController : ControllerBase<CertificateLedg
         var selectedIds = ids ?? Array.Empty<int>();
         if (selectedIds.Length == 0)
         {
-            ViewBag.BulkError = BulkApproval.EmptySelectionMessageFor("review");
+            ViewBag.BulkError = BulkApproval.EmptySelectionMessageFor("certificate review");
         }
         else if (selectedIds.Length > BulkApproval.MaxBatchSize)
         {
-            ViewBag.BulkError = BulkApproval.OverBoundMessageFor("review");
+            ViewBag.BulkError = BulkApproval.OverBoundMessageFor("certificate review");
         }
         else
         {

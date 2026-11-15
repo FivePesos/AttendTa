@@ -198,12 +198,12 @@ public sealed class CertificateLedgerService(
 
         if (registrationIds is null || registrationIds.Count == 0)
         {
-            throw new DomainException(OutcomeCode.Invalid, BulkApproval.EmptySelectionMessageFor("review"));
+            throw new DomainException(OutcomeCode.Invalid, BulkApproval.EmptySelectionMessageFor("certificate review"));
         }
 
         if (registrationIds.Count > BulkApproval.MaxBatchSize)
         {
-            throw new DomainException(OutcomeCode.Invalid, BulkApproval.OverBoundMessageFor("review"));
+            throw new DomainException(OutcomeCode.Invalid, BulkApproval.OverBoundMessageFor("certificate review"));
         }
 
         // Deduplicate in first-seen order so a repeated id is decided once and reported once.

@@ -27,6 +27,12 @@ public sealed class BulkSelectionViewModel
     /// <summary>Label the submit button carries while the POST is in flight.</summary>
     public string SubmittingLabel { get; init; } = "Working…";
 
+    /// <summary>
+    /// Accessible name for the selected-record list inside the confirmation dialog. A surface keeps
+    /// its own noun so a reader is never told they are approving another surface's records.
+    /// </summary>
+    public string SelectionListLabel { get; init; } = "Selected requests";
+
     /// <summary>Controller that owns the bulk POST.</summary>
     public string Controller { get; init; }
 
