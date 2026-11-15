@@ -291,6 +291,8 @@ public class AccountRequestServiceTests
     [InlineData("maria dela cruz", "Maria Dela Cruz")]
     [InlineData("ANNE-MARIE LOPEZ", "Anne-Marie Lopez")]
     [InlineData("o'neil santos", "O'Neil Santos")]
+    [InlineData("JOHN PAUL II", "John Paul Ii")]
+    [InlineData("ANA 3RD", "Ana 3rd")]
     [InlineData("  ana   reyes  ", "Ana Reyes")]
     public async Task NameIsStoredInTitleCase(string typed, string stored)
     {
