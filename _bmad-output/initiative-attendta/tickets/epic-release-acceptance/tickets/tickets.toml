@@ -215,3 +215,34 @@ queue = 520
 references = ["docs/DESIGN.md", "_bmad-output/initiative-attendta/delivery-queue.md", "_bmad-output/initiative-attendta/finale-test-cases.md"]
 notes = ["Frontend only: impeccable is required for implementation, rendered critique and final polish; inspect representative desktop/1024/768/390px surfaces and critical keyboard/zoom states. Use manual evidence rather than introducing broad screenshot automation in the timebox."]
 
+[[entry]]
+id = 16
+type = "story"
+title = "Integrated verification after the four feature tickets"
+description = "Run the whole suite and walk the four changed surfaces on the integrated build once 1.15, 1.16, 3.20 and 6.14 have merged: the full IntegrationTests suite on SQL Server, the service suite and the JavaScript tests, then sign in as Administrator, Officer and Member and exercise signup validation, the membership request queue, the registration review queue and the certificate eligibility screen. Record the commit, the command output and what was seen. A finding goes back to the ticket that owns it; nothing is fixed here."
+verify = "The full IntegrationTests, service and JavaScript suites pass on one commit, and each of the four surfaces is walked in the role that owns it with the result recorded. Any failure names the owning ticket."
+covers = []
+after = ["1.15", "1.16", "3.20", "6.14"]
+hitl = true
+risk = "medium"
+phase = "ui"
+area = "testing"
+queue = 136
+references = ["_bmad-output/initiative-attendta/plan-1-15-profile-validation.md"]
+notes = ["Reopens the scope of the closed 8.4 for the current code. The tracker closed 8.4 on 2026-11-11 and the code has changed since, so its evidence no longer covers this build.", "A person runs this. No new automated tests are authored here; 8.5 already mapped the important cases."]
+
+[[entry]]
+id = 17
+type = "story"
+title = "Whole-app consistency sweep: one implementation, one vocabulary"
+description = "Walk every screen as Administrator, Officer and Member and remove what the four feature tickets duplicated or left inconsistent: a second pager, a second dialog guard, a second list query path, two spellings of the same status, two spacings of the same control. Prefer deleting a duplicate over abstracting it. Run the Impeccable critique and polish pass on the changed surfaces, and keep DESIGN.md and PRODUCT.md true to what ships. No new feature, no schema change, no rule change."
+verify = "No second implementation of the pager, the dialog guard or the list query remains; the screens share one control, label and status vocabulary; the critique findings are fixed or recorded with a reason; the build, the CSS build and all three suites pass."
+covers = ["R37"]
+after = [16]
+hitl = true
+risk = "medium"
+phase = "ui"
+area = "frontend"
+queue = 138
+references = ["docs/DESIGN.md", "PRODUCT.md", "_bmad-output/initiative-attendta/plan-1-15-profile-validation.md"]
+notes = ["Replaces the closed 8.12 for this build: 8.12 ran on 2026-11-10, before the UI consistency work and the four feature tickets.", "Impeccable is required here for implementation, rendered critique and polish. This is the one whole-app pass, not a per-ticket review."]
