@@ -282,6 +282,12 @@ are still 1–5 and backend year validation still accepts any positive integer. 
 handling already exists. Email already accepts valid ordinary addresses, without a domain restriction.
 Apply aligned form/filter choices and validation together when that follow-up is authorized.
 
+**Implemented 2026-11-15 (issue #238):** the paragraph above records the state before the
+follow-up. Year levels 1–4, eight-digit student numbers, A–C sections, eleven-digit mobile numbers
+starting with `09`, and the password rule now comes from `ProfileOptions` and is enforced on both
+forms and both services. Before deploying, run `database/inventory-legacy-profile-values.sql` to
+list the stored rows that predate the rules.
+
 ### Phase 2 column balance and redundant details refinement
 
 Venues now orders Room Name, Location, Capacity, Status and Actions; compact numeric/status/action

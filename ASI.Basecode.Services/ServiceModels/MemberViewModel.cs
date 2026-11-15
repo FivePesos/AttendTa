@@ -18,27 +18,23 @@ namespace ASI.Basecode.Services.ServiceModels
 
         [Required(ErrorMessage = "Student number is required.")]
         [RegularExpression(ProfileOptions.StudentNumberPattern, ErrorMessage = "Enter an 8-digit student number starting with 2.")]
-        [StringLength(50, ErrorMessage = "Student number cannot exceed 50 characters.")]
         public string StudentNumber { get; set; }
 
         [StringLength(500, ErrorMessage = "The correction reason cannot exceed 500 characters.")]
         public string StudentNumberCorrectionReason { get; set; }
 
         [Required(ErrorMessage = "Course is required.")]
-        [RegularExpression("^(BSCS|BSIT)$", ErrorMessage = "Choose BSCS or BSIT.")]
-        [StringLength(100)]
+        [RegularExpression(ProfileOptions.CoursePattern, ErrorMessage = "Choose BSCS or BSIT.")]
         public string Course { get; set; }
 
-        [Range(1, 4, ErrorMessage = "Choose a year level from 1 to 4.")]
+        [Range(ProfileOptions.MinYearLevel, ProfileOptions.MaxYearLevel, ErrorMessage = "Choose a year level from 1 to 4.")]
         public int YearLevel { get; set; }
 
         [Required(ErrorMessage = "Section is required.")]
-        [RegularExpression(ProfileOptions.SectionPattern, ErrorMessage = "Choose a section from A to F.")]
-        [StringLength(50)]
+        [RegularExpression(ProfileOptions.SectionPattern, ErrorMessage = "Choose a section from A to C.")]
         public string Section { get; set; }
 
         [RegularExpression(ProfileOptions.MobileNumberPattern, ErrorMessage = "Enter an 11-digit mobile number starting with 09.")]
-        [StringLength(30)]
         public string MobileNumber { get; set; }
 
         [StringLength(100)]

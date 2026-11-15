@@ -14,7 +14,7 @@
         </div>
         <div class="field field-span-2">
             <label asp-for="StudentNumber" class="field-label">Student number <span class="required" aria-hidden="true">*</span></label>
-            <input asp-for="StudentNumber" aria-describedby="StudentNumber-validation" class="field-control" required aria-required="true" inputmode="numeric" maxlength="8" placeholder="e.g. 23807613" />
+            <input asp-for="StudentNumber" aria-describedby="StudentNumber-validation" class="field-control" required aria-required="true" inputmode="numeric" placeholder="e.g. 23807613" />
             <span id="StudentNumber-validation" asp-validation-for="StudentNumber" class="field-error"></span>
         </div>
         <div class="field field-span-2">
@@ -42,11 +42,15 @@
         <div class="field">
             <label asp-for="YearLevel" class="field-label">Year level <span class="required" aria-hidden="true">*</span></label>
             <select asp-for="YearLevel" aria-describedby="YearLevel-validation" class="field-control" required aria-required="true">
+                @if (Model.YearLevel == 0)
+                {
+                    <option value="0" selected>Select year level</option>
+                }
                 @foreach (var year in ProfileOptions.YearLevels)
                 {
-                    <option value="@year">@year</option>
+                    <option value="@year" selected="@(Model.YearLevel == year)">@year</option>
                 }
-                @if (!ProfileOptions.YearLevels.Contains(Model.YearLevel))
+                @if (Model.YearLevel != 0 && !ProfileOptions.YearLevels.Contains(Model.YearLevel))
                 {
                     <option value="@Model.YearLevel" selected>@Model.YearLevel</option>
                 }
@@ -56,11 +60,12 @@
         <div class="field">
             <label asp-for="Section" class="field-label">Section <span class="required" aria-hidden="true">*</span></label>
             <select asp-for="Section" aria-describedby="Section-validation" class="field-control" required aria-required="true">
+                <option value="">Select section</option>
                 @foreach (var sectionCode in ProfileOptions.Sections)
                 {
-                    <option value="@sectionCode" selected="@(Model.Section == sectionCode)">@sectionCode</option>
+                    <option value="@sectionCode" selected="@(ProfileOptions.NormalizeSection(Model.Section) == sectionCode)">@sectionCode</option>
                 }
-                @if (!string.IsNullOrWhiteSpace(Model.Section) && !ProfileOptions.Sections.Contains(Model.Section))
+                @if (!string.IsNullOrWhiteSpace(Model.Section) && !ProfileOptions.Sections.Contains(ProfileOptions.NormalizeSection(Model.Section)))
                 {
                     <option value="@Model.Section" selected>@Model.Section</option>
                 }
@@ -75,7 +80,7 @@
     <div class="record-form-grid">
         <div class="field">
             <label asp-for="MobileNumber" class="field-label">Mobile number</label>
-            <input asp-for="MobileNumber" aria-describedby="MobileNumber-validation" class="field-control" type="tel" inputmode="numeric" maxlength="11" placeholder="e.g. 09171234567" />
+            <input asp-for="MobileNumber" aria-describedby="MobileNumber-validation" class="field-control" type="tel" inputmode="numeric" placeholder="e.g. 09171234567" />
             <span id="MobileNumber-validation" asp-validation-for="MobileNumber" class="field-error"></span>
         </div>
         <div class="field">

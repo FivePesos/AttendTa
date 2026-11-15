@@ -5,6 +5,7 @@ using System.Text.RegularExpressions;
 using ASI.Basecode.Data;
 using ASI.Basecode.Data.Models;
 using ASI.Basecode.Data.Models.Lookups;
+using ASI.Basecode.IntegrationTests.Support;
 using ASI.Basecode.Services.Security;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -404,9 +405,7 @@ public class AccountRequestSubmissionTests : IClassFixture<SqlServerDatabaseFixt
 
     private static string NewEmail() => $"applicant-{Guid.NewGuid():N}@attendta.test";
 
-    private static int studentNumberSeed = 20000000;
-
-    private static string NewStudentNumber() => Interlocked.Increment(ref studentNumberSeed).ToString(CultureInfo.InvariantCulture);
+    private static string NewStudentNumber() => ProfileFixtures.NewStudentNumber();
 
     private static string? GetLocationPath(HttpResponseMessage response)
     {

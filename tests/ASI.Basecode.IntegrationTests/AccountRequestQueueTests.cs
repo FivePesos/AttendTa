@@ -4,6 +4,7 @@ using System.Text.RegularExpressions;
 using ASI.Basecode.Data;
 using ASI.Basecode.Data.Models;
 using ASI.Basecode.Data.Models.Lookups;
+using ASI.Basecode.IntegrationTests.Support;
 using ASI.Basecode.Services.Security;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
@@ -17,9 +18,7 @@ public sealed class AccountRequestQueueTests : IClassFixture<SqlServerDatabaseFi
     private const string Password = "QueueTest#2026";
     private const string PasswordHashMarker = "$argon2id$queue-secret-";
 
-    private static int studentNumberSeed = 20000000;
-
-    private static string NewStudentNumber() => Interlocked.Increment(ref studentNumberSeed).ToString(CultureInfo.InvariantCulture);
+    private static string NewStudentNumber() => ProfileFixtures.NewStudentNumber();
 
     private readonly SqlServerDatabaseFixture fixture;
     private readonly Argon2PasswordHasher hasher = new();

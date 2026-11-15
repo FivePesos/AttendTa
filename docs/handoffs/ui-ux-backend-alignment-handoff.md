@@ -31,9 +31,9 @@ an exclusively visual change, and its PR must not claim that all backend code is
 | Area | Current behavior | Remaining backend work |
 | --- | --- | --- |
 | Course | BSCS/BSIT dropdowns, canonical values, legacy full-name matching, service validation | No new course format change is needed. Preserve this flow. |
-| Year level | Dropdown offers 1–5; submitted profile validation accepts any positive integer | Deferred: enforce 1–4 and align the dropdowns/filters in the same change. |
-| Student number | Text, required, maximum 50 characters; placeholder `23807613` | Deferred: exactly eight ASCII digits. |
-| Mobile | Optional text, maximum 30 characters; placeholder `09171234567` | Deferred: exactly eleven ASCII digits when supplied. |
+| Year level | Dropdown offers 1–4; submitted profile validation accepts 1–4 only | Implemented 2026-11-15 (issue #238): 1–4 enforced on both forms; dropdowns and list filters read `ProfileOptions.YearLevels`. |
+| Student number | Text, required, exactly eight ASCII digits; placeholder `23807613` | Implemented 2026-11-15 (issue #238). |
+| Mobile | Optional text; eleven ASCII digits starting with `09` when supplied; placeholder `09171234567` | Implemented 2026-11-15 (issue #238). The `09` prefix was added by product decision; see §3.1. |
 | Email | Required valid email on signup; placeholder `name@gmail.com` | No Gmail-only rule. Keep normal valid email addresses supported. |
 | Section | Required text, trimmed; form suggests A–F but permits other values | No Section filter or new strict Section vocabulary was approved. |
 | Lists | Server filtering/counting/paging, shared query contracts, adaptive row count | Preserve contracts; future bulk selection must use these paged results correctly. |
@@ -55,14 +55,18 @@ identifiers into numeric database types.
 | `Course` | `BSCS` or `BSIT` | String | Choose BSCS or BSIT. |
 | `YearLevel` | Integer 1–4 | Integer | Choose a year level from 1 to 4. |
 | `StudentNumber` | Exactly eight ASCII digits, required | String | Enter an 8-digit student number. |
-| `MobileNumber` | Empty or exactly eleven ASCII digits | Nullable/optional string | Enter an 11-digit mobile number without spaces or dashes. |
+| `MobileNumber` | Empty or eleven ASCII digits starting with `09` | Nullable/optional string | Enter an 11-digit mobile number starting with 09. |
 | `Email` | A normal valid email address | String | Enter a valid email address. |
-| `Section` | Keep the existing required text contract | String | Section is required. |
+| `Section` | One of A–C; the service upper-cases | String | Choose a section from A to C. |
 
 The examples do not authorize these additional restrictions:
 
 - Do not require Gmail addresses or a university email domain.
-- Do not require a mobile prefix such as `09`; that was not requested.
+- ~~Do not require a mobile prefix such as `09`; that was not requested.~~ **Amended 2026-11-15
+  (issue #238):** the `09` prefix is now required. The original rule admitted any eleven digits,
+  so `12345678901` passed; a Philippine mobile number always starts with `09`, and the product
+  owner chose to keep the stricter rule rather than revert it. `ProfileOptions.MobileNumberPattern`
+  is the single source.
 - Do not make mobile required without an explicit product decision.
 - Do not mention a country in mobile helper/error copy.
 - Do not restrict Section to A–F merely because a datalist suggests those values.
@@ -75,7 +79,7 @@ Recommended patterns after surrounding whitespace is trimmed:
 
 ```text
 StudentNumber: ^[0-9]{8}$
-MobileNumber:  ^[0-9]{11}$ when nonempty
+MobileNumber:  ^09[0-9]{9}$ when nonempty
 YearLevel:    1 <= value <= 4
 ```
 

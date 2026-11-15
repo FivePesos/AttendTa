@@ -236,6 +236,36 @@ public class AccountRequestServiceTests
         Assert.Equal(0, harness.UnitOfWork.SaveCount);
     }
 
+    [Fact]
+    public async Task StudentNumberNotStartingWithTwoIsRejectedOnTheStudentNumberField()
+    {
+        var harness = new Harness();
+        var model = ValidModel();
+        model.StudentNumber = "01234567";
+
+        var exception = await Assert.ThrowsAsync<DomainException>(
+            () => harness.Service.SubmitAsync(model, TestContext.Current.CancellationToken));
+
+        Assert.Equal(OutcomeCode.Invalid, exception.Outcome);
+        Assert.Equal(nameof(AccountRequestViewModel.StudentNumber), exception.Field);
+        Assert.Empty(harness.Requests.Requests);
+    }
+
+    [Fact]
+    public async Task UnknownCourseIsRejectedOnTheCourseField()
+    {
+        var harness = new Harness();
+        var model = ValidModel();
+        model.Course = "BSN";
+
+        var exception = await Assert.ThrowsAsync<DomainException>(
+            () => harness.Service.SubmitAsync(model, TestContext.Current.CancellationToken));
+
+        Assert.Equal(OutcomeCode.Invalid, exception.Outcome);
+        Assert.Equal(nameof(AccountRequestViewModel.Course), exception.Field);
+        Assert.Empty(harness.Requests.Requests);
+    }
+
     [Theory]
     [InlineData("abcdefgh")]
     [InlineData("short1")]
