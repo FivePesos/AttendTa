@@ -9,7 +9,7 @@ hitl: false
 risk: medium
 tracker_id: "137"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/137"
-tracker_status: done
+tracker_status: backlog
 ---
 
 # Frontend My Events history host and extension slots

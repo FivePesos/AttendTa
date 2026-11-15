@@ -9,7 +9,7 @@ hitl: false
 risk: medium
 tracker_id: "48"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/48"
-tracker_status: done
+tracker_status: backlog
 ---
 
 # Manual check-in fallback by name and student number

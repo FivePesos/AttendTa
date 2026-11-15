@@ -9,7 +9,7 @@ hitl: false
 risk: high
 tracker_id: "152"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/152"
-tracker_status: done
+tracker_status: backlog
 ---
 
 # Remove prototype data and prove complete real integrations

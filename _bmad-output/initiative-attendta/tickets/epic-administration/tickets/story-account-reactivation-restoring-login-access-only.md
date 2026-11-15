@@ -9,7 +9,7 @@ hitl: false
 risk: low
 tracker_id: "56"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/56"
-tracker_status: done
+tracker_status: backlog
 ---
 
 # Account reactivation restoring login access only

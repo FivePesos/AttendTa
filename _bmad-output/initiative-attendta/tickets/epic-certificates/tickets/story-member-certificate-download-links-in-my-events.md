@@ -9,7 +9,7 @@ hitl: false
 risk: low
 tracker_id: "69"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/69"
-tracker_status: done
+tracker_status: backlog
 ---
 
 # Member certificate download links in My Events

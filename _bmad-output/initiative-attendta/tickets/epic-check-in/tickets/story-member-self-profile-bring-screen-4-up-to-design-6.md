@@ -9,7 +9,7 @@ hitl: false
 risk: low
 tracker_id: "129"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/129"
-tracker_status: done
+tracker_status: backlog
 ---
 
 # Member self profile: bring screen 4 up to DESIGN §6

@@ -9,7 +9,7 @@ hitl: false
 risk: medium
 tracker_id: "49"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/49"
-tracker_status: done
+tracker_status: backlog
 ---
 
 # Attendance invalidation with confirmation and reason

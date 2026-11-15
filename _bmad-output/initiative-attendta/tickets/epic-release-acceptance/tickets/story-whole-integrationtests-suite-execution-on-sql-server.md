@@ -9,7 +9,7 @@ hitl: false
 risk: medium
 tracker_id: "77"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/77"
-tracker_status: done
+tracker_status: backlog
 ---
 
 # Whole IntegrationTests suite execution on SQL Server

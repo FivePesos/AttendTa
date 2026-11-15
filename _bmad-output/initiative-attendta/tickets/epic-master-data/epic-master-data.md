@@ -47,7 +47,6 @@ The bullets below stand where the demo rescope above does not replace them. It r
 - R6 (parent R33): Profile and identity corrections, Event Type and Venue changes, and image changes each append an Activity Log entry.
 - R7 (parent R36): The Members, Event Types and Venues lists are paged with the shared pager.
 
-- R37 (parent R37): Every list this epic exposes uses the one list pattern — a labelled search, the filters the surface owns, one Reset that keeps the selected event or history section, the R36 footer, and a row details dialog for secondary facts — with the same pattern everywhere and a stacked layout on narrow screens.
 ## Constraints
 
 - Passwords only as salted Argon2id hashes (AD-15); signed expiring cookies; antiforgery on every mutation; ownership checks on personal resources (AD-8); every time, capacity and state guard on the server; secrets, hashes and QR tokens never logged; no login throttling (parent Constraints; prd NFR-1).
@@ -103,5 +102,3 @@ The bullets below stand where the demo rescope above does not replace them. It r
 - Decision: 2026-11-06 — 2.9 is not repeated. Final frontend walkthrough/refactor/polish is 8.12; backend hardening is 8.13. No container status change and no implementation starts from this planning edit.
 - Decision: 2026-11-06 — demo rescope: 2.10, 2.12, 2.13 and 2.14 deliver in the demo phase as demo-polish against the real backend without demo data; 2.13 and 5.11 split the Members list view (5.11 owns the row access-action partial, 2.13 the Edit trigger and form) instead of an ordering, which would cross epic order; 2.11 moves to the finale as an acceptance check with 8.12.
 - Decision: 2026-11-06 — review of the demo rescope: Clarify that 2.13 and 5.11 touch different partials in the Members list (5.11 the 1.13 slot partial, 2.13 the Edit trigger and form), and update Done check verify line requirements for demo-phase tickets.
-- Decision: 2026-11-15 — replan: 2.15 applies the 1.15 rule set to member creation and editing and reconciles the year filter. 2.11 stays open as the verification-only acceptance of the three centered editors inside 8.12; phase 2 shipped them, so it is a check, not a rebuild. Reason: the branch is the source of truth and the tree did not record it.
-- Decision: 2026-11-15 — 2.15 is withdrawn; its member-edit rules are folded into 1.15 in epic-platform-access. Reason: one rule set, one ticket.

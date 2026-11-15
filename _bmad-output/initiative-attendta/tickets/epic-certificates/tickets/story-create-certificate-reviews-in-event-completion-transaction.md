@@ -9,7 +9,7 @@ hitl: false
 risk: medium
 tracker_id: "64"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/64"
-tracker_status: done
+tracker_status: backlog
 ---
 
 # Create certificate reviews in event completion transaction

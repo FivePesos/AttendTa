@@ -2,7 +2,7 @@
 title: AttendTa
 status: final
 created: 2026-11-04
-updated: 2026-11-15
+updated: 2026-11-04
 ---
 
 # PRD: AttendTa — Student Organization Event Registration & Attendance System
@@ -108,10 +108,7 @@ The product's character is **explicit and conservative**. Nothing important happ
 An Applicant can submit an Account Request with student number, full name, email, course, year level, section, password, and confirmation; mobile number is optional.
 
 **Consequences (testable):**
-- Missing required fields, a malformed email, or a confirmation that doesn't match the password → the request is rejected with field errors.
-- Course must be BSCS or BSIT, year level 1–4, and section A–F; a value outside those is rejected with a field error.
-- The student number must be exactly eight digits, and the mobile number, when supplied, exactly eleven digits. Leading zeroes are preserved; letters, spaces, dashes and other punctuation are rejected rather than stripped.
-- The password must be at least eight characters and contain at least one letter and one digit. The rule is enforced on the server and mirrored in the form.
+- Missing required fields, a year level ≤ 0, a malformed email, or a confirmation that doesn't match the password → the request is rejected with field errors.
 - The password is stored only as a hash. The confirmation is never stored.
 - The request is rejected if its email or student number matches another *pending* request, or belongs to any existing Account or Member Profile (including inactive ones).
 - The Applicant sees an acknowledgment only. There is no status page and no tracking token, and requests are not retrievable by ID, email, or student number.
@@ -157,8 +154,6 @@ Management can edit full name, course, year level, section, mobile number, membe
 
 **Consequences (testable):**
 - A student-number correction requires a reason, enforces uniqueness, and logs the old and new values. A corrected-away number becomes available to new Account Requests; this is an accepted limitation (§9.1).
-- The FR-1 field rules apply to every edit: course BSCS or BSIT, year level 1–4, section A–F, an eight-digit student number, and a mobile number that is empty or exactly eleven digits.
-- A stored value that predates these rules stays readable, and an unrelated edit does not force it to change. The correction path for a legacy value is an open question (§10 Q3).
 - Login email is read-only for everyone.
 - Setting membership to inactive makes the Member no longer an Eligible Participant. It applies the same preview, reason, and upcoming-Registration cancellation as FR-32. It does not change Account access, and Account access changes do not change membership.
 - Profile edits never rewrite Registration snapshots or issued Certificates.
@@ -453,8 +448,8 @@ A one-time setup script creates the first active Administrator from a supplied n
 
 ### 4.9 Shared List Behaviour
 
-#### FR-36: Server-side pagination
-Every list screen pages its records on the server. The page size is validated, defaults to five records, and stays between one and twenty-five; the list fits the visible window by measuring rendered rows rather than the monitor. This covers:
+#### FR-36: Fixed pagination
+Every list screen shows 25 rows per page with Previous/Next navigation. This covers:
 - Requests and accounts
 - Members, types, and venues
 - Events feed
@@ -467,25 +462,11 @@ Every list screen pages its records on the server. The page size is validated, d
 
 **Consequences (testable):**
 - Filters, authorization, and search are applied before counting and slicing.
-- The footer states the exact visible range and total, for example "Showing 1–5 of 42".
 - Ordering is deterministic, with a unique ID as the tie-breaker.
 - A missing or invalid page shows page 1. An out-of-range page shows the last page.
 - Navigation is hidden when there is only one page. An empty state shows when nothing matches.
 - Actions are revalidated against current records, not page positions.
 - Counts never include records the user is not authorized to see.
-- Changing a criterion or the page size returns to page 1 and preserves the other criteria.
-- No list clips rows or disables scrolling to force a viewport fit.
-
-#### FR-37: Consistent list surfaces
-Every list a Member or Management can open uses one shared list pattern: a labelled search, the filters that surface owns, one Reset that clears search and filters while keeping the selected event or history section, the FR-36 footer, and a row details dialog for secondary facts.
-
-**Consequences (testable):**
-- The same pattern appears wherever the list appears, with the same control sizes, spacing and action placement.
-- Changing a criterion returns to page 1; paging and row actions keep the criteria.
-- A retired control never keeps filtering through an old URL or a hidden field.
-- Narrow screens show a labelled stacked layout with natural page scrolling and no horizontal scrolling.
-- Identity and decision facts stay visible in the row; secondary facts move to the row details dialog.
-- Details dialogs do not chain into further dialogs.
 
 ## 5. Cross-Cutting NFRs
 
@@ -527,7 +508,7 @@ All 26 functional IDs in the HLD and WBS:
 - **Certificates and reports:** CERT-01–02, REP-01
 - **Administration:** ADM-01–02
 
-These are delivered across the 20 HLD screens, together with FR-35 (initial administrator setup), FR-36 (pagination) and FR-37 (consistent list surfaces).
+These are delivered across the 20 HLD screens, together with FR-35 (initial administrator setup) and FR-36 (pagination).
 
 ### 7.2 Out of Scope for MVP
 | Item | Reason / status |
@@ -558,7 +539,7 @@ These are delivered across the 20 HLD screens, together with FR-35 (initial admi
   - Zero-denominator reports
   - Persistent storage across redeploy
 
-  Target: 100%. Validates FR-1–37.
+  Target: 100%. Validates FR-1–36.
 - **SM-2 Functional completeness:** all 26 functional IDs are demonstrable end to end on the integrated `dev` build. Target: 26/26. Validates §7.1.
 
 **Secondary**
@@ -584,10 +565,6 @@ These are delivered across the 20 HLD screens, together with FR-35 (initial admi
 | Event Type description | HLD omits; WBS includes | Included (FR-6) |
 | MD-05 "avatar" label | WBS label vs body | No profile pictures (FR-4) |
 | Email domain | HLD "institutional email" | No domain restriction (FR-1) |
-| Pagination size | FR-36 (25 rows per page) vs the shipped build (validated 5–25 Auto-fit) | Validated size, default 5, 1–25, Auto-fit to the window (FR-36). 25 rows does not fit a laptop screen under the shell header. |
-| Profile field formats | PRD silent; professor review 2026-11-15 | Course BSCS/BSIT, year 1–4, section A–F, eight-digit student number, eleven-digit mobile, password of at least eight characters with a letter and a digit (FR-1, FR-5) |
-| Section values | Alignment handoff 2026-11-15: do not restrict to A–F because the form only suggests them; professor review: validate section | A–F on new submissions; stored legacy values stay readable (FR-1, FR-5) |
-| Legacy profile values | Alignment handoff 2026-11-15: decide a correction path before enforcing the rules; project owner 2026-11-15: the data is disposable | No correction path. The only database is the disposable demo, reset and reseeded with compliant values, and the seed and test fixtures must generate compliant values (FR-1, FR-5) |
 
 ### 9.1 Accepted Risks & Known Limitations
 
@@ -596,7 +573,6 @@ These are delivered across the 20 HLD screens, together with FR-35 (initial admi
 - **Student-number reuse.** A number freed by a correction (FR-5) can be claimed by a new Applicant. Corrections are rare and audited.
 - **Late ineligibility.** A Member made inactive after an Event starts cannot be checked in and counts as a No-show (FR-32), per SPEC §5.
 - **Mistyped login email.** It cannot be corrected in this MVP (FR-5); there is no self-service email-change or credential-recovery flow.
-- **Legacy profile records.** No correction path exists for a record that predates the field rules. This is accepted because the only database is the disposable demo: it is reset and reseeded with compliant values, and the seed script and test fixtures must generate values that pass FR-1. Any future import must be validated before load rather than repaired afterwards.
 
 ## 10. Open Questions
 
@@ -614,4 +590,3 @@ None of these blocks UX, architecture, or epic planning. Each is deferred with a
 - §4.6 FR-27: Officers may approve their own certificate eligibility (no self-approval prohibition, per SPEC §2).
 - The certificate subject is the Member; Management can review/issue according to the same validation and audit rules, including for their own participation.
 - §5 NFR-6: Mobile-responsive layouts are expected to support phone-based check-in; verify the actual phone, Chrome, camera and hotspot setup.
-- §4.1 FR-1: password strength is at least eight characters with a letter and a digit. The review named password validation without naming a rule.

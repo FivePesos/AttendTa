@@ -56,13 +56,13 @@ wrapper and the plaintext passwords outside the repository.
 
 ```sql
 :setvar AdminName "Maria Clara Dizon"
-:setvar AdminEmail "maria.dizon@gmail.com"
+:setvar AdminEmail "maria.dizon@uc.edu.ph"
 :setvar AdminPasswordHash "<admin hash>"
 :setvar OfficerName "Rafael Santos"
-:setvar OfficerEmail "rafael.santos@gmail.com"
+:setvar OfficerEmail "rafael.santos@uc.edu.ph"
 :setvar OfficerPasswordHash "<officer hash>"
 :setvar MemberName "Liza Fernandez"
-:setvar MemberEmail "liza.fernandez@gmail.com"
+:setvar MemberEmail "liza.fernandez@uc.edu.ph"
 :setvar MemberPasswordHash "<member hash>"
 :r F:\AttendTaBMAD\database\seed-local-admin.sql
 :r F:\AttendTaBMAD\database\seed-event-types.sql
@@ -132,12 +132,12 @@ no endpoint either, so the app-wide fallback policy challenges it and redirects 
 
 | Role | Email | Password |
 |---|---|---|
-| Administrator | `maria.dizon@gmail.com` | the local admin secret used for the hash |
-| Officer | `rafael.santos@gmail.com` | the local officer secret used for the hash |
-| Member | `liza.fernandez@gmail.com` | the local member secret used for the hash |
+| Administrator | `maria.dizon@uc.edu.ph` | the local admin secret used for the hash |
+| Officer | `rafael.santos@uc.edu.ph` | the local officer secret used for the hash |
+| Member | `liza.fernandez@uc.edu.ph` | the local member secret used for the hash |
 
 The seven supporting participants share the member hash; they are not signed in during the
-demo. The pending request is `camille.torres@gmail.com`; approving it creates the account with
+demo. The pending request is `camille.torres@uc.edu.ph`; approving it creates the account with
 the password hash stored on the request (the member hash for the seeded request, or the
 password typed on the public form if the presenter submits a fresh request).
 
@@ -163,7 +163,7 @@ refusal.
 
 ## 4. Administrator beats
 
-Sign in as `maria.dizon@gmail.com`. The Home page shows the Administrator shortcut cards.
+Sign in as `maria.dizon@uc.edu.ph`. The Home page shows the Administrator shortcut cards.
 
 | # | Beat | Route / action | Expected outcome | 390px check |
 |---|---|---|---|---|
@@ -180,7 +180,7 @@ publishes it after the cover upload. The refusal message is generic if the cover
 
 ## 5. Officer beats
 
-Sign in as `rafael.santos@gmail.com`.
+Sign in as `rafael.santos@uc.edu.ph`.
 
 | # | Beat | Route / action | Expected outcome | 390px check |
 |---|---|---|---|---|
@@ -204,7 +204,7 @@ registration's stored `qr_token`.
 
 ## 6. Member beats
 
-Sign in as `liza.fernandez@gmail.com`.
+Sign in as `liza.fernandez@uc.edu.ph`.
 
 | # | Beat | Route / action | Expected outcome | 390px check |
 |---|---|---|---|---|

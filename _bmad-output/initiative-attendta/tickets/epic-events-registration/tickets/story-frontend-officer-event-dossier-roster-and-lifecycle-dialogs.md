@@ -9,7 +9,7 @@ hitl: false
 risk: medium
 tracker_id: "141"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/141"
-tracker_status: done
+tracker_status: backlog
 ---
 
 # Frontend officer event dossier roster and lifecycle dialogs

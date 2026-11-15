@@ -9,7 +9,7 @@ hitl: true
 risk: medium
 tracker_id: "76"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/76"
-tracker_status: done
+tracker_status: backlog
 ---
 
 # Database and persistent file storage backup, restore, and redeploy survival

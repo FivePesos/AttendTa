@@ -9,7 +9,7 @@ hitl: false
 risk: high
 tracker_id: "67"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/67"
-tracker_status: done
+tracker_status: backlog
 ---
 
 # Transactional certificate issuance pipeline and audit

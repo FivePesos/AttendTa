@@ -152,34 +152,3 @@ area = "frontend"
 queue = 15
 references = ["docs/DESIGN.md", "_bmad-output/initiative-attendta/delivery-queue.md", "_bmad-output/initiative-attendta/demo-mock-register.md", "docs/demo-host-setup.md"]
 notes = ["Demo phase (2026-11-06 demo rescope): frontend only. Use the real backend where a service method exists and demo data per demo-mock-register.md (rows M-01, M-04, M-09) where it does not; nothing on screen may show that data is demo data. Add or fill this ticket's register rows in the same pull request.", "Done check: dotnet build and one run of the startup refusal with the switch on against a non-demo database. The one automated test is the database refusal, because a wrongly enabled switch on a live host would fake check-ins and certificates. No other new automated tests, no per-ticket Impeccable critique or polish and no separate code-review pass; the pull request keeps green existing CI and one peer approval. Critique, polish and the full Verify line run once in 8.15.", "Decision: 2026-11-06 — review of the demo rescope: split from 1.13 so the shell and the seam run in parallel; adds the startup database guard, stable pass tokens, the real refusal rules and the event-status overlay. No GitHub issue exists for this entry yet; the tracker sync creates it.", "8.13 removes M-01 after every other register row is removed; 3.12 removes M-09 and 4.2 removes M-04."]
-[[entry]]
-id = 15
-type = "story"
-title = "Shared profile field validation across signup and member edit"
-description = "Enforce one profile rule set on the Account Request form, the Member editor and their services: course BSCS or BSIT, year level 1 to 4, section A to F, student number exactly eight ASCII digits, mobile empty or exactly eleven ASCII digits, and a password of at least eight characters with a letter and a digit. Put the shared choices and patterns in ProfileOptions so signup, member editing and the list filters read one source. Trim surrounding whitespace, reject internal spaces and punctuation, never silently strip characters, and keep identifiers as strings so leading zeroes survive. Validate at the service boundary as well as through model annotations, and keep field errors and safe input on failure while clearing passwords. Leave the database schema unchanged."
-verify = "Signup and the Member editor accept BSCS/BSIT, years 1-4, sections A-F, an eight-digit student number, an empty or eleven-digit mobile and a valid password; it refuses year 0 and 5, a seven- or nine-digit student number, a dashed or spaced mobile, a section outside A-F, an unknown course and a weak password, with the field error on the right control and the input retained. A crafted POST and a direct service call are refused by the same rules, and the existing uniqueness checks still work."
-covers = ["R1", "R5", "R37"]
-after = []
-hitl = false
-risk = "medium"
-phase = "ui"
-area = "backend"
-queue = 112
-references = ["docs/handoffs/ui-ux-backend-alignment-handoff.md", "docs/ui-ux-implementation-plan.md"]
-notes = ["Legacy pending requests: approval runs member creation and therefore the new rules. Inventory affected records read-only before enforcing them and decide the correction path; never reset the database or coerce stored values.", "No schema change: the columns already hold the target values and the ERD stays as approved (handoff 3.5).", "Phase 6 of the UI plan; the shared constants land here and serve signup, member editing and the list filters."]
-
-[[entry]]
-id = 16
-type = "story"
-title = "Membership request bulk approval"
-description = "Build the shared bulk-selection surface once and use it as the membership-request tracer: eligible-pending-row checkboxes, a selected count, Select all on this page, Deselect all, a confirmation naming the selected people and the consequence, and a per-record result panel. Then wire it to bounded bulk approval of pending Account Requests, reusing AccountRequestService.ApproveAsync: accept a bounded, deduplicated list of ids, re-read status, actor and the email and student-number uniqueness at execution time, and keep the existing caller-owned transaction, member creation, password-hash move and audit. Selection clears on page, tab, search or filter change. Decline stays individual."
-verify = "Approving a mixed selection creates the approved Members and reports each refusal with its reason; a stale, already-decided, duplicate, or now-taken email or student number is refused and changes nothing; a repeat submit creates no duplicate account; the selection does not survive a page, tab or filter change; decline remains individual and unchanged; the selection, confirmation and result components are the ones 3.20 and 6.14 reuse."
-covers = ["R2", "R33", "R37"]
-after = [7]
-hitl = false
-risk = "high"
-phase = "ui"
-area = "backend"
-queue = 113
-references = ["docs/handoffs/ui-ux-backend-alignment-handoff.md", "docs/ui-ux-implementation-plan.md"]
-notes = ["Phase 4 of the UI plan, first of the three bulk surfaces. This entry owns the shared selection/confirmation/result components so 3.20 and 6.14 do not each invent one.", "Partial success with per-record results is the batch semantic; never wrap the existing transaction-owning command in an unreviewed nested transaction."]

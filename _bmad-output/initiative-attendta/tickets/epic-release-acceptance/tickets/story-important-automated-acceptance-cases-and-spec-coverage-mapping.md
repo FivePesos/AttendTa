@@ -9,7 +9,7 @@ hitl: false
 risk: medium
 tracker_id: "78"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/78"
-tracker_status: done
+tracker_status: backlog
 ---
 
 # Important automated acceptance cases and SPEC coverage mapping

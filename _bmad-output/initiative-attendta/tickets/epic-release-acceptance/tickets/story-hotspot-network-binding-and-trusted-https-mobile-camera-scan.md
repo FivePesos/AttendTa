@@ -9,7 +9,7 @@ hitl: true
 risk: high
 tracker_id: "75"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/75"
-tracker_status: done
+tracker_status: backlog
 ---
 
 # Hotspot network binding and trusted HTTPS mobile camera scanning

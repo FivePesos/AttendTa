@@ -9,7 +9,7 @@ hitl: false
 risk: low
 tracker_id: "145"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/145"
-tracker_status: done
+tracker_status: backlog
 ---
 
 # Frontend member attendance history partial

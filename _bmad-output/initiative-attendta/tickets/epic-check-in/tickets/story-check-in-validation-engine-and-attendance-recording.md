@@ -9,7 +9,7 @@ hitl: false
 risk: high
 tracker_id: "46"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/46"
-tracker_status: done
+tracker_status: backlog
 ---
 
 # Check-in validation engine and attendance recording

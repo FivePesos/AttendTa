@@ -8,7 +8,7 @@ hitl: false
 risk: low
 tracker_id: "60"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/60"
-tracker_status: done
+tracker_status: backlog
 ---
 
 # Refactor sweep

@@ -9,7 +9,7 @@ hitl: false
 risk: medium
 tracker_id: "66"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/66"
-tracker_status: done
+tracker_status: backlog
 ---
 
 # Management certificate review queue and approval decisions

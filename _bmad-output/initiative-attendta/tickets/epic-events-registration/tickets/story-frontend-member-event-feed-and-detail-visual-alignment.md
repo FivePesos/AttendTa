@@ -9,7 +9,7 @@ hitl: false
 risk: low
 tracker_id: "142"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/142"
-tracker_status: done
+tracker_status: backlog
 ---
 
 # Frontend member event feed and detail visual alignment
