@@ -11,7 +11,7 @@ tracker_id: "243"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/243"
 ---
 
-# Whole-app consistency sweep: one implementation, one vocabulary
+# Whole-application walkthrough, UI judgement and consistency sweep
 
 ## Description
 
