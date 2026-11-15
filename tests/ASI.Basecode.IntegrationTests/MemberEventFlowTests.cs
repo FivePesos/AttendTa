@@ -184,7 +184,7 @@ public sealed class MemberEventEmptyFeedTests(SqlServerDatabaseFixture fixture) 
         await MemberEventTestSupport.SignInAsync(client, memberEmail, password, ct);
 
         var page = await client.GetStringAsync("/Events", ct);
-        Assert.Contains("No published events are available yet.", page, StringComparison.Ordinal);
+        Assert.Contains("No matching active events.", page, StringComparison.Ordinal);
         Assert.DoesNotContain("data-event-id=", page, StringComparison.Ordinal);
         Assert.DoesNotContain("Draft only event", page, StringComparison.Ordinal);
     }
