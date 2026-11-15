@@ -50,7 +50,9 @@
     }, true);
 
     const footer = document.querySelector('[data-paging-size]');
-    if (!footer || footer.dataset.pagingMode === 'fixed') return;
+    // A POST re-render sits on a POST-only action, so a fit here would GET that action and 405.
+    // The re-render already carries the reader's page size, so there is nothing to fit.
+    if (!footer || footer.dataset.pagingMode === 'fixed' || footer.dataset.pagingFit === 'off') return;
     let resized = false, timer;
     let viewportWidth = window.innerWidth, viewportHeight = window.innerHeight;
     // Storage can be absent (tests, hardened browsers) or throw when blocked; the fit

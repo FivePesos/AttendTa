@@ -24,9 +24,11 @@
     // where there is something to select. A decided-only tab shows the table alone.
     var hasSelectableRows = Model.Items.Any(row => row.Status == RegistrationStatusCode.Pending);
     var columnCount = hasSelectableRows ? 5 : 4;
-    // Carry the current view into the POST so the queue re-renders where the reader was.
+    // Carry the current view into the POST so the queue re-renders where the reader was. pageSize
+    // rides along or a batch taken from a page the fit sized above the default comes back at the
+    // default and the reader loses their place.
     var bulkRoute = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-    foreach (var key in new[] { "status", "eventId", "search", "page" })
+    foreach (var key in new[] { "status", "eventId", "search", "pageSize", "page" })
     {
         var value = Context.Request.Query[key].ToString();
         if (!string.IsNullOrWhiteSpace(value)) bulkRoute[key] = value;
