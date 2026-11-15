@@ -53,6 +53,11 @@
     if (!footer || footer.dataset.pagingMode === 'fixed') return;
     let resized = false, timer;
     let viewportWidth = window.innerWidth, viewportHeight = window.innerHeight;
+    // Storage can be absent (tests, hardened browsers) or throw when blocked; the fit
+    // still works without it, it just loses the cross-navigation memory.
+    function fittedAlready(key) {
+        try { return window.sessionStorage?.getItem(key) === '1'; } catch (error) { return false; }
+    }
     function fitRows() {
         if (document.querySelector('dialog[open]') || document.activeElement?.matches('input, select, textarea')) return;
         if (document.querySelector('[data-expandable-toggle][aria-expanded="true"]')) return;
@@ -76,6 +81,12 @@
         // Hold the size while paging the same query. Refit after a filter change
         // or a real resize, rather than repeatedly navigating for different row text.
         if (url.searchParams.get('fit') === '2' && !resized) return;
+        // One fit per result set and viewport height per session. `fit` is a query
+        // parameter a user can strip, so the guard cannot depend on it alone: without
+        // this, a stripped link or a mobile URL bar that changes the viewport height
+        // reloads the page on every navigation.
+        const fitKey = `attendta-fit:${url.pathname}:${footer.dataset.pagingTotal}:${window.innerHeight}`;
+        if (fittedAlready(fitKey)) return;
         // There is nothing else to fetch when the whole result already fits.
         if (total <= size && desired >= total) return;
         if (desired === size) return;
@@ -83,6 +94,7 @@
         url.searchParams.set('pageSize', desired);
         url.searchParams.set('page', Math.floor(firstIndex / desired) + 1);
         url.searchParams.set('fit', '2');
+        try { window.sessionStorage?.setItem(fitKey, '1'); } catch (error) { /* storage disabled: fall through to the fit param guard */ }
         window.location.replace(url.toString());
     }
     window.addEventListener('resize', () => {

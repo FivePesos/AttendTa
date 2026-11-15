@@ -194,7 +194,7 @@ namespace ASI.Basecode.Data.Repositories
                 query = query.Where(row => ids.Contains(row.TypeId));
             }
             if (_readOptions.From is DateTime from) query = query.Where(row => row.StartsAt >= from);
-            if (_readOptions.To is DateTime to) { var end = to.AddDays(1); query = query.Where(row => row.StartsAt < end); }
+            if (_readOptions.To is DateTime to) { var end = to.Date == DateTime.MaxValue.Date ? DateTime.MaxValue : to.AddDays(1); query = query.Where(row => row.StartsAt < end); }
             return query;
         }
 

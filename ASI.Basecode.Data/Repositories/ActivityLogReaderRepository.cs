@@ -61,7 +61,7 @@ public sealed class ActivityLogReaderRepository(IUnitOfWork unitOfWork, ListRead
         if (!string.IsNullOrWhiteSpace(readOptions?.Filter)) query = query.Where(row => row.Action == readOptions.Filter);
         if (!string.IsNullOrWhiteSpace(readOptions?.Type)) query = query.Where(row => row.EntityType == readOptions.Type);
         if (readOptions?.From is DateTime from) query = query.Where(row => row.OccurredAt >= from);
-        if (readOptions?.To is DateTime to) { var end = to.AddDays(1); query = query.Where(row => row.OccurredAt < end); }
+        if (readOptions?.To is DateTime to) { var end = to.Date == DateTime.MaxValue.Date ? DateTime.MaxValue : to.AddDays(1); query = query.Where(row => row.OccurredAt < end); }
         return query;
     }
 }

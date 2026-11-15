@@ -83,8 +83,8 @@ public sealed class VenuePagedListTests : IClassFixture<SqlServerDatabaseFixture
         {
             var row = Row(firstPage, venueId);
             // The owner removed the list thumbnail deliberately; the photo stays reachable
-            // through the Venue Photo endpoint and the edit form. Assert the intended contract
-            // so the omission is a decision, not a silent regression.
+            // through the Venue Photo endpoint, the edit form and the row details dialog.
+            // Assert the intended contract so the omission is a decision, not a silent regression.
             Assert.DoesNotContain("venue-thumb", row, StringComparison.Ordinal);
             Assert.Contains("Show details", row, StringComparison.Ordinal);
             Assert.Contains($"action=\"/Venue/ToggleActive?id={venueId}\"", row, StringComparison.Ordinal);
