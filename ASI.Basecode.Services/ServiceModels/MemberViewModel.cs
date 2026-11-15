@@ -17,7 +17,7 @@ namespace ASI.Basecode.Services.ServiceModels
         public string Email { get; set; }
 
         [Required(ErrorMessage = "Student number is required.")]
-        [RegularExpression(ProfileOptions.StudentNumberPattern, ErrorMessage = "Enter an 8-digit student number.")]
+        [RegularExpression(ProfileOptions.StudentNumberPattern, ErrorMessage = "Enter an 8-digit student number starting with 2.")]
         [StringLength(50, ErrorMessage = "Student number cannot exceed 50 characters.")]
         public string StudentNumber { get; set; }
 

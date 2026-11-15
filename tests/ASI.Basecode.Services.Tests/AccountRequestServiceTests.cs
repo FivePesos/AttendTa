@@ -214,6 +214,7 @@ public class AccountRequestServiceTests
     [InlineData(nameof(AccountRequestViewModel.StudentNumber), "1234567")]
     [InlineData(nameof(AccountRequestViewModel.StudentNumber), "123456789")]
     [InlineData(nameof(AccountRequestViewModel.StudentNumber), "2000012A")]
+    [InlineData(nameof(AccountRequestViewModel.StudentNumber), "31234567")]
     [InlineData(nameof(AccountRequestViewModel.MobileNumber), "0917-123-4567")]
     [InlineData(nameof(AccountRequestViewModel.MobileNumber), "0917123456")]
     [InlineData(nameof(AccountRequestViewModel.MobileNumber), "12345678901")]
@@ -267,6 +268,43 @@ public class AccountRequestServiceTests
         await harness.Service.SubmitAsync(model, TestContext.Current.CancellationToken);
 
         Assert.Single(harness.Requests.Requests);
+    }
+
+    [Fact]
+    public async Task ApprovalStoresTheNameInTitleCase()
+    {
+        var harness = new Harness();
+        var request = PendingRequest();
+        request.FullName = "SETH PINCA";
+        harness.Requests.Requests.Add(request);
+
+        await harness.Service.ApproveAsync(request.RequestId, harness.Actor.UserId, TestContext.Current.CancellationToken);
+
+        var user = Assert.Single(harness.Users.Users);
+        Assert.Equal("Seth Pinca", user.Name);
+    }
+
+    [Theory]
+    [InlineData("SETH PINCA", "Seth Pinca")]
+    [InlineData("JOHN PAUL A. SINGCO", "John Paul A. Singco")]
+    [InlineData("J.R.R. TOLKIEN", "J.R.R. Tolkien")]
+    [InlineData("maria dela cruz", "Maria Dela Cruz")]
+    [InlineData("ANNE-MARIE LOPEZ", "Anne-Marie Lopez")]
+    [InlineData("o'neil santos", "O'Neil Santos")]
+    [InlineData("JOHN PAUL II", "John Paul II")]
+    [InlineData("JOHN SINGCO JR.", "John Singco Jr.")]
+    [InlineData("ANA 3RD", "Ana 3rd")]
+    [InlineData("  ana   reyes  ", "Ana Reyes")]
+    public async Task NameIsStoredInTitleCase(string typed, string stored)
+    {
+        var harness = new Harness();
+        var model = ValidModel();
+        model.FullName = typed;
+
+        await harness.Service.SubmitAsync(model, TestContext.Current.CancellationToken);
+
+        var request = Assert.Single(harness.Requests.Requests);
+        Assert.Equal(stored, request.FullName);
     }
 
     [Fact]
