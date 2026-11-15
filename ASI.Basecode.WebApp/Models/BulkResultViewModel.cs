@@ -4,8 +4,13 @@ using System.Linq;
 
 namespace ASI.Basecode.WebApp.Models;
 
-/// <summary>One row of a bulk result: the server-resolved label, whether it succeeded, and why.</summary>
-public sealed record BulkResultItem(string Label, bool Succeeded, string Message);
+/// <summary>
+/// One row of a bulk result: the server-resolved label, whether it succeeded, and why. A surface
+/// whose success has more than one meaning supplies its own <paramref name="Status"/> label and
+/// <paramref name="Tone"/> badge class; the account-request surface leaves both null and keeps the
+/// panel's success/failure wording.
+/// </summary>
+public sealed record BulkResultItem(string Label, bool Succeeded, string Message, string Status = null, string Tone = null);
 
 /// <summary>
 /// A surface-agnostic report of a bulk action. The surface supplies the title and the two

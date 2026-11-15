@@ -435,6 +435,7 @@ public sealed class EventCoverServiceTests
         public Task<bool> HasIssuedCertificateForEventAsync(int eventId, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<int> CountReviewQueueAsync(RegistrationStatusCode status, int? eventId, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<IReadOnlyList<RegistrationReviewRow>> GetReviewQueueAsync(RegistrationStatusCode status, int? eventId, int offset, int limit, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<IReadOnlyList<RegistrationSummary>> GetSummariesAsync(IReadOnlyCollection<int> registrationIds, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<Registration> GetForUpdateAsync(int id, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<IReadOnlyList<Registration>> GetOpenForEventAsync(int id, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<IReadOnlyList<int>> DiscoverOpenEventIdsForUserAsync(int id, CancellationToken ct = default) => throw new NotSupportedException();

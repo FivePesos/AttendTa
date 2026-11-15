@@ -13,7 +13,9 @@
         {
             <li class="bulk-result-item">
                 <span class="bulk-result-label">@item.Label</span>
-                <span class="badge @(item.Succeeded ? "badge-approved" : "badge-rejected")">@(item.Succeeded ? Model.SuccessLabel : Model.FailureLabel)</span>
+                @* A surface that names its own outcome (Confirmed, Waitlisted) supplies both the
+                   label and the tint; otherwise the panel keeps its success/failure wording. *@
+                <span class="badge @(item.Tone ?? (item.Succeeded ? "badge-approved" : "badge-rejected"))">@(item.Status ?? (item.Succeeded ? Model.SuccessLabel : Model.FailureLabel))</span>
                 <span class="bulk-result-message">@item.Message</span>
             </li>
         }

@@ -12,6 +12,15 @@ public interface IRegistrationReviewService
     Task<IReadOnlyList<EventSelectorOption>> GetEventOptionsAsync(CancellationToken ct = default) => Task.FromResult<IReadOnlyList<EventSelectorOption>>(Array.Empty<EventSelectorOption>());
     Task<PagedResult<RegistrationReviewRow>> GetPageAsync(string status, int? eventId, int? page, CancellationToken ct = default);
     Task ApproveAsync(int id, CancellationToken ct = default);
+
+    /// <summary>
+    /// Approves each distinct id through the single-record approval path, in the review queue's own
+    /// order, and reports one outcome per id. A refusal never rolls back another record.
+    /// </summary>
+    /// <param name="registrationIds">The posted ids; duplicates are decided once.</param>
+    /// <param name="eventId">The dossier's event scope, or <c>null</c> for the whole review queue.</param>
+    Task<IReadOnlyList<RegistrationApprovalOutcome>> ApproveManyAsync(IReadOnlyCollection<int> registrationIds, int? eventId, CancellationToken ct = default);
+
     Task DeclineAsync(int id, string reason, CancellationToken ct = default);
     Task CancelAsync(int id, string reason, CancellationToken ct = default);
 
