@@ -326,6 +326,88 @@ public sealed class MemberManagementTests(SqlServerDatabaseFixture fixture) : IC
         Assert.Equal("After lock release", (await observer.Users.AsNoTracking().SingleAsync(item => item.Id == seeded.UserId, ct)).Name);
     }
 
+    [Theory]
+    [InlineData(nameof(MemberViewModel.StudentNumber), "2024001")]
+    [InlineData(nameof(MemberViewModel.MobileNumber), "555-0100")]
+    [InlineData(nameof(MemberViewModel.Section), "G")]
+    public async Task ProfileValueOutsideTheSharedRulesIsRejectedOnTheMemberEditPath(string field, string value)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var seeded = await SeedMemberAsync(MembershipStatusCode.Active, ct);
+        await using var writer = Context();
+        var service = CreateService(writer, seeded.ActorId);
+
+        var model = new MemberViewModel
+        {
+            MemberId = seeded.MemberId,
+            FullName = "Unchanged Member",
+            StudentNumber = seeded.StudentNumber,
+            Course = "BSCS",
+            YearLevel = 2,
+            Section = "A",
+            MobileNumber = "09171234567"
+        };
+        typeof(MemberViewModel).GetProperty(field)!.SetValue(model, value);
+
+        var exception = await Assert.ThrowsAsync<DomainException>(() => service.UpdateMemberAsync(model, ct));
+
+        Assert.Equal(OutcomeCode.Invalid, exception.Outcome);
+        Assert.Equal(field, exception.Field);
+
+        await using var observer = Context();
+        var member = await observer.Members.AsNoTracking().SingleAsync(item => item.MemberId == seeded.MemberId, ct);
+        Assert.Equal(seeded.StudentNumber, member.StudentNumber);
+        Assert.Equal("A", member.Section);
+        Assert.Equal("555-0100", member.MobileNumber);
+        Assert.False(await observer.ActivityLogs.AnyAsync(item => item.EntityType == "members" && item.EntityId == seeded.MemberId, ct));
+    }
+
+    [Fact]
+    public async Task YearLevelOutsideOneToFourIsRejectedOnTheMemberEditPath()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var seeded = await SeedMemberAsync(MembershipStatusCode.Active, ct);
+        await using var writer = Context();
+        var service = CreateService(writer, seeded.ActorId);
+
+        var exception = await Assert.ThrowsAsync<DomainException>(() => service.UpdateMemberAsync(new MemberViewModel
+        {
+            MemberId = seeded.MemberId,
+            FullName = "Unchanged Member",
+            StudentNumber = seeded.StudentNumber,
+            Course = "BSCS",
+            YearLevel = 5,
+            Section = "A"
+        }, ct));
+
+        Assert.Equal(OutcomeCode.Invalid, exception.Outcome);
+        Assert.Equal(nameof(MemberViewModel.YearLevel), exception.Field);
+        Assert.Equal("Choose a year level from 1 to 4.", exception.Message);
+    }
+
+    [Fact]
+    public async Task LowerCaseSectionIsStoredUpperCased()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var seeded = await SeedMemberAsync(MembershipStatusCode.Active, ct);
+        await using (var writer = Context())
+        {
+            await CreateService(writer, seeded.ActorId).UpdateMemberAsync(new MemberViewModel
+            {
+                MemberId = seeded.MemberId,
+                FullName = "Section Case Member",
+                StudentNumber = seeded.StudentNumber,
+                Course = "BSIT",
+                YearLevel = 2,
+                Section = "b"
+            }, ct);
+        }
+
+        await using var observer = Context();
+        var member = await observer.Members.AsNoTracking().SingleAsync(item => item.MemberId == seeded.MemberId, ct);
+        Assert.Equal("B", member.Section);
+    }
+
     [Fact]
     public async Task EditEndpointShowsReadOnlyEmailAndCorrectionValidationAndHasNoStatusToggle()
     {
@@ -390,6 +472,24 @@ public sealed class MemberManagementTests(SqlServerDatabaseFixture fixture) : IC
         var invalidModelHtml = await invalidModelResponse.Content.ReadAsStringAsync(ct);
         Assert.Contains($"value=\"{seeded.MemberEmail}\"", invalidModelHtml, StringComparison.Ordinal);
         Assert.DoesNotContain("invalid-model@example.invalid", invalidModelHtml, StringComparison.Ordinal);
+
+        using var offRuleResponse = await managementClient.PostAsync("/Member/Edit", new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["__RequestVerificationToken"] = token,
+            ["MemberId"] = seeded.MemberId.ToString(),
+            ["FullName"] = "Off-rule mobile",
+            ["Email"] = "off-rule@example.invalid",
+            ["StudentNumber"] = seeded.StudentNumber,
+            ["StudentNumberCorrectionReason"] = "",
+            ["Course"] = "BSIT",
+            ["YearLevel"] = "2",
+            ["Section"] = "A",
+            ["MobileNumber"] = "555-0100"
+        }), ct);
+        Assert.Equal(HttpStatusCode.OK, offRuleResponse.StatusCode);
+        var offRuleHtml = await offRuleResponse.Content.ReadAsStringAsync(ct);
+        Assert.Contains("Enter an 11-digit mobile number starting with 09.", offRuleHtml, StringComparison.Ordinal);
+        Assert.Contains("value=\"555-0100\"", offRuleHtml, StringComparison.Ordinal);
 
         await using (var observer = Context())
         {

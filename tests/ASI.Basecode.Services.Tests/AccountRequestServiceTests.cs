@@ -257,6 +257,19 @@ public class AccountRequestServiceTests
     }
 
     [Fact]
+    public async Task MinimumLengthPasswordIsAccepted()
+    {
+        var harness = new Harness();
+        var model = ValidModel();
+        model.Password = "Passw0rd";
+        model.ConfirmPassword = "Passw0rd";
+
+        await harness.Service.SubmitAsync(model, TestContext.Current.CancellationToken);
+
+        Assert.Single(harness.Requests.Requests);
+    }
+
+    [Fact]
     public async Task MissingPasswordIsRejectedOnThePasswordField()
     {
         var harness = new Harness();
