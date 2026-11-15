@@ -66,6 +66,27 @@ public sealed class AccountRequestRepository(IUnitOfWork unitOfWork, ListReadOpt
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<AccountRequestSummary>> GetSummariesAsync(
+        IReadOnlyCollection<int> requestIds,
+        CancellationToken cancellationToken = default)
+    {
+        if (requestIds is null || requestIds.Count == 0)
+        {
+            return Array.Empty<AccountRequestSummary>();
+        }
+
+        return await GetDbSet<AccountRequest>()
+            .AsNoTracking()
+            .Where(request => requestIds.Contains(request.RequestId))
+            .Select(request => new AccountRequestSummary
+            {
+                RequestId = request.RequestId,
+                FullName = request.FullName,
+                StudentNumber = request.StudentNumber
+            })
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<AccountRequest> LockAccountRequestAsync(int requestId, CancellationToken cancellationToken = default)
     {
         if (Context.Database.CurrentTransaction == null) throw new InvalidOperationException("A transaction is required to lock an account request.");

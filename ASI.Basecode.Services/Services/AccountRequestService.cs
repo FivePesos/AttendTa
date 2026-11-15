@@ -193,6 +193,69 @@ namespace ASI.Basecode.Services.Services
         }
 
         /// <inheritdoc />
+        public async Task<IReadOnlyList<AccountRequestApprovalOutcome>> ApproveManyAsync(
+            IReadOnlyCollection<int> requestIds,
+            int actorUserId,
+            CancellationToken cancellationToken = default)
+        {
+            // Validate the actor once for the whole batch. ApproveAsync re-checks it per record,
+            // which is defence in depth rather than a second authorization path.
+            var reviewerId = RequireManagementActor(actorUserId);
+
+            if (requestIds is null || requestIds.Count == 0)
+            {
+                throw new DomainException(OutcomeCode.Invalid, BulkApproval.EmptySelectionMessage);
+            }
+
+            if (requestIds.Count > BulkApproval.MaxBatchSize)
+            {
+                throw new DomainException(OutcomeCode.Invalid, BulkApproval.OverBoundMessage);
+            }
+
+            // Deduplicate in first-seen order so a repeated id is decided once and reported once.
+            var distinctIds = new List<int>(requestIds.Count);
+            var seen = new HashSet<int>();
+            foreach (var requestId in requestIds)
+            {
+                if (seen.Add(requestId))
+                {
+                    distinctIds.Add(requestId);
+                }
+            }
+
+            // Resolve display identity in one read before any decision, because an approved row has
+            // already left the pending page by the time the result panel renders.
+            var summaries = await _accountRequestRepository.GetSummariesAsync(distinctIds, cancellationToken);
+            var identities = new Dictionary<int, AccountRequestSummary>(summaries.Count);
+            foreach (var summary in summaries)
+            {
+                identities[summary.RequestId] = summary;
+            }
+
+            var outcomes = new List<AccountRequestApprovalOutcome>(distinctIds.Count);
+            foreach (var requestId in distinctIds)
+            {
+                var identity = identities.TryGetValue(requestId, out var summary) ? summary : null;
+                var label = string.IsNullOrWhiteSpace(identity?.FullName) ? $"Request {requestId}" : identity.FullName;
+
+                // No outer transaction: ApproveAsync owns its transaction, so a refusal rolls back
+                // only its own record and the next id still runs. Catch only DomainException --
+                // cancellation and unexpected faults must surface instead of becoming a refusal.
+                try
+                {
+                    await ApproveAsync(requestId, reviewerId, cancellationToken);
+                    outcomes.Add(new AccountRequestApprovalOutcome(requestId, label, identity?.StudentNumber, true, "Approved."));
+                }
+                catch (DomainException exception)
+                {
+                    outcomes.Add(new AccountRequestApprovalOutcome(requestId, label, identity?.StudentNumber, false, exception.Message));
+                }
+            }
+
+            return outcomes;
+        }
+
+        /// <inheritdoc />
         public async Task RejectAsync(int requestId, string reason, int actorUserId, CancellationToken cancellationToken = default)
         {
             var reviewerId = RequireManagementActor(actorUserId);

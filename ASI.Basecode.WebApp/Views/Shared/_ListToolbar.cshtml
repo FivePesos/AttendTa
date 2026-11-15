@@ -7,8 +7,10 @@
     var hasCriteria = !string.IsNullOrWhiteSpace(search)
         || fields.Any(field => field.Name != "eventId" && !string.IsNullOrWhiteSpace(query[field.Name]))
         || (!string.IsNullOrWhiteSpace(query["status"]) && query["status"] != "all");
+    // A POST re-render sets ListPath so the toolbar keeps pointing at the GET list route.
+    var listPath = ViewData["ListPath"] as string;
 }
-<form method="get" action="@(ListNavigation.Url(Context.Request, new Dictionary<string, string>()).Split('?')[0])" class="list-toolbar" role="search" data-list-search data-applied-search="@search">
+<form method="get" action="@(ListNavigation.Url(Context.Request, new Dictionary<string, string>(), listPath).Split('?')[0])" class="list-toolbar" role="search" data-list-search data-applied-search="@search">
     @foreach (var pair in query.Where(pair => !managed.Contains(pair.Key) && !ListReadOptionsFactory.IsRetiredFilter(Context.Request, pair.Key)))
     {
         foreach (var value in pair.Value) { <input type="hidden" name="@pair.Key" value="@value" /> }
@@ -35,5 +37,5 @@
         </div>
     }
     @if (fields.Count > 0) { <button type="submit" class="button button-secondary">Apply filters</button> }
-    @if (hasCriteria) { <a href="@ListNavigation.Reset(Context.Request, fields.Select(field => field.Name))" class="button button-secondary" data-filter-clear>Reset</a> }
+    @if (hasCriteria) { <a href="@ListNavigation.Reset(Context.Request, fields.Select(field => field.Name), listPath)" class="button button-secondary" data-filter-clear>Reset</a> }
 </form>
