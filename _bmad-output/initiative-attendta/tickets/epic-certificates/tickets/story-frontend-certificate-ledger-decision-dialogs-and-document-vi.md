@@ -9,7 +9,7 @@ hitl: false
 risk: medium
 tracker_id: "139"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/139"
-tracker_status: backlog
+tracker_status: done
 ---
 
 # Frontend certificate ledger decision dialogs and document viewer

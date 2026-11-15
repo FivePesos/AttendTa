@@ -9,7 +9,7 @@ hitl: false
 risk: medium
 tracker_id: "72"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/72"
-tracker_status: backlog
+tracker_status: done
 ---
 
 # Completed-event no-shows and signup snapshot attendee distributions

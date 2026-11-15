@@ -9,7 +9,7 @@ hitl: false
 risk: medium
 tracker_id: "68"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/68"
-tracker_status: backlog
+tracker_status: done
 ---
 
 # Authorized certificate streaming download endpoint

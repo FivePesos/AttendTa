@@ -9,7 +9,7 @@ hitl: false
 risk: medium
 tracker_id: "138"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/138"
-tracker_status: backlog
+tracker_status: done
 ---
 
 # Frontend door scanner manual lookup and attendance dialogs

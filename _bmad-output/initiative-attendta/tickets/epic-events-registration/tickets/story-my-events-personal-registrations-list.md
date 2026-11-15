@@ -9,7 +9,7 @@ hitl: false
 risk: low
 tracker_id: "42"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/42"
-tracker_status: backlog
+tracker_status: done
 ---
 
 # My Events personal registrations list

@@ -9,7 +9,7 @@ hitl: true
 risk: high
 tracker_id: "150"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/150"
-tracker_status: backlog
+tracker_status: done
 ---
 
 # Verify real demo-host readiness and close provisioning evidence gaps

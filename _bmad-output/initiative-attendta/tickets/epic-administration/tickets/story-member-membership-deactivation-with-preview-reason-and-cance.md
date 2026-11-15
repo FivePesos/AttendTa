@@ -9,7 +9,7 @@ hitl: false
 risk: low
 tracker_id: "57"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/57"
-tracker_status: backlog
+tracker_status: done
 ---
 
 # Member membership deactivation with preview, reason and cancellation cascade

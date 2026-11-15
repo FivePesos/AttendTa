@@ -9,7 +9,7 @@ hitl: false
 risk: high
 tracker_id: "65"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/65"
-tracker_status: backlog
+tracker_status: done
 ---
 
 # Attendance invalidation review disqualification and issued-certificate lock

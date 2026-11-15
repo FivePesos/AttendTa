@@ -9,7 +9,7 @@ hitl: false
 risk: medium
 tracker_id: "153"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/153"
-tracker_status: backlog
+tracker_status: done
 ---
 
 # Final frontend walkthrough targeted refactor and Impeccable polish

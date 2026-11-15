@@ -9,7 +9,7 @@ hitl: true
 risk: low
 tracker_id: "82"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/82"
-tracker_status: backlog
+tracker_status: done
 ---
 
 # Dev to main release pull request and submission preparation
