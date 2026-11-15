@@ -20,7 +20,7 @@ namespace ASI.Basecode.Resources.Constants
         /// <summary>Sections offered by the form.</summary>
         public static readonly IReadOnlyList<string> Sections = new[] { "A", "B", "C", "D", "E", "F" };
 
-        /// <summary>Student numbers are exactly eight ASCII digits starting with 2; the value stays a string so leading zeroes survive.</summary>
+        /// <summary>Student numbers are exactly eight ASCII digits starting with 2; the value stays a string so the column keeps its shape.</summary>
         public const string StudentNumberPattern = "^2[0-9]{7}$";
 
         /// <summary>Mobile numbers are optional, but a supplied number is exactly eleven ASCII digits.</summary>
@@ -51,7 +51,7 @@ namespace ASI.Basecode.Resources.Constants
             for (var index = 0; index < characters.Length; index++)
             {
                 var character = characters[index];
-                if (char.IsWhiteSpace(character) || character == '-' || character == '\'')
+                if (char.IsWhiteSpace(character) || character == '-' || character == '\'' || character == '.')
                 {
                     startOfWord = true;
                     continue;

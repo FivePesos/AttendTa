@@ -270,9 +270,24 @@ public class AccountRequestServiceTests
         Assert.Single(harness.Requests.Requests);
     }
 
+    [Fact]
+    public async Task ApprovalStoresTheNameInTitleCase()
+    {
+        var harness = new Harness();
+        var request = PendingRequest();
+        request.FullName = "SETH PINCA";
+        harness.Requests.Requests.Add(request);
+
+        await harness.Service.ApproveAsync(request.RequestId, harness.Actor.UserId, TestContext.Current.CancellationToken);
+
+        var user = Assert.Single(harness.Users.Users);
+        Assert.Equal("Seth Pinca", user.Name);
+    }
+
     [Theory]
     [InlineData("SETH PINCA", "Seth Pinca")]
     [InlineData("JOHN PAUL A. SINGCO", "John Paul A. Singco")]
+    [InlineData("J.R.R. TOLKIEN", "J.R.R. Tolkien")]
     [InlineData("maria dela cruz", "Maria Dela Cruz")]
     [InlineData("ANNE-MARIE LOPEZ", "Anne-Marie Lopez")]
     [InlineData("o'neil santos", "O'Neil Santos")]
