@@ -14,11 +14,11 @@
             <button type="button" class="dialog-close" data-dialog-close aria-label="Close dialog">&times;</button>
         </div>
         <p class="muted" id="@(Model.DialogId)-summary" data-bulk-dialog-summary></p>
-        <p class="muted">Up to @Model.MaxBatchSize records at a time. Each record is decided on its own.</p>
+        <p class="muted">Up to @Model.MaxBatchSize @(Model.RecordNoun)s at a time. Each @Model.RecordNoun is decided on its own.</p>
         <p class="dialog-consequence" id="@(Model.DialogId)-consequence">@Model.Consequence</p>
         @* A scroll container has to take focus, or a keyboard user cannot reach the names
            past the visible height. *@
-        <ul class="bulk-dialog-list" data-bulk-dialog-list tabindex="0" aria-label="Selected requests"></ul>
+        <ul class="bulk-dialog-list" data-bulk-dialog-list tabindex="0" aria-label="@Model.SelectionListLabel"></ul>
         <div class="dialog-actions">
             <button type="button" class="button button-secondary" data-dialog-close>Cancel</button>
             <button type="submit" class="button button-primary" data-submitting-label="@Model.SubmittingLabel">@Model.SubmitLabel</button>

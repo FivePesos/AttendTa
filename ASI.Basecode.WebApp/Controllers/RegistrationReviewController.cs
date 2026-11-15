@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using ASI.Basecode.Resources;
 using ASI.Basecode.Resources.Constants;
 using ASI.Basecode.Services.Interfaces;
+using ASI.Basecode.WebApp.Models;
 using ASI.Basecode.WebApp.Mvc;
 using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
@@ -29,6 +30,63 @@ public sealed class RegistrationReviewController(IHttpContextAccessor accessor, 
 
     [HttpPost, ValidateAntiForgeryToken]
     public Task<IActionResult> Approve(int id, string status, int? eventId, int? page, CancellationToken cancellationToken = default) => Decide(() => review.ApproveAsync(id, cancellationToken), status, eventId, page, id: id, dialog: "approve");
+
+    /// <summary>
+    /// Approves the selected pending registrations through the single-record path and re-renders
+    /// the queue with one result row per selected participant. The batch bound is a request-shape
+    /// problem, so it is refused before the service is called; the service keeps the same guard for
+    /// direct callers.
+    /// </summary>
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> ApproveSelected(int[] ids, string status = "pending", int? eventId = null, int? page = null, CancellationToken cancellationToken = default)
+    {
+        // Accept only the queue's own status keys, so a hand-edited value cannot render pending
+        // rows under no tab, suppress the waitlist Promote block or re-post itself.
+        var normalizedStatus = NormalizeStatus(status);
+        ViewBag.Status = normalizedStatus;
+        ViewBag.EventId = eventId;
+        ViewData["EventOptions"] = await review.GetEventOptionsAsync(cancellationToken);
+        // The POST re-renders the queue, so every list link keeps pointing at the GET route.
+        ViewData["PagerPath"] = Url.Action(nameof(Index));
+        ViewData["ListPath"] = Url.Action(nameof(Index));
+
+        var selectedIds = ids ?? Array.Empty<int>();
+        if (selectedIds.Length == 0)
+        {
+            ViewBag.BulkError = BulkApproval.RegistrationEmptySelectionMessage;
+        }
+        else if (selectedIds.Length > BulkApproval.MaxBatchSize)
+        {
+            ViewBag.BulkError = BulkApproval.RegistrationOverBoundMessage;
+        }
+        else
+        {
+            try
+            {
+                var outcomes = await review.ApproveManyAsync(selectedIds, eventId, cancellationToken);
+                ViewBag.BulkResult = RegistrationBulkResult.From(outcomes);
+            }
+            catch (DomainException exception)
+            {
+                ViewBag.BulkError = exception.Message;
+            }
+        }
+
+        return View("Index", await review.GetPageAsync(normalizedStatus, eventId, page, cancellationToken));
+    }
+
+    /// <summary>
+    /// Accepts only the queue's own status keys, so a posted or hand-edited value cannot render a
+    /// page the queue service does not understand.
+    /// </summary>
+    private static string NormalizeStatus(string status) => status?.Trim().ToLowerInvariant() switch
+    {
+        "confirmed" => "confirmed",
+        "waitlisted" => "waitlisted",
+        "cancelled" => "cancelled",
+        _ => "pending"
+    };
+
     [HttpPost, ValidateAntiForgeryToken]
     public Task<IActionResult> Decline(int id, string reason, string status, int? eventId, int? page, CancellationToken cancellationToken = default) => Decide(() => review.DeclineAsync(id, reason, cancellationToken), status, eventId, page, id: id, dialog: "decline", reason: reason);
     [HttpPost, ValidateAntiForgeryToken]

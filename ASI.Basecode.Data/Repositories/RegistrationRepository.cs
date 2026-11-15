@@ -273,6 +273,21 @@ public async Task<IReadOnlyList<MyPassRow>> GetMyPassRowsAsync(int userId, Cance
     public async Task<IReadOnlyList<RegistrationReviewRow>> GetReviewQueueAsync(RegistrationStatusCode status, int? eventId, int offset, int limit, CancellationToken ct = default) =>
         await ReviewQueue(status, eventId).Skip(offset).Take(limit).ToListAsync(ct);
 
+    public async Task<IReadOnlyList<RegistrationSummary>> GetSummariesAsync(IReadOnlyCollection<int> registrationIds, CancellationToken ct = default)
+    {
+        if (registrationIds is null || registrationIds.Count == 0) return Array.Empty<RegistrationSummary>();
+
+        // The same joins as the review queue without its status predicate: a decided row must still
+        // resolve its own name, because the result panel is rendered after the decision.
+        return await (from r in GetDbSet<Registration>().AsNoTracking()
+                      join m in GetDbSet<Member>().AsNoTracking() on r.MemberId equals m.MemberId
+                      join u in GetDbSet<User>().AsNoTracking() on m.UserId equals u.Id
+                      join e in GetDbSet<Event>().AsNoTracking() on r.EventId equals e.EventId
+                      where registrationIds.Contains(r.RegistrationId)
+                      select new RegistrationSummary(r.RegistrationId, r.EventId, e.Title, u.Name, m.StudentNumber, r.SubmittedAt, r.RegistrationStatusId))
+            .ToListAsync(ct);
+    }
+
     public async Task<Registration> GetForUpdateAsync(int registrationId, CancellationToken cancellationToken = default)
     {
         var snapshot = await GetDbSet<Registration>().AsNoTracking().SingleOrDefaultAsync(r => r.RegistrationId == registrationId, cancellationToken);

@@ -42,6 +42,88 @@ public sealed class RegistrationReviewService(IRegistrationRepository registrati
     public Task DeclineAsync(int id, string reason, CancellationToken ct = default) => ExecuteAsync(id, reason, ReviewOperation.Decline, ct);
     public Task CancelAsync(int id, string reason, CancellationToken ct = default) => ExecuteAsync(id, reason, ReviewOperation.Cancel, ct);
 
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<RegistrationApprovalOutcome>> ApproveManyAsync(
+        IReadOnlyCollection<int> registrationIds,
+        int? eventId,
+        CancellationToken ct = default)
+    {
+        // Validate the actor once for the whole batch. ExecuteAsync re-checks it per record, which
+        // is defence in depth rather than a second authorization path.
+        RequireManagement();
+
+        if (registrationIds is null || registrationIds.Count == 0)
+        {
+            throw new DomainException(OutcomeCode.Invalid, BulkApproval.RegistrationEmptySelectionMessage);
+        }
+
+        if (registrationIds.Count > BulkApproval.MaxBatchSize)
+        {
+            throw new DomainException(OutcomeCode.Invalid, BulkApproval.RegistrationOverBoundMessage);
+        }
+
+        // Deduplicate in first-seen order so a repeated id is decided once and reported once.
+        var distinctIds = new List<int>(registrationIds.Count);
+        var seen = new HashSet<int>();
+        foreach (var registrationId in registrationIds)
+        {
+            if (seen.Add(registrationId)) distinctIds.Add(registrationId);
+        }
+
+        // Resolve display identity in one read before any decision, because an approved row has
+        // already left the pending page by the time the result panel renders.
+        var summaries = await registrations.GetSummariesAsync(distinctIds, ct);
+        var identities = new Dictionary<int, RegistrationSummary>(summaries.Count);
+        foreach (var summary in summaries) identities[summary.RegistrationId] = summary;
+
+        // Capacity and waitlist priority are decided per record against live counts, so the batch
+        // walks the queue's own order rather than the order the browser posted: otherwise a later
+        // signup could take the last seat from an earlier one. Unknown ids sort last and are
+        // refused by the approval path's own NotFound guard.
+        var ordered = distinctIds
+            .Select(id => (Id: id, Summary: identities.TryGetValue(id, out var summary) ? summary : null))
+            .OrderBy(item => item.Summary?.SubmittedAt ?? DateTime.MaxValue)
+            .ThenBy(item => item.Id)
+            .ToList();
+
+        var outcomes = new List<RegistrationApprovalOutcome>(ordered.Count);
+        foreach (var (id, identity) in ordered)
+        {
+            var name = string.IsNullOrWhiteSpace(identity?.MemberName) ? $"Registration {id}" : identity.MemberName;
+
+            // The dossier's event scope is a request-shape problem, so it is refused before the
+            // transaction opens and nothing is read for a write.
+            if (eventId.HasValue && identity != null && identity.EventId != eventId.Value)
+            {
+                outcomes.Add(new RegistrationApprovalOutcome(id, name, identity.StudentNumber, identity.EventTitle,
+                    RegistrationApprovalResult.Refused,
+                    $"This registration belongs to {identity.EventTitle}, not this event."));
+                continue;
+            }
+
+            // No outer transaction: ExecuteAsync owns its transaction, so a refusal rolls back only
+            // its own record and the next id still runs. Catch only DomainException -- cancellation
+            // and unexpected faults must surface instead of becoming a refusal.
+            try
+            {
+                var status = await ExecuteAsync(id, null, ReviewOperation.Approve, ct);
+                outcomes.Add(status == RegistrationStatusCode.Confirmed
+                    ? new RegistrationApprovalOutcome(id, name, identity?.StudentNumber, identity?.EventTitle,
+                        RegistrationApprovalResult.Confirmed, "Confirmed. The pass is ready.")
+                    : new RegistrationApprovalOutcome(id, name, identity?.StudentNumber, identity?.EventTitle,
+                        RegistrationApprovalResult.Waitlisted,
+                        "Waitlisted. No seat was free, or an earlier eligible participant has priority."));
+            }
+            catch (DomainException exception)
+            {
+                outcomes.Add(new RegistrationApprovalOutcome(id, name, identity?.StudentNumber, identity?.EventTitle,
+                    RegistrationApprovalResult.Refused, exception.Message));
+            }
+        }
+
+        return outcomes;
+    }
+
     public async Task PromoteNextAsync(int eventId, CancellationToken ct = default)
     {
         var actorId = RequireManagement();
@@ -78,12 +160,12 @@ public sealed class RegistrationReviewService(IRegistrationRepository registrati
         }, ct);
     }
 
-    private async Task ExecuteAsync(int id, string reason, ReviewOperation operation, CancellationToken ct)
+    private async Task<RegistrationStatusCode> ExecuteAsync(int id, string reason, ReviewOperation operation, CancellationToken ct)
     {
         var actorId = RequireManagement();
         var identity = await registrations.DiscoverIdentityAsync(id, ct);
         if (identity == null) throw new DomainException(OutcomeCode.NotFound, "Registration not found.");
-        await unitOfWork.ExecuteInTransactionAsync(async token =>
+        return await unitOfWork.ExecuteInTransactionAsync(async token =>
         {
             var (user, member, eventItem) = await LockOwnerAndEventAsync(identity.UserId, identity.EventId, token);
             var now = clock.GetUtcNow().UtcDateTime;
@@ -131,6 +213,7 @@ public sealed class RegistrationReviewService(IRegistrationRepository registrati
                     "registrations", id, reason.Trim(), new StatusValues(oldStatus.ToString()), new StatusValues(RegistrationStatusCode.Cancelled.ToString())));
             }
             await unitOfWork.SaveChangesAsync(token);
+            return row.RegistrationStatusId;
         }, ct);
     }
 
