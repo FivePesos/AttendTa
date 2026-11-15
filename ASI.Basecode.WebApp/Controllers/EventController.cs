@@ -4,6 +4,7 @@ using ASI.Basecode.Resources.Constants;
 using ASI.Basecode.Services.Interfaces;
 using ASI.Basecode.Services.ServiceModels;
 using ASI.Basecode.WebApp.Formatting;
+using ASI.Basecode.WebApp.Models;
 using ASI.Basecode.WebApp.Mvc;
 using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
@@ -62,7 +63,47 @@ namespace ASI.Basecode.WebApp.Controllers
         [HttpGet]
         [Route("Event/Details")]
         [Route("Event/{id:int}")]
-        public async Task<IActionResult> Details(int id, string status = "pending", int? page = null, CancellationToken cancellationToken = default)
+        public Task<IActionResult> Details(int id, string status = "pending", int? page = null, CancellationToken cancellationToken = default) =>
+            DossierAsync(id, status, page, cancellationToken);
+
+        /// <summary>
+        /// Approves the selected pending registrations of this event through the same use case the
+        /// review queue uses, then re-renders the dossier roster with one result row per participant.
+        /// The event id is the route-owned scope, so a posted id of another event is refused. The
+        /// parameter is named <c>id</c> so the POST query carries the dossier's own route key and
+        /// the pager and status tabs copy it forward unchanged.
+        /// </summary>
+        [HttpPost]
+        public async Task<IActionResult> ApproveSelected(int[] ids, int id, string status = "pending", int? page = null, CancellationToken cancellationToken = default)
+        {
+            var selectedIds = ids ?? Array.Empty<int>();
+            if (selectedIds.Length == 0)
+            {
+                ViewBag.BulkError = BulkApproval.RegistrationEmptySelectionMessage;
+            }
+            else if (selectedIds.Length > BulkApproval.MaxBatchSize)
+            {
+                // The batch bound is a request-shape problem, so it is refused before the service
+                // is called; the service keeps the same guard for direct callers.
+                ViewBag.BulkError = BulkApproval.RegistrationOverBoundMessage;
+            }
+            else
+            {
+                try
+                {
+                    var outcomes = await _review.ApproveManyAsync(selectedIds, id, cancellationToken);
+                    ViewBag.BulkResult = RegistrationBulkResult.From(outcomes);
+                }
+                catch (DomainException exception)
+                {
+                    ViewBag.BulkError = exception.Message;
+                }
+            }
+
+            return await DossierAsync(id, status, page, cancellationToken);
+        }
+
+        private async Task<IActionResult> DossierAsync(int id, string status, int? page, CancellationToken cancellationToken)
         {
             var item = await _eventService.GetEventAsync(id, cancellationToken);
             if (item == null) return NotFound();
@@ -78,7 +119,12 @@ namespace ASI.Basecode.WebApp.Controllers
                 WaitlistedCount = await Count("waitlisted"),
                 HasStarted = item.StartsAt <= _timeProvider.GetUtcNow().UtcDateTime
             };
-            return View(model);
+            // A POST re-render keeps every list link pointing at the GET dossier route. Both values
+            // must be a bare path: the pager and ListNavigation.Url append their own query string,
+            // so a path that already carried "?id=…" would become "?id=3?status=…".
+            ViewData["PagerPath"] = Url.Action(nameof(Details));
+            ViewData["ListPath"] = Url.Action(nameof(Details));
+            return View(nameof(Details), model);
         }
 
         private IActionResult StateReturn(int id, bool dossier, string returnUrl = null) =>

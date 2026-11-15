@@ -33,6 +33,9 @@ public sealed class BulkSelectionViewModel
     /// </summary>
     public string SelectionListLabel { get; init; } = "Selected requests";
 
+    /// <summary>The singular noun the dialog uses for one selected item in its bound sentence.</summary>
+    public string RecordNoun { get; init; } = "record";
+
     /// <summary>Controller that owns the bulk POST.</summary>
     public string Controller { get; init; }
 

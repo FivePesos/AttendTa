@@ -23,6 +23,43 @@
         ? $"Registration #{failedRegistrationId} · {item.Title}"
         : $"{failedRegistration.MemberName} ({failedRegistration.StudentNumber}) · Registration #{failedRegistrationId}";
     var tabs = new[] { ("pending", "Pending Review", Model.PendingCount), ("confirmed", "Confirmed", Model.ConfirmedCount), ("waitlisted", "Waitlisted", Model.WaitlistedCount) };
+    // A POST re-render sets ListPath so the tabs keep pointing at the GET dossier route.
+    var listPath = ViewData["ListPath"] as string;
+    var bulkError = ViewBag.BulkError as string;
+    var bulkResult = ViewBag.BulkResult as BulkResultViewModel;
+    // Selection exists only where a decision can be made: the pending roster of a published event
+    // that has not started. Every other tab and state renders the table alone.
+    var canBulkApprove = Model.CanReview && Model.Status == "pending";
+    var hasSelectableRows = canBulkApprove && Model.Roster.Items.Any(row => row.Status == RegistrationStatusCode.Pending);
+    var columnCount = hasSelectableRows ? 4 : 3;
+    // Carry the current view into the POST so the dossier re-renders the same roster. The key is
+    // "id" because that is the dossier's own route parameter, and search/pageSize ride along or a
+    // batch taken from a searched roster would come back unfiltered.
+    var bulkRoute = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["id"] = item.EventId.ToString(),
+        ["status"] = Model.Status,
+        ["page"] = Model.Roster.PageNumber.ToString()
+    };
+    foreach (var key in new[] { "search", "pageSize" })
+    {
+        var value = Context.Request.Query[key].ToString();
+        if (!string.IsNullOrWhiteSpace(value)) bulkRoute[key] = value;
+    }
+    var bulkSelection = new BulkSelectionViewModel
+    {
+        ActionLabel = "Approve selected",
+        DialogId = "bulk-approve-dialog",
+        DialogTitle = "Approve selected registrations",
+        Consequence = "Each registration is approved on its own against this event's live capacity, start cutoff and waitlist priority. A participant is confirmed only when a seat is free and no earlier eligible participant has priority; otherwise they join the waitlist. A registration that cannot be approved is reported on its own and stays pending.",
+        SubmitLabel = "Approve selected",
+        SubmittingLabel = "Approving…",
+        SelectionListLabel = "Selected registrations",
+        RecordNoun = "registration",
+        Controller = "Event",
+        Action = "ApproveSelected",
+        RouteValues = bulkRoute
+    };
 }
 
 <div class="detail-back">
@@ -88,20 +125,47 @@
     @if (!mutable) { <p class="notice">This event is @item.StatusLabel.ToLowerInvariant(). Its roster is read-only.</p> }
     else if (Model.HasStarted) { <p class="notice">The event start cutoff has passed. Reviews and promotions are closed. Pending and waitlisted participants were not confirmed before cutoff.</p> }
     else if (!published) { <p class="notice">Publish this event to review registrations.</p> }
+    @* The batch result leads the roster block, matching the membership queue and the review queue:
+       it is the first thing to read after a decision, before the search and status tabs. *@
+    @if (bulkError != null)
+    {
+        <div class="notice notice-error" role="alert">@bulkError</div>
+    }
+    @if (bulkResult != null)
+    {
+        <partial name="_BulkResultPanel" model="bulkResult" />
+    }
     <partial name="_ListToolbar" model='@(new ListToolbarViewModel("Search participant or student number"))' />
 <p class="muted" data-list-status role="status" data-list-busy-label="Loading records…"></p>
 <nav class="filter-tabs" aria-label="Registration status">
         @foreach (var tab in tabs)
         {
-            <a href='@ListNavigation.Url(Context.Request, new Dictionary<string, string> { ["status"] = tab.Item1 })' class="filter-tab" aria-current="@(Model.Status == tab.Item1 ? "page" : null)">@tab.Item2 <span class="filter-tab-count">@tab.Item3</span></a>
+            <a href='@ListNavigation.Url(Context.Request, new Dictionary<string, string> { ["status"] = tab.Item1 }, listPath)' class="filter-tab" aria-current="@(Model.Status == tab.Item1 ? "page" : null)">@tab.Item2 <span class="filter-tab-count">@tab.Item3</span></a>
         }
-        <a href='@ListNavigation.Url(Context.Request, new Dictionary<string, string> { ["status"] = "cancelled" })' class="filter-tab" aria-current="@(Model.Status == "cancelled" ? "page" : null)">Cancelled / declined</a>
+        <a href='@ListNavigation.Url(Context.Request, new Dictionary<string, string> { ["status"] = "cancelled" }, listPath)' class="filter-tab" aria-current="@(Model.Status == "cancelled" ? "page" : null)">Cancelled / declined</a>
     </nav>
-    <div class="table-scroll" role="region" aria-label="Registration roster" tabindex="0" data-list-region>
+    <div data-bulk-root data-bulk-noun="registration">
+        @if (hasSelectableRows)
+        {
+            <partial name="_BulkSelectionBar" model="bulkSelection" />
+        }
+        <div class="table-scroll" role="region" aria-label="Registration roster" tabindex="0" data-list-region>
         <table class="data-table dossier-roster table-sticky">
-            <thead><tr><th scope="col">Participant</th><th scope="col">Status</th><th scope="col" class="actions">Actions</th></tr></thead>
+            <thead>
+                <tr>
+                    @if (hasSelectableRows)
+                    {
+                        <th scope="col" class="select-column">
+                            <label class="select-target">
+                                <input type="checkbox" data-bulk-all aria-label="Select all pending registrations on this page" />
+                            </label>
+                        </th>
+                    }
+                    <th scope="col">Participant</th><th scope="col">Status</th><th scope="col" class="actions">Actions</th>
+                </tr>
+            </thead>
             <tbody>
-                @if (Model.Roster.Items.Count == 0) { <tr><td colspan="3" class="empty-state">No @Model.Status registrations for this event.</td></tr> }
+                @if (Model.Roster.Items.Count == 0) { <tr><td colspan="@columnCount" class="empty-state">No @Model.Status registrations for this event.</td></tr> }
                 @foreach (var row in Model.Roster.Items)
                 {
                     var initials = string.Concat(row.MemberName
@@ -110,6 +174,25 @@
                         .Select(part => char.ToUpperInvariant(part[0])));
                     var cutoffLabel = Model.HasStarted && row.Status is RegistrationStatusCode.Pending or RegistrationStatusCode.Waitlisted;
                     <tr data-registration-id="@row.RegistrationId">
+                        @if (hasSelectableRows)
+                        {
+                            if (row.Status == RegistrationStatusCode.Pending)
+                            {
+                                <td data-label="Select" class="select-column">
+                                    <label class="select-target">
+                                        <input type="checkbox"
+                                               data-bulk-row
+                                               value="@row.RegistrationId"
+                                               data-bulk-label="@row.MemberName (@row.StudentNumber)"
+                                               aria-label="Select @row.MemberName (@row.StudentNumber)" />
+                                    </label>
+                                </td>
+                            }
+                            else
+                            {
+                                <td class="select-column" aria-hidden="true"></td>
+                            }
+                        }
                         <td data-label="Participant" class="cell-name">
                             <span class="name-cell">
                                 <span class="name-initials" aria-hidden="true">@initials</span>
@@ -135,6 +218,11 @@
                 }
             </tbody>
         </table>
+    </div>
+    @if (hasSelectableRows)
+    {
+        <partial name="_BulkConfirmDialog" model="bulkSelection" />
+    }
     </div>
     <partial name="_Pager" model="Model.Roster" />
     <partial name="_ResultCount" model="Model.Roster" />
@@ -166,3 +254,9 @@
 }
 
 <partial name="_RecordDialog" />
+
+@section Scripts {
+    @* ViewData["Feature"] already carries record-dialog, so the dossier loads the shared bulk
+       selection script through its own section instead of a second feature key. *@
+    <script src="~/js/features/bulk-selection.js" asp-append-version="true"></script>
+}
