@@ -14,11 +14,27 @@ namespace ASI.Basecode.Resources.Constants
             _ => course?.Trim()
         };
 
-        /// <summary>Positive year levels offered by the form.</summary>
-        public static readonly IReadOnlyList<int> YearLevels = new[] { 1, 2, 3, 4, 5 };
+        /// <summary>Year levels offered by the form.</summary>
+        public static readonly IReadOnlyList<int> YearLevels = new[] { 1, 2, 3, 4 };
 
         /// <summary>Sections offered by the form.</summary>
         public static readonly IReadOnlyList<string> Sections = new[] { "A", "B", "C", "D", "E", "F" };
+
+        /// <summary>Student numbers are exactly eight ASCII digits; the value stays a string so leading zeroes survive.</summary>
+        public const string StudentNumberPattern = "^[0-9]{8}$";
+
+        /// <summary>Mobile numbers are optional, but a supplied number is exactly eleven ASCII digits.</summary>
+        public const string MobileNumberPattern = "^[0-9]{11}$";
+
+        /// <summary>A section is one letter from the offered set; the service upper-cases what it stores.</summary>
+        public const string SectionPattern = "^[A-Fa-f]$";
+
+        /// <summary>A password is at least eight characters and carries a letter and a digit.</summary>
+        public const string PasswordPattern = "^(?=.*[A-Za-z])(?=.*[0-9]).{8,}$";
+
+        // Trim and upper-case a section without rewriting anything else; blank collapses to null.
+        public static string? NormalizeSection(string? section) =>
+            string.IsNullOrWhiteSpace(section) ? null : section.Trim().ToUpperInvariant();
 
         /// <summary>Membership types the organization uses.</summary>
         public static readonly IReadOnlyList<string> MembershipTypes = new[] { "Regular", "Officer" };

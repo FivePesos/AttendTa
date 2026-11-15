@@ -279,7 +279,7 @@ namespace ASI.Basecode.Services.Services
             model.FullName = model.FullName?.Trim();
             model.Email = model.Email?.Trim();
             model.Course = ProfileOptions.NormalizeCourse(model.Course);
-            model.Section = model.Section?.Trim();
+            model.Section = ProfileOptions.NormalizeSection(model.Section);
             model.MobileNumber = string.IsNullOrWhiteSpace(model.MobileNumber) ? null : model.MobileNumber.Trim();
         }
 

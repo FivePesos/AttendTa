@@ -66,3 +66,14 @@
   summary: The two membership `IsActive` derivations disagree on letter case: `AccessDialogService` compares `Status` with `OrdinalIgnoreCase` while `MembershipAccessViewModel.For` uses ordinal `== "active"`.
   status: deferred
   evidence: `AccessDialogService.GetMembershipAccessAsync` and `AccessDialogViewModels.For(MemberViewModel)` derive the same flag differently. `MemberRepository` emits lowercase `active`/`inactive` today, so both agree in practice, and the new `AccessDialogServiceTests.MembershipStatusIsCaseInsensitive` pins only the service's contract. The `For` factory predates this sweep, so it is recorded rather than patched; a one-line `string.Equals(..., OrdinalIgnoreCase)` in `For` would close it.
+
+## Deferred from: code review of story-shared-profile-field-validation-across-signup-and-member-edi-plan (2026-11-15)
+
+- source_plan: `_bmad-output/initiative-attendta/tickets/epic-platform-access/tickets/story-shared-profile-field-validation-across-signup-and-member-edi-plan.md`
+  summary: `MemberService.UpdateMemberAsync` validates the view model inside the transaction, after it has read the member and taken the user row lock.
+  status: deferred
+  evidence: `Normalize` runs at L136 but `Validate` only runs at L158, inside `ExecuteInTransactionAsync` after `GetMemberRecordAsync` and `LockUserAsync`. A crafted POST to `/Member/Edit` with an out-of-rule year level therefore takes the lock before the annotation refuses it. Nothing is mutated and the controller's `ModelState` check catches the form path first, so the exposure is a momentarily held lock on a request that is about to be refused. The ordering predates this ticket (the old `Required` rules failed at the same point); moving `Validate` beside `Normalize` would close it.
+- source_plan: `_bmad-output/initiative-attendta/tickets/epic-platform-access/tickets/story-shared-profile-field-validation-across-signup-and-member-edi-plan.md`
+  summary: The Bruno `Members - Edit` request cannot run against the app: it posts with `auth: none`, no antiforgery token, and a stale `https://localhost:51629` port.
+  status: deferred
+  evidence: `bruno/Members - Edit.bru` has no `__RequestVerificationToken` and no sign-in step, so the endpoint returns a redirect or a 400 regardless of payload. This ticket only made the payload shape-compliant (`20240001`, section `B`). AGENTS.md documents the collection as the browser-free manual CRUD harness, so the gap is worth closing separately.

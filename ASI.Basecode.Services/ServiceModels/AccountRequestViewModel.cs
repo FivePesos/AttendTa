@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using ASI.Basecode.Resources.Constants;
 
 namespace ASI.Basecode.Services.ServiceModels
 {
@@ -9,6 +10,7 @@ namespace ASI.Basecode.Services.ServiceModels
     public class AccountRequestViewModel
     {
         [Required(ErrorMessage = "Student number is required.")]
+        [RegularExpression(ProfileOptions.StudentNumberPattern, ErrorMessage = "Enter your 8-digit student number.")]
         [StringLength(50, ErrorMessage = "Student number cannot exceed 50 characters.")]
         [Display(Name = "Student number")]
         public string StudentNumber { get; set; }
@@ -31,20 +33,23 @@ namespace ASI.Basecode.Services.ServiceModels
         public string Course { get; set; }
 
         [Required(ErrorMessage = "Year level is required.")]
-        [Range(1, int.MaxValue, ErrorMessage = "Year level must be greater than 0.")]
+        [Range(1, 4, ErrorMessage = "Choose a year level from 1 to 4.")]
         [Display(Name = "Year level")]
         public int? YearLevel { get; set; }
 
         [Required(ErrorMessage = "Section is required.")]
+        [RegularExpression(ProfileOptions.SectionPattern, ErrorMessage = "Choose a section from A to F.")]
         [StringLength(50, ErrorMessage = "Section cannot exceed 50 characters.")]
         [Display(Name = "Section")]
         public string Section { get; set; }
 
+        [RegularExpression(ProfileOptions.MobileNumberPattern, ErrorMessage = "Enter an 11-digit mobile number.")]
         [StringLength(30, ErrorMessage = "Mobile number cannot exceed 30 characters.")]
         [Display(Name = "Mobile number")]
         public string MobileNumber { get; set; }
 
         [Required(ErrorMessage = "Password is required.")]
+        [RegularExpression(ProfileOptions.PasswordPattern, ErrorMessage = "Use at least 8 characters with a letter and a digit.")]
         [DataType(DataType.Password)]
         [Display(Name = "Password")]
         public string Password { get; set; }

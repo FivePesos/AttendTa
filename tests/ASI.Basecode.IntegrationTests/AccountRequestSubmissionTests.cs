@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -22,8 +23,8 @@ public class AccountRequestSubmissionTests : IClassFixture<SqlServerDatabaseFixt
     private const string ExistingEmail = "existing-applicant@attendta.test";
     private const string InactiveEmail = "inactive-applicant@attendta.test";
     private const string PendingEmail = "pending-applicant@attendta.test";
-    private const string ExistingStudentNumber = "2023-09999";
-    private const string PendingStudentNumber = "2023-08888";
+    private const string ExistingStudentNumber = "20230999";
+    private const string PendingStudentNumber = "20230888";
     private const string MemberOwnerEmail = "member-owner@attendta.test";
     private static readonly DateTimeOffset FixedNow = new(2026, 11, 5, 8, 30, 0, TimeSpan.Zero);
 
@@ -260,6 +261,38 @@ public class AccountRequestSubmissionTests : IClassFixture<SqlServerDatabaseFixt
     }
 
     [Fact]
+    public async Task CraftedPostWithOffRuleProfileValuesRedisplaysEachFieldErrorAndRetainsTheSafeInput()
+    {
+        var token = await GetAntiforgeryTokenAsync();
+        await using var context = CreateContext();
+        var before = await context.AccountRequests.CountAsync(TestContext.Current.CancellationToken);
+
+        var fields = ValidFields(NewEmail(), "1234567");
+        fields["MobileNumber"] = "0917-123-4567";
+        fields["Section"] = "G";
+        fields["YearLevel"] = "5";
+        fields["Password"] = "abcdefgh";
+        fields["ConfirmPassword"] = "abcdefgh";
+
+        var response = await SubmitAsync(fields, token);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var html = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+        AssertFieldError(html, "StudentNumber");
+        AssertFieldError(html, "MobileNumber");
+        AssertFieldError(html, "Section");
+        AssertFieldError(html, "YearLevel");
+        AssertFieldError(html, "Password");
+        Assert.Contains("value=\"1234567\"", html, StringComparison.Ordinal);
+        Assert.Contains("value=\"0917-123-4567\"", html, StringComparison.Ordinal);
+        Assert.Contains("value=\"G\" selected", html, StringComparison.Ordinal);
+        Assert.Contains("value=\"5\" selected", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("abcdefgh", html, StringComparison.Ordinal);
+
+        Assert.Equal(before, await context.AccountRequests.CountAsync(TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
     public async Task AjaxDuplicateReturnsConflictJson()
     {
         var token = await GetAntiforgeryTokenAsync();
@@ -371,7 +404,9 @@ public class AccountRequestSubmissionTests : IClassFixture<SqlServerDatabaseFixt
 
     private static string NewEmail() => $"applicant-{Guid.NewGuid():N}@attendta.test";
 
-    private static string NewStudentNumber() => $"2026-{Guid.NewGuid():N}";
+    private static int studentNumberSeed = 20000000;
+
+    private static string NewStudentNumber() => Interlocked.Increment(ref studentNumberSeed).ToString(CultureInfo.InvariantCulture);
 
     private static string? GetLocationPath(HttpResponseMessage response)
     {

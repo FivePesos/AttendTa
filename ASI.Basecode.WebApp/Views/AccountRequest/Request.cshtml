@@ -12,7 +12,7 @@
         <div asp-validation-summary="ModelOnly" class="validation-summary" role="alert"></div>
         <div class="field">
             <label asp-for="StudentNumber" class="field-label"></label>
-            <input asp-for="StudentNumber" aria-describedby="StudentNumber-validation" autocomplete="off" placeholder="e.g. 23807613" />
+            <input asp-for="StudentNumber" aria-describedby="StudentNumber-validation" autocomplete="off" inputmode="numeric" maxlength="8" placeholder="e.g. 23807613" />
             <span id="StudentNumber-validation" asp-validation-for="StudentNumber" class="field-error"></span>
         </div>
         <div class="field">
@@ -38,7 +38,7 @@
         </div>
         <div class="field">
             <label asp-for="YearLevel" class="field-label"></label>
-            <select asp-for="YearLevel" aria-describedby="YearLevel-validation">
+            <select asp-for="YearLevel" aria-describedby="YearLevel-validation" class="field-control">
                 <option value="">Select year level</option>
                 @foreach (var year in ProfileOptions.YearLevels)
                 {
@@ -53,18 +53,22 @@
         </div>
         <div class="field">
             <label asp-for="Section" class="field-label"></label>
-            <input asp-for="Section" aria-describedby="Section-validation" autocomplete="off" list="section-options" placeholder="e.g. B" />
-            <datalist id="section-options">
+            <select asp-for="Section" aria-describedby="Section-validation" class="field-control">
+                <option value="">Select section</option>
                 @foreach (var sectionCode in ProfileOptions.Sections)
                 {
-                    <option value="@sectionCode"></option>
+                    <option value="@sectionCode" selected="@(Model.Section == sectionCode)">@sectionCode</option>
                 }
-            </datalist>
+                @if (!string.IsNullOrWhiteSpace(Model.Section) && !ProfileOptions.Sections.Contains(Model.Section))
+                {
+                    <option value="@Model.Section" selected>@Model.Section</option>
+                }
+            </select>
             <span id="Section-validation" asp-validation-for="Section" class="field-error"></span>
         </div>
         <div class="field">
             <label asp-for="MobileNumber" class="field-label"></label>
-            <input asp-for="MobileNumber" aria-describedby="MobileNumber-validation" type="tel" autocomplete="tel" placeholder="e.g. 09171234567" />
+            <input asp-for="MobileNumber" aria-describedby="MobileNumber-validation" type="tel" autocomplete="tel" inputmode="numeric" maxlength="11" placeholder="e.g. 09171234567" />
             <span id="MobileNumber-validation" asp-validation-for="MobileNumber" class="field-error"></span>
         </div>
         <div class="field">

@@ -229,7 +229,7 @@ namespace ASI.Basecode.Services.Services
             model.FullName = model.FullName?.Trim();
             model.StudentNumber = model.StudentNumber?.Trim();
             model.Course = ProfileOptions.NormalizeCourse(model.Course);
-            model.Section = model.Section?.Trim();
+            model.Section = ProfileOptions.NormalizeSection(model.Section);
             model.MobileNumber = string.IsNullOrWhiteSpace(model.MobileNumber) ? null : model.MobileNumber.Trim();
             model.MembershipType = string.IsNullOrWhiteSpace(model.MembershipType) ? null : model.MembershipType.Trim();
             model.StudentNumberCorrectionReason = string.IsNullOrWhiteSpace(model.StudentNumberCorrectionReason)

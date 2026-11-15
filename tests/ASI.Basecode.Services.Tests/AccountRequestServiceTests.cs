@@ -32,7 +32,7 @@ public class AccountRequestServiceTests
 
         var request = Assert.Single(harness.Requests.Requests);
         Assert.Equal(AccountRequestStatusCode.Pending, request.AccountRequestStatusId);
-        Assert.Equal("2023-01234", request.StudentNumber);
+        Assert.Equal("20230123", request.StudentNumber);
         Assert.Equal("Ana Reyes", request.FullName);
         Assert.Equal("ana.reyes@example.com", request.Email);
         Assert.Equal("BSIT", request.Course);
@@ -89,7 +89,7 @@ public class AccountRequestServiceTests
         harness.Requests.Requests.Add(new AccountRequest
         {
             Email = "ana.reyes@example.com",
-            StudentNumber = "2023-00001",
+            StudentNumber = "20230001",
             AccountRequestStatusId = AccountRequestStatusCode.Pending
         });
 
@@ -107,7 +107,7 @@ public class AccountRequestServiceTests
         var harness = new Harness();
         harness.Members.Members.Add(new Member
         {
-            StudentNumber = "2023-01234",
+            StudentNumber = "20230123",
             MembershipStatusId = MembershipStatusCode.Active
         });
 
@@ -125,7 +125,7 @@ public class AccountRequestServiceTests
         var harness = new Harness();
         harness.Members.Members.Add(new Member
         {
-            StudentNumber = "2023-01234",
+            StudentNumber = "20230123",
             MembershipStatusId = MembershipStatusCode.Inactive
         });
 
@@ -144,7 +144,7 @@ public class AccountRequestServiceTests
         harness.Requests.Requests.Add(new AccountRequest
         {
             Email = "someone.else@example.com",
-            StudentNumber = "2023-01234",
+            StudentNumber = "20230123",
             AccountRequestStatusId = AccountRequestStatusCode.Pending
         });
 
@@ -190,7 +190,68 @@ public class AccountRequestServiceTests
 
         Assert.Equal(OutcomeCode.Invalid, exception.Outcome);
         Assert.Equal(nameof(AccountRequestViewModel.YearLevel), exception.Field);
+        Assert.Equal("Choose a year level from 1 to 4.", exception.Message);
         Assert.Empty(harness.Requests.Requests);
+    }
+
+    [Fact]
+    public async Task YearLevelFiveIsRejectedOnTheYearLevelField()
+    {
+        var harness = new Harness();
+        var model = ValidModel();
+        model.YearLevel = 5;
+
+        var exception = await Assert.ThrowsAsync<DomainException>(
+            () => harness.Service.SubmitAsync(model, TestContext.Current.CancellationToken));
+
+        Assert.Equal(OutcomeCode.Invalid, exception.Outcome);
+        Assert.Equal(nameof(AccountRequestViewModel.YearLevel), exception.Field);
+        Assert.Equal("Choose a year level from 1 to 4.", exception.Message);
+        Assert.Empty(harness.Requests.Requests);
+    }
+
+    [Theory]
+    [InlineData(nameof(AccountRequestViewModel.StudentNumber), "1234567")]
+    [InlineData(nameof(AccountRequestViewModel.StudentNumber), "123456789")]
+    [InlineData(nameof(AccountRequestViewModel.StudentNumber), "2000012A")]
+    [InlineData(nameof(AccountRequestViewModel.MobileNumber), "0917-123-4567")]
+    [InlineData(nameof(AccountRequestViewModel.MobileNumber), "0917123456")]
+    [InlineData(nameof(AccountRequestViewModel.Section), "G")]
+    [InlineData(nameof(AccountRequestViewModel.Section), "3A")]
+    public async Task ProfileValueOutsideTheSharedRulesIsRejectedWithItsFieldName(string field, string value)
+    {
+        var harness = new Harness();
+        var model = ValidModel();
+        typeof(AccountRequestViewModel).GetProperty(field)!.SetValue(model, value);
+
+        var exception = await Assert.ThrowsAsync<DomainException>(
+            () => harness.Service.SubmitAsync(model, TestContext.Current.CancellationToken));
+
+        Assert.Equal(OutcomeCode.Invalid, exception.Outcome);
+        Assert.Equal(field, exception.Field);
+        Assert.Empty(harness.Requests.Requests);
+        Assert.Equal(0, harness.UnitOfWork.SaveCount);
+    }
+
+    [Theory]
+    [InlineData("abcdefgh")]
+    [InlineData("short1")]
+    [InlineData("12345678")]
+    public async Task WeakPasswordIsRejectedOnThePasswordField(string password)
+    {
+        var harness = new Harness();
+        var model = ValidModel();
+        model.Password = password;
+        model.ConfirmPassword = password;
+
+        var exception = await Assert.ThrowsAsync<DomainException>(
+            () => harness.Service.SubmitAsync(model, TestContext.Current.CancellationToken));
+
+        Assert.Equal(OutcomeCode.Invalid, exception.Outcome);
+        Assert.Equal(nameof(AccountRequestViewModel.Password), exception.Field);
+        Assert.Equal("Use at least 8 characters with a letter and a digit.", exception.Message);
+        Assert.Empty(harness.Requests.Requests);
+        Assert.Equal(0, harness.UnitOfWork.SaveCount);
     }
 
     [Fact]
@@ -246,7 +307,7 @@ public class AccountRequestServiceTests
         harness.Requests.Requests.Add(new AccountRequest
         {
             Email = "ana.reyes@example.com",
-            StudentNumber = "2023-01234",
+            StudentNumber = "20230123",
             AccountRequestStatusId = AccountRequestStatusCode.Rejected
         });
 
@@ -261,21 +322,21 @@ public class AccountRequestServiceTests
     {
         var harness = new Harness();
         var model = ValidModel();
-        model.StudentNumber = "  2023-01234  ";
+        model.StudentNumber = "  20230123  ";
         model.FullName = "  Ana Reyes  ";
         model.Email = "  Ana.Reyes@Example.com  ";
         model.Course = "  BSIT  ";
-        model.Section = "  A  ";
+        model.Section = "  b  ";
         model.MobileNumber = "   ";
 
         await harness.Service.SubmitAsync(model, TestContext.Current.CancellationToken);
 
         var request = Assert.Single(harness.Requests.Requests);
-        Assert.Equal("2023-01234", request.StudentNumber);
+        Assert.Equal("20230123", request.StudentNumber);
         Assert.Equal("Ana Reyes", request.FullName);
         Assert.Equal("Ana.Reyes@Example.com", request.Email);
         Assert.Equal("BSIT", request.Course);
-        Assert.Equal("A", request.Section);
+        Assert.Equal("B", request.Section);
         Assert.Null(request.MobileNumber);
     }
 
@@ -443,7 +504,7 @@ public class AccountRequestServiceTests
     {
         return new AccountRequestViewModel
         {
-            StudentNumber = "2023-01234",
+            StudentNumber = "20230123",
             FullName = "Ana Reyes",
             Email = "ana.reyes@example.com",
             Course = "BSIT",
@@ -458,7 +519,7 @@ public class AccountRequestServiceTests
     private static AccountRequest PendingRequest() => new()
     {
         RequestId = 1,
-        StudentNumber = "2023-01234",
+        StudentNumber = "20230123",
         FullName = "Ana Reyes",
         Email = "ana.reyes@example.com",
         PasswordHash = "$argon2id$original-approved-hash",

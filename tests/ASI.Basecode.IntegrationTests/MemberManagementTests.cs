@@ -1,4 +1,5 @@
 using System.Data.Common;
+using System.Globalization;
 using System.Net;
 using System.Text.RegularExpressions;
 using ASI.Basecode.Data;
@@ -121,8 +122,8 @@ public sealed class MemberManagementTests(SqlServerDatabaseFixture fixture) : IC
                 StudentNumberCorrectionReason = "Verified against the registrar's record.",
                 Course = "BSCS",
                 YearLevel = 3,
-                Section = "NEW-B",
-                MobileNumber = "555-0111",
+                Section = "B",
+                MobileNumber = "09171234567",
                 MembershipType = "Honors"
             }, ct);
         }
@@ -141,8 +142,8 @@ public sealed class MemberManagementTests(SqlServerDatabaseFixture fixture) : IC
         Assert.Equal(correctedNumber, member.StudentNumber);
         Assert.Equal("BSCS", member.Course);
         Assert.Equal(3, member.YearLevel);
-        Assert.Equal("NEW-B", member.Section);
-        Assert.Equal("555-0111", member.MobileNumber);
+        Assert.Equal("B", member.Section);
+        Assert.Equal("09171234567", member.MobileNumber);
         Assert.Equal("Honors", member.MembershipType);
         Assert.Equal(MembershipStatusCode.Inactive, member.MembershipStatusId);
         Assert.Equal(seeded.ActorId, member.UpdatedBy);
@@ -272,7 +273,7 @@ public sealed class MemberManagementTests(SqlServerDatabaseFixture fixture) : IC
             StudentNumber = seeded.StudentNumber,
             Course = "BSCS",
             YearLevel = 4,
-            Section = "ROLLBACK"
+            Section = "A"
         }, ct));
 
         await using var observer = Context();
@@ -440,7 +441,7 @@ public sealed class MemberManagementTests(SqlServerDatabaseFixture fixture) : IC
         var member = new Member
         {
             UserId = linkedUser.Id,
-            StudentNumber = $"ORIGINAL-{Guid.NewGuid():N}",
+            StudentNumber = UniqueStudentNumber(),
             Course = "Original course",
             YearLevel = 2,
             Section = "A",
@@ -505,7 +506,10 @@ public sealed class MemberManagementTests(SqlServerDatabaseFixture fixture) : IC
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
     }
 
-    private static string UniqueStudentNumber() => $"CORRECTED-{Guid.NewGuid():N}";
+    private static int studentNumberSeed = 20000000;
+
+    private static string UniqueStudentNumber() => Interlocked.Increment(ref studentNumberSeed).ToString(CultureInfo.InvariantCulture);
+
     private static string UniqueEmail(string prefix) => $"{prefix}-{Guid.NewGuid():N}@attendta.test";
 
     private sealed record SeededMember(int ActorId, string ActorEmail, int MemberId, int UserId, string MemberEmail, string PasswordHash, string StudentNumber);
