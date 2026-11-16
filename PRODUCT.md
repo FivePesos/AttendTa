@@ -60,6 +60,7 @@ Used by a University of Cebu student organization on a laptop at the door and on
   A small backend read checks retained PDFs before offering links. Missing or corrupt documents
   are marked unavailable without changing issuance history or generating replacements.
 - Master data covers members, event types, and venues; records are deactivated rather than hard-deleted.
+- Bulk approval results show success and failure counts upfront, with individual outcomes in a native disclosure that works without JavaScript.
 - Master Data lists announce a loading state while a filter, pager, search or status toggle is in flight, and a failed read keeps the shell, tabs and table headers with an in-shell notice and a Try again link instead of an empty-state row.
 - Member, Event Type, Venue and Event create/edit use the same centered keyboard-operable record dialog with required markers, retained server validation, focus containment and restore, and image previews. Event covers are selected in the event editor, optional for drafts and required for publication; draft covers can also be removed there. Clicks on the dialog's own padding keep it open; only a backdrop click, Escape or Cancel dismisses it. Events open the same editor from the Events list and from the event dossier. Standalone form routes remain available.
 - Events move through draft, published, completed, and cancelled states with capacity, deadline, and venue checks.

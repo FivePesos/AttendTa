@@ -31,7 +31,7 @@
         <a href="@Context.Request.GetEncodedPathAndQuery()">Try again</a>
     </div>
     <div class="table-scroll" role="region" aria-label="Venue table" tabindex="0" data-list-region>
-        <table class="data-table table-sticky">
+        <table class="data-table table-sticky venue-table">
             <thead>
                 <tr>
                     <th scope="col">Room Name</th>
@@ -47,7 +47,7 @@
 else if (Model.Items.Count == 0)
 {
     <div class="table-scroll" role="region" aria-label="Venue table" tabindex="0" data-list-region>
-        <table class="data-table table-sticky">
+        <table class="data-table table-sticky venue-table">
             <thead>
                 <tr>
                     <th scope="col">Room Name</th>
@@ -77,7 +77,7 @@ else if (Model.Items.Count == 0)
 else
 {
     <div class="table-scroll" role="region" aria-label="Venue table" tabindex="0" data-list-region>
-        <table class="data-table table-sticky">
+        <table class="data-table table-sticky venue-table">
             <thead>
                 <tr>
                     <th scope="col">Room Name</th>

@@ -97,15 +97,30 @@
   }
   .bulk-result-title { margin: 0 0 4px; font-size: 16px; }
   .bulk-result-counts {
-    margin: 0 0 12px;
+    margin: 0;
     color: var(--color-ink-muted);
     font-size: 12.5px;
     font-variant-numeric: tabular-nums;
   }
+  .bulk-result-details summary {
+    width: fit-content;
+    margin-top: 8px;
+    color: var(--color-cobalt);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .bulk-result-details summary:focus-visible {
+    outline: 2px solid var(--color-cobalt);
+    outline-offset: 2px;
+  }
+  @media (pointer: coarse) {
+    .bulk-result-details summary { min-height: 44px; align-content: center; }
+  }
   .bulk-result-list {
     display: grid;
     gap: 8px;
-    margin: 0;
+    margin: 12px 0 0;
     padding: 0;
     list-style: none;
   }
