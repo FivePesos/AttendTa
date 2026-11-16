@@ -151,6 +151,14 @@ public class HotspotCertificateTests
             Assert.DoesNotContain(Password, result.StdOut + result.StdErr, StringComparison.Ordinal);
 
             var serverPfx = Path.Combine(directory, HotspotCertificateCommand.ServerPfxFileName);
+            if (!OperatingSystem.IsWindows())
+            {
+                var rootPfx = Path.Combine(directory, HotspotCertificateCommand.RootPfxFileName);
+                var forbidden = UnixFileMode.UserExecute | UnixFileMode.GroupRead | UnixFileMode.GroupWrite |
+                    UnixFileMode.GroupExecute | UnixFileMode.OtherRead | UnixFileMode.OtherWrite | UnixFileMode.OtherExecute;
+                Assert.Equal((UnixFileMode)0, File.GetUnixFileMode(rootPfx) & forbidden);
+                Assert.Equal((UnixFileMode)0, File.GetUnixFileMode(serverPfx) & forbidden);
+            }
             var collection = X509CertificateLoader.LoadPkcs12CollectionFromFile(
                 serverPfx,
                 Password,
@@ -308,6 +316,37 @@ public class HotspotCertificateTests
             File.WriteAllText(path, "replacement");
             throw new IOException("Simulated output failure");
         }
+    }
+
+    [Fact]
+    public void CryptographicFailureReportsThatOutputFilesMayRemain()
+    {
+        var directory = NewTempDirectory();
+        var key = HotspotCertificateCommand.PasswordEnvironmentVariable;
+        var previous = Environment.GetEnvironmentVariable(key);
+        try
+        {
+            Environment.SetEnvironmentVariable(key, Guid.NewGuid().ToString("N"));
+            using var output = new CryptographicFailureOutput();
+            using var error = new StringWriter();
+
+            var result = HotspotCertificateCommand.Run(
+                new[] { "--host", "localhost", "--out", directory }, output, error);
+
+            Assert.Equal(1, result);
+            Assert.Contains("Output files may remain", error.ToString(), StringComparison.Ordinal);
+            Assert.Equal(4, Directory.GetFiles(directory).Length);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(key, previous);
+            DeleteDirectory(directory);
+        }
+    }
+
+    private sealed class CryptographicFailureOutput : StringWriter
+    {
+        public override void WriteLine(string? value) => throw new CryptographicException("Simulated failure");
     }
 
     private static X509Extension FindExtension(X509Certificate2 certificate, string oid)

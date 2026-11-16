@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 
 namespace ASI.Basecode.WebApp.Hotspot;
@@ -150,7 +151,7 @@ public static class HotspotCertificateCommand
                 bundle.ServerPublicCertificate.Dispose();
             }
         }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException)
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException or CryptographicException)
         {
             error.WriteLine($"The hotspot certificate files could not be written: {exception.Message}");
             error.WriteLine("Output files may remain. Inspect them and choose a new --out directory before retrying.");
