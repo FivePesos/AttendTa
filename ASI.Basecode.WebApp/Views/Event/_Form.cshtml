@@ -113,7 +113,7 @@ else
             </div>
         }
         <div class="field @(Model.HasCover ? null : "field-span-2")">
-            <label for="cover" class="field-label">@(Model.HasCover ? "Replace cover image" : "Event cover image")</label>
+            <label for="cover" class="field-label">@(Model.HasCover ? "Replace event cover" : "Upload event cover")</label>
             <input id="cover" name="cover" type="file" accept="image/jpeg,image/png,.jpg,.jpeg,.png" class="field-control" aria-describedby="cover-help cover-validation@(ViewData["CoverReselect"] is true ? " cover-reselect" : "")" />
             <small id="cover-help" class="muted">Optional for drafts. JPEG or PNG, up to 2 MiB. A cover is required to publish.</small>
             @if (ViewData["CoverReselect"] is true)

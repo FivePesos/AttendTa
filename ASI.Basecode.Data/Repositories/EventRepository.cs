@@ -52,6 +52,7 @@ namespace ASI.Basecode.Data.Repositories
                     StartsAt = eventItem.StartsAt,
                     RegistrationDeadline = eventItem.RegistrationDeadline,
                     ParticipantLimit = eventItem.ParticipantLimit,
+                    HasCover = eventItem.ImagePath != null && eventItem.ImagePath.StartsWith("uploads/events/"),
                     EventStatusId = eventItem.EventStatusId,
                     IsCheckInOpen = eventItem.IsCheckInOpen,
                     CheckInOpenedByName = openedBy == null ? null : openedBy.Name,

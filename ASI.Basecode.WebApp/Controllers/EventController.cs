@@ -57,6 +57,13 @@ namespace ASI.Basecode.WebApp.Controllers
         public async Task<IActionResult> Index(int? page, CancellationToken cancellationToken)
         {
             ViewData["EventTypeFilters"] = await _eventService.GetTypeFilterOptionsAsync(cancellationToken);
+            if (TempData["ListCancelId"] is int failedId)
+            {
+                ViewData["ListCancelId"] = failedId;
+                ViewData["ListCancelError"] = TempData["ListCancelError"];
+                ViewData["ListCancelReason"] = TempData["ListCancelReason"];
+                ViewData["ListCancelEvent"] = await _eventService.GetEventAsync(failedId, cancellationToken);
+            }
             return View(await _eventService.GetPageAsync(page, cancellationToken));
         }
 
@@ -335,6 +342,27 @@ namespace ASI.Basecode.WebApp.Controllers
         {
             await TryRunAsync(ct => _eventService.CompleteAsync(id, ct), "Event completed.", cancellationToken);
             return StateReturn(id, dossier);
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> CancelFromList(int id, string reason, string returnUrl, CancellationToken cancellationToken)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(reason))
+                    throw new DomainException(OutcomeCode.Invalid, "A cancellation reason is required.");
+                if (reason.Length > 500)
+                    throw new DomainException(OutcomeCode.Invalid, "The reason cannot exceed 500 characters.");
+                await _eventService.CancelAsync(id, reason, cancellationToken);
+                TempData["SuccessMessage"] = "Event cancelled.";
+            }
+            catch (DomainException exception)
+            {
+                TempData["ListCancelId"] = id;
+                TempData["ListCancelError"] = exception.Message;
+                TempData["ListCancelReason"] = reason;
+            }
+            return StateReturn(id, false, returnUrl);
         }
 
         [HttpPost]

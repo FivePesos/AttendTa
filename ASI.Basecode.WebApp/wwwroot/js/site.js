@@ -68,7 +68,11 @@ $(function () {
         const opener = event.target.closest('[data-dialog-open]');
         if (opener) {
             const dialog = document.getElementById(opener.dataset.dialogOpen);
-            if (!dialog) return;
+            if (!dialog || typeof dialog.showModal !== 'function') return;
+            if (opener.tagName === 'A') event.preventDefault();
+            dialog.querySelector('[data-list-cancel-retry-error]')?.remove();
+            const cancelSubmit = dialog.querySelector('[data-list-cancel-submit]');
+            if (cancelSubmit) cancelSubmit.disabled = false;
 
             for (const [key, value] of Object.entries(opener.dataset)) {
                 if (!key.startsWith('dialogValue')) continue;
@@ -85,7 +89,7 @@ $(function () {
 
             dialog.querySelectorAll('textarea').forEach(function (textarea) { textarea.value = ''; });
             const returnFocus = resolveDialogReturnFocus(opener);
-            opener.closest('[popover]')?.hidePopover();
+            opener.closest('[popover]')?.hidePopover?.();
             dialog.addEventListener('close', () => restoreDialogFocus(returnFocus), { once: true });
             dialogs.track(dialog, true);
             dialog.showModal();
@@ -147,7 +151,7 @@ $(function () {
     });
 
     const reopen = document.querySelector('dialog[data-reopen="true"]');
-    if (reopen) {
+    if (reopen && typeof reopen.showModal === 'function') {
         // The dossier may already render the failed reason into its textarea.
         // Capture the empty baseline so that restored input is still protected.
         const reason = reopen.querySelector('textarea[name="reason"]');
@@ -156,9 +160,29 @@ $(function () {
         dialogs.track(reopen, true);
         reopen.querySelector('[data-dialog-field="id"]').value = reopen.dataset.reopenId;
         if (reason) reason.value = restoredReason;
+        if (reopen.dataset.returnFocus) {
+            const invoker = document.querySelector('[popovertarget="' + reopen.dataset.returnFocus + '"]');
+            reopen.addEventListener('close', () => restoreDialogFocus(
+                invoker && invoker.isConnected !== false ? invoker : document.querySelector('[data-list-region]')
+            ), { once: true });
+        }
         reopen.showModal();
         reopen.querySelector('textarea, input:not([type="hidden"])')?.focus();
     }
+
+    function coverUnavailable(image) {
+        const dialog = image.closest('dialog');
+        const figure = image.closest('[data-cover-figure]');
+        const message = dialog?.querySelector('[data-cover-error]');
+        if (figure) figure.hidden = true;
+        if (message) message.hidden = false;
+    }
+    document.addEventListener('error', event => {
+        if (event.target.matches?.('[data-cover-image]')) coverUnavailable(event.target);
+    }, true);
+    document.querySelectorAll?.('[data-cover-image]').forEach(image => {
+        if (image.complete && image.naturalWidth === 0) coverUnavailable(image);
+    });
 
     // Single host for the fetched dialogs. Each partial returns a complete <dialog> so the
     // native element supplies Escape, focus trapping and focus restore.

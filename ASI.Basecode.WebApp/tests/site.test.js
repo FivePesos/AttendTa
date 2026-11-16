@@ -114,6 +114,57 @@ test('row details close their menu and restore focus to its visible invoker', ()
     assert.equal(invoker.focusOptions.preventScroll, true);
 });
 
+test('a dialog opens from a row menu without the Popover API', () => {
+    const body = createElement('body'), dialog = createElement('dialog'), invoker = createElement('button');
+    const menu = { id: 'row-menu-test' };
+    const trigger = { tagName: 'A', dataset: { dialogOpen: 'event-cancel' }, closest: selector => selector === '[popover]' ? menu : null };
+    const document = {
+        body, clickHandlers: [], createElement,
+        querySelector: selector => selector === '[popovertarget="row-menu-test"]' ? invoker : null,
+        getElementById: () => dialog,
+        addEventListener(type, handler) { if (type === 'click') this.clickHandlers.push(handler); }
+    };
+    runSite(document, () => Promise.reject(new Error('No fetch expected')));
+    let prevented = false;
+    document.clickHandlers[0]({ target: { closest: selector => selector === '[data-dialog-open]' ? trigger : null }, preventDefault() { prevented = true; } });
+    assert.equal(prevented, true);
+    assert.equal(dialog.open, true);
+    dialog.listeners.close[0]();
+    assert.equal(invoker.focused, true);
+});
+
+test('dialog links navigate normally when native dialog support is absent', () => {
+    const body = createElement('body');
+    const dialog = createElement('dialog');
+    delete dialog.showModal;
+    const trigger = { tagName: 'A', dataset: { dialogOpen: 'event-cancel' } };
+    const document = {
+        body, clickHandlers: [], createElement,
+        querySelector: () => null,
+        getElementById: () => dialog,
+        addEventListener(type, handler) { if (type === 'click') this.clickHandlers.push(handler); }
+    };
+    runSite(document, () => Promise.reject(new Error('No fetch expected')));
+    let prevented = false;
+    document.clickHandlers[0]({ target: { closest: selector => selector === '[data-dialog-open]' ? trigger : null }, preventDefault() { prevented = true; } });
+    assert.equal(prevented, false);
+});
+
+test('a failed cover image is hidden and replaced with an unavailable message', () => {
+    const body = createElement('body'), figure = createElement('figure'), message = createElement('p');
+    const dialog = { querySelector: selector => selector === '[data-cover-error]' ? message : null };
+    const image = { matches: selector => selector === '[data-cover-image]', closest: selector => selector === 'dialog' ? dialog : figure };
+    const handlers = {};
+    const document = {
+        body, createElement, clickHandlers: [], querySelector: () => null, getElementById: () => null,
+        addEventListener(type, handler) { (handlers[type] ||= []).push(handler); if (type === 'click') this.clickHandlers.push(handler); }
+    };
+    runSite(document, () => Promise.reject(new Error('No fetch expected')));
+    handlers.error[0]({ target: image });
+    assert.equal(figure.hidden, true);
+    assert.equal(message.hidden, false);
+});
+
 test('a failed preview fetch shows an error notice and no dialog', async () => {
     const body = createElement('body');
     const main = createElement('main');

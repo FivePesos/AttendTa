@@ -17,6 +17,50 @@ namespace ASI.Basecode.IntegrationTests;
 
 public sealed class EventCoverFlowTests(SqlServerDatabaseFixture fixture) : IClassFixture<SqlServerDatabaseFixture>
 {
+    [Theory]
+    [InlineData(EventStatusCode.Completed)]
+    [InlineData(EventStatusCode.Cancelled)]
+    public async Task ListCoverDialogAndFallbackUseAuthorizedImageOrExplainNoCover(EventStatusCode status)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var suffix = Guid.NewGuid().ToString("N");
+        var email = $"list-cover-{suffix}@attendta.test";
+        var memberEmail = $"list-cover-member-{suffix}@attendta.test";
+        var password = Convert.ToHexString(RandomNumberGenerator.GetBytes(32)) + "aA1!";
+        var actor = await EventDraftTestSupport.SeedUsersAsync(fixture.ConnectionString, email, memberEmail, password, ct);
+        var (typeId, venueId) = await SeedReferencesAsync(fixture.ConnectionString, actor, 30, ct);
+        await using var factory = new AttendTaWebApplicationFactory(fixture.ConnectionString);
+        var bytes = JpegBytes(64, 0x42);
+        var path = await SaveImageAsync(factory, bytes, ".jpg", ct);
+        var withCover = await SeedEventAsync(fixture.ConnectionString, actor, typeId, venueId, status, path, ct);
+        var noCover = await SeedEventAsync(fixture.ConnectionString, actor, typeId, venueId, status, null, ct);
+        using var officer = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
+        using var member = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
+        using var anonymous = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
+        await EventDraftTestSupport.SignInAsync(officer, email, password, ct);
+        await EventDraftTestSupport.SignInAsync(member, memberEmail, password, ct);
+        var list = await officer.GetStringAsync($"/Event?typeId={typeId}&pageSize=5", ct);
+        Assert.Contains($"href=\"/Event/Cover?id={withCover}\"", list, StringComparison.Ordinal);
+        Assert.Contains($"data-dialog-open=\"event-cover-{withCover}\"", list, StringComparison.Ordinal);
+        Assert.Contains($"/EventCover/Image?id={withCover}", list, StringComparison.Ordinal);
+        Assert.Contains($"data-dialog-open=\"event-cover-{noCover}\"", list, StringComparison.Ordinal);
+        Assert.Contains("No cover image has been uploaded.", list, StringComparison.Ordinal);
+        Assert.DoesNotContain($"/EventCover/Image?id={noCover}", list, StringComparison.Ordinal);
+        Assert.DoesNotContain(path, list, StringComparison.Ordinal);
+        var fallback = await officer.GetStringAsync($"/Event/Cover?id={withCover}", ct);
+        Assert.Contains($"/EventCover/Image?id={withCover}", fallback, StringComparison.Ordinal);
+        Assert.DoesNotContain(path, fallback, StringComparison.Ordinal);
+        Assert.Contains("No cover image has been uploaded.", await officer.GetStringAsync($"/Event/Cover?id={noCover}", ct), StringComparison.Ordinal);
+        var image = await officer.GetAsync($"/EventCover/Image?id={withCover}", ct);
+        Assert.Equal(HttpStatusCode.OK, image.StatusCode);
+        Assert.Equal(bytes, await image.Content.ReadAsByteArrayAsync(ct));
+        Assert.Equal(HttpStatusCode.NotFound, (await officer.GetAsync($"/EventCover/Image?id={noCover}", ct)).StatusCode);
+        Assert.Contains("/Account/Login", EventDraftTestSupport.LocationPath(await anonymous.GetAsync($"/EventCover/Image?id={withCover}", ct)), StringComparison.Ordinal);
+        Assert.Contains("/Account/AccessDenied", EventDraftTestSupport.LocationPath(await member.GetAsync($"/Event/Cover?id={withCover}", ct)), StringComparison.Ordinal);
+        var memberImage = await member.GetAsync($"/EventCover/Image?id={withCover}", ct);
+        Assert.Equal(status == EventStatusCode.Completed ? HttpStatusCode.OK : HttpStatusCode.NotFound, memberImage.StatusCode);
+    }
+
     [Fact]
     public async Task ManagementUploadsReplacesAndRemovesCoversWithValidationAndAuditing()
     {
@@ -57,7 +101,7 @@ public sealed class EventCoverFlowTests(SqlServerDatabaseFixture fixture) : ICla
         var draftPage = await officerClient.GetAsync($"/Event/Edit?id={draftId}", ct);
         Assert.Equal(HttpStatusCode.OK, draftPage.StatusCode);
         var draftToken = AntiforgeryToken(await draftPage.Content.ReadAsStringAsync(ct));
-        Assert.Contains("Event cover image", await draftPage.Content.ReadAsStringAsync(ct), StringComparison.Ordinal);
+        Assert.Contains("Upload event cover", await draftPage.Content.ReadAsStringAsync(ct), StringComparison.Ordinal);
         var upload = await UploadAsync(officerClient, draftId, "draft.jpg", JpegBytes(96, 0x51), draftToken, ct);
         Assert.Equal(HttpStatusCode.Redirect, upload.StatusCode);
 
