@@ -8,12 +8,12 @@
 @if (management)
 {
     <div class="nav-group">
-        <p class="nav-group-label">Overview</p>
+        <p class="nav-group-label">@NavGroups.Overview</p>
         <a class="nav-key" asp-controller="Home" asp-action="Index" aria-current="@(controller == "Home" ? "page" : null)">Home</a>
         <a class="nav-key" asp-controller="MemberEvents" asp-action="Index" aria-current="@(controller == "MemberEvents" ? "page" : null)">Browse events</a>
     </div>
     <div class="nav-group">
-        <p class="nav-group-label">Records</p>
+        <p class="nav-group-label">@NavGroups.Manage</p>
         <a class="nav-key" asp-controller="Event" asp-action="Index" aria-current="@(controller == "Event" ? "page" : null)">Events</a>
         <a class="nav-key" asp-controller="Member" asp-action="Index" aria-current="@(controller == "Member" ? "page" : null)">Members</a>
         <a class="nav-key" asp-controller="EventType" asp-action="Index" aria-current="@(controller == "EventType" ? "page" : null)">Event types</a>
@@ -26,7 +26,7 @@
         }
     </div>
     <div class="nav-group">
-        <p class="nav-group-label">Output</p>
+        <p class="nav-group-label">@NavGroups.Operations</p>
         <a class="nav-key" asp-controller="CheckIn" asp-action="Index" aria-current="@(controller == "CheckIn" ? "page" : null)">Check-in</a>
         <a class="nav-key" asp-controller="RegistrationReview" asp-action="Index" aria-current="@(controller == "RegistrationReview" ? "page" : null)">Registration review</a>
         <a class="nav-key" asp-controller="CertificateLedger" asp-action="Index" aria-current="@(controller == "CertificateLedger" ? "page" : null)">Certificates</a>
@@ -36,16 +36,16 @@
 @if (member)
 {
     <div class="nav-group">
-        <p class="nav-group-label">Overview</p>
+        <p class="nav-group-label">@NavGroups.Overview</p>
         <a class="nav-key" asp-controller="MemberEvents" asp-action="Index" aria-current="@(controller == "MemberEvents" ? "page" : null)">Events</a>
     </div>
     <div class="nav-group">
-        <p class="nav-group-label">Records</p>
+        <p class="nav-group-label">@NavGroups.Records</p>
         <a class="nav-key" asp-controller="MyEvents" asp-action="Index" aria-current="@(controller == "MyEvents" ? "page" : null)">My Events</a>
         <a class="nav-key" asp-controller="Passes" asp-action="Index" aria-current="@(controller == "Passes" ? "page" : null)">My Passes</a>
     </div>
     <div class="nav-group">
-        <p class="nav-group-label">Account</p>
+        <p class="nav-group-label">@NavGroups.Account</p>
         <a class="nav-key" asp-controller="Profile" asp-action="Index" aria-current="@(controller == "Profile" ? "page" : null)">Profile</a>
     </div>
 }

@@ -135,8 +135,10 @@ other screen.
 A 4px rhythm with 8/12/16/24/32 steps. Roster rows are 48px; compact rows 40px. Section gaps
 are 24px; in-section gaps 16px. Table cells use 14px horizontal padding.
 
-The rail groups destinations under micro labels (Overview, Records, Output) and marks the
-current one with a cobalt tint and cobalt text. Page heads carry the title, an optional
+The rail groups destinations under micro labels (Overview, Manage, Operations) and marks the
+current one with a cobalt tint and cobalt text. The member rail uses its own vocabulary
+(Overview, Records, Account). Both the rail and the management breadcrumb read these names
+from `NavGroups` in `ASI.Basecode.Resources/Constants`, so a rename lands in one place. Page heads carry the title, an optional
 one-line description, and — only where the action exists — a single primary button on the
 right.
 

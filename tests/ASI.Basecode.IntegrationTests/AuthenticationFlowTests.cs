@@ -621,6 +621,34 @@ public class AuthenticationFlowTests : IClassFixture<SqlServerDatabaseFixture>, 
         }
     }
 
+    [Theory]
+    [InlineData(AdminEmail)]
+    [InlineData(OfficerEmail)]
+    public async Task ManagementBreadcrumbNamesTheSectionWithoutRepeatingHome(string email)
+    {
+        await SignInAsync(email, Password);
+        var ct = TestContext.Current.CancellationToken;
+
+        // Home is the trail's root: one current-page crumb, no link back to itself.
+        var home = await (await client.GetAsync("/Home/Index", ct)).Content.ReadAsStringAsync(ct);
+        var homeTrail = Extract(home, "aria-label=\"Breadcrumb\"", "</nav>");
+        Assert.Contains("<li aria-current=\"page\">Home</li>", homeTrail, StringComparison.Ordinal);
+        Assert.DoesNotContain("<a ", homeTrail, StringComparison.Ordinal);
+        Assert.Equal(1, homeTrail.Split("<li").Length - 1);
+
+        // A section page carries the rail's group between Home and the current page.
+        var members = await (await client.GetAsync("/Member", ct)).Content.ReadAsStringAsync(ct);
+        var memberTrail = Extract(members, "aria-label=\"Breadcrumb\"", "</nav>");
+        Assert.Contains("<span>Manage</span>", memberTrail, StringComparison.Ordinal);
+        Assert.Contains("aria-current=\"page\">Members</li>", memberTrail, StringComparison.Ordinal);
+
+        // Overview is Home's own group, so Browse events never repeats it.
+        var events = await (await client.GetAsync("/Events", ct)).Content.ReadAsStringAsync(ct);
+        var eventsTrail = Extract(events, "aria-label=\"Breadcrumb\"", "</nav>");
+        Assert.DoesNotContain("Overview", eventsTrail, StringComparison.Ordinal);
+        Assert.Contains("aria-current=\"page\">Browse events</li>", eventsTrail, StringComparison.Ordinal);
+    }
+
     private static string Extract(string html, string startMarker, string endMarker)
     {
         var start = html.IndexOf(startMarker, StringComparison.Ordinal);
