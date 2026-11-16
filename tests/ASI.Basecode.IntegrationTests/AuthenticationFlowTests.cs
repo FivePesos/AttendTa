@@ -622,31 +622,138 @@ public class AuthenticationFlowTests : IClassFixture<SqlServerDatabaseFixture>, 
     }
 
     [Theory]
-    [InlineData(AdminEmail)]
-    [InlineData(OfficerEmail)]
-    public async Task ManagementBreadcrumbNamesTheSectionWithoutRepeatingHome(string email)
+    [InlineData(AdminEmail, true)]
+    [InlineData(OfficerEmail, false)]
+    public async Task ManagementBreadcrumbNamesTheSectionWithoutRepeatingHome(string email, bool administrator)
     {
-        await SignInAsync(email, Password);
+        Assert.Equal(HttpStatusCode.Redirect, (await SignInAsync(email, Password)).StatusCode);
         var ct = TestContext.Current.CancellationToken;
 
-        // Home is the trail's root: one current-page crumb, no link back to itself.
-        var home = await (await client.GetAsync("/Home/Index", ct)).Content.ReadAsStringAsync(ct);
-        var homeTrail = Extract(home, "aria-label=\"Breadcrumb\"", "</nav>");
-        Assert.Contains("<li aria-current=\"page\">Home</li>", homeTrail, StringComparison.Ordinal);
-        Assert.DoesNotContain("<a ", homeTrail, StringComparison.Ordinal);
-        Assert.Equal(1, homeTrail.Split("<li").Length - 1);
+        async Task<string> Page(string path)
+        {
+            using var response = await client.GetAsync(path, ct);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            return await response.Content.ReadAsStringAsync(ct);
+        }
 
-        // A section page carries the rail's group between Home and the current page.
-        var members = await (await client.GetAsync("/Member", ct)).Content.ReadAsStringAsync(ct);
-        var memberTrail = Extract(members, "aria-label=\"Breadcrumb\"", "</nav>");
-        Assert.Contains("<span>Manage</span>", memberTrail, StringComparison.Ordinal);
-        Assert.Contains("aria-current=\"page\">Members</li>", memberTrail, StringComparison.Ordinal);
+        var home = await Page("/Home/Index");
+        AssertBreadcrumb(home, "Home");
+        AssertBreadcrumb(await Page("/Member"), "Home", "Manage", "Members");
+        AssertBreadcrumb(await Page("/Events"), "Home", "Browse events");
+        AssertBreadcrumb(await Page("/Account/AccessDenied"), "Home", "Access denied");
 
-        // Overview is Home's own group, so Browse events never repeats it.
-        var events = await (await client.GetAsync("/Events", ct)).Content.ReadAsStringAsync(ct);
-        var eventsTrail = Extract(events, "aria-label=\"Breadcrumb\"", "</nav>");
-        Assert.DoesNotContain("Overview", eventsTrail, StringComparison.Ordinal);
-        Assert.Contains("aria-current=\"page\">Browse events</li>", eventsTrail, StringComparison.Ordinal);
+        var rail = Extract(home, "class=\"rail\"", "</aside>");
+        var dashboard = Extract(home, "<header class=\"page-heading\">", "</main>");
+        var destinations = new (string Label, string[] Routes)[]
+        {
+            ("Browse events", ["/Events", "/MemberEvents"]),
+            ("Events", ["/Event", "/Event/Index"]),
+            ("Members", ["/Member", "/Member/Index"]),
+            ("Account requests", ["/AccountRequest", "/AccountRequest/Index"]),
+            ("Event types", ["/EventType", "/EventType/Index"]),
+            ("Venues", ["/Venue", "/Venue/Index"]),
+            ("Check-in", ["/CheckIn", "/CheckIn/Index"]),
+            ("Registration review", ["/RegistrationReview", "/RegistrationReview/Index"]),
+            ("Certificates", ["/Certificates"]),
+            ("Reports", ["/Reports/Participation"])
+        };
+        foreach (var (label, routes) in destinations)
+        {
+            var route = AssertLink(rail, label);
+            Assert.Contains(route, routes);
+            Assert.Equal(route, AssertLink(dashboard, label));
+        }
+        foreach (var (label, route) in new[] { ("Accounts", "/admin/accounts"), ("Activity log", "/admin/auditlogs") })
+        {
+            if (administrator) { Assert.Equal(route, AssertLink(rail, label)); Assert.Equal(route, AssertLink(dashboard, label)); }
+            else { Assert.DoesNotContain($">{label}</", rail, StringComparison.Ordinal); Assert.DoesNotContain($">{label}</", dashboard, StringComparison.Ordinal); }
+        }
+        Assert.True(dashboard.IndexOf("Browse events", StringComparison.Ordinal) < dashboard.IndexOf("Manage records", StringComparison.Ordinal));
+        Assert.True(dashboard.IndexOf("Manage records", StringComparison.Ordinal) < dashboard.IndexOf("Run operations", StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("UnmappedController")]
+    public async Task ManagementBreadcrumbHandlesEmptyAndUnmappedControllers(string controller)
+    {
+        await using var routeFactory = factory.WithWebHostBuilder(builder =>
+            builder.ConfigureTestServices(services =>
+                services.Configure<MvcOptions>(options => options.Filters.Add(new BreadcrumbRouteTestFilter(controller)))));
+        using var routeClient = routeFactory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false,
+            HandleCookies = true
+        });
+        Assert.Equal(HttpStatusCode.Redirect, (await SignInAsync(routeClient, AdminEmail, Password)).StatusCode);
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/Home/Index");
+        request.Headers.Add("X-Breadcrumb-Route-Test", "true");
+        using var response = await routeClient.SendAsync(request, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var html = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+        var trail = Extract(html, "aria-label=\"Breadcrumb\"", "</nav>");
+        var items = Regex.Matches(trail, "<li\\b[^>]*>.*?</li>", RegexOptions.Singleline).Cast<Match>().Select(match => match.Value).ToArray();
+        Assert.Equal(string.IsNullOrWhiteSpace(controller) ? 1 : 2, items.Length);
+        Assert.Matches("<a\\b[^>]*href=\"/Home(?:/Index)?\"", items[0]);
+        Assert.Equal("Home", Regex.Replace(items[0], "<[^>]+>", "").Trim());
+        if (string.IsNullOrWhiteSpace(controller))
+            Assert.DoesNotContain("aria-current=\"page\"", trail, StringComparison.Ordinal);
+        else
+        {
+            Assert.Contains("aria-current=\"page\"", items[1], StringComparison.Ordinal);
+            Assert.Equal(controller, Regex.Replace(items[1], "<[^>]+>", "").Trim());
+        }
+    }
+
+    // Override only the route data used by the rendered view; no production route is added.
+    private sealed class BreadcrumbRouteTestFilter(string controller) : IAsyncResultFilter
+    {
+        public async Task OnResultExecutionAsync(ResultExecutingContext context, ResultExecutionDelegate next)
+        {
+            if (context.HttpContext.Request.Headers.ContainsKey("X-Breadcrumb-Route-Test") && context.Result is ViewResult view)
+            {
+                view.ViewName = "~/Views/Home/Index.cshtml";
+                context.RouteData.Values["controller"] = controller;
+            }
+            await next();
+        }
+    }
+
+    [Fact]
+    public async Task MemberHomeKeepsParticipationLinksAndHasNoBreadcrumb()
+    {
+        Assert.Equal(HttpStatusCode.Redirect, (await SignInAsync(MemberEmail, Password)).StatusCode);
+        using var response = await client.GetAsync("/Home/Index", TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var html = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+        Assert.DoesNotContain("aria-label=\"Breadcrumb\"", html, StringComparison.Ordinal);
+        var dashboard = Extract(html, "<header class=\"page-heading\">", "</main>");
+        Assert.Contains("Your participation", dashboard, StringComparison.Ordinal);
+        foreach (var label in new[] { "Browse events", "My Passes", "My Events", "Profile" }) AssertLink(dashboard, label);
+    }
+
+    private static string AssertLink(string html, string label)
+    {
+        var pattern = $"<a\\b[^>]*href=\"([^\"]+)\"[^>]*(?:(?!</a>).)*?>\\s*{Regex.Escape(label)}\\s*</(?:span|a)>";
+        var match = Regex.Match(html, pattern, RegexOptions.Singleline);
+        Assert.True(match.Success, $"Missing link for {label}.");
+        return WebUtility.HtmlDecode(match.Groups[1].Value);
+    }
+
+    private static void AssertBreadcrumb(string html, params string[] expected)
+    {
+        var trail = Extract(html, "aria-label=\"Breadcrumb\"", "</nav>");
+        var items = Regex.Matches(trail, "<li\\b[^>]*>.*?</li>", RegexOptions.Singleline).Cast<Match>().Select(match => match.Value).ToArray();
+        Assert.Equal(expected.Length, items.Length);
+        for (var i = 0; i < expected.Length; i++)
+        {
+            Assert.Equal(expected[i], WebUtility.HtmlDecode(Regex.Replace(items[i], "<[^>]+>", "").Trim()));
+            if (i == expected.Length - 1) Assert.Contains("aria-current=\"page\"", items[i], StringComparison.Ordinal);
+            else if (i == 0) Assert.Matches("<a\\b[^>]*href=\"/Home(?:/Index)?\"", items[i]);
+            else Assert.DoesNotContain("<a ", items[i], StringComparison.Ordinal);
+        }
     }
 
     private static string Extract(string html, string startMarker, string endMarker)

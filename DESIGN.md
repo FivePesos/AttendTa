@@ -138,9 +138,12 @@ are 24px; in-section gaps 16px. Table cells use 14px horizontal padding.
 The rail groups destinations under micro labels (Overview, Manage, Operations) and marks the
 current one with a cobalt tint and cobalt text. The member rail uses its own vocabulary
 (Overview, Records, Account). Both the rail and the management breadcrumb read these names
-from `NavGroups` in `ASI.Basecode.Resources/Constants`, so a rename lands in one place. Page heads carry the title, an optional
-one-line description, and — only where the action exists — a single primary button on the
-right.
+from `NavGroups` in `ASI.Basecode.Resources/Constants`, so a rename lands in one place.
+Management destination labels come from `NavDestinations` across the rail, breadcrumb,
+and Home. Management Home places Browse events beside the welcome heading, followed by
+Manage records and Run operations sections; these descriptive headings do not rename rail
+groups. Page heads carry the title, an optional one-line description, and — only where the
+action exists — a single primary button on the right.
 
 Responsive: below 1024px the rail collapses into the existing disclosure menu and the top bar
 keeps the breadcrumb and the role indicator; the member header collapses its destinations and
