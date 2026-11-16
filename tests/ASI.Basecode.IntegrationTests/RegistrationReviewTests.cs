@@ -536,6 +536,47 @@ public sealed class RegistrationReviewTests(SqlServerDatabaseFixture fixture) : 
     }
 
     [Fact]
+    public async Task BulkApprovalPanelPreservesConfirmedAndWaitlistedIdentitiesAsSuccesses()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var setup = await SetupAsync(ct, limit: 1);
+        var first = await AddRegistrationAsync(setup, RegistrationStatusCode.Pending, ct);
+        var second = await AddRegistrationAsync(setup, RegistrationStatusCode.Pending, ct);
+        await SetSubmittedAtAsync(first.RegistrationId, Start.AddDays(-3), ct);
+        await SetSubmittedAtAsync(second.RegistrationId, Start.AddDays(-2), ct);
+        string firstNumber, secondNumber;
+        await using (var context = MemberEventTestSupport.Context(fixture.ConnectionString))
+        {
+            firstNumber = (await context.Members.SingleAsync(member => member.MemberId == first.MemberId, ct)).StudentNumber;
+            secondNumber = (await context.Members.SingleAsync(member => member.MemberId == second.MemberId, ct)).StudentNumber;
+        }
+
+        var password = MemberEventTestSupport.NewPassword();
+        var officerEmail = $"mixed-bulk-{Guid.NewGuid():N}@test.invalid";
+        await MemberEventTestSupport.SeedUserAsync(fixture.ConnectionString, officerEmail, password, RoleCode.Officer, ct);
+        using var factory = new AttendTaWebApplicationFactory(fixture.ConnectionString);
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
+        await MemberEventTestSupport.SignInAsync(client, officerEmail, password, ct);
+        var token = await MemberEventTestSupport.AntiforgeryTokenAsync(client, "/RegistrationReview/Index?status=pending", ct);
+        using var response = await client.PostAsync("/RegistrationReview/ApproveSelected", BulkForm(new[] { second.RegistrationId, first.RegistrationId }, token, "pending"), ct);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var html = await response.Content.ReadAsStringAsync(ct);
+        var panel = Regex.Match(html, "<section class=\"bulk-result\"[^>]*>(.*?)</section>", RegexOptions.Singleline);
+        Assert.True(panel.Success);
+        Assert.Contains("2 of 2 succeeded; 0 failed", panel.Value, StringComparison.Ordinal);
+        var details = Regex.Match(panel.Value, "<details class=\"bulk-result-details\">(.*?)</details>", RegexOptions.Singleline);
+        Assert.True(details.Success); // No open attribute: the list starts collapsed.
+        var rows = Regex.Matches(details.Value, "<li class=\"bulk-result-item\">(.*?)</li>", RegexOptions.Singleline);
+        Assert.Equal(2, rows.Count);
+        Assert.Contains(firstNumber, rows[0].Value, StringComparison.Ordinal);
+        Assert.Contains("Confirmed", rows[0].Value, StringComparison.Ordinal);
+        Assert.Contains("Confirmed. The pass is ready.", rows[0].Value, StringComparison.Ordinal);
+        Assert.Contains(secondNumber, rows[1].Value, StringComparison.Ordinal);
+        Assert.Contains("Waitlisted", rows[1].Value, StringComparison.Ordinal);
+        Assert.Contains("Waitlisted. No seat was free", rows[1].Value, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task BulkApprovalSubmittedTwiceOnTheReviewQueueCreatesNoDuplicateRows()
     {
         var ct = TestContext.Current.CancellationToken;
@@ -567,6 +608,8 @@ public sealed class RegistrationReviewTests(SqlServerDatabaseFixture fixture) : 
             var html = await accepted.Content.ReadAsStringAsync(ct);
             Assert.Contains("Approval results", html, StringComparison.Ordinal);
             Assert.Contains("2 of 2 succeeded", html, StringComparison.Ordinal);
+            Assert.Contains("0 failed", html, StringComparison.Ordinal);
+            Assert.Contains("<details class=\"bulk-result-details\">", html, StringComparison.Ordinal);
             Assert.Contains("Confirmed", html, StringComparison.Ordinal);
             // The decided rows have left the pending table.
             Assert.DoesNotContain($"data-registration-id=\"{first.RegistrationId}\"", html, StringComparison.Ordinal);
@@ -578,6 +621,7 @@ public sealed class RegistrationReviewTests(SqlServerDatabaseFixture fixture) : 
             Assert.Equal(HttpStatusCode.OK, repeated.StatusCode);
             var html = await repeated.Content.ReadAsStringAsync(ct);
             Assert.Contains("0 of 2 succeeded", html, StringComparison.Ordinal);
+            Assert.Contains("2 failed", html, StringComparison.Ordinal);
             Assert.Contains("Registration status changed. Refresh and try again.", html, StringComparison.Ordinal);
         }
 
@@ -672,6 +716,8 @@ public sealed class RegistrationReviewTests(SqlServerDatabaseFixture fixture) : 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var html = await response.Content.ReadAsStringAsync(ct);
         Assert.Contains("Approval results", html, StringComparison.Ordinal);
+        Assert.Contains("1 failed", html, StringComparison.Ordinal);
+        Assert.Contains("<details class=\"bulk-result-details\">", html, StringComparison.Ordinal);
         Assert.Contains("not this event", html, StringComparison.Ordinal);
         // Every re-rendered dossier link is one bare path plus one query string, and it keeps the
         // dossier's own id so the status tabs and pager still resolve the event.

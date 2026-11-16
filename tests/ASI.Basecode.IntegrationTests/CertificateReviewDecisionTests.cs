@@ -1,3 +1,5 @@
+using System.Net;
+using System.Text.RegularExpressions;
 using ASI.Basecode.Data;
 using ASI.Basecode.Data.Interfaces;
 using ASI.Basecode.Data.Models;
@@ -9,7 +11,9 @@ using ASI.Basecode.Services.Interfaces;
 using ASI.Basecode.Services.ServiceModels;
 using ASI.Basecode.Services.Services;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Playwright;
 using Xunit;
 
 namespace ASI.Basecode.IntegrationTests;
@@ -263,6 +267,94 @@ public sealed class CertificateReviewDecisionTests(SqlServerDatabaseFixture fixt
             Assert.IsType<MyCertificatesService>(
                 scope.ServiceProvider.GetRequiredService<IMyCertificatesService>());
         }
+    }
+
+    [Fact]
+    public async Task LedgerBulkPanelKeepsTwentyFiveMixedAndStaleResultsInServerOrder()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var statuses = Enumerable.Range(0, 25)
+            .Select(index => index % 5 == 0 ? CertificateStatusCode.NotEligible : CertificateStatusCode.PendingApproval)
+            .ToArray();
+        var setup = await SeedAsync(reviewStatuses: statuses);
+        var password = MemberEventTestSupport.NewPassword();
+        var email = $"bulk-ledger-{Guid.NewGuid():N}@attendta.test";
+        await MemberEventTestSupport.SeedUserAsync(fixture.ConnectionString, email, password, RoleCode.Officer, ct);
+
+        // Reverse the submission order and record the identity associated with each id. The service
+        // reports distinct IDs in first-seen order, not database or alphabetical order.
+        var ids = setup.RegistrationIds.Reverse().ToArray();
+        Dictionary<int, string> identities;
+        await using (var context = EventDraftTestSupport.Context(fixture.ConnectionString))
+        {
+            identities = await (from registration in context.Registrations
+                                join member in context.Members on registration.MemberId equals member.MemberId
+                                where ids.Contains(registration.RegistrationId)
+                                select new { registration.RegistrationId, member.StudentNumber })
+                .ToDictionaryAsync(row => row.RegistrationId, row => row.StudentNumber, ct);
+        }
+
+        using var factory = new AttendTaWebApplicationFactory(fixture.ConnectionString);
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
+        await MemberEventTestSupport.SignInAsync(client, email, password, ct);
+        var token = await MemberEventTestSupport.AntiforgeryTokenAsync(client, $"/Certificates?eventId={setup.EventId}", ct);
+
+        async Task<string> SubmitAsync()
+        {
+            var fields = ids.Select(id => new KeyValuePair<string, string>("ids", id.ToString())).ToList();
+            fields.Add(new("eventId", setup.EventId.ToString()));
+            fields.Add(new("tab", "eligibility"));
+            fields.Add(new("__RequestVerificationToken", token));
+            using var response = await client.PostAsync("/CertificateLedger/ApproveSelected", new FormUrlEncodedContent(fields), ct);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            return await response.Content.ReadAsStringAsync(ct);
+        }
+
+        void AssertRows(string html, bool allFailed)
+        {
+            var section = Regex.Match(html, "<section class=\"bulk-result\"[^>]*>(.*?)</section>", RegexOptions.Singleline);
+            Assert.True(section.Success);
+            Assert.DoesNotContain("role=\"status\"", section.Value, StringComparison.Ordinal);
+            Assert.Contains(allFailed ? "0 of 25 succeeded; 25 failed" : "20 of 25 succeeded; 5 failed", section.Value, StringComparison.Ordinal);
+            var details = Regex.Match(section.Value, "<details class=\"bulk-result-details\">(.*?)</details>", RegexOptions.Singleline);
+            Assert.True(details.Success); // No open attribute: collapsed, native, and script-independent.
+            var visibleSummary = section.Value[..details.Index];
+            Assert.Contains(allFailed ? "0 of 25 succeeded; 25 failed" : "20 of 25 succeeded; 5 failed", visibleSummary, StringComparison.Ordinal);
+            Assert.Contains("<summary>View all 25 results</summary>", details.Value, StringComparison.Ordinal);
+            var rows = Regex.Matches(details.Value, "<li class=\"bulk-result-item\">(.*?)</li>", RegexOptions.Singleline);
+            Assert.Equal(25, rows.Count);
+            for (var index = 0; index < ids.Length; index++)
+            {
+                var row = WebUtility.HtmlDecode(rows[index].Value);
+                Assert.Contains("Member event Member", row, StringComparison.Ordinal);
+                Assert.Contains(identities[ids[index]], row, StringComparison.Ordinal);
+                var failed = allFailed || statuses[Array.IndexOf(setup.RegistrationIds.ToArray(), ids[index])] == CertificateStatusCode.NotEligible;
+                Assert.Contains(failed ? "Not approved" : "Approved", row, StringComparison.Ordinal);
+                Assert.Contains(failed ? "This review has already been decided." : "Approved.", row, StringComparison.Ordinal);
+            }
+        }
+
+        var mixedHtml = await SubmitAsync();
+        AssertRows(mixedHtml, allFailed: false);
+        AssertRows(await SubmitAsync(), allFailed: true);
+
+        // Exercise the actual server-rendered panel with JavaScript disabled and keyboard only.
+        var panel = Regex.Match(mixedHtml, "<section class=\"bulk-result\"[^>]*>.*?</section>", RegexOptions.Singleline).Value;
+        using var playwright = await Playwright.CreateAsync();
+        await using var browser = await playwright.Chromium.LaunchAsync(new() { Headless = true, Channel = "chromium" });
+        await using var browserContext = await browser.NewContextAsync(new() { JavaScriptEnabled = false });
+        var page = await browserContext.NewPageAsync();
+        await page.SetContentAsync(panel);
+        var detailsControl = page.Locator(".bulk-result-details");
+        var rows = page.Locator(".bulk-result-item");
+        Assert.False(await detailsControl.EvaluateAsync<bool>("element => element.open"));
+        Assert.False(await rows.First.IsVisibleAsync());
+        await page.Keyboard.PressAsync("Tab");
+        Assert.True(await page.Locator("summary").EvaluateAsync<bool>("element => element === document.activeElement"));
+        await page.Keyboard.PressAsync("Enter");
+        Assert.True(await detailsControl.EvaluateAsync<bool>("element => element.open"));
+        Assert.Equal(25, await rows.CountAsync());
+        Assert.True(await rows.Last.IsVisibleAsync());
     }
 
     [Fact]

@@ -517,6 +517,9 @@ public sealed class AccountRequestDecisionTests(SqlServerDatabaseFixture fixture
         var html = await response.Content.ReadAsStringAsync(ct);
         Assert.Contains("Approval results", html, StringComparison.Ordinal);
         Assert.Contains("2 of 3 succeeded", html, StringComparison.Ordinal);
+        Assert.Contains("1 failed", html, StringComparison.Ordinal);
+        Assert.Contains("<details class=\"bulk-result-details\">", html, StringComparison.Ordinal);
+        Assert.Contains("<summary>View all 3 results</summary>", html, StringComparison.Ordinal);
         Assert.Contains("This student number is already in use.", html, StringComparison.Ordinal);
         Assert.Contains($"data-request-id=\"{refused.RequestId}\"", html, StringComparison.Ordinal);
         Assert.DoesNotContain($"data-request-id=\"{first.RequestId}\"", html, StringComparison.Ordinal);
@@ -565,6 +568,8 @@ public sealed class AccountRequestDecisionTests(SqlServerDatabaseFixture fixture
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var html = await response.Content.ReadAsStringAsync(ct);
         Assert.Contains("0 of 1 succeeded", html, StringComparison.Ordinal);
+        Assert.Contains("1 failed", html, StringComparison.Ordinal);
+        Assert.Contains("<summary>View 1 result</summary>", html, StringComparison.Ordinal);
         Assert.Contains("This account request has already been decided.", html, StringComparison.Ordinal);
 
         await using var observer = Context();
