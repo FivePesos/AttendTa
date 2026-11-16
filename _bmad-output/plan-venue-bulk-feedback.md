@@ -69,6 +69,8 @@ context: []
 
 Venue-specific numeric padding adds separation above the mobile breakpoint; bulk counts remain visible and all original result rows are in a collapsed native disclosure. Generated CSS and product context are updated. The two predecessor PRs are included in this branch's baseline merge.
 
+Follow-up after user feedback: the original 10px increase was too subtle, so the venue capacity column is wider with a larger right inset. The browser regression test now requires at least 50px of separation and checks the maximum integer capacity without clipping at desktop and zoom-equivalent widths.
+
 The Release solution build passed with no warnings or errors, the CSS build passed, 51 JavaScript tests passed, and 98 targeted LocalDB integration tests passed. These include rendered viewport spacing checks and keyboard/no-JavaScript 25-result coverage. Interactive screen-reader inspection remains outstanding.
 
 ## Plan Change Log

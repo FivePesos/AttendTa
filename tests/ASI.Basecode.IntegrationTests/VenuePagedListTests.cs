@@ -59,7 +59,7 @@ public sealed class VenuePagedListTests : IClassFixture<SqlServerDatabaseFixture
         var venues = new[]
         {
             new Venue { RoomName = prefix + "-A", Capacity = 7, ImagePath = "uploads/venues/a.jpg", IsActive = true, CreatedBy = officerId, CreatedAt = DateTime.UtcNow },
-            new Venue { RoomName = prefix + "-B", Capacity = 12345, ImagePath = "uploads/venues/b.jpg", IsActive = false, CreatedBy = officerId, CreatedAt = DateTime.UtcNow }
+            new Venue { RoomName = prefix + "-B", Capacity = 2147483647, ImagePath = "uploads/venues/b.jpg", IsActive = false, CreatedBy = officerId, CreatedAt = DateTime.UtcNow }
         };
         try
         {
@@ -88,14 +88,15 @@ public sealed class VenuePagedListTests : IClassFixture<SqlServerDatabaseFixture
             Assert.True(await page.EvaluateAsync<bool>("""
                 () => {
                     const header = document.querySelector('.venue-table th.numeric');
-                    const textRight = element => { const range = document.createRange(); range.selectNodeContents(element); return range.getBoundingClientRect().right; };
+                    const textBounds = element => { const range = document.createRange(); range.selectNodeContents(element); return range.getBoundingClientRect(); };
                     return getComputedStyle(header).textAlign === 'right' &&
                         [...document.querySelectorAll('[data-venue-id]')].every(row => {
                             const capacity = row.querySelector('td.numeric');
                             const status = row.querySelector('[data-label="Status"] .badge');
                             return getComputedStyle(capacity).textAlign === 'right' &&
-                                Math.abs(textRight(header) - textRight(capacity)) < 1 &&
-                                status.getBoundingClientRect().left - textRight(capacity) >= 30 &&
+                                Math.abs(textBounds(header).right - textBounds(capacity).right) < 1 &&
+                                textBounds(capacity).left >= capacity.getBoundingClientRect().left &&
+                                status.getBoundingClientRect().left - textBounds(capacity).right >= 50 &&
                                 status.getBoundingClientRect().right <= status.parentElement.getBoundingClientRect().right + 1;
                         });
                 }

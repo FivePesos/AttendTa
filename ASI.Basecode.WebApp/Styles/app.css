@@ -862,7 +862,8 @@
   .data-table th.column-status { width: 112px; }
   /* Separate numeric capacity from the adjacent status without changing stacked mobile rows. */
   @media (min-width: 641px) {
-    .venue-table :is(th, td).numeric { padding-right: 24px; }
+    .venue-table th.numeric { width: 144px; }
+    .venue-table :is(th, td).numeric { padding-right: 40px; }
   }
   [data-expandable-content] { margin: 0; }
   .text-disclosure { min-height: 32px; margin-top: 4px; padding: 4px 0; border: 0; background: transparent; color: var(--color-cobalt); font: inherit; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
