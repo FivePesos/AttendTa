@@ -17,6 +17,7 @@ using ASI.Basecode.Services.Security;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.Playwright;
 using Xunit;
 
 namespace ASI.Basecode.IntegrationTests;
@@ -29,6 +30,67 @@ public sealed class MemberManagementTests(SqlServerDatabaseFixture fixture) : IC
     private AsiBasecodeDBContext Context(params IInterceptor[] interceptors) => new(
         new DbContextOptionsBuilder<AsiBasecodeDBContext>().UseSqlServer(fixture.ConnectionString)
             .AddInterceptors(interceptors).Options);
+
+    [Fact]
+    public async Task MemberEditorSavesAndDisplaysValidationErrorsInBrowser()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var seeded = await SeedMemberAsync(MembershipStatusCode.Active, ct, withLoginPasswords: true);
+        await using (var writer = Context())
+        {
+            var member = await writer.Members.SingleAsync(item => item.MemberId == seeded.MemberId, ct);
+            member.Course = "BSIT";
+            member.MobileNumber = "09171234567";
+            await writer.SaveChangesAsync(ct);
+        }
+        await using var factory = new AttendTaWebApplicationFactory(fixture.ConnectionString);
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
+        await SignInAsync(client, seeded.ActorEmail, ManagementPassword, ct);
+        using var playwright = await Playwright.CreateAsync();
+        await using var browser = await playwright.Chromium.LaunchAsync(new() { Headless = true });
+        var page = await browser.NewPageAsync();
+        await page.RouteAsync("**/*", async route =>
+        {
+            using var request = new HttpRequestMessage(new HttpMethod(route.Request.Method), route.Request.Url);
+            if (route.Request.Headers.TryGetValue("x-record-dialog", out var dialogHeader))
+                request.Headers.Add("X-Record-Dialog", dialogHeader);
+            if (route.Request.PostDataBuffer is byte[] body)
+            {
+                request.Content = new ByteArrayContent(body);
+                request.Content.Headers.TryAddWithoutValidation("Content-Type", route.Request.Headers["content-type"]);
+            }
+            using var response = await client.SendAsync(request, ct);
+            var headers = response.Headers.Concat(response.Content.Headers)
+                .Where(header => header.Key is not ("Transfer-Encoding" or "Content-Length" or "Content-Encoding"))
+                .ToDictionary(header => header.Key, header => string.Join(", ", header.Value));
+            await route.FulfillAsync(new() { Status = (int)response.StatusCode, Headers = headers, BodyBytes = await response.Content.ReadAsByteArrayAsync(ct) });
+        });
+        await page.GotoAsync($"http://localhost/Member?search={Uri.EscapeDataString(seeded.MemberEmail)}");
+        async Task OpenEditor()
+        {
+            await page.Locator($"[data-record-open='edit-member-{seeded.MemberId}']").ClickAsync();
+            await page.Locator("#record-dialog #FullName").WaitForAsync();
+        }
+        await OpenEditor();
+        await page.Locator("#record-dialog #FullName").FillAsync("Edited Member Name");
+        await page.Locator("#record-dialog button[type='submit']").ClickAsync();
+        await page.Locator("#record-dialog").WaitForAsync(new() { State = WaitForSelectorState.Hidden });
+        await using (var observer = Context())
+            Assert.Equal("Edited Member Name", (await observer.Users.AsNoTracking().SingleAsync(item => item.Id == seeded.UserId, ct)).Name);
+        await OpenEditor();
+        Assert.Equal("Edited Member Name", await page.Locator("#record-dialog #FullName").InputValueAsync());
+        await page.Locator("#record-dialog #StudentNumber").FillAsync("123");
+        await page.Locator("#record-dialog #MobileNumber").FillAsync("123");
+        await page.Locator("#record-dialog button[type='submit']").ClickAsync();
+        await page.Locator("#record-dialog .validation-summary-errors").WaitForAsync();
+        Assert.Contains("8-digit", await page.Locator("#StudentNumber-validation").InnerTextAsync());
+        Assert.Contains("11-digit", await page.Locator("#MobileNumber-validation").InnerTextAsync());
+        await page.Locator("#record-dialog [data-record-close]").First.ClickAsync();
+        Assert.True(await page.Locator("[data-discard-prompt]").IsVisibleAsync());
+        using var standalone = await client.GetAsync($"/Member/Edit/{seeded.MemberId}", ct);
+        var html = await standalone.Content.ReadAsStringAsync(ct);
+        Assert.Contains("action=\"/Member/Edit\"", html, StringComparison.Ordinal);
+    }
 
     [Fact]
     public async Task CorrectionUpdatesLinkedProfileAuditsSafeValuesAndPreservesHistoryAndStatus()

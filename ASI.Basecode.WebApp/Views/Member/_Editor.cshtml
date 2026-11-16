@@ -1,5 +1,5 @@
 @model MemberViewModel
-<form asp-action="Edit" method="post" data-record-form>
+<form asp-action="Edit" asp-route-id="" method="post" data-record-form>
     <div asp-validation-summary="All" class="field-error" tabindex="-1" data-record-errors></div>
     <input type="hidden" asp-for="MemberId" />
     <div class="field">
