@@ -14,6 +14,7 @@ public sealed class EventListItem
     public DateTime StartsAt { get; set; }
     public DateTime RegistrationDeadline { get; set; }
     public int ParticipantLimit { get; set; }
+    public bool HasCover { get; set; }
     public EventStatusCode EventStatusId { get; set; }
     public bool IsCheckInOpen { get; set; }
     public string CheckInOpenedByName { get; set; }

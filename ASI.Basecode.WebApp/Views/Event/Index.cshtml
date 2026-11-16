@@ -4,6 +4,12 @@
     ViewData["ListControls"] = true;
     ViewData["Title"] = "Events";
     ViewData["Feature"] = "record-dialog";
+    var retryId = ViewData["ListCancelId"] as int?;
+    var retryEvent = ViewData["ListCancelEvent"] as EventViewModel;
+    var retryReason = ViewData["ListCancelReason"] as string;
+    var retryError = ViewData["ListCancelError"] as string;
+    var retryMutable = retryEvent?.EventStatusId is EventStatusCode.Draft or EventStatusCode.Published;
+    var returnUrl = Context.Request.PathBase + Context.Request.Path + Context.Request.QueryString;
 }
 
 <div class="page-heading">
@@ -16,6 +22,10 @@
 }
 <partial name="_ListToolbar" model='@(new ListToolbarViewModel("Search event title", new ListFilterField[] { ListToolbarViewModel.Status(new ListFilterOption("Draft", "Draft"), new ListFilterOption("Published", "Published"), new ListFilterOption("Completed", "Completed"), new ListFilterOption("Cancelled", "Cancelled")), new ListFilterField("typeId", "Event type", Options: typeOptions.Select(item => new ListFilterOption(item.TypeId.ToString(), item.TypeName)).ToArray()) }))' />
 <p class="muted" data-list-status role="status" data-list-busy-label="Loading records…"></p>
+@if (retryId.HasValue)
+{
+    <p class="notice notice-error" role="alert">@retryError <a asp-action="Cancel" asp-route-id="@retryId">Review the event cancellation</a></p>
+}
 <div class="table-scroll" role="region" aria-label="Event table" tabindex="0" data-list-region>
     <table class="data-table table-sticky">
         <thead>
@@ -82,14 +92,14 @@
                                 }
                                 @if (eventItem.EventStatusId is not (EventStatusCode.Draft or EventStatusCode.Published))
                                 {
-                                    <a asp-action="Cover" asp-route-id="@eventItem.EventId">View cover</a>
+                                    <a asp-action="Cover" asp-route-id="@eventItem.EventId" data-dialog-open="event-cover-@eventItem.EventId">View cover</a>
                                 }
                                 @if (eventItem.EventStatusId is EventStatusCode.Draft or EventStatusCode.Published)
                                 {
                                     <a asp-action="Details" asp-route-id="@eventItem.EventId">View dossier</a>
                                     <a asp-action="Edit" asp-route-id="@eventItem.EventId" data-record-open="edit-event-@eventItem.EventId" data-record-title="Edit event" data-record-subtitle="@eventItem.Title">Edit</a>
                                     <div class="row-menu-danger">
-                                        <a asp-action="Cancel" asp-route-id="@eventItem.EventId">Cancel</a>
+                                        <a asp-action="Cancel" asp-route-id="@eventItem.EventId" data-dialog-open="list-event-cancel" data-dialog-value-id="@eventItem.EventId" data-dialog-value-summary="@eventItem.Title">Cancel</a>
                                     </div>
                                 }
                                 @if (!string.IsNullOrWhiteSpace(checkInMeta))
@@ -97,7 +107,23 @@
                                     <p class="row-menu-meta">@checkInMeta</p>
                                 }
                             </div>
-                        <partial name="_DetailsDialog" model="details" />
+                         <partial name="_DetailsDialog" model="details" />
+                         @if (eventItem.EventStatusId is EventStatusCode.Completed or EventStatusCode.Cancelled)
+                         {
+                             <dialog id="event-cover-@eventItem.EventId" class="task-dialog" aria-labelledby="event-cover-title-@eventItem.EventId">
+                                 <div class="dialog-header"><h2 id="event-cover-title-@eventItem.EventId">Event cover</h2><button type="button" class="dialog-close" data-dialog-close aria-label="Close dialog">&times;</button></div>
+                                 <div class="dialog-body">
+                                     <p>@eventItem.Title</p>
+                                     @if (eventItem.HasCover)
+                                     {
+                                         <figure class="cover-figure" data-cover-figure><img class="cover-preview" src="@Url.Action("Image", "EventCover", new { id = eventItem.EventId })" alt="Cover for @eventItem.Title" loading="lazy" data-cover-image /></figure>
+                                         <p class="muted" data-cover-error hidden>Cover image unavailable. <a asp-action="Cover" asp-route-id="@eventItem.EventId">Try the full page</a>.</p>
+                                     }
+                                     else { <p class="muted">No cover image has been uploaded.</p> }
+                                 </div>
+                                 <div class="dialog-actions"><button type="button" class="button button-secondary" data-dialog-close>Close</button></div>
+                             </dialog>
+                         }
                         </td>
                     </tr>
                 }
@@ -108,4 +134,16 @@
 
 <partial name="_Pager" model="Model" />
 <partial name="_ResultCount" model="Model" />
+<dialog id="list-event-cancel" class="task-dialog" aria-labelledby="list-event-cancel-title" aria-describedby="list-event-cancel-summary list-event-cancel-consequence" data-reopen="@(retryId.HasValue ? "true" : null)" data-reopen-id="@retryId" data-reopen-reason="@retryReason" data-return-focus="@(retryId.HasValue ? $"row-menu-event-{retryId}" : null)">
+    <form asp-action="CancelFromList" method="post">
+        <input type="hidden" name="id" value="@retryId" data-dialog-field="id" />
+        <input type="hidden" name="returnUrl" value="@returnUrl" />
+        <div class="dialog-header"><h2 id="list-event-cancel-title">Cancel event</h2><button type="button" class="dialog-close" data-dialog-close aria-label="Close dialog">&times;</button></div>
+        <p id="list-event-cancel-summary" class="muted" data-dialog-field="summary">@(retryEvent?.Title ?? (retryId.HasValue ? $"Event #{retryId}" : ""))</p>
+        <p id="list-event-cancel-consequence" class="dialog-consequence">Pending, confirmed and waitlisted registrations will be cancelled, passes invalidated and check-in closed. This cannot be undone.</p>
+        @if (retryId.HasValue) { <p class="field-error dialog-consequence" role="alert" data-list-cancel-retry-error>@retryError @(!retryMutable ? "This event is no longer available for cancellation. Return to the list to review its current state." : "")</p> }
+        <div class="field"><label for="list-event-cancel-reason">Reason (required)</label><textarea id="list-event-cancel-reason" name="reason" class="field-control" rows="4" required maxlength="500" placeholder="Enter a reason">@retryReason</textarea></div>
+        <div class="dialog-actions"><button type="button" class="button button-secondary" data-dialog-close>Go back</button><button type="submit" class="button button-primary" data-list-cancel-submit data-submitting-label="Cancelling…" disabled="@(retryId.HasValue && !retryMutable)">Cancel event</button></div>
+    </form>
+</dialog>
 <partial name="_RecordDialog" />

@@ -4,7 +4,7 @@ const vm = require('node:vm');
 const fs = require('node:fs');
 const path = require('node:path');
 
-function setup({ reopen = false } = {}) {
+function setup({ reopen = false, missingInvoker = false } = {}) {
     const handlers = {};
     function element(tagName) {
         return {
@@ -41,18 +41,21 @@ function setup({ reopen = false } = {}) {
         getAttribute: () => null,
         close() { this.closed = true; }
     });
+    const invoker = { focus(options) { this.focused = true; this.options = options; } };
+    const list = { focus(options) { this.focused = true; this.options = options; } };
     if (reopen) {
         const reason = { name: 'reason', type: 'textarea', value: 'Previously entered reason', focus() {} };
         fields.push(reason);
         dialog.dataset.reopenId = '7';
         dialog.dataset.reopenReason = reason.value;
+        dialog.dataset.returnFocus = 'row-menu-event-7';
         const query = dialog.querySelector.bind(dialog);
         dialog.querySelector = selector => selector.startsWith('textarea') ? reason : selector === '[data-dialog-field="id"]' ? {} : query(selector);
         dialog.showModal = () => { dialog.open = true; };
-        context.document.querySelector = selector => selector === 'dialog[data-reopen="true"]' ? dialog : null;
+        context.document.querySelector = selector => selector === 'dialog[data-reopen="true"]' ? dialog : selector === '[popovertarget="row-menu-event-7"]' ? (missingInvoker ? null : invoker) : selector === '[data-list-region]' ? list : null;
     }
     vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../wwwroot/js/site.js'), 'utf8'), context);
-    return { api: context.window.AttendTaDialogs, fields, dialog, handlers };
+    return { api: context.window.AttendTaDialogs, fields, dialog, handlers, invoker, list };
 }
 
 test('dialog guard recognizes edits and undoing edits', () => {
@@ -145,4 +148,20 @@ test('server-restored failed reason remains protected even when already rendered
     assert.equal(api.hasChanges(dialog), true);
     assert.equal(api.requestClose(dialog), false);
     assert.ok(dialog.querySelector('[data-discard-prompt]'));
+});
+
+test('a reopened list cancellation returns focus to the visible row menu button', () => {
+    const { dialog, invoker } = setup({ reopen: true });
+    assert.equal(dialog.open, true);
+    dialog.listeners.close();
+    assert.equal(invoker.focused, true);
+    assert.equal(invoker.options.preventScroll, true);
+});
+
+test('a reopened cancellation returns focus to the list if its row is absent', () => {
+    const { dialog, invoker, list } = setup({ reopen: true, missingInvoker: true });
+    dialog.listeners.close();
+    assert.equal(invoker.focused, undefined);
+    assert.equal(list.focused, true);
+    assert.equal(list.options.preventScroll, true);
 });
