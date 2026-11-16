@@ -110,7 +110,7 @@ public class AccountLoginMatrixTests
 
     private static FakeRequests Pending() => new() { Hash = RealHasher.Hash(Password) };
     private static AccountService Service(FakeRequests requests, IPasswordHasher hasher = null, FakeUsers users = null) =>
-        new(users ?? new FakeUsers(), hasher ?? RealHasher, requests);
+        new(users ?? new FakeUsers(), hasher ?? RealHasher, () => requests);
 
     private sealed class DuringVerificationHasher(IPasswordHasher inner, Action change) : IPasswordHasher
     {

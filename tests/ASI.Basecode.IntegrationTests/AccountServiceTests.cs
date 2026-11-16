@@ -46,7 +46,7 @@ public class AccountServiceTests : IClassFixture<SqlServerDatabaseFixture>
             reviewContext.SaveChanges();
         });
         var uow = new UnitOfWork(loginContext);
-        var service = new AccountService(new UserRepository(uow), raceHasher, new AccountRequestRepository(uow));
+        var service = new AccountService(new UserRepository(uow), raceHasher, () => new AccountRequestRepository(uow));
         var result = await service.LoginAsync(email, Password, ct);
         Assert.Equal(LoginStatus.Invalid, result.Status);
         Assert.Null(result.User);
@@ -82,7 +82,7 @@ public class AccountServiceTests : IClassFixture<SqlServerDatabaseFixture>
             row.PasswordHash = changed;
             reviewContext.SaveChanges();
         });
-        var result = await new AccountService(new UserRepository(uow), raceHasher, repository).LoginAsync(email, Password, ct);
+        var result = await new AccountService(new UserRepository(uow), raceHasher, () => repository).LoginAsync(email, Password, ct);
         Assert.True(raceHasher.DecisionCommitted);
         Assert.Equal(LoginStatus.Invalid, result.Status);
         Assert.Null(result.User);
@@ -182,7 +182,7 @@ public class AccountServiceTests : IClassFixture<SqlServerDatabaseFixture>
             .UseSqlServer(fixture.ConnectionString)
             .Options;
         var context = new AsiBasecodeDBContext(options);
-        return new AccountService(new UserRepository(new UnitOfWork(context)), hasher, new AccountRequestRepository(new UnitOfWork(context)));
+        return new AccountService(new UserRepository(new UnitOfWork(context)), hasher, () => new AccountRequestRepository(new UnitOfWork(context)));
     }
 
     private async Task<int> SeedUserAsync(string email, RoleCode role, bool isActive)

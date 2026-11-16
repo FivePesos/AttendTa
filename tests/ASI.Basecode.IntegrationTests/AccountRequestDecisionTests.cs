@@ -86,7 +86,7 @@ public sealed class AccountRequestDecisionTests(SqlServerDatabaseFixture fixture
         }
 
         await using var authContext = Context();
-        var authenticated = await new AccountService(new UserRepository(new UnitOfWork(authContext)), hasher, new AccountRequestRepository(new UnitOfWork(authContext)))
+        var authenticated = await new AccountService(new UserRepository(new UnitOfWork(authContext)), hasher, () => new AccountRequestRepository(new UnitOfWork(authContext)))
             .AuthenticateAsync(applicantEmail, ApplicantPassword, ct);
         Assert.NotNull(authenticated);
         Assert.Equal(RoleCodes.Member, authenticated.RoleCode);
