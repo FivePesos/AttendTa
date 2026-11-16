@@ -600,7 +600,8 @@ internal static class EventDraftTestSupport
     public static EventLifecycleService Service(AsiBasecodeDBContext context, int actorId, TimeProvider? clock = null,
         Func<IActivityLogWriter, IActivityLogWriter>? wrapAudit = null,
         IEnumerable<IEventCompletionHandler>? completionHandlers = null,
-        Func<IUnitOfWork, IEnumerable<IEventCompletionHandler>>? completionHandlerFactory = null)
+        Func<IUnitOfWork, IEnumerable<IEventCompletionHandler>>? completionHandlerFactory = null,
+        IPrivateFileStore? files = null)
     {
         var unitOfWork = new UnitOfWork(context);
         var actor = new Actor(actorId);
@@ -625,7 +626,7 @@ internal static class EventDraftTestSupport
             timeProvider,
             audit,
             actor,
-            new UnusedPrivateFileStore(),
+            files ?? new UnusedPrivateFileStore(),
             NullLogger<EventLifecycleService>.Instance);
     }
 

@@ -537,10 +537,8 @@ public sealed class CertificateLedgerService(
         }
         catch (Exception exception)
         {
-            // A renderer that throws or returns non-PDF content leaves no file behind. The exception
-            // is logged without the private storage key so the failure stays diagnosable without
-            // exposing the key.
-            logger?.LogWarning(exception, "Certificate rendering or promotion failed; no certificate file was promoted.");
+            // Exception messages and stack traces can contain private paths. Record only the type.
+            logger?.LogWarning("Certificate rendering or promotion failed ({FailureType}); no certificate file was promoted.", exception.GetType().Name);
             DeleteBestEffort(temporaryPath);
             throw new DomainException(OutcomeCode.Invalid, RenderFailedMessage);
         }
