@@ -76,7 +76,7 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
     private static User NewUser() => new()
     {
         Name = "Master Data Actor",
-        UserId = $"{Guid.NewGuid():N}@example.invalid",
+        Email = $"{Guid.NewGuid():N}@example.invalid",
         Password = "test",
         IsActive = true,
         RoleId = RoleCode.Admin

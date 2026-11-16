@@ -57,7 +57,7 @@ public class AccountRequestServiceTests
     public async Task DuplicateEmailForAnActiveUserIsRejectedOnTheEmailField()
     {
         var harness = new Harness();
-        harness.Users.Users.Add(new User { UserId = "ana.reyes@example.com", Name = "Existing", IsActive = true });
+        harness.Users.Users.Add(new User { Email = "ana.reyes@example.com", Name = "Existing", IsActive = true });
 
         var exception = await Assert.ThrowsAsync<DomainException>(
             () => harness.Service.SubmitAsync(ValidModel(), TestContext.Current.CancellationToken));
@@ -72,7 +72,7 @@ public class AccountRequestServiceTests
     public async Task DuplicateEmailForAnInactiveUserIsRejectedOnTheEmailField()
     {
         var harness = new Harness();
-        harness.Users.Users.Add(new User { UserId = "ana.reyes@example.com", Name = "Inactive", IsActive = false });
+        harness.Users.Users.Add(new User { Email = "ana.reyes@example.com", Name = "Inactive", IsActive = false });
 
         var exception = await Assert.ThrowsAsync<DomainException>(
             () => harness.Service.SubmitAsync(ValidModel(), TestContext.Current.CancellationToken));
@@ -431,7 +431,7 @@ public class AccountRequestServiceTests
         await harness.Service.ApproveAsync(request.RequestId, harness.Actor.UserId, TestContext.Current.CancellationToken);
 
         var user = Assert.Single(harness.Users.Users);
-        Assert.Equal(request.Email, user.UserId);
+        Assert.Equal(request.Email, user.Email);
         Assert.Equal(request.FullName, user.Name);
         Assert.Equal(originalHash, user.Password);
         Assert.Equal(RoleCode.Member, user.RoleId);
@@ -529,7 +529,7 @@ public class AccountRequestServiceTests
         harness.Requests.Requests.Add(request);
         if (emailConflict)
         {
-            harness.Users.Users.Add(new User { Id = 17, UserId = request.Email, IsActive = false });
+            harness.Users.Users.Add(new User { Id = 17, Email = request.Email, IsActive = false });
         }
         else
         {
@@ -883,7 +883,7 @@ public class AccountRequestServiceTests
 
         public Task<User> GetByEmailAsync(string email, CancellationToken cancellationToken = default)
         {
-            return Task.FromResult(Users.FirstOrDefault(user => string.Equals(user.UserId, email, StringComparison.OrdinalIgnoreCase)))!;
+            return Task.FromResult(Users.FirstOrDefault(user => string.Equals(user.Email, email, StringComparison.OrdinalIgnoreCase)))!;
         }
 
         public Task<User> GetByIdAsync(int userId, CancellationToken cancellationToken = default)

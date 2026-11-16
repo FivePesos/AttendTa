@@ -843,7 +843,7 @@ public sealed class RegistrationReviewTests(SqlServerDatabaseFixture fixture) : 
     private async Task<int[]> SeedQueueAsync((User Officer, Event Event) setup, CancellationToken ct)
     {
         await using var context = MemberEventTestSupport.Context(fixture.ConnectionString);
-        var users = Enumerable.Range(0, 26).Select(i => new User { UserId = $"queue-{Guid.NewGuid():N}@test.invalid", Name = $"Review queue {i:D2}", Password = setup.Officer.Password, IsActive = true, RoleId = RoleCode.Member }).ToArray();
+        var users = Enumerable.Range(0, 26).Select(i => new User { Email = $"queue-{Guid.NewGuid():N}@test.invalid", Name = $"Review queue {i:D2}", Password = setup.Officer.Password, IsActive = true, RoleId = RoleCode.Member }).ToArray();
         context.Users.AddRange(users);
         await context.SaveChangesAsync(ct);
         var members = users.Select(u => new Member { UserId = u.Id, StudentNumber = $"Q-{Guid.NewGuid():N}", Course = "BSIT", YearLevel = 1, Section = "A", MembershipStatusId = MembershipStatusCode.Active, CreatedBy = setup.Officer.Id, CreatedAt = Start.AddDays(-2) }).ToArray();

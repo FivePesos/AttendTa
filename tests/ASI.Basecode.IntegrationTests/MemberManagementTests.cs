@@ -138,7 +138,7 @@ public sealed class MemberManagementTests(SqlServerDatabaseFixture fixture) : IC
         var certificateAfter = await observer.Certificates.AsNoTracking().SingleAsync(item => item.CertificateId == certificateId, ct);
 
         Assert.Equal("Corrected Member Name", user.Name);
-        Assert.Equal(seeded.MemberEmail, user.UserId);
+        Assert.Equal(seeded.MemberEmail, user.Email);
         Assert.Equal(seeded.PasswordHash, user.Password);
         Assert.Equal(correctedNumber, member.StudentNumber);
         Assert.Equal("BSCS", member.Course);
@@ -526,7 +526,7 @@ public sealed class MemberManagementTests(SqlServerDatabaseFixture fixture) : IC
             Assert.Equal(seeded.StudentNumber, member.StudentNumber);
             Assert.Equal(MembershipStatusCode.Inactive, member.MembershipStatusId);
             Assert.Equal("Original Member Name", user.Name);
-            Assert.Equal(seeded.MemberEmail, user.UserId);
+            Assert.Equal(seeded.MemberEmail, user.Email);
             Assert.False(await observer.ActivityLogs.AnyAsync(item => item.EntityType == "members" && item.EntityId == seeded.MemberId, ct));
         }
 
@@ -573,7 +573,7 @@ public sealed class MemberManagementTests(SqlServerDatabaseFixture fixture) : IC
         var hasher = new Argon2PasswordHasher();
         var actor = new User
         {
-            UserId = actorEmail,
+            Email = actorEmail,
             Name = "Management Actor",
             Password = withLoginPasswords ? hasher.Hash(ManagementPassword) : "integration-password-hash",
             RoleId = RoleCode.Officer,
@@ -581,7 +581,7 @@ public sealed class MemberManagementTests(SqlServerDatabaseFixture fixture) : IC
         };
         var linkedUser = new User
         {
-            UserId = memberEmail,
+            Email = memberEmail,
             Name = "Original Member Name",
             Password = withLoginPasswords ? hasher.Hash(MemberPassword) : "member-password-hash",
             RoleId = RoleCode.Member,

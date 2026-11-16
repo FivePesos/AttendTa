@@ -157,7 +157,7 @@ public sealed class EventTypeManagementFlowTests(SqlServerDatabaseFixture fixtur
         await using var context = Context();
         var officer = new User
         {
-            UserId = officerEmail,
+            Email = officerEmail,
             Name = "Event Type Officer",
             Password = hasher.Hash(password),
             RoleId = RoleCode.Officer,
@@ -165,7 +165,7 @@ public sealed class EventTypeManagementFlowTests(SqlServerDatabaseFixture fixtur
         };
         var member = new User
         {
-            UserId = memberEmail,
+            Email = memberEmail,
             Name = "Event Type Member",
             Password = hasher.Hash(password),
             RoleId = RoleCode.Member,

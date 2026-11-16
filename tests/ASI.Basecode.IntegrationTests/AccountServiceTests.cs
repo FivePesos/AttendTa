@@ -112,7 +112,7 @@ public class AccountServiceTests : IClassFixture<SqlServerDatabaseFixture>
 
         var user = new User
         {
-            UserId = email,
+            Email = email,
             Name = "Seeded Account",
             Password = hasher.Hash(Password),
             RoleId = role,

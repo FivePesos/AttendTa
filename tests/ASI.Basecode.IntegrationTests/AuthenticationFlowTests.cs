@@ -830,7 +830,7 @@ public class AuthenticationFlowTests : IClassFixture<SqlServerDatabaseFixture>, 
             .Options;
         await using var context = new AsiBasecodeDBContext(options);
         var userId = await context.Users
-            .Where(user => user.UserId == email)
+            .Where(user => user.Email == email)
             .Select(user => user.Id)
             .SingleAsync(TestContext.Current.CancellationToken);
         return await context.Members
@@ -853,7 +853,7 @@ public class AuthenticationFlowTests : IClassFixture<SqlServerDatabaseFixture>, 
 
         foreach (var profile in profileSeeds)
         {
-            var user = await context.Users.SingleAsync(item => item.UserId == profile.Email, TestContext.Current.CancellationToken);
+            var user = await context.Users.SingleAsync(item => item.Email == profile.Email, TestContext.Current.CancellationToken);
             if (!await context.Members.AnyAsync(item => item.UserId == user.Id, TestContext.Current.CancellationToken))
             {
                 context.Members.Add(new Member
@@ -934,7 +934,7 @@ public class AuthenticationFlowTests : IClassFixture<SqlServerDatabaseFixture>, 
         await using var context = new AsiBasecodeDBContext(options);
 
         var existingEmails = await context.Users
-            .Select(user => user.UserId)
+            .Select(user => user.Email)
             .ToListAsync(TestContext.Current.CancellationToken);
 
         var users = new[]
@@ -947,7 +947,7 @@ public class AuthenticationFlowTests : IClassFixture<SqlServerDatabaseFixture>, 
             CreateUser(InactiveEmail, "Flow Inactive", RoleCode.Admin, isActive: false)
         };
 
-        context.Users.AddRange(users.Where(user => !existingEmails.Contains(user.UserId)));
+        context.Users.AddRange(users.Where(user => !existingEmails.Contains(user.Email)));
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
     }
 
@@ -955,7 +955,7 @@ public class AuthenticationFlowTests : IClassFixture<SqlServerDatabaseFixture>, 
     {
         return new User
         {
-            UserId = email,
+            Email = email,
             Name = name,
             Password = hasher.Hash(Password),
             RoleId = role,
@@ -969,7 +969,7 @@ public class AuthenticationFlowTests : IClassFixture<SqlServerDatabaseFixture>, 
             .UseSqlServer(fixture.ConnectionString)
             .Options;
         await using var context = new AsiBasecodeDBContext(options);
-        var user = await context.Users.SingleAsync(item => item.UserId == email, TestContext.Current.CancellationToken);
+        var user = await context.Users.SingleAsync(item => item.Email == email, TestContext.Current.CancellationToken);
         user.IsActive = isActive;
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
     }
@@ -980,7 +980,7 @@ public class AuthenticationFlowTests : IClassFixture<SqlServerDatabaseFixture>, 
             .UseSqlServer(fixture.ConnectionString)
             .Options;
         await using var context = new AsiBasecodeDBContext(options);
-        var user = await context.Users.SingleAsync(item => item.UserId == email, TestContext.Current.CancellationToken);
+        var user = await context.Users.SingleAsync(item => item.Email == email, TestContext.Current.CancellationToken);
         user.RoleId = role;
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
     }

@@ -42,7 +42,7 @@ public sealed class EventDossierLayoutTests(SqlServerDatabaseFixture fixture)
             AllowAutoRedirect = false,
             HandleCookies = true
         });
-        await MemberEventTestSupport.SignInAsync(client, admin.UserId, Password, ct);
+        await MemberEventTestSupport.SignInAsync(client, admin.Email, Password, ct);
     }
 
     public async ValueTask DisposeAsync()

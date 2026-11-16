@@ -77,7 +77,7 @@ namespace ASI.Basecode.Services.Services
             return new AuthenticatedUser
             {
                 UserId = user.Id,
-                Email = user.UserId,
+                Email = user.Email,
                 FullName = user.Name,
                 RoleCode = roleCode
             };

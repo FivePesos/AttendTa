@@ -128,7 +128,7 @@ public sealed class ActivityLogViewerTests : IClassFixture<SqlServerDatabaseFixt
         await using var context = new AsiBasecodeDBContext(options);
         context.Users.Add(new User
         {
-            UserId = email,
+            Email = email,
             Name = name,
             Password = hasher.Hash(password),
             RoleId = role,
@@ -143,7 +143,7 @@ public sealed class ActivityLogViewerTests : IClassFixture<SqlServerDatabaseFixt
         await using var context = new AsiBasecodeDBContext(options);
         var adminUserId = await context.Users
             .AsNoTracking()
-            .Where(user => user.UserId == adminEmailForLookup)
+            .Where(user => user.Email == adminEmailForLookup)
             .Select(user => user.Id)
             .SingleAsync(TestContext.Current.CancellationToken);
         var olderOccurredAt = new DateTime(2026, 11, 5, 12, 30, 0, DateTimeKind.Utc);

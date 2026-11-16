@@ -40,7 +40,7 @@ public sealed class AccountAdministrationRepository(IUnitOfWork unitOfWork, List
                       {
                           AccountId = user.Id,
                           FullName = user.Name,
-                          Email = user.UserId,
+                          Email = user.Email,
                           RoleCode = role.Code,
                           RoleLabel = role.Label,
                           IsActive = user.IsActive
@@ -64,7 +64,7 @@ public sealed class AccountAdministrationRepository(IUnitOfWork unitOfWork, List
                       {
                           AccountId = user.Id,
                           FullName = user.Name,
-                          Email = user.UserId,
+                          Email = user.Email,
                           RoleCode = role.Code,
                           RoleLabel = role.Label,
                           IsActive = user.IsActive
@@ -147,7 +147,7 @@ public sealed class AccountAdministrationRepository(IUnitOfWork unitOfWork, List
         if (!string.IsNullOrWhiteSpace(search))
         {
             var term = search.Trim();
-            query = query.Where(user => user.Name.Contains(term) || user.UserId.Contains(term));
+            query = query.Where(user => user.Name.Contains(term) || user.Email.Contains(term));
         }
 
         return query;

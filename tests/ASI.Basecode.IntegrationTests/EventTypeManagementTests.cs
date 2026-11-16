@@ -268,7 +268,7 @@ internal static class EventTypeTestSupport
         var actor = new User
         {
             Name = "Event Type Tester",
-            UserId = $"{Guid.NewGuid():N}@example.invalid",
+            Email = $"{Guid.NewGuid():N}@example.invalid",
             Password = "test",
             RoleId = RoleCode.Officer,
             IsActive = true

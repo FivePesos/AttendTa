@@ -199,7 +199,7 @@ public sealed class CertificateLedgerBulkApprovalTests
         public BatchHarness()
         {
             Actor = new Actor(true, RoleCodes.Officer);
-            users[ActorUserId] = new User { Id = ActorUserId, UserId = "officer@attendta.test", Name = "Officer", Password = string.Empty, RoleId = RoleCode.Officer, IsActive = true };
+            users[ActorUserId] = new User { Id = ActorUserId, Email = "officer@attendta.test", Name = "Officer", Password = string.Empty, RoleId = RoleCode.Officer, IsActive = true };
             EventItem = new Event
             {
                 EventId = EventId,
@@ -240,7 +240,7 @@ public sealed class CertificateLedgerBulkApprovalTests
         {
             var userId = 1000 + registrationId;
             var memberId = 100 + registrationId;
-            users[userId] = new User { Id = userId, UserId = $"member-{registrationId}@attendta.test", Name = $"Participant {registrationId}", Password = string.Empty, RoleId = RoleCode.Member, IsActive = true };
+            users[userId] = new User { Id = userId, Email = $"member-{registrationId}@attendta.test", Name = $"Participant {registrationId}", Password = string.Empty, RoleId = RoleCode.Member, IsActive = true };
             members[userId] = new Member { MemberId = memberId, UserId = userId, StudentNumber = $"SN-{registrationId}", MembershipStatusId = MembershipStatusCode.Active };
             registrations[registrationId] = new Registration
             {

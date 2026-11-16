@@ -134,7 +134,7 @@ namespace ASI.Basecode.Services.Services
                 {
                     // Keep the lock order account_requests -> users and refresh under the lock.
                     var lockedUser = await _userRepository.LockUserAsync(existingUser.Id, ct);
-                    if (lockedUser is not null && string.Equals(lockedUser.UserId, request.Email, StringComparison.OrdinalIgnoreCase))
+                    if (lockedUser is not null && string.Equals(lockedUser.Email, request.Email, StringComparison.OrdinalIgnoreCase))
                     {
                         throw new DomainException(OutcomeCode.Duplicate, "This email is already in use.");
                     }
@@ -152,7 +152,7 @@ namespace ASI.Basecode.Services.Services
 
                 var user = new User
                 {
-                    UserId = request.Email,
+                    Email = request.Email,
                     Name = ProfileOptions.NormalizeName(request.FullName),
                     Password = request.PasswordHash,
                     RoleId = RoleCode.Member,

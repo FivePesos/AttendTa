@@ -318,7 +318,7 @@ public sealed class CertificateLedgerFlowTests(SqlServerDatabaseFixture fixture)
         // An inactive membership does not block the owner's download (R6).
         await using (var membership = MemberEventTestSupport.Context(fixture.ConnectionString))
         {
-            var owner = await membership.Users.SingleAsync(row => row.UserId == memberEmails[1], ct);
+            var owner = await membership.Users.SingleAsync(row => row.Email == memberEmails[1], ct);
             (await membership.Members.SingleAsync(row => row.UserId == owner.Id, ct)).MembershipStatusId = MembershipStatusCode.Inactive;
             await membership.SaveChangesAsync(ct);
         }
@@ -443,7 +443,7 @@ public sealed class CertificateLedgerFlowTests(SqlServerDatabaseFixture fixture)
         // An inactive account is refused by the AD-8 cookie check: the next request is a sign-in redirect.
         await using (var account = MemberEventTestSupport.Context(fixture.ConnectionString))
         {
-            (await account.Users.SingleAsync(row => row.UserId == memberEmails[1], ct)).IsActive = false;
+            (await account.Users.SingleAsync(row => row.Email == memberEmails[1], ct)).IsActive = false;
             await account.SaveChangesAsync(ct);
         }
         var inactiveAccountPdf = await ownerClient.GetAsync($"/Certificates/Pdf/{registrationIds[1]}", ct);

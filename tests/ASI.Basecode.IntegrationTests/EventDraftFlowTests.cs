@@ -584,7 +584,7 @@ internal static class EventDraftTestSupport
         var actor = new User
         {
             Name = "Event Draft Tester",
-            UserId = $"{Guid.NewGuid():N}@example.invalid",
+            Email = $"{Guid.NewGuid():N}@example.invalid",
             Password = "test",
             RoleId = RoleCode.Officer,
             IsActive = true
@@ -600,7 +600,7 @@ internal static class EventDraftTestSupport
         await using var context = Context(connectionString);
         var officer = new User
         {
-            UserId = officerEmail,
+            Email = officerEmail,
             Name = "Event Draft Officer",
             Password = hasher.Hash(password),
             RoleId = RoleCode.Officer,
@@ -608,7 +608,7 @@ internal static class EventDraftTestSupport
         };
         var member = new User
         {
-            UserId = memberEmail,
+            Email = memberEmail,
             Name = "Event Draft Member",
             Password = hasher.Hash(password),
             RoleId = RoleCode.Member,

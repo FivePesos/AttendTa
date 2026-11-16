@@ -175,7 +175,7 @@ public sealed class AdminAccountsListTests : IClassFixture<SqlServerDatabaseFixt
         {
             new()
             {
-                UserId = adminEmail,
+                Email = adminEmail,
                 Name = "Accounts Admin",
                 Password = hasher.Hash(Password),
                 RoleId = RoleCode.Admin,
@@ -183,7 +183,7 @@ public sealed class AdminAccountsListTests : IClassFixture<SqlServerDatabaseFixt
             },
             new()
             {
-                UserId = officerEmail,
+                Email = officerEmail,
                 Name = "Accounts Officer",
                 Password = hasher.Hash(Password),
                 RoleId = RoleCode.Officer,
@@ -195,7 +195,7 @@ public sealed class AdminAccountsListTests : IClassFixture<SqlServerDatabaseFixt
         {
             users.Add(new User
             {
-                UserId = $"listed-{index:D2}-{Guid.NewGuid():N}@attendta.test",
+                Email = $"listed-{index:D2}-{Guid.NewGuid():N}@attendta.test",
                 Name = $"Listed Account {index:D2}",
                 Password = PasswordHashMarker + index,
                 RoleId = RoleCode.Member,

@@ -148,7 +148,7 @@ public class AccountRequestSubmissionTests : IClassFixture<SqlServerDatabaseFixt
         Assert.Null(request.ReviewNotes);
         Assert.Equal(beforeUsers, await context.Users.CountAsync(TestContext.Current.CancellationToken));
         Assert.Equal(beforeMembers, await context.Members.CountAsync(TestContext.Current.CancellationToken));
-        Assert.False(await context.Users.AnyAsync(user => user.UserId == email, TestContext.Current.CancellationToken));
+        Assert.False(await context.Users.AnyAsync(user => user.Email == email, TestContext.Current.CancellationToken));
         Assert.False(await context.Members.AnyAsync(member => member.StudentNumber == studentNumber, TestContext.Current.CancellationToken));
 
         var acknowledgment = await client.GetAsync("/AccountRequest/Submitted", TestContext.Current.CancellationToken);
@@ -486,7 +486,7 @@ public class AccountRequestSubmissionTests : IClassFixture<SqlServerDatabaseFixt
         await using var context = CreateContext();
         var cancellationToken = TestContext.Current.CancellationToken;
 
-        if (!await context.Users.AnyAsync(user => user.UserId == ExistingEmail, cancellationToken))
+        if (!await context.Users.AnyAsync(user => user.Email == ExistingEmail, cancellationToken))
         {
             context.Users.AddRange(
                 CreateUser(ExistingEmail, "Existing Applicant", isActive: true),
@@ -496,7 +496,7 @@ public class AccountRequestSubmissionTests : IClassFixture<SqlServerDatabaseFixt
         }
 
         var ownerId = await context.Users
-            .Where(user => user.UserId == MemberOwnerEmail)
+            .Where(user => user.Email == MemberOwnerEmail)
             .Select(user => user.Id)
             .SingleAsync(cancellationToken);
 
@@ -538,7 +538,7 @@ public class AccountRequestSubmissionTests : IClassFixture<SqlServerDatabaseFixt
     {
         return new User
         {
-            UserId = email,
+            Email = email,
             Name = name,
             Password = hasher.Hash(Password),
             RoleId = RoleCode.Member,

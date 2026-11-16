@@ -428,7 +428,7 @@ public sealed class RegistrationReviewTests
         {
             Clock = new FixedClock { Now = now };
             Actor = new Actor(true, RoleCodes.Admin, ActorUserId);
-            User = new User { Id = ActorUserId, UserId = "officer@attendta.test", Name = "Officer", Password = string.Empty, RoleId = RoleCode.Officer, IsActive = true };
+            User = new User { Id = ActorUserId, Email = "officer@attendta.test", Name = "Officer", Password = string.Empty, RoleId = RoleCode.Officer, IsActive = true };
             Member = new Member { MemberId = MemberId, UserId = ActorUserId, StudentNumber = "SN-7", MembershipStatusId = MembershipStatusCode.Active };
             EventItem = new Event
             {
@@ -683,7 +683,7 @@ public sealed class RegistrationReviewTests
         {
             Clock = new FixedClock { Now = Start.AddHours(-1) };
             Actor = new MutableActor();
-            users[ActorUserId] = new User { Id = ActorUserId, UserId = "officer@attendta.test", Name = "Officer", Password = string.Empty, RoleId = RoleCode.Officer, IsActive = true };
+            users[ActorUserId] = new User { Id = ActorUserId, Email = "officer@attendta.test", Name = "Officer", Password = string.Empty, RoleId = RoleCode.Officer, IsActive = true };
             events[EventId] = NewEvent(EventId, participantLimit);
             UnitOfWork = new CountingUnitOfWork();
             Audit = new RecordingAudit();
@@ -710,7 +710,7 @@ public sealed class RegistrationReviewTests
         {
             var userId = 1000 + registrationId;
             var memberId = 100 + registrationId;
-            users[userId] = new User { Id = userId, UserId = $"member-{registrationId}@attendta.test", Name = $"Participant {registrationId}", Password = string.Empty, RoleId = RoleCode.Member, IsActive = true };
+            users[userId] = new User { Id = userId, Email = $"member-{registrationId}@attendta.test", Name = $"Participant {registrationId}", Password = string.Empty, RoleId = RoleCode.Member, IsActive = true };
             members[userId] = new Member { MemberId = memberId, UserId = userId, StudentNumber = $"SN-{registrationId}", MembershipStatusId = MembershipStatusCode.Active };
             if (!events.ContainsKey(eventId)) events[eventId] = NewEvent(eventId, 10);
             var row = new Registration

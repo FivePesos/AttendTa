@@ -746,7 +746,7 @@ public sealed class MemberEventServiceTests
             var user = new User
             {
                 Id = Users.Items.Count + 1,
-                UserId = $"user-{Users.Items.Count + 1}@attendta.test",
+                Email = $"user-{Users.Items.Count + 1}@attendta.test",
                 Name = $"User {Users.Items.Count + 1}",
                 Password = string.Empty,
                 RoleId = role,
