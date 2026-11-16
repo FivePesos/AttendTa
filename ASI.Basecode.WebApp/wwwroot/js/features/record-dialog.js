@@ -1,5 +1,25 @@
 (() => {
     'use strict';
+    let fallbackPreviewUrl;
+    document.addEventListener('change', event => {
+        const input = event.target.closest('input[type="file"]');
+        if (!input || input.closest('#record-dialog')) return;
+        const host = input.closest('form')?.querySelector('[data-record-preview]');
+        if (!host) return;
+        if (fallbackPreviewUrl) URL.revokeObjectURL(fallbackPreviewUrl);
+        fallbackPreviewUrl = null;
+        host.replaceChildren();
+        host.hidden = true;
+        const file = input.files?.[0];
+        if (!file || !file.type?.startsWith('image/') || !URL.createObjectURL) return;
+        fallbackPreviewUrl = URL.createObjectURL(file);
+        const image = document.createElement('img');
+        image.src = fallbackPreviewUrl;
+        image.alt = host.dataset.recordPreviewAlt || 'Preview of the selected image';
+        image.className = 'record-dialog-preview-image';
+        host.append(image);
+        host.hidden = false;
+    });
     const dialog = document.querySelector('#record-dialog');
     if (!dialog || typeof dialog.showModal !== 'function') return;
     const body = dialog.querySelector('[data-record-body]');

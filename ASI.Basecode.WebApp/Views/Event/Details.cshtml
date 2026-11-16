@@ -75,7 +75,6 @@
         @if (mutable)
         {
             <a asp-action="Edit" asp-route-id="@item.EventId" class="button button-secondary" data-record-open="edit-event-@item.EventId" data-record-title="Edit event" data-record-subtitle="@item.Title">Edit event</a>
-            <a asp-action="Cover" asp-route-id="@item.EventId" class="button button-secondary">Manage cover</a>
             <button type="button" class="button button-secondary" data-dialog-open="event-cancel">Cancel event</button>
         }
         @if (published)
