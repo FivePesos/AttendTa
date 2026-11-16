@@ -153,6 +153,8 @@ public sealed class VenuePagedListTests : IClassFixture<SqlServerDatabaseFixture
         public FailingVenueService() { }
         public Task<PagedResult<VenueViewModel>> GetPageAsync(string status, int? pageNumber, CancellationToken cancellationToken = default) => throw new InvalidOperationException("Test failure");
         public VenueViewModel GetVenue(int id) => throw new NotSupportedException();
+        public bool IsServablePhoto(string path) => throw new NotSupportedException();
+        public Task<VenuePhotoStream> GetPhotoAsync(int venueId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task AddVenueAsync(VenueViewModel model, Stream photo, string extension, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task UpdateVenueAsync(VenueViewModel model, Stream photo, string extension, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task ToggleActiveAsync(int id, CancellationToken cancellationToken = default) => throw new NotSupportedException();
