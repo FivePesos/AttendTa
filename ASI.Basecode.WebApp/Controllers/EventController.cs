@@ -135,7 +135,18 @@ namespace ASI.Basecode.WebApp.Controllers
                     : RedirectToRoute(EventIndexRoute);
 
         [HttpGet]
-        public Task<IActionResult> Cover(int id, CancellationToken cancellationToken) => CoverViewAsync(id, cancellationToken);
+        public async Task<IActionResult> Cover(int id, CancellationToken cancellationToken)
+        {
+            try
+            {
+                var item = await _eventService.GetCoverManagementAsync(id, cancellationToken);
+                return item.CanUpload ? RedirectToAction(nameof(Edit), new { id }) : View("Cover", item);
+            }
+            catch (DomainException exception) when (exception.Outcome == OutcomeCode.NotFound)
+            {
+                return NotFound();
+            }
+        }
 
         [HttpPost]
         public async Task<IActionResult> UploadCover(int id, IFormFile cover, CancellationToken cancellationToken)
@@ -178,17 +189,19 @@ namespace ASI.Basecode.WebApp.Controllers
             Editor(await WithOptionsAsync(new EventViewModel(), cancellationToken));
 
         [HttpPost]
-        public async Task<IActionResult> Create(EventViewModel model, CancellationToken cancellationToken)
+        public async Task<IActionResult> Create(EventViewModel model, IFormFile cover, CancellationToken cancellationToken)
         {
             if (!ModelState.IsValid)
             {
+                ViewData["CoverReselect"] = cover != null;
                 return Editor(await WithOptionsAsync(model, cancellationToken));
             }
 
             ToUtc(model);
             try
             {
-                await _eventService.CreateDraftAsync(model, cancellationToken);
+                await using var content = cover?.OpenReadStream();
+                await _eventService.CreateDraftWithCoverAsync(model, content, Path.GetExtension(cover?.FileName), cancellationToken);
                 TempData["SuccessMessage"] = "Draft event created.";
                 if (IsRecordDialog) return Json(new { saved = true });
                 return RedirectToRoute(EventIndexRoute);
@@ -196,7 +209,15 @@ namespace ASI.Basecode.WebApp.Controllers
             catch (DomainException ex)
             {
                 ToManila(model);
+                ViewData["CoverReselect"] = cover != null;
                 return await HandleAsync(ex, model, cancellationToken);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                ToManila(model);
+                ViewData["CoverReselect"] = cover != null;
+                ModelState.AddModelError("cover", ex is InvalidDataException ? ex.Message : "The save could not be confirmed. Check the events list before trying again to avoid a duplicate.");
+                return Editor(await WithOptionsAsync(model, cancellationToken));
             }
         }
 
@@ -222,7 +243,7 @@ namespace ASI.Basecode.WebApp.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> Edit(EventViewModel model, CancellationToken cancellationToken)
+        public async Task<IActionResult> Edit(EventViewModel model, IFormFile cover, bool removeCover, CancellationToken cancellationToken)
         {
             var current = await _eventService.GetEventAsync(model.EventId, cancellationToken);
             if (current == null || current.EventStatusId is not (EventStatusCode.Draft or EventStatusCode.Published))
@@ -239,16 +260,20 @@ namespace ASI.Basecode.WebApp.Controllers
             model.EventStatusId = current.EventStatusId;
             model.TypeName = current.TypeName;
             model.VenueName = current.VenueName;
+            model.HasCover = current.HasCover;
             ModelState.Remove(nameof(model.EventStatusId));
             if (!ModelState.IsValid)
             {
+                ViewData["CoverReselect"] = cover != null;
+                RestorePublishedFields(model, current);
                 return Editor(await WithOptionsAsync(model, cancellationToken));
             }
 
             ToUtc(model);
             try
             {
-                await _eventService.UpdateDraftAsync(model, cancellationToken);
+                await using var content = cover?.OpenReadStream();
+                await _eventService.UpdateDraftWithCoverAsync(model, content, Path.GetExtension(cover?.FileName), removeCover, cancellationToken);
                 TempData["SuccessMessage"] = "Event updated.";
                 if (IsRecordDialog) return Json(new { saved = true });
                 return RedirectToRoute(EventIndexRoute);
@@ -256,8 +281,33 @@ namespace ASI.Basecode.WebApp.Controllers
             catch (DomainException ex)
             {
                 ToManila(model);
+                ViewData["CoverReselect"] = cover != null;
+                RestorePublishedFields(model, current);
                 return await HandleAsync(ex, model, cancellationToken);
             }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                ToManila(model);
+                ViewData["CoverReselect"] = cover != null;
+                RestorePublishedFields(model, current);
+                ModelState.AddModelError("cover", ex is InvalidDataException ? ex.Message : "The save could not be confirmed. Check the event before trying again.");
+                return Editor(await WithOptionsAsync(model, cancellationToken));
+            }
+        }
+
+        private void RestorePublishedFields(EventViewModel model, EventViewModel current)
+        {
+            model.HasCover = current.HasCover;
+            model.CoverVersion = current.CoverVersion;
+            ModelState.Remove(nameof(model.CoverVersion));
+            if (current.EventStatusId != EventStatusCode.Published) return;
+            model.TypeId = current.TypeId;
+            model.VenueId = current.VenueId;
+            model.StartsAt = ManilaTimeFormatter.ToLocal(current.StartsAt);
+            model.RegistrationDeadline = ManilaTimeFormatter.ToLocal(current.RegistrationDeadline);
+            model.ParticipantLimit = current.ParticipantLimit;
+            foreach (var field in new[] { nameof(model.TypeId), nameof(model.VenueId), nameof(model.StartsAt), nameof(model.RegistrationDeadline), nameof(model.ParticipantLimit) })
+                ModelState.Remove(field);
         }
 
         [HttpPost]
@@ -414,18 +464,8 @@ namespace ASI.Basecode.WebApp.Controllers
 
         private async Task<IActionResult> HandleAsync(DomainException exception, EventViewModel model, CancellationToken cancellationToken)
         {
-            if (IsRecordDialog)
-            {
-                ModelState.AddModelError(exception.Field ?? string.Empty, exception.Message);
-                return Editor(await WithOptionsAsync(model, cancellationToken));
-            }
-
-            if (exception.Field == null)
-            {
-                return HandleDomainException(exception, model, nameof(Index));
-            }
-
-            return HandleDomainException(exception, await WithOptionsAsync(model, cancellationToken));
+            ModelState.AddModelError(exception.Field ?? string.Empty, exception.Message);
+            return Editor(await WithOptionsAsync(model, cancellationToken));
         }
 
         // Form controls post Asia/Manila wall-clock values; SQL stores UTC.

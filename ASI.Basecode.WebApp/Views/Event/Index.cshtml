@@ -80,7 +80,10 @@
                                         <button type="submit" class="button">@(eventItem.IsCheckInOpen ? "Close check-in" : "Open check-in")</button>
                                     </form>
                                 }
-                                <a asp-action="Cover" asp-route-id="@eventItem.EventId">Cover</a>
+                                @if (eventItem.EventStatusId is not (EventStatusCode.Draft or EventStatusCode.Published))
+                                {
+                                    <a asp-action="Cover" asp-route-id="@eventItem.EventId">View cover</a>
+                                }
                                 @if (eventItem.EventStatusId is EventStatusCode.Draft or EventStatusCode.Published)
                                 {
                                     <a asp-action="Details" asp-route-id="@eventItem.EventId">View dossier</a>

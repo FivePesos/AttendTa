@@ -2,7 +2,7 @@
 @{
     var editing = Model.EventId > 0;
 }
-<form asp-action="@(editing ? "Edit" : "Create")" method="post" data-record-form>
+<form asp-action="@(editing ? "Edit" : "Create")" method="post" enctype="multipart/form-data" data-record-form>
     <div asp-validation-summary="All" class="field-error" tabindex="-1" data-record-errors></div>
     @if (editing)
     {

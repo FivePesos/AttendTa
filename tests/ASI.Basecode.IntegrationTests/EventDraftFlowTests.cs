@@ -22,6 +22,57 @@ using Xunit;
 
 namespace ASI.Basecode.IntegrationTests;
 
+public sealed class EventCombinedDraftFlowTests(SqlServerDatabaseFixture fixture) : IClassFixture<SqlServerDatabaseFixture>
+{
+    [Fact]
+    public async Task CreateWithCoverIsAtomicAndInvalidImageRetainsForm()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var suffix = Guid.NewGuid().ToString("N");
+        var email = $"event-combined-{suffix}@attendta.test";
+        var password = Convert.ToHexString(RandomNumberGenerator.GetBytes(32)) + "aA1!";
+        var actor = await EventDraftTestSupport.SeedUsersAsync(fixture.ConnectionString, email, $"member-{suffix}@attendta.test", password, ct);
+        var (typeId, venueId) = await EventDraftTestSupport.SeedActiveReferencesAsync(fixture.ConnectionString, actor, 40, ct);
+        await using var factory = new AttendTaWebApplicationFactory(fixture.ConnectionString);
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
+        await EventDraftTestSupport.SignInAsync(client, email, password, ct);
+        var token = await EventDraftTestSupport.AntiforgeryTokenAsync(client, "/Event/Create", ct);
+        MultipartFormDataContent FormWithCover(byte[] bytes)
+        {
+            var content = new MultipartFormDataContent();
+            foreach (var (key, value) in new Dictionary<string, string>
+            {
+                ["Title"] = "Combined cover event", ["TypeId"] = typeId.ToString(CultureInfo.InvariantCulture),
+                ["VenueId"] = venueId.ToString(CultureInfo.InvariantCulture), ["StartsAt"] = "2026-12-10T09:00",
+                ["RegistrationDeadline"] = "2026-12-09T17:30", ["ParticipantLimit"] = "20", ["__RequestVerificationToken"] = token
+            }) content.Add(new StringContent(value), key);
+            content.Add(new ByteArrayContent(bytes), "cover", "cover.jpg");
+            return content;
+        }
+        using (var invalid = FormWithCover([1, 2, 3]))
+        {
+            var response = await client.PostAsync("/Event/Create", invalid, ct);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var html = await response.Content.ReadAsStringAsync(ct);
+            Assert.Contains("Combined cover event", html, StringComparison.Ordinal);
+            Assert.Contains("Choose the image again", html, StringComparison.Ordinal);
+            await using var context = EventDraftTestSupport.Context(fixture.ConnectionString);
+            Assert.False(await context.Events.AnyAsync(e => e.Title == "Combined cover event", ct));
+        }
+        using (var valid = FormWithCover([0xff, 0xd8, 0xff, 0xe0, 0, 0, 0, 0]))
+        {
+            var response = await client.PostAsync("/Event/Create", valid, ct);
+            Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+            await using var context = EventDraftTestSupport.Context(fixture.ConnectionString);
+            var created = await context.Events.AsNoTracking().SingleAsync(e => e.Title == "Combined cover event", ct);
+            Assert.StartsWith("uploads/events/", created.ImagePath, StringComparison.Ordinal);
+            Assert.Equal(EventStatusCode.Draft, created.EventStatusId);
+            Assert.Equal(1, await context.ActivityLogs.CountAsync(a => a.EntityId == created.EventId && a.EntityType == "events", ct));
+        }
+    }
+
+}
+
 public sealed class EventDraftFlowTests(SqlServerDatabaseFixture fixture) : IClassFixture<SqlServerDatabaseFixture>
 {
     [Fact]

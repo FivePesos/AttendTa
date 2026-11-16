@@ -37,6 +37,34 @@
         </div>
     </div>
 </fieldset>
+<fieldset>
+    <legend>Cover image</legend>
+    @if (Model.EventId > 0) { <input type="hidden" asp-for="CoverVersion" /> }
+    <div class="record-form-grid">
+        @if (Model.HasCover)
+        {
+            <div class="field">
+                <p class="field-label">Current cover</p>
+                <img src="@Url.Action("Image", "EventCover", new { id = Model.EventId })" alt="Current event cover" width="260" height="146" class="venue-photo" />
+            </div>
+        }
+        <div class="field @(Model.HasCover ? null : "field-span-2")">
+            <label for="cover" class="field-label">@(Model.HasCover ? "Replace cover image" : "Event cover image")</label>
+            <input id="cover" name="cover" type="file" accept="image/jpeg,image/png,.jpg,.jpeg,.png" class="field-control" aria-describedby="cover-help cover-validation@(ViewData["CoverReselect"] is true ? " cover-reselect" : "")" />
+            <small id="cover-help" class="muted">Optional for drafts. JPEG or PNG, up to 2 MiB. A cover is required to publish.</small>
+            @if (ViewData["CoverReselect"] is true)
+            {
+                <small id="cover-reselect" class="field-hint">Choose the image again; the previous selection was not retained.</small>
+            }
+            @Html.ValidationMessage("cover", null, new { id = "cover-validation", @class = "field-error" })
+            <div data-record-preview data-record-preview-alt="Preview of selected event cover" hidden></div>
+            @if (Model.HasCover && Model.EventStatusId == EventStatusCode.Draft)
+            {
+                <label><input type="checkbox" name="removeCover" value="true" /> Remove current cover</label>
+            }
+        </div>
+    </div>
+</fieldset>
 @if (Model.EventStatusId == EventStatusCode.Published)
 {
     <div class="record-summary" role="group" aria-label="Locked event details">

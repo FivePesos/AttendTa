@@ -12,6 +12,9 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -90,6 +93,8 @@ namespace ASI.Basecode.Services.Services
             var eventItem = await _events.GetEventAsync(id, cancellationToken);
             if (eventItem == null) return null;
             var model = _mapper.Map<EventViewModel>(eventItem);
+            model.HasCover = IsEventCover(eventItem.ImagePath);
+            model.CoverVersion = CoverVersion(eventItem.ImagePath);
             model.TypeName = _eventTypes.GetEventType(eventItem.TypeId)?.TypeName;
             model.VenueName = _venues.GetVenue(eventItem.VenueId)?.RoomName;
             return model;
@@ -115,6 +120,9 @@ namespace ASI.Basecode.Services.Services
         }
 
         public async Task<int> CreateDraftAsync(EventViewModel model, CancellationToken cancellationToken = default)
+            => await CreateDraftWithCoverAsync(model, null, null, cancellationToken);
+
+        public async Task<int> CreateDraftWithCoverAsync(EventViewModel model, Stream image, string extension, CancellationToken cancellationToken = default)
         {
             ArgumentNullException.ThrowIfNull(model);
             var actorUserId = RequireManagementActor();
@@ -122,6 +130,11 @@ namespace ASI.Basecode.Services.Services
             ValidateTimes(model);
             ValidateLimit(model);
 
+            string newPath = null;
+            var mayHaveWritten = false;
+            try
+            {
+            if (image != null) newPath = await _files.SaveAsync(PrivateFileArea.EventImages, image, extension, cancellationToken);
             return await _unitOfWork.ExecuteInTransactionAsync(async ct =>
             {
                 var venue = await LockActiveReferencesAsync(model.TypeId, model.VenueId, ct);
@@ -130,6 +143,7 @@ namespace ASI.Basecode.Services.Services
                 var eventItem = new Event
                 {
                     Title = title,
+                    ImagePath = newPath,
                     Description = NormalizedDescription(model),
                     TypeId = model.TypeId,
                     VenueId = model.VenueId,
@@ -141,18 +155,46 @@ namespace ASI.Basecode.Services.Services
                     CreatedAt = _timeProvider.GetUtcNow().UtcDateTime
                 };
                 await _events.AddEventAsync(eventItem, ct);
+                mayHaveWritten = true;
                 await _unitOfWork.SaveChangesAsync(ct);
+                if (newPath != null)
+                {
+                    _audit.Append(new AuditEntry(AuditActions.EventUpdated, "events", eventItem.EventId,
+                        OldValues: CoverAuditValues(null), NewValues: CoverAuditValues(newPath)));
+                    await _unitOfWork.SaveChangesAsync(ct);
+                }
                 return eventItem.EventId;
             }, cancellationToken);
+            }
+            catch
+            {
+                // Once a write is attempted, a failed commit/rollback can have an uncertain outcome.
+                if (!mayHaveWritten) DeleteBestEffort(newPath);
+                throw;
+            }
         }
 
         public async Task UpdateDraftAsync(EventViewModel model, CancellationToken cancellationToken = default)
+            => await UpdateDraftWithCoverAsync(model, null, null, false, cancellationToken);
+
+        public async Task UpdateDraftWithCoverAsync(EventViewModel model, Stream image, string extension, bool removeCover, CancellationToken cancellationToken = default)
         {
             ArgumentNullException.ThrowIfNull(model);
             var actorUserId = RequireManagementActor();
             var title = RequiredTitle(model);
             ValidateTimes(model);
             ValidateLimit(model);
+
+            if (image != null && removeCover)
+                throw new DomainException(OutcomeCode.Invalid, "Choose a replacement or remove the cover, not both.", "cover");
+
+            string newPath = null, oldPath = null;
+            var mayHaveWritten = false;
+            // An ambient transaction can roll back after this method returns; retain its files.
+            var ambientTransaction = (image != null || removeCover) && _unitOfWork.Database?.Database.CurrentTransaction != null;
+            try
+            {
+            if (image != null) newPath = await _files.SaveAsync(PrivateFileArea.EventImages, image, extension, cancellationToken);
 
             await _unitOfWork.ExecuteInTransactionAsync(async ct =>
             {
@@ -187,6 +229,13 @@ namespace ASI.Basecode.Services.Services
                     throw new DomainException(OutcomeCode.Invalid, "Only draft or published events can be edited.");
                 }
 
+                if (removeCover && eventItem.EventStatusId != EventStatusCode.Draft)
+                    throw new DomainException(OutcomeCode.Invalid, "Only draft event covers can be removed.", "cover");
+                if (removeCover && !IsEventCover(eventItem.ImagePath))
+                    throw new DomainException(OutcomeCode.Invalid, "This draft does not have a removable cover.", "cover");
+                if ((newPath != null || removeCover) && model.CoverVersion != CoverVersion(eventItem.ImagePath))
+                    throw new DomainException(OutcomeCode.Stale, "The cover changed while you were editing. Review the current cover and try again.", "cover");
+
                 if (eventItem.EventStatusId == EventStatusCode.Published &&
                     (model.TypeId != eventItem.TypeId || model.VenueId != eventItem.VenueId ||
                      model.StartsAt != eventItem.StartsAt || model.RegistrationDeadline != eventItem.RegistrationDeadline ||
@@ -195,7 +244,13 @@ namespace ASI.Basecode.Services.Services
                     throw new DomainException(OutcomeCode.Invalid, "Published event schedule, type, venue and limit cannot be changed.");
                 }
 
-                var oldValues = Snapshot(eventItem);
+                var coverChanged = newPath != null || removeCover;
+                var oldValues = Snapshot(eventItem, coverChanged);
+                if (newPath != null || removeCover)
+                {
+                    oldPath = eventItem.ImagePath;
+                    eventItem.ImagePath = removeCover ? null : newPath;
+                }
                 eventItem.Title = title;
                 eventItem.Description = NormalizedDescription(model);
                 eventItem.TypeId = model.TypeId;
@@ -207,9 +262,17 @@ namespace ASI.Basecode.Services.Services
                 eventItem.UpdatedAt = _timeProvider.GetUtcNow().UtcDateTime;
                 await _events.UpdateEventAsync(eventItem, ct);
                 _audit.Append(new AuditEntry(AuditActions.EventUpdated, "events", eventItem.EventId,
-                    OldValues: oldValues, NewValues: Snapshot(eventItem)));
+                    OldValues: oldValues, NewValues: Snapshot(eventItem, coverChanged)));
+                mayHaveWritten = true;
                 await _unitOfWork.SaveChangesAsync(ct);
             }, cancellationToken);
+            }
+            catch
+            {
+                if (!mayHaveWritten) DeleteBestEffort(newPath);
+                throw;
+            }
+            if (!ambientTransaction && IsEventCover(oldPath) && oldPath != newPath) DeleteBestEffort(oldPath);
         }
 
         public async Task PublishAsync(int eventId, CancellationToken cancellationToken = default)
@@ -594,6 +657,8 @@ namespace ASI.Basecode.Services.Services
 
         private static EventCoverAuditValues CoverAuditValues(string path) => new(IsEventCover(path), true);
 
+        private static string CoverVersion(string path) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(path ?? string.Empty)));
+
         private static bool IsEventCover(string path)
         {
             if (string.IsNullOrWhiteSpace(path) || !path.StartsWith(EventCoverPrefix, StringComparison.Ordinal))
@@ -743,10 +808,12 @@ namespace ASI.Basecode.Services.Services
             DateTime StartsAt,
             DateTime RegistrationDeadline,
             int ParticipantLimit,
-            EventStatusCode Status) : IAuditValues;
+            EventStatusCode Status,
+            [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] bool? HasCover,
+            [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] bool? CoverChanged) : IAuditValues;
 
         // Names come from the read repositories so the audit records the old reference names too.
-        private EventAuditValues Snapshot(Event eventItem) =>
+        private EventAuditValues Snapshot(Event eventItem, bool coverChanged = false) =>
             new(eventItem.Title,
                 eventItem.Description,
                 eventItem.TypeId,
@@ -756,7 +823,9 @@ namespace ASI.Basecode.Services.Services
                 eventItem.StartsAt,
                 eventItem.RegistrationDeadline,
                 eventItem.ParticipantLimit,
-                eventItem.EventStatusId);
+                eventItem.EventStatusId,
+                coverChanged ? IsEventCover(eventItem.ImagePath) : null,
+                coverChanged ? true : null);
 
         private sealed record EventPublicationAuditValues(EventStatusCode Status, int? PublishedBy, DateTime? PublishedAt) : IAuditValues;
 

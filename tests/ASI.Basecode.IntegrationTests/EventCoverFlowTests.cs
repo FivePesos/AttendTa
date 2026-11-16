@@ -37,16 +37,19 @@ public sealed class EventCoverFlowTests(SqlServerDatabaseFixture fixture) : ICla
         await EventDraftTestSupport.SignInAsync(officerClient, officerEmail, password, ct);
 
         var eventList = await officerClient.GetStringAsync("/Event?pageSize=25", ct);
-        Assert.Contains($"href=\"/Event/Cover?id={draftId}\"", eventList, StringComparison.Ordinal);
-        Assert.Contains($"href=\"/Event/Cover?id={publishedId}\"", eventList, StringComparison.Ordinal);
+        Assert.Contains($"href=\"/Event/Edit?id={draftId}\"", eventList, StringComparison.Ordinal);
+        Assert.Contains($"href=\"/Event/Edit?id={publishedId}\"", eventList, StringComparison.Ordinal);
 
         var noAntiforgery = await UploadAsync(officerClient, draftId, "cover.jpg", JpegBytes(64, 0x45), null, ct);
         Assert.Equal(HttpStatusCode.BadRequest, noAntiforgery.StatusCode);
 
-        var draftPage = await officerClient.GetAsync($"/Event/Cover?id={draftId}", ct);
+        var oldCoverLink = await officerClient.GetAsync($"/Event/Cover?id={draftId}", ct);
+        Assert.Equal(HttpStatusCode.Redirect, oldCoverLink.StatusCode);
+        Assert.Equal($"/Event/Edit/{draftId}", oldCoverLink.Headers.Location?.ToString()?.Replace("?id=", "/"));
+        var draftPage = await officerClient.GetAsync($"/Event/Edit?id={draftId}", ct);
         Assert.Equal(HttpStatusCode.OK, draftPage.StatusCode);
         var draftToken = AntiforgeryToken(await draftPage.Content.ReadAsStringAsync(ct));
-        Assert.Contains("Upload cover", await draftPage.Content.ReadAsStringAsync(ct), StringComparison.Ordinal);
+        Assert.Contains("Event cover image", await draftPage.Content.ReadAsStringAsync(ct), StringComparison.Ordinal);
         var upload = await UploadAsync(officerClient, draftId, "draft.jpg", JpegBytes(96, 0x51), draftToken, ct);
         Assert.Equal(HttpStatusCode.Redirect, upload.StatusCode);
 
@@ -72,24 +75,24 @@ public sealed class EventCoverFlowTests(SqlServerDatabaseFixture fixture) : ICla
         Assert.Equal("no-cache", string.Join(", ", firstImage.Headers.Pragma.Select(value => value!.ToString())));
         Assert.Equal(JpegBytes(96, 0x51), await firstImage.Content.ReadAsByteArrayAsync(ct));
         Assert.Equal(HttpStatusCode.NotFound, (await officerClient.GetAsync($"/{firstDraftPath}", ct)).StatusCode);
-        var coverManagementPage = await officerClient.GetStringAsync($"/Event/Cover?id={draftId}", ct);
+        var coverManagementPage = await officerClient.GetStringAsync($"/Event/Edit?id={draftId}", ct);
         Assert.DoesNotContain(firstDraftPath, coverManagementPage, StringComparison.Ordinal);
 
         var managementPublishedCover = await officerClient.GetAsync($"/EventCover/Image?id={publishedId}", ct);
         Assert.Equal(HttpStatusCode.OK, managementPublishedCover.StatusCode);
         Assert.Equal(publishedInitial, await managementPublishedCover.Content.ReadAsByteArrayAsync(ct));
 
-        var invalidToken = await EventDraftTestSupport.AntiforgeryTokenAsync(officerClient, $"/Event/Cover?id={draftId}", ct);
+        var invalidToken = await EventDraftTestSupport.AntiforgeryTokenAsync(officerClient, $"/Event/Edit?id={draftId}", ct);
         var invalidUpload = await UploadAsync(officerClient, draftId, "invalid.png", JpegBytes(80, 0x61), invalidToken, ct);
         Assert.Equal(HttpStatusCode.OK, invalidUpload.StatusCode);
         Assert.Contains("does not match a supported image format", await invalidUpload.Content.ReadAsStringAsync(ct), StringComparison.Ordinal);
 
-        var oversizedToken = await EventDraftTestSupport.AntiforgeryTokenAsync(officerClient, $"/Event/Cover?id={draftId}", ct);
+        var oversizedToken = await EventDraftTestSupport.AntiforgeryTokenAsync(officerClient, $"/Event/Edit?id={draftId}", ct);
         var oversized = await UploadAsync(officerClient, draftId, "oversized.jpg", JpegBytes(2 * 1024 * 1024 + 1, 0x63), oversizedToken, ct);
         Assert.Equal(HttpStatusCode.OK, oversized.StatusCode);
         Assert.Contains("2 MiB or smaller", await oversized.Content.ReadAsStringAsync(ct), StringComparison.Ordinal);
 
-        var emptyToken = await EventDraftTestSupport.AntiforgeryTokenAsync(officerClient, $"/Event/Cover?id={draftId}", ct);
+        var emptyToken = await EventDraftTestSupport.AntiforgeryTokenAsync(officerClient, $"/Event/Edit?id={draftId}", ct);
         var empty = await UploadAsync(officerClient, draftId, "empty.jpg", [], emptyToken, ct);
         Assert.Equal(HttpStatusCode.OK, empty.StatusCode);
         Assert.Contains("does not match a supported image format", await empty.Content.ReadAsStringAsync(ct), StringComparison.Ordinal);
@@ -106,7 +109,7 @@ public sealed class EventCoverFlowTests(SqlServerDatabaseFixture fixture) : ICla
         await CreateFailingCoverUpdateTriggerAsync(fixture.ConnectionString, ct);
         try
         {
-            var failedReplacementToken = await EventDraftTestSupport.AntiforgeryTokenAsync(officerClient, $"/Event/Cover?id={draftId}", ct);
+            var failedReplacementToken = await EventDraftTestSupport.AntiforgeryTokenAsync(officerClient, $"/Event/Edit?id={draftId}", ct);
             var failedReplacement = await UploadAsync(officerClient, draftId, "rollback.jpg", JpegBytes(88, 0x69), failedReplacementToken, ct);
             Assert.Equal(HttpStatusCode.InternalServerError, failedReplacement.StatusCode);
             await using var context = EventDraftTestSupport.Context(fixture.ConnectionString);
@@ -121,7 +124,7 @@ public sealed class EventCoverFlowTests(SqlServerDatabaseFixture fixture) : ICla
             await DropFailingCoverUpdateTriggerAsync(fixture.ConnectionString, ct);
         }
 
-        var removeDraftToken = await EventDraftTestSupport.AntiforgeryTokenAsync(officerClient, $"/Event/Cover?id={draftId}", ct);
+        var removeDraftToken = await EventDraftTestSupport.AntiforgeryTokenAsync(officerClient, $"/Event/Edit?id={draftId}", ct);
         var removeDraft = await PostAsync(officerClient, "/Event/RemoveCover", draftId, removeDraftToken, ct);
         Assert.Equal(HttpStatusCode.Redirect, removeDraft.StatusCode);
         await using (var context = EventDraftTestSupport.Context(fixture.ConnectionString))
@@ -132,7 +135,7 @@ public sealed class EventCoverFlowTests(SqlServerDatabaseFixture fixture) : ICla
                 row => row.EntityType == "events" && row.EntityId == draftId && row.Action == AuditActions.EventUpdated, ct));
         }
 
-        var reuploadToken = await EventDraftTestSupport.AntiforgeryTokenAsync(officerClient, $"/Event/Cover?id={draftId}", ct);
+        var reuploadToken = await EventDraftTestSupport.AntiforgeryTokenAsync(officerClient, $"/Event/Edit?id={draftId}", ct);
         var reuploadedPng = PngBytes(72, 0x62);
         var reupload = await UploadAsync(officerClient, draftId, "reupload.png", reuploadedPng, reuploadToken, ct);
         Assert.Equal(HttpStatusCode.Redirect, reupload.StatusCode);
@@ -150,7 +153,7 @@ public sealed class EventCoverFlowTests(SqlServerDatabaseFixture fixture) : ICla
         Assert.Equal("image/png", reuploadedCover.Content.Headers.ContentType?.MediaType);
         Assert.Equal(reuploadedPng, await reuploadedCover.Content.ReadAsByteArrayAsync(ct));
 
-        var removePublishedToken = await EventDraftTestSupport.AntiforgeryTokenAsync(officerClient, $"/Event/Cover?id={publishedId}", ct);
+        var removePublishedToken = await EventDraftTestSupport.AntiforgeryTokenAsync(officerClient, $"/Event/Edit?id={publishedId}", ct);
         var removePublished = await PostAsync(officerClient, "/Event/RemoveCover", publishedId, removePublishedToken, ct);
         Assert.Equal(HttpStatusCode.OK, removePublished.StatusCode);
         Assert.Contains("Only draft event covers can be removed.", await removePublished.Content.ReadAsStringAsync(ct), StringComparison.Ordinal);
@@ -159,7 +162,7 @@ public sealed class EventCoverFlowTests(SqlServerDatabaseFixture fixture) : ICla
             Assert.Equal(publishedPath, (await context.Events.AsNoTracking().SingleAsync(item => item.EventId == publishedId, ct)).ImagePath);
         }
 
-        var publishedCoverToken = await EventDraftTestSupport.AntiforgeryTokenAsync(officerClient, $"/Event/Cover?id={publishedId}", ct);
+        var publishedCoverToken = await EventDraftTestSupport.AntiforgeryTokenAsync(officerClient, $"/Event/Edit?id={publishedId}", ct);
         var publishedReplacement = await UploadAsync(officerClient, publishedId, "published.png", PngBytes(80, 0x73), publishedCoverToken, ct);
         Assert.Equal(HttpStatusCode.Redirect, publishedReplacement.StatusCode);
         Assert.False(File.Exists(Resolve(factory.SetupRoot, publishedPath)));
