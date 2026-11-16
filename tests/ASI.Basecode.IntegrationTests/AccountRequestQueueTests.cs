@@ -185,7 +185,7 @@ public sealed class AccountRequestQueueTests : IClassFixture<SqlServerDatabaseFi
         await using var context = new AsiBasecodeDBContext(options);
         context.Users.Add(new User
         {
-            UserId = email,
+            Email = email,
             Name = "Account Request Queue Test",
             Password = hasher.Hash(Password),
             RoleId = role,

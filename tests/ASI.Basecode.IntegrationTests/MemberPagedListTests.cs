@@ -20,10 +20,10 @@ public sealed class MemberPagedListTests(SqlServerDatabaseFixture fixture) : ICl
         var password = $"Test#{Guid.NewGuid():N}a1";
         var hash = new Argon2PasswordHasher().Hash(password);
         var options = new DbContextOptionsBuilder<AsiBasecodeDBContext>().UseSqlServer(fixture.ConnectionString).Options;
-        var officer = new User { UserId = $"officer-{key}@attendta.test", Name = "Officer", Password = hash, RoleId = RoleCode.Officer, IsActive = true };
+        var officer = new User { Email = $"officer-{key}@attendta.test", Name = "Officer", Password = hash, RoleId = RoleCode.Officer, IsActive = true };
         var users = Enumerable.Range(1, 26).Select(i => new User
         {
-            UserId = $"page-{key}-{i}@attendta.test",
+            Email = $"page-{key}-{i}@attendta.test",
             Name = $"{key} Member {Math.Min(i, 25):D2}",
             Password = hash,
             RoleId = RoleCode.Member,
@@ -31,7 +31,7 @@ public sealed class MemberPagedListTests(SqlServerDatabaseFixture fixture) : ICl
         }).ToList();
         var otherUsers = Enumerable.Range(1, 25).Select(i => new User
         {
-            UserId = $"unrelated-{i}@attendta.test",
+            Email = $"unrelated-{i}@attendta.test",
             Name = $"Unrelated Member {i:D2}",
             Password = hash,
             RoleId = RoleCode.Member,
@@ -79,11 +79,11 @@ public sealed class MemberPagedListTests(SqlServerDatabaseFixture fixture) : ICl
         using var redirect = await anonymous.GetAsync("/Member", ct);
         Assert.Equal(HttpStatusCode.Redirect, redirect.StatusCode);
         Assert.Contains("/Account/Login", redirect.Headers.Location!.ToString(), StringComparison.Ordinal);
-        await SignInAsync(memberClient, users[0].UserId, password, ct);
+        await SignInAsync(memberClient, users[0].Email, password, ct);
         using var denied = await memberClient.GetAsync("/Member", ct);
         Assert.Equal(HttpStatusCode.Redirect, denied.StatusCode);
         Assert.Contains("/Account/AccessDenied", denied.Headers.Location!.ToString(), StringComparison.Ordinal);
-        await SignInAsync(officerClient, officer.UserId, password, ct);
+        await SignInAsync(officerClient, officer.Email, password, ct);
 
         var unfiltered = await officerClient.GetStringAsync("/Member", ct);
         Assert.Equal(ids[..5], MemberIds(unfiltered));

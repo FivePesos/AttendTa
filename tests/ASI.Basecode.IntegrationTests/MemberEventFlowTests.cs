@@ -1016,7 +1016,7 @@ internal static class MemberEventTestSupport
         await using var context = Context(connectionString);
         var user = new User
         {
-            UserId = email,
+            Email = email,
             Name = $"Member event {role}",
             Password = hasher.Hash(password),
             RoleId = role,

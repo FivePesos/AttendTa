@@ -210,7 +210,7 @@ public sealed class VenueToggleAuditTests : IClassFixture<SqlServerDatabaseFixtu
         await using var context = new AsiBasecodeDBContext(options);
         var user = new User
         {
-            UserId = email,
+            Email = email,
             Name = "Venue toggle audit test",
             Password = hasher.Hash(Password),
             RoleId = role,

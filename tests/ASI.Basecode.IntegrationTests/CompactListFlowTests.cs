@@ -21,10 +21,10 @@ public sealed class CompactListFlowTests(SqlServerDatabaseFixture fixture) : ICl
         var password = $"Test#{Guid.NewGuid():N}a1";
         var hash = new Argon2PasswordHasher().Hash(password);
         await using var db = new AsiBasecodeDBContext(new DbContextOptionsBuilder<AsiBasecodeDBContext>().UseSqlServer(fixture.ConnectionString).Options);
-        var officer = new User { UserId = "ui-officer@attendta.test", Name = "UI Review Officer", Password = hash, RoleId = RoleCode.Admin, IsActive = true };
+        var officer = new User { Email = "ui-officer@attendta.test", Name = "UI Review Officer", Password = hash, RoleId = RoleCode.Admin, IsActive = true };
         db.Users.Add(officer);
         await db.SaveChangesAsync(ct);
-        var users = Enumerable.Range(1, 8).Select(i => new User { UserId = $"ui-member-{i}@attendta.test", Name = $"Review Member {i:D2}", Password = hash, RoleId = RoleCode.Member, IsActive = true }).ToArray();
+        var users = Enumerable.Range(1, 8).Select(i => new User { Email = $"ui-member-{i}@attendta.test", Name = $"Review Member {i:D2}", Password = hash, RoleId = RoleCode.Member, IsActive = true }).ToArray();
         db.Users.AddRange(users);
         await db.SaveChangesAsync(ct);
         var members = users.Select((user, index) => new Member { UserId = user.Id, StudentNumber = $"UI-{index + 1:D4}", Course = index == 0 ? "BS Information Technology" : index < 6 ? "BSIT" : "BSCS", YearLevel = 2, Section = "A", MobileNumber = "09000000000", MembershipStatusId = MembershipStatusCode.Active, CreatedBy = officer.Id, CreatedAt = now }).ToArray();
@@ -56,7 +56,7 @@ public sealed class CompactListFlowTests(SqlServerDatabaseFixture fixture) : ICl
 
         await using var factory = new AttendTaWebApplicationFactory(fixture.ConnectionString);
         using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
-        await SignIn(client, officer.UserId, password, ct);
+        await SignIn(client, officer.Email, password, ct);
         var first = await client.GetStringAsync("/Member", ct);
         Assert.Equal(5, Regex.Matches(first, "data-member-id=").Count);
         Assert.Contains("Showing 1–5 of 8 members", first);
@@ -166,7 +166,7 @@ public sealed class CompactListFlowTests(SqlServerDatabaseFixture fixture) : ICl
         await VerifyTableDisclosureAsync(client, type.TypeId, shortType.TypeId, ct);
 
         using var memberClient = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
-        await SignIn(memberClient, users[0].UserId, password, ct);
+        await SignIn(memberClient, users[0].Email, password, ct);
         foreach (var action in new[] { "Registrations", "Attendance", "Certificates" })
         {
             var html = await memberClient.GetStringAsync($"/MyEvents/{action}", ct);

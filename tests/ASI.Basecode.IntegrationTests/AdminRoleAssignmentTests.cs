@@ -475,7 +475,7 @@ public sealed class AdminRoleAssignmentTests : IClassFixture<SqlServerDatabaseFi
         var email = $"{prefix}-{Guid.NewGuid():N}@attendta.test";
         var user = new User
         {
-            UserId = email,
+            Email = email,
             Name = $"Role {prefix}",
             Password = hasher.Hash(Password),
             RoleId = role,

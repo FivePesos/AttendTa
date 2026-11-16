@@ -27,7 +27,7 @@ public sealed class ParticipationReportRepositoryTests(SqlServerDatabaseFixture 
         await using var context = Context();
         var actor = new User
         {
-            UserId = $"report-actor-{suffix}@attendta.test",
+            Email = $"report-actor-{suffix}@attendta.test",
             Name = "Report Actor",
             Password = "test",
             RoleId = RoleCode.Officer,
@@ -168,7 +168,7 @@ public sealed class ParticipationReportRepositoryTests(SqlServerDatabaseFixture 
         await using var context = Context();
         var actor = new User
         {
-            UserId = $"report-page-actor-{suffix}@attendta.test",
+            Email = $"report-page-actor-{suffix}@attendta.test",
             Name = "Report Actor",
             Password = "test",
             RoleId = RoleCode.Officer,
@@ -303,7 +303,7 @@ public sealed class ParticipationReportRepositoryTests(SqlServerDatabaseFixture 
         await using var context = Context();
         var actor = new User
         {
-            UserId = $"report-mixed-actor-{suffix}@attendta.test",
+            Email = $"report-mixed-actor-{suffix}@attendta.test",
             Name = "Report Actor",
             Password = "test",
             RoleId = RoleCode.Officer,
@@ -444,7 +444,7 @@ public sealed class ParticipationReportRepositoryTests(SqlServerDatabaseFixture 
         await using var context = Context();
         var user = new User
         {
-            UserId = email,
+            Email = email,
             Name = name,
             Password = "test",
             RoleId = RoleCode.Member,

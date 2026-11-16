@@ -32,7 +32,7 @@ namespace ASI.Basecode.Data.Repositories
                        MemberId = member.MemberId,
                        UserId = member.UserId,
                        FullName = user.Name,
-                       Email = user.UserId,
+                       Email = user.Email,
                        StudentNumber = member.StudentNumber,
                        Course = member.Course,
                        YearLevel = member.YearLevel,

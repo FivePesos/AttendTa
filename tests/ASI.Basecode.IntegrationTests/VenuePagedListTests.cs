@@ -168,7 +168,7 @@ public sealed class VenuePagedListTests : IClassFixture<SqlServerDatabaseFixture
         await using var context = new AsiBasecodeDBContext(options);
         var user = new User
         {
-            UserId = email,
+            Email = email,
             Name = "Venue paged list test",
             Password = hasher.Hash(Password),
             RoleId = role,

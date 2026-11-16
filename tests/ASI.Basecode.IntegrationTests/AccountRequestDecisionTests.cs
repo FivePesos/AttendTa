@@ -63,7 +63,7 @@ public sealed class AccountRequestDecisionTests(SqlServerDatabaseFixture fixture
             Assert.Equal(actor.Id, request.ReviewedBy);
             Assert.NotNull(request.ReviewedAt);
             Assert.Equal(originalHash, user.Password);
-            Assert.Equal(applicantEmail, user.UserId);
+            Assert.Equal(applicantEmail, user.Email);
             Assert.Equal("Ana Reyes", user.Name);
             Assert.Equal(RoleCode.Member, user.RoleId);
             Assert.True(user.IsActive);
@@ -129,7 +129,7 @@ public sealed class AccountRequestDecisionTests(SqlServerDatabaseFixture fixture
         var request = await observer.AccountRequests.AsNoTracking().SingleAsync(item => item.RequestId == requestId, ct);
         Assert.Equal(AccountRequestStatusCode.Pending, request.AccountRequestStatusId);
         Assert.Null(request.CreatedUserId);
-        Assert.False(await observer.Users.AnyAsync(item => item.UserId == request.Email, ct));
+        Assert.False(await observer.Users.AnyAsync(item => item.Email == request.Email, ct));
         Assert.False(await observer.ActivityLogs.AnyAsync(item => item.EntityType == "account_requests" && item.EntityId == requestId, ct));
     }
 
@@ -155,7 +155,7 @@ public sealed class AccountRequestDecisionTests(SqlServerDatabaseFixture fixture
             Assert.Null(rejected.PasswordHash);
             Assert.Equal(actor.Id, rejected.ReviewedBy);
             Assert.Equal("Missing eligibility documents.", rejected.ReviewNotes);
-            Assert.False(await observer.Users.AnyAsync(item => item.UserId == email, ct));
+            Assert.False(await observer.Users.AnyAsync(item => item.Email == email, ct));
             Assert.False(await observer.Members.AnyAsync(item => item.StudentNumber == studentNumber, ct));
             var audit = await observer.ActivityLogs.AsNoTracking().SingleAsync(item => item.EntityType == "account_requests" && item.EntityId == requestId, ct);
             Assert.Equal(AuditActions.AccountRequestRejected, audit.Action);
@@ -219,8 +219,8 @@ public sealed class AccountRequestDecisionTests(SqlServerDatabaseFixture fixture
         Assert.Equal(AccountRequestStatusCode.Approved, request.AccountRequestStatusId);
         Assert.Null(request.PasswordHash);
         Assert.NotNull(request.CreatedUserId);
-        Assert.Equal(1, await observer.Users.CountAsync(item => item.UserId == email, ct));
-        var user = await observer.Users.AsNoTracking().SingleAsync(item => item.UserId == email, ct);
+        Assert.Equal(1, await observer.Users.CountAsync(item => item.Email == email, ct));
+        var user = await observer.Users.AsNoTracking().SingleAsync(item => item.Email == email, ct);
         Assert.Equal(request.CreatedUserId, user.Id);
         Assert.Equal(1, await observer.Members.CountAsync(item => item.UserId == user.Id && item.StudentNumber == studentNumber, ct));
         var audit = await observer.ActivityLogs.AsNoTracking()
@@ -244,7 +244,7 @@ public sealed class AccountRequestDecisionTests(SqlServerDatabaseFixture fixture
             await using var winnerContext = Context();
             winnerContext.Users.Add(new User
             {
-                UserId = candidate.UserId,
+                Email = candidate.Email,
                 Name = "Concurrent account",
                 Password = hasher.Hash("Concurrent#2026"),
                 RoleId = RoleCode.Member,
@@ -262,7 +262,7 @@ public sealed class AccountRequestDecisionTests(SqlServerDatabaseFixture fixture
         var request = await observer.AccountRequests.AsNoTracking().SingleAsync(item => item.RequestId == requestId, ct);
         Assert.Equal(AccountRequestStatusCode.Pending, request.AccountRequestStatusId);
         Assert.Equal(originalHash, request.PasswordHash);
-        Assert.Equal(1, await observer.Users.CountAsync(item => item.UserId == email, ct));
+        Assert.Equal(1, await observer.Users.CountAsync(item => item.Email == email, ct));
         Assert.False(await observer.Members.AnyAsync(item => item.StudentNumber == studentNumber, ct));
         Assert.False(await observer.ActivityLogs.AnyAsync(item => item.EntityType == "account_requests" && item.EntityId == requestId, ct));
     }
@@ -303,7 +303,7 @@ public sealed class AccountRequestDecisionTests(SqlServerDatabaseFixture fixture
         var request = await observer.AccountRequests.AsNoTracking().SingleAsync(item => item.RequestId == requestId, ct);
         Assert.Equal(AccountRequestStatusCode.Pending, request.AccountRequestStatusId);
         Assert.Equal(originalHash, request.PasswordHash);
-        Assert.False(await observer.Users.AnyAsync(item => item.UserId == email, ct));
+        Assert.False(await observer.Users.AnyAsync(item => item.Email == email, ct));
         Assert.Equal(1, await observer.Members.CountAsync(item => item.StudentNumber == studentNumber, ct));
         Assert.False(await observer.ActivityLogs.AnyAsync(item => item.EntityType == "account_requests" && item.EntityId == requestId, ct));
     }
@@ -568,7 +568,7 @@ public sealed class AccountRequestDecisionTests(SqlServerDatabaseFixture fixture
         Assert.Contains("This account request has already been decided.", html, StringComparison.Ordinal);
 
         await using var observer = Context();
-        Assert.Equal(1, await observer.Users.CountAsync(item => item.UserId == email, ct));
+        Assert.Equal(1, await observer.Users.CountAsync(item => item.Email == email, ct));
         Assert.Equal(1, await observer.Members.CountAsync(item => item.StudentNumber == studentNumber, ct));
         Assert.Equal(1, await observer.ActivityLogs.CountAsync(item => item.EntityType == "account_requests" && item.EntityId == requestId, ct));
     }
@@ -606,7 +606,7 @@ public sealed class AccountRequestDecisionTests(SqlServerDatabaseFixture fixture
         }
 
         await using var observer = Context();
-        Assert.Equal(2, await observer.Users.CountAsync(item => item.UserId == firstEmail || item.UserId == secondEmail, ct));
+        Assert.Equal(2, await observer.Users.CountAsync(item => item.Email == firstEmail || item.Email == secondEmail, ct));
         Assert.Equal(2, await observer.Members.CountAsync(item => item.StudentNumber == firstNumber || item.StudentNumber == secondNumber, ct));
         Assert.Equal(2, await observer.ActivityLogs.CountAsync(item => item.EntityType == "account_requests" && (item.EntityId == first.RequestId || item.EntityId == second.RequestId), ct));
     }
@@ -794,7 +794,7 @@ public sealed class AccountRequestDecisionTests(SqlServerDatabaseFixture fixture
         var email = UniqueEmail(prefix);
         var user = new User
         {
-            UserId = email,
+            Email = email,
             Name = "Management Actor",
             Password = hasher.Hash(password),
             RoleId = role,
