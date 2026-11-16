@@ -494,6 +494,14 @@ public sealed class MemberEventRegistrationFlowTests(SqlServerDatabaseFixture fi
             MemberEventTestSupport.Form(new() { ["__RequestVerificationToken"] = token }), ct);
         Assert.Equal(HttpStatusCode.Redirect, submitted.StatusCode);
 
+        var history = await client.GetStringAsync("/MyEvents/Registrations", ct);
+        Assert.Contains($"Role event {role}", history, StringComparison.Ordinal);
+        Assert.DoesNotContain("A linked member profile is needed", history, StringComparison.Ordinal);
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/MyEvents/Attendance", ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/MyEvents/Certificates", ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/Passes", ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.Redirect, (await client.GetAsync("/Profile", ct)).StatusCode);
+
         await using var context = MemberEventTestSupport.Context(fixture.ConnectionString);
         Assert.Equal(1, await context.Registrations.CountAsync(row => row.EventId == eventItem.EventId, ct));
     }

@@ -8,7 +8,7 @@ web
 
 ## Users
 
-Officers and administrators are the primary operators: they review membership requests, maintain member/event-type/venue records, publish events, review registrations, run check-in, and read participation reports. Members are the other core audience: they request membership, browse events, register, hold passes, and view attendance and certificates. The demo prioritizes a complete officer flow with a member registration and attendance path.
+Officers and administrators are the primary operators: they review membership requests, maintain member/event-type/venue records, publish events, review registrations, run check-in, and read participation reports. Members are the other core audience: they request membership, browse events, register, hold passes, and view attendance and certificates. Officers and administrators with linked member profiles can also participate and access their own passes and history from the management shell. The demo prioritizes a complete officer flow with a member registration and attendance path.
 
 ## Product Purpose
 

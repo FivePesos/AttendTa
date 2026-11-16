@@ -32,8 +32,11 @@
     </div>
 </div>
 
-<partial name="_ListToolbar" model='@(new ListToolbarViewModel("Search event title"))' />
-<p class="muted" data-list-status role="status" data-list-busy-label="Loading records…"></p>
+@if (ViewData["MissingMemberProfile"] as bool? != true)
+{
+    <partial name="_ListToolbar" model='@(new ListToolbarViewModel("Search event title"))' />
+    <p class="muted" data-list-status role="status" data-list-busy-label="Loading records…"></p>
+}
 <div class="panel my-events-panel">
     <nav class="filter-tabs" aria-label="Participation history sections">
         @foreach (var tab in tabs)
@@ -44,6 +47,12 @@
         }
     </nav>
 
+    @if (ViewData["MissingMemberProfile"] as bool? == true)
+    {
+        <partial name="_MissingMemberProfile" />
+    }
+    else
+    {
     @switch (Model.ActiveTab)
     {
         case MyEventsTab.Attendance:
@@ -71,5 +80,6 @@
     {
         <partial name="_Pager" model="activePage" />
         <partial name="_ResultCount" model="activePage" />
+    }
     }
 </div>
