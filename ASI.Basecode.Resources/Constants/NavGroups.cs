@@ -18,6 +18,7 @@ namespace ASI.Basecode.Resources.Constants
 
         /// <summary>The member rail's record destinations.</summary>
         public const string Records = "Records";
+        public const string MyParticipation = "My participation";
 
         /// <summary>Personal account destinations.</summary>
         public const string Account = "Account";

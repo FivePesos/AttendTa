@@ -135,7 +135,7 @@ other screen.
 A 4px rhythm with 8/12/16/24/32 steps. Roster rows are 48px; compact rows 40px. Section gaps
 are 24px; in-section gaps 16px. Table cells use 14px horizontal padding.
 
-The rail groups destinations under micro labels (Overview, Manage, Operations) and marks the
+The rail groups destinations under micro labels (Overview, My participation, Manage, Operations) and marks the
 current one with a cobalt tint and cobalt text. The member rail uses its own vocabulary
 (Overview, Records, Account). Both the rail and the management breadcrumb read these names
 from `NavGroups` in `ASI.Basecode.Resources/Constants`, so a rename lands in one place.
@@ -234,12 +234,12 @@ button, or a card with no outline is not part of this system.
   Search has the same visible label/field structure as dropdowns, so its top spacing does not
   change when filters are present. Use the shared 16px block spacing; loading feedback follows tabs.
 - **Count and pager:** one full-width footer directly below the table shows the actual
-  range and filtered total, Auto size, page number, and visible disabled boundaries.
+  range and filtered total, page number, and visible disabled boundaries.
   Zero results show a count without a fabricated page. Auto-fit starts at five records,
-  measures rows/cards to use the available viewport (1–25 records), and holds that size while
+  shows five records below 768px and measures rows/cards from five to ten at larger widths, holding that size while
   paging until filters or viewport dimensions change. Never clip content to force a fit.
-  The event dossier keeps a five-row minimum because its summary precedes the table;
-  its count names the selected registration status. Small scrollbar-width changes do not refit.
+  Short screens scroll naturally rather than reducing the page size below five; the event dossier's
+  count names the selected registration status. Small scrollbar-width changes do not refit.
 - **Account role changes:** reuse the shared record editor dialog, including its field spacing,
   validation, loading/recovery states, unsaved-change protection, and focus restoration. Keep
   the full-page form available as a fallback; both paths use the same fields and audited command.

@@ -8,7 +8,7 @@ web
 
 ## Users
 
-Officers and administrators are the primary operators: they review membership requests, maintain member/event-type/venue records, publish events, review registrations, run check-in, and read participation reports. Members are the other core audience: they request membership, browse events, register, hold passes, and view attendance and certificates. The demo prioritizes a complete officer flow with a member registration and attendance path.
+Officers and administrators are the primary operators: they review membership requests, maintain member/event-type/venue records, publish events, review registrations, run check-in, and read participation reports. Members are the other core audience: they request membership, browse events, register, hold passes, and view attendance and certificates. Officers and administrators with linked member profiles can also participate and access their own passes and history from the management shell. The demo prioritizes a complete officer flow with a member registration and attendance path.
 
 ## Product Purpose
 
@@ -37,7 +37,7 @@ Used by a University of Cebu student organization on a laptop at the door and on
   Venue details add photo, contact and availability notes. Classification descriptions expand
   inline only when clipped; short descriptions do not need a separate details action.
   The server applies search and page-specific filters before counting and paging. Auto-fit
-  starts at five records and adapts to available window space up to 25; narrow screens stack
+  uses five records per page on mobile and adapts between five and ten on larger screens; narrow screens stack
   labelled rows and retain natural page scrolling. One footer shows the real range, total
   and page boundaries. Fetched account/membership decisions and deactivation previews restore
   focus to the visible row-menu button; impact previews include the server-read target name and email.

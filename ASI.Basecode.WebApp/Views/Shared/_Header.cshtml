@@ -8,6 +8,7 @@
 
     var group = controller switch
     {
+        "MyEvents" or "MyCertificates" or "Passes" => NavGroups.MyParticipation,
         "Home" => NavGroups.Overview,
         "MemberEvents" => NavGroups.Overview,
         "Event" => NavGroups.Manage,
@@ -30,6 +31,8 @@
 
     var pageLabel = controller switch
     {
+        "MyEvents" or "MyCertificates" => NavDestinations.MyEvents,
+        "Passes" => NavDestinations.MyPasses,
         "Home" => NavDestinations.Home,
         "MemberEvents" => NavDestinations.BrowseEvents,
         "Event" => NavDestinations.Events,

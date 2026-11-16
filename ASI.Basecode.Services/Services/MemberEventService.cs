@@ -98,6 +98,7 @@ namespace ASI.Basecode.Services.Services
             model.IsStartCutoffPassed = StartCutoffPassed(row.StartsAt, now);
 
             var member = await _members.GetMemberByUserIdAsync(actorUserId, cancellationToken);
+            model.HasMemberProfile = member != null;
             var user = await _users.GetByIdAsync(actorUserId, cancellationToken);
             var eligible = user != null
                            && member != null

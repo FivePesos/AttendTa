@@ -13,6 +13,11 @@
         <a class="nav-key" asp-controller="MemberEvents" asp-action="Index" aria-current="@(controller == "MemberEvents" ? "page" : null)">@NavDestinations.BrowseEvents</a>
     </div>
     <div class="nav-group">
+        <p class="nav-group-label">@NavGroups.MyParticipation</p>
+        <a class="nav-key" asp-controller="MyEvents" asp-action="Index" aria-current="@(controller == "MyEvents" || controller == "MyCertificates" ? "page" : null)">@NavDestinations.MyEvents</a>
+        <a class="nav-key" asp-controller="Passes" asp-action="Index" aria-current="@(controller == "Passes" ? "page" : null)">@NavDestinations.MyPasses</a>
+    </div>
+    <div class="nav-group">
         <p class="nav-group-label">@NavGroups.Manage</p>
         <a class="nav-key" asp-controller="Event" asp-action="Index" aria-current="@(controller == "Event" ? "page" : null)">@NavDestinations.Events</a>
         <a class="nav-key" asp-controller="Member" asp-action="Index" aria-current="@(controller == "Member" ? "page" : null)">@NavDestinations.Members</a>

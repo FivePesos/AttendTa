@@ -41,7 +41,7 @@
     var filtered = ListPagingLabels.IsFiltered(Context.Request);
     <nav class="pager" aria-label="Pagination" data-paging-size="@Model.PageSize" data-paging-page="@Model.PageNumber" data-paging-mode="@pagingMode" data-paging-total="@Model.TotalCount" data-paging-fit="@(fitAllowed ? null : "off")">
         <p class="pagination-summary" aria-live="polite">Showing @Model.FirstItemNumber–@Model.LastItemNumber of @Model.TotalCount @(filtered ? "matching " : "")@noun</p>
-        <span class="paging-mode muted">@(fitAllowed ? "Auto · " : "")@Model.PageSize per page</span>
+        <span class="sr-only">@(fitAllowed ? "Auto · " : "")@Model.PageSize per page</span>
         <div class="pager-actions">
             @if (Model.HasPreviousPage)
             {

@@ -277,6 +277,17 @@ public sealed class CertificateLedgerFlowTests(SqlServerDatabaseFixture fixture)
         Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"/Certificates/Viewer/{registrationIds[0]}", ct)).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"/Certificates/Pdf/{registrationIds[0]}", ct)).StatusCode);
 
+        // Management ledger access must not carry over to another person's personal PDF.
+        foreach (var suffix in new[] { "", "?download=true" })
+        {
+            var foreignPersonal = await client.GetAsync($"/MyEvents/Certificates/{registrationIds[1]}/Pdf{suffix}", ct);
+            var unknownPersonal = await client.GetAsync($"/MyEvents/Certificates/2147483647/Pdf{suffix}", ct);
+            Assert.Equal(HttpStatusCode.NotFound, foreignPersonal.StatusCode);
+            Assert.Equal(unknownPersonal.StatusCode, foreignPersonal.StatusCode);
+            foreach (var response in new[] { foreignPersonal, unknownPersonal })
+                Assert.Contains("This certificate is unavailable or you do not have access to it.", await response.Content.ReadAsStringAsync(ct), StringComparison.Ordinal);
+        }
+
         // The member history was handed over to the real issued row and its retained file.
         using var ownerClient = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
         await MemberEventTestSupport.SignInAsync(ownerClient, memberEmails[1], password, ct);
@@ -312,6 +323,8 @@ public sealed class CertificateLedgerFlowTests(SqlServerDatabaseFixture fixture)
             await membership.SaveChangesAsync(ct);
         }
         Assert.Equal(HttpStatusCode.OK, (await ownerClient.GetAsync($"/Certificates/Pdf/{registrationIds[1]}", ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await ownerClient.GetAsync($"/MyEvents/Certificates/{registrationIds[1]}/Pdf", ct)).StatusCode);
+        Assert.Contains($"AT-2026-{registrationIds[1]:D6}", await ownerClient.GetStringAsync("/MyEvents/Certificates", ct), StringComparison.Ordinal);
 
         // A non-owner member and an unknown id receive the identical not-found: same status, same
         // message, and the same page once the id in the retry link is normalised.
