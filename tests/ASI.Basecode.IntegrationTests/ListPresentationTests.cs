@@ -34,6 +34,15 @@ public sealed class ListPresentationTests
     }
 
     [Fact]
+    public void FixedCheckInLookupRetainsRequestedPageSize()
+    {
+        var context = new DefaultHttpContext();
+        context.Request.RouteValues["controller"] = "CheckIn";
+        context.Request.QueryString = new("?pageSize=2&page=2");
+        Assert.Equal(2, ListReadOptionsFactory.From(context.Request).PageSize);
+    }
+
+    [Fact]
     public void ResetClearsSearchAndListFiltersButPreservesEventAndSection()
     {
         var context = new DefaultHttpContext();

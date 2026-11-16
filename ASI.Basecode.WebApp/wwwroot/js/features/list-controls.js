@@ -1,6 +1,10 @@
 (() => {
     'use strict';
     const searches = Array.from(document.querySelectorAll('[data-list-search]'));
+    const filterValues = form => Array.from(form.elements || [])
+        .filter(field => field.name && !['hidden', 'submit', 'button'].includes(field.type))
+        .map(field => [field.name, field.value, field.checked]);
+    const appliedFilters = new Map(searches.map(form => [form, JSON.stringify(filterValues(form))]));
     const disclosures = Array.from(document.querySelectorAll('[data-expandable-text]')).map(host => {
         const content = host.querySelector('[data-expandable-content]');
         const toggle = host.querySelector('[data-expandable-toggle]');
@@ -53,17 +57,23 @@
     // A POST re-render sits on a POST-only action, so a fit here would GET that action and 405.
     // The re-render already carries the reader's page size, so there is nothing to fit.
     if (!footer || footer.dataset.pagingMode === 'fixed' || footer.dataset.pagingFit === 'off') return;
-    let resized = false, timer;
+    let resized = false, retryPending = false, timer;
     let viewportWidth = window.innerWidth, viewportHeight = window.innerHeight;
     // Storage can be absent (tests, hardened browsers) or throw when blocked; the fit
     // still works without it, it just loses the cross-navigation memory.
-    function fittedAlready(key) {
-        try { return window.sessionStorage?.getItem(key) === '1'; } catch (error) { return false; }
+    function fittedAlready(key, size) {
+        try { return window.sessionStorage?.getItem(key) === String(size); } catch (error) { return false; }
     }
     function fitRows() {
-        if (document.querySelector('dialog[open]') || document.activeElement?.matches('input, select, textarea')) return;
-        if (document.querySelector('[data-expandable-toggle][aria-expanded="true"]')) return;
-        if (searches.some(form => form.querySelector('[name="search"]').value.trim() !== form.dataset.appliedSearch.trim())) return;
+        if (document.querySelector('dialog[open]') || document.activeElement?.matches('input, select, textarea') ||
+            document.querySelector('[data-bulk-row]:checked') ||
+            document.querySelector('[data-expandable-toggle][aria-expanded="true"]') ||
+            searches.some(form => form.querySelector('[name="search"]').value.trim() !== form.dataset.appliedSearch.trim() ||
+                JSON.stringify(filterValues(form)) !== appliedFilters.get(form))) {
+            retryPending = true;
+            return;
+        }
+        retryPending = false;
         const table = footer.parentElement.querySelector('.table-scroll table') || document.querySelector('.table-scroll table');
         const grid = table ? null : document.querySelector('[data-paging-grid]');
         if (!table && !grid) return;
@@ -75,38 +85,54 @@
         const columns = grid ? rows.filter(row => Math.abs(row.getBoundingClientRect().top - rows[0].getBoundingClientRect().top) < 2).length : 1;
         const gap = grid ? parseFloat(window.getComputedStyle(grid).rowGap) || 0 : 0;
         const available = window.innerHeight - top - footer.getBoundingClientRect().height - 32;
-        const minimum = footer.dataset.pagingMode === 'roster' ? 5 : 1;
+        const minimum = 5;
+        const maximum = window.innerWidth < 768 ? 5 : 10;
         const fitted = Math.max(1, Math.floor((available + gap) / (rowHeight + gap))) * columns;
         const total = Number(footer.dataset.pagingTotal) || 25;
-        const desired = Math.max(minimum, Math.min(25, total, fitted));
+        const desired = Math.max(minimum, Math.min(maximum, total, fitted));
         const url = new URL(window.location.href);
+        const withinBounds = size >= minimum && size <= maximum;
         // Hold the size while paging the same query. Refit after a filter change
         // or a real resize, rather than repeatedly navigating for different row text.
-        if (url.searchParams.get('fit') === '2' && !resized) return;
+        const fitMarker = window.innerWidth < 768 ? '3m' : '3d';
+        const marker = url.searchParams.get('fit');
+        if (marker === fitMarker && !resized && withinBounds) return;
         // One fit per result set and viewport height per session. `fit` is a query
         // parameter a user can strip, so the guard cannot depend on it alone: without
         // this, a stripped link or a mobile URL bar that changes the viewport height
         // reloads the page on every navigation.
-        const fitKey = `attendta-fit:${url.pathname}:${footer.dataset.pagingTotal}:${window.innerHeight}`;
-        if (fittedAlready(fitKey)) return;
+        const criteria = new URLSearchParams(url.search);
+        ['page', 'pageSize', 'fit'].forEach(key => criteria.delete(key));
+        criteria.sort();
+        const fitKey = `attendta-fit-v4:${url.pathname}:${criteria}:${footer.dataset.pagingTotal}:${maximum}:${window.innerHeight}`;
+        if (withinBounds && !resized && (!marker || marker === fitMarker) && fittedAlready(fitKey, size)) return;
         // There is nothing else to fetch when the whole result already fits.
-        if (total <= size && desired >= total) return;
+        if (withinBounds && total <= size && desired >= total) return;
         if (desired === size) return;
         const firstIndex = (Number(footer.dataset.pagingPage) - 1) * size;
         url.searchParams.set('pageSize', desired);
         url.searchParams.set('page', Math.floor(firstIndex / desired) + 1);
-        url.searchParams.set('fit', '2');
-        try { window.sessionStorage?.setItem(fitKey, '1'); } catch (error) { /* storage disabled: fall through to the fit param guard */ }
+        url.searchParams.set('fit', fitMarker);
+        try { window.sessionStorage?.setItem(fitKey, String(desired)); } catch (error) { /* storage disabled: fall through to the fit param guard */ }
         window.location.replace(url.toString());
     }
     window.addEventListener('resize', () => {
         // Scrollbar appearance and small panel jitter must not restart the paging fit.
-        if (Math.abs(window.innerWidth - viewportWidth) < 32 && Math.abs(window.innerHeight - viewportHeight) < 32) return;
+        const crossedBreakpoint = (window.innerWidth < 768) !== (viewportWidth < 768);
+        if (!crossedBreakpoint && Math.abs(window.innerWidth - viewportWidth) < 32 && Math.abs(window.innerHeight - viewportHeight) < 32) return;
         viewportWidth = window.innerWidth;
         viewportHeight = window.innerHeight;
         resized = true;
         clearTimeout(timer);
         timer = setTimeout(fitRows, 400);
+    });
+    // Revisit a blocked fit only after the user leaves or closes the active control.
+    const retryFit = () => { if (retryPending) setTimeout(fitRows, 0); };
+    document.addEventListener('focusout', retryFit);
+    document.addEventListener('close', retryFit, true);
+    document.addEventListener('change', retryFit);
+    document.addEventListener('click', event => {
+        if (event.target.closest('[data-expandable-toggle], [data-bulk-clear]')) retryFit();
     });
     if (document.fonts) document.fonts.ready.then(fitRows);
     else fitRows();

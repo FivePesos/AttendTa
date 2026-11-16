@@ -25,7 +25,8 @@ public static class ListReadOptionsFactory
         var query = request.Query;
         var surface = request.RouteValues["controller"]?.ToString() ?? request.Path.Value?.Trim('/').Split('/')[0];
         var action = request.RouteValues["action"]?.ToString();
-        var dossier = surface == "Event" && action == "Details";
+        var dossier = string.Equals(surface, "Event", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(action, "Details", StringComparison.OrdinalIgnoreCase);
         var filter = Text("filter");
         if (surface == "MemberEvents") filter = string.Equals(filter, "Completed", StringComparison.OrdinalIgnoreCase) ? "Completed" : "Published";
         if (surface is "MyEvents" or "Reports" || surface == "CertificateLedger" && (Text("tab") == "issued" || filter == "Issued")) filter = null;
