@@ -36,6 +36,14 @@ public sealed class EventCoverFlowTests(SqlServerDatabaseFixture fixture) : ICla
         using var officerClient = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
         await EventDraftTestSupport.SignInAsync(officerClient, officerEmail, password, ct);
 
+        async Task AssertEditorError(HttpResponseMessage response, int id, string message)
+        {
+            Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+            Assert.Equal($"/Event/Edit/{id}", response.Headers.Location?.ToString()?.Replace("?id=", "/"));
+            var page = await officerClient.GetStringAsync(response.Headers.Location, ct);
+            Assert.Contains(message, page, StringComparison.Ordinal);
+        }
+
         var eventList = await officerClient.GetStringAsync("/Event?pageSize=25", ct);
         Assert.Contains($"href=\"/Event/Edit?id={draftId}\"", eventList, StringComparison.Ordinal);
         Assert.Contains($"href=\"/Event/Edit?id={publishedId}\"", eventList, StringComparison.Ordinal);
@@ -84,18 +92,15 @@ public sealed class EventCoverFlowTests(SqlServerDatabaseFixture fixture) : ICla
 
         var invalidToken = await EventDraftTestSupport.AntiforgeryTokenAsync(officerClient, $"/Event/Edit?id={draftId}", ct);
         var invalidUpload = await UploadAsync(officerClient, draftId, "invalid.png", JpegBytes(80, 0x61), invalidToken, ct);
-        Assert.Equal(HttpStatusCode.OK, invalidUpload.StatusCode);
-        Assert.Contains("does not match a supported image format", await invalidUpload.Content.ReadAsStringAsync(ct), StringComparison.Ordinal);
+        await AssertEditorError(invalidUpload, draftId, "does not match a supported image format");
 
         var oversizedToken = await EventDraftTestSupport.AntiforgeryTokenAsync(officerClient, $"/Event/Edit?id={draftId}", ct);
         var oversized = await UploadAsync(officerClient, draftId, "oversized.jpg", JpegBytes(2 * 1024 * 1024 + 1, 0x63), oversizedToken, ct);
-        Assert.Equal(HttpStatusCode.OK, oversized.StatusCode);
-        Assert.Contains("2 MiB or smaller", await oversized.Content.ReadAsStringAsync(ct), StringComparison.Ordinal);
+        await AssertEditorError(oversized, draftId, "2 MiB or smaller");
 
         var emptyToken = await EventDraftTestSupport.AntiforgeryTokenAsync(officerClient, $"/Event/Edit?id={draftId}", ct);
         var empty = await UploadAsync(officerClient, draftId, "empty.jpg", [], emptyToken, ct);
-        Assert.Equal(HttpStatusCode.OK, empty.StatusCode);
-        Assert.Contains("does not match a supported image format", await empty.Content.ReadAsStringAsync(ct), StringComparison.Ordinal);
+        await AssertEditorError(empty, draftId, "does not match a supported image format");
 
         await using (var context = EventDraftTestSupport.Context(fixture.ConnectionString))
         {
@@ -155,8 +160,7 @@ public sealed class EventCoverFlowTests(SqlServerDatabaseFixture fixture) : ICla
 
         var removePublishedToken = await EventDraftTestSupport.AntiforgeryTokenAsync(officerClient, $"/Event/Edit?id={publishedId}", ct);
         var removePublished = await PostAsync(officerClient, "/Event/RemoveCover", publishedId, removePublishedToken, ct);
-        Assert.Equal(HttpStatusCode.OK, removePublished.StatusCode);
-        Assert.Contains("Only draft event covers can be removed.", await removePublished.Content.ReadAsStringAsync(ct), StringComparison.Ordinal);
+        await AssertEditorError(removePublished, publishedId, "Only draft event covers can be removed.");
         await using (var context = EventDraftTestSupport.Context(fixture.ConnectionString))
         {
             Assert.Equal(publishedPath, (await context.Events.AsNoTracking().SingleAsync(item => item.EventId == publishedId, ct)).ImagePath);
@@ -203,9 +207,16 @@ public sealed class EventCoverFlowTests(SqlServerDatabaseFixture fixture) : ICla
         await EventDraftTestSupport.SignInAsync(client, email, password, ct);
         var token = await EventDraftTestSupport.AntiforgeryTokenAsync(client, $"/Event/Cover?id={id}", ct);
         var upload = await UploadAsync(client, id, "new.jpg", JpegBytes(64, 0x53), token, ct);
-        Assert.Equal(HttpStatusCode.OK, upload.StatusCode);
+        Assert.Equal(HttpStatusCode.Redirect, upload.StatusCode);
+        Assert.Contains("/Event/Cover", upload.Headers.Location?.ToString(), StringComparison.Ordinal);
+        var uploadErrorPage = await client.GetStringAsync(upload.Headers.Location, ct);
+        Assert.Contains("Event covers can only be changed", uploadErrorPage, StringComparison.Ordinal);
+        Assert.Contains("read-only", uploadErrorPage, StringComparison.Ordinal);
         var remove = await PostAsync(client, "/Event/RemoveCover", id, token, ct);
-        Assert.Equal(HttpStatusCode.OK, remove.StatusCode);
+        Assert.Equal(HttpStatusCode.Redirect, remove.StatusCode);
+        Assert.Contains("/Event/Cover", remove.Headers.Location?.ToString(), StringComparison.Ordinal);
+        var removeErrorPage = await client.GetStringAsync(remove.Headers.Location, ct);
+        Assert.Contains("Only draft event covers can be removed", removeErrorPage, StringComparison.Ordinal);
         await using var observer = EventDraftTestSupport.Context(fixture.ConnectionString);
         var row = await observer.Events.AsNoTracking().SingleAsync(item => item.EventId == id, ct);
         Assert.Equal(status, row.EventStatusId);

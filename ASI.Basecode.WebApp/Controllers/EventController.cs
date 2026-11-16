@@ -160,8 +160,7 @@ namespace ASI.Basecode.WebApp.Controllers
             }
             catch (InvalidDataException exception)
             {
-                ModelState.AddModelError("cover", exception.Message);
-                return await CoverViewAsync(id, cancellationToken);
+                return await RedirectCoverErrorAsync(id, exception.Message, cancellationToken);
             }
             catch (DomainException exception)
             {
@@ -450,16 +449,21 @@ namespace ASI.Basecode.WebApp.Controllers
                 return NotFound();
             }
 
-            if (exception.Field != null)
-            {
-                ModelState.AddModelError(exception.Field, exception.Message);
-            }
-            else
-            {
-                TempData["ErrorMessage"] = exception.Message;
-            }
+            return await RedirectCoverErrorAsync(id, exception.Message, cancellationToken);
+        }
 
-            return await CoverViewAsync(id, cancellationToken);
+        private async Task<IActionResult> RedirectCoverErrorAsync(int id, string message, CancellationToken cancellationToken)
+        {
+            try
+            {
+                var item = await _eventService.GetCoverManagementAsync(id, cancellationToken);
+                TempData["ErrorMessage"] = message;
+                return RedirectToAction(item.CanUpload ? nameof(Edit) : nameof(Cover), new { id });
+            }
+            catch (DomainException exception) when (exception.Outcome == OutcomeCode.NotFound)
+            {
+                return NotFound();
+            }
         }
 
         private async Task<IActionResult> HandleAsync(DomainException exception, EventViewModel model, CancellationToken cancellationToken)
