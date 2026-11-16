@@ -610,6 +610,16 @@ public sealed class RegistrationReviewTests(SqlServerDatabaseFixture fixture) : 
         Assert.DoesNotContain("data-paging-fit=\"off\"", queue, StringComparison.Ordinal);
 
         var token = await MemberEventTestSupport.AntiforgeryTokenAsync(client, sized, ct);
+        // Cookie validation must not capture stale options before POST normalization. Form page
+        // takes precedence over query page: old page 4 at size 2 maps to page 2 at size 5.
+        using var normalized = await client.PostAsync(
+            $"/RegistrationReview/ApproveSelected?eventId={setup.Event.EventId}&status=pending&pageSize=2&page=1",
+            new FormUrlEncodedContent(new Dictionary<string, string> { ["__RequestVerificationToken"] = token, ["page"] = "4" }), ct);
+        Assert.Equal(HttpStatusCode.OK, normalized.StatusCode);
+        var normalizedHtml = System.Net.WebUtility.HtmlDecode(await normalized.Content.ReadAsStringAsync(ct));
+        Assert.Contains("data-paging-size=\"5\"", normalizedHtml, StringComparison.Ordinal);
+        Assert.Contains("Showing 6–10 of 26 matching registrations", normalizedHtml, StringComparison.Ordinal);
+
         using var response = await client.PostAsync(
             "/RegistrationReview/ApproveSelected?status=pending&pageSize=12",
             BulkForm(new[] { ids[0] }, token, "pending"),

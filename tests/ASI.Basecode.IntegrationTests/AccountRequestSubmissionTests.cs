@@ -422,7 +422,9 @@ public class AccountRequestSubmissionTests : IClassFixture<SqlServerDatabaseFixt
     {
         var input = Regex.Match(html, $"<(?:input|select|textarea)\\b[^>]*\\bname=\"{field}\"[^>]*>", RegexOptions.IgnoreCase);
         Assert.True(input.Success, $"No control for {field}.");
-        Assert.Contains($"aria-describedby=\"{field}-validation\"", input.Value, StringComparison.Ordinal);
+        var describedBy = Regex.Match(input.Value, "aria-describedby=\"([^\"]*)\"");
+        Assert.True(describedBy.Success);
+        Assert.Contains($"{field}-validation", describedBy.Groups[1].Value.Split(' ', StringSplitOptions.RemoveEmptyEntries));
         var error = Regex.Match(html, $"<span[^>]*id=\"{field}-validation\"[^>]*>(.*?)</span>", RegexOptions.Singleline | RegexOptions.IgnoreCase);
         Assert.True(error.Success, $"No error container for {field}.");
         Assert.False(string.IsNullOrWhiteSpace(Regex.Replace(error.Groups[1].Value, "<[^>]+>", "")), $"No server error for {field}.");

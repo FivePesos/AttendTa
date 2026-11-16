@@ -14,6 +14,18 @@ namespace ASI.Basecode.Data.Repositories;
 
 public sealed class AccountRequestRepository(IUnitOfWork unitOfWork, ListReadOptions readOptions = null) : BaseRepository(unitOfWork), IAccountRequestRepository
 {
+    public Task<PendingRequestCredential> GetPendingCredentialAsync(string email, CancellationToken cancellationToken = default) =>
+        GetDbSet<AccountRequest>().AsNoTracking()
+            .Where(request => request.AccountRequestStatusId == AccountRequestStatusCode.Pending && request.Email == email)
+            .Select(request => new PendingRequestCredential(request.RequestId, request.PasswordHash))
+            .SingleOrDefaultAsync(cancellationToken);
+
+    public Task<bool> IsPendingCredentialAsync(int requestId, string passwordHash, CancellationToken cancellationToken = default) =>
+        GetDbSet<AccountRequest>().AsNoTracking().AnyAsync(request => request.RequestId == requestId
+            && request.AccountRequestStatusId == AccountRequestStatusCode.Pending
+            // The terminator also defeats SQL Server's trailing-space padding on equality.
+            && EF.Functions.Collate(request.PasswordHash + "|", "Latin1_General_100_BIN2") == passwordHash + "|", cancellationToken);
+
     public Task<int> CountByStatusAsync(AccountRequestStatusCode? status, string search, CancellationToken cancellationToken = default) =>
         FilterByStatus(status, search).CountAsync(cancellationToken);
 

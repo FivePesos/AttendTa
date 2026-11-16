@@ -3,13 +3,25 @@
 @using ASI.Basecode.Resources.Constants
 @{
     ViewData["Title"] = "Request membership";
-    ViewData["ShellWidth"] = "public-wide";
+    ViewData["ShellWidth"] = "public-wide public-auth";
+    ViewData["Feature"] = "password-visibility";
 }
-<section class="login-card">
+<div class="auth-layout auth-layout-request">
+<header class="auth-intro">
     <h1>Request membership</h1>
-    <p class="muted">Submit your details for an officer to review. You can sign in after your request is approved.</p>
+    <p>Submit your details for an officer to review. You can sign in after your request is approved.</p>
+    <div class="auth-intro-note">
+        <h2>Already have an account?</h2>
+        <p>Use your account email and password to continue.</p>
+        <a asp-controller="Account" asp-action="Login">Sign in</a>
+    </div>
+</header>
+<section class="login-card public-form" aria-labelledby="request-form-heading">
+    <div class="auth-form-heading"><h2 id="request-form-heading">Your membership request</h2><p>Complete your details below. Mobile number is optional.</p></div>
     <form method="post" asp-controller="AccountRequest" asp-action="Request">
         <div asp-validation-summary="ModelOnly" class="validation-summary" role="alert"></div>
+        <h3 class="public-form-section">Your details</h3>
+        <div class="auth-field-grid">
         <div class="field">
             <label asp-for="StudentNumber" class="field-label"></label>
             <input asp-for="StudentNumber" aria-describedby="StudentNumber-validation" class="field-control" autocomplete="off" inputmode="numeric" placeholder="e.g. 23807613" />
@@ -71,18 +83,23 @@
             <input asp-for="MobileNumber" aria-describedby="MobileNumber-validation" class="field-control" type="tel" autocomplete="tel" inputmode="numeric" placeholder="e.g. 09171234567" />
             <span id="MobileNumber-validation" asp-validation-for="MobileNumber" class="field-error"></span>
         </div>
+        </div>
+        <h3 class="public-form-section">Account security</h3>
+        <div class="auth-field-grid">
         <div class="field">
             <label asp-for="Password" class="field-label"></label>
-            <input asp-for="Password" aria-describedby="Password-validation" class="field-control" type="password" autocomplete="new-password" placeholder="Choose a password" />
+            <div class="password-control"><input asp-for="Password" aria-describedby="Password-help Password-validation" class="field-control" type="password" autocomplete="new-password" placeholder="Choose a password" /><partial name="_PasswordVisibilityToggle" model='@("Password")' /></div>
+            <small id="Password-help" class="public-form-help">Use 8–128 characters, including a letter and a digit.</small>
             <span id="Password-validation" asp-validation-for="Password" class="field-error"></span>
         </div>
         <div class="field">
             <label asp-for="ConfirmPassword" class="field-label"></label>
-            <input asp-for="ConfirmPassword" aria-describedby="ConfirmPassword-validation" class="field-control" type="password" autocomplete="new-password" placeholder="Re-enter your password" />
+            <div class="password-control"><input asp-for="ConfirmPassword" aria-describedby="ConfirmPassword-validation" class="field-control" type="password" autocomplete="new-password" placeholder="Re-enter your password" /><partial name="_PasswordVisibilityToggle" model='@("ConfirmPassword")' /></div>
             <span id="ConfirmPassword-validation" asp-validation-for="ConfirmPassword" class="field-error"></span>
+        </div>
         </div>
         <button class="button button-primary full-width" type="submit">Submit request</button>
     </form>
-    <p class="muted">Already have an account? <a asp-controller="Account" asp-action="Login">Sign in</a></p>
 </section>
+</div>
 @section Scripts { <partial name="_ValidationScriptsPartial" /> }

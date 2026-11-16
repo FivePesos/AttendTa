@@ -249,6 +249,78 @@ public class AuthenticationFlowTests : IClassFixture<SqlServerDatabaseFixture>, 
         Assert.Contains("Incorrect email or password.", await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken), StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData("/Member", "/Member")]
+    [InlineData("https://example.test/path", "/Home/Index")]
+    [InlineData("//example.test/path", "/Home/Index")]
+    public async Task ActiveAccountRedirectsOnlyToLocalReturnUrls(string returnUrl, string expected)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var token = await GetAntiforgeryTokenAsync("/Account/Login");
+        using var response = await client.PostAsync("/Account/Login", new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["Email"] = AdminEmail, ["Password"] = Password, ["ReturnUrl"] = returnUrl, ["__RequestVerificationToken"] = token
+        }), ct);
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Equal(expected, GetLocationPath(response));
+        Assert.Contains($"{CookieName}=", GetSetCookieHeader(response), StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("/Account/Login", "Password")]
+    [InlineData("/AccountRequest/Request", "Password")]
+    [InlineData("/AccountRequest/Request", "ConfirmPassword")]
+    public async Task PublicPasswordControlsAreMaskedAndTogglesHiddenWithoutScript(string path, string field)
+    {
+        var html = await client.GetStringAsync(path, TestContext.Current.CancellationToken);
+        Assert.Matches("<script\\b[^>]*src=\"/js/features/password-visibility\\.js(?:\\?[^\"]*)?\"[^>]*>", html);
+        var input = Regex.Match(html, $"<input\\b[^>]*\\bname=\"{field}\"[^>]*>", RegexOptions.IgnoreCase);
+        Assert.True(input.Success);
+        Assert.Matches("type=\"password\"", input.Value);
+        var button = Regex.Match(html, $"<button\\b[^>]*data-password-toggle=\"{field}\"[^>]*>", RegexOptions.IgnoreCase);
+        Assert.True(button.Success);
+        Assert.Matches("\\bhidden\\b", button.Value);
+        Assert.Contains("type=\"button\"", button.Value, StringComparison.Ordinal);
+        Assert.Contains($"aria-controls=\"{field}\"", button.Value, StringComparison.Ordinal);
+        Assert.Contains("aria-pressed=\"false\"", button.Value, StringComparison.Ordinal);
+        Assert.Contains(field == "ConfirmPassword" ? "aria-label=\"Show confirmation password\"" : "aria-label=\"Show password\"", button.Value, StringComparison.Ordinal);
+        var wrapper = Regex.Match(html, $"<div class=\"password-control\">.*?data-password-toggle=\"{field}\".*?</button>\\s*</div>", RegexOptions.Singleline | RegexOptions.IgnoreCase);
+        Assert.True(wrapper.Success);
+        Assert.Contains("<svg", wrapper.Value, StringComparison.Ordinal);
+        Assert.Contains("aria-hidden=\"true\"", wrapper.Value, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task PendingRequestRequiresItsPasswordAndNeverIssuesAnAuthCookie()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var options = new DbContextOptionsBuilder<AsiBasecodeDBContext>().UseSqlServer(fixture.ConnectionString).Options;
+        await using var db = new AsiBasecodeDBContext(options);
+        var email = $"pending-{Guid.NewGuid():N}@attendta.test";
+        var request = new AccountRequest { StudentNumber = Random.Shared.Next(10000000, 99999999).ToString(), FullName = "Pending Applicant", Email = email, PasswordHash = hasher.Hash(Password), Course = "BSIT", YearLevel = 1, Section = "A", AccountRequestStatusId = AccountRequestStatusCode.Pending, RequestedAt = DateTime.UtcNow };
+        db.AccountRequests.Add(request);
+        await db.SaveChangesAsync(ct);
+        var token = await GetAntiforgeryTokenAsync("/Account/Login");
+        using var correct = await client.PostAsync("/Account/Login", new FormUrlEncodedContent(new Dictionary<string, string> { ["Email"] = email, ["Password"] = Password, ["ReturnUrl"] = "/Member", ["__RequestVerificationToken"] = token }), ct);
+        Assert.Equal(HttpStatusCode.OK, correct.StatusCode);
+        Assert.Contains("Request awaiting approval", await correct.Content.ReadAsStringAsync(ct));
+        Assert.DoesNotContain($"{CookieName}=", GetSetCookieHeader(correct), StringComparison.Ordinal);
+        Assert.Equal(HttpStatusCode.Redirect, (await client.GetAsync("/Member", ct)).StatusCode);
+        using var wrong = await SignInAsync(email, "wrong-password");
+        Assert.Contains("Incorrect email or password.", await wrong.Content.ReadAsStringAsync(ct));
+        request.PasswordHash = "unusable-hash";
+        await db.SaveChangesAsync(ct);
+        using var unusable = await SignInAsync(email, Password);
+        Assert.Contains("Incorrect email or password.", await unusable.Content.ReadAsStringAsync(ct));
+        Assert.DoesNotContain($"{CookieName}=", GetSetCookieHeader(unusable), StringComparison.Ordinal);
+        request.AccountRequestStatusId = AccountRequestStatusCode.Rejected;
+        request.PasswordHash = null;
+        request.ReviewedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync(ct);
+        using var rejected = await SignInAsync(email, Password);
+        Assert.Contains("Incorrect email or password.", await rejected.Content.ReadAsStringAsync(ct));
+    }
+
     [Fact]
     public async Task UnknownEmailShowsTheSameGenericMessageAsAWrongPassword()
     {

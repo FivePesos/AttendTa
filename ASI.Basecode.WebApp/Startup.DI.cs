@@ -36,6 +36,8 @@ namespace ASI.Basecode.WebApp
 
             // Services
             this._services.AddSingleton<IPasswordHasher, Argon2PasswordHasher>();
+            // Cookie validation must not construct request-scoped list options before pagination normalization.
+            this._services.AddScoped<Func<IAccountRequestRepository>>(services => () => services.GetRequiredService<IAccountRequestRepository>());
             this._services.AddScoped<IAccountService, AccountService>();
             this._services.AddScoped<IAccountRequestQueueService, AccountRequestQueueService>();
             this._services.AddScoped<IActivityLogReaderService, ActivityLogReaderService>();
