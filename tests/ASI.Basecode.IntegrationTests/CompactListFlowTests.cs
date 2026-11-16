@@ -60,10 +60,21 @@ public sealed class CompactListFlowTests(SqlServerDatabaseFixture fixture) : ICl
         var first = await client.GetStringAsync("/Member", ct);
         Assert.Equal(5, Regex.Matches(first, "data-member-id=").Count);
         Assert.Contains("Showing 1–5 of 8 members", first);
-        var filtered = await client.GetStringAsync("/Member?search=Review&course=BSIT&year=2&pageSize=2&page=2", ct);
-        Assert.Equal(members.Skip(2).Take(2).Select(member => member.MemberId), Regex.Matches(filtered, "data-member-id=\"(\\d+)\"").Select(match => int.Parse(match.Groups[1].Value)));
-        Assert.Contains("Showing 3–4 of 6 matching members", filtered);
-        Assert.Contains("Page 2 of 3", filtered);
+        Assert.DoesNotContain("class=\"paging-mode", first);
+        Assert.Contains("class=\"sr-only\">Auto · 5 per page</span>", WebUtility.HtmlDecode(first));
+        Assert.Contains("Page 1 of 2", first);
+        Assert.Contains("aria-label=\"Next page\"", first);
+        Assert.Contains("rel=\"next\"", first);
+        using var legacy = await client.GetAsync("/Member?search=Review&course=BSIT&year=2&pageSize=2&page=4&fit=2", ct);
+        Assert.Equal(HttpStatusCode.Redirect, legacy.StatusCode);
+        var canonical = legacy.Headers.Location!.ToString();
+        Assert.Contains("pageSize=5", canonical);
+        Assert.Contains("page=2", canonical);
+        var filtered = await client.GetStringAsync(canonical, ct);
+        Assert.Equal(members.Skip(5).Take(1).Select(member => member.MemberId), Regex.Matches(filtered, "data-member-id=\"(\\d+)\"").Select(match => int.Parse(match.Groups[1].Value)));
+        Assert.Contains("Showing 6–6 of 6 matching members", filtered);
+        Assert.Contains("Page 2 of 2", filtered);
+        Assert.Contains("pageSize=5", WebUtility.HtmlDecode(filtered));
         Assert.Contains("course=BSIT", filtered);
         Assert.Contains("Show details", filtered);
         Assert.Contains("<dialog", filtered);
@@ -110,10 +121,24 @@ public sealed class CompactListFlowTests(SqlServerDatabaseFixture fixture) : ICl
         var filteredRegistrations = await client.GetStringAsync($"/RegistrationReview/Index?eventId={upcoming.EventId}&search=Review%20Member%2001", ct);
         Assert.Single(Regex.Matches(filteredRegistrations, "data-registration-id="));
         Assert.Contains("Showing 1–1 of 1 matching registration", filteredRegistrations);
-        var dossier = await client.GetStringAsync($"/Event/{upcoming.EventId}?pageSize=1&status=pending", ct);
+        using var legacyDossier = await client.GetAsync($"/Event/{upcoming.EventId}?pageSize=1&status=pending", ct);
+        Assert.Equal(HttpStatusCode.Redirect, legacyDossier.StatusCode);
+        var dossier = await client.GetStringAsync(legacyDossier.Headers.Location!.ToString(), ct);
         Assert.Equal(5, Regex.Matches(dossier, "data-registration-id=").Count);
         Assert.Contains("data-paging-mode=\"roster\"", dossier);
         Assert.Contains("pending registrations", dossier);
+        var token = Regex.Match(dossier, "__RequestVerificationToken[^>]*value=\"([^\"]+)\"").Groups[1].Value;
+        Assert.NotEmpty(token);
+        using var post = await client.PostAsync($"/Event/ApproveSelected?id={upcoming.EventId}&pageSize=2&page=4&status=pending", new FormUrlEncodedContent(new Dictionary<string, string> {
+            ["__RequestVerificationToken"] = token, ["page"] = "4"
+        }), ct);
+        Assert.Equal(HttpStatusCode.OK, post.StatusCode);
+        var postHtml = WebUtility.HtmlDecode(await post.Content.ReadAsStringAsync(ct));
+        Assert.Contains("Showing 6–8 of 8 matching pending registrations", postHtml);
+        Assert.Contains("pageSize=5", postHtml);
+        Assert.Contains("data-paging-fit=\"off\"", postHtml);
+        Assert.DoesNotContain("class=\"paging-mode", postHtml);
+        Assert.Contains("class=\"sr-only\">5 per page</span>", postHtml);
         var tallerDossier = await client.GetStringAsync($"/Event/{upcoming.EventId}?pageSize=8&status=pending", ct);
         Assert.Equal(8, Regex.Matches(tallerDossier, "data-registration-id=").Count);
         var resettable = await client.GetStringAsync($"/RegistrationReview/Index?eventId={upcoming.EventId}&search=Review&status=confirmed", ct);
@@ -170,7 +195,7 @@ public sealed class CompactListFlowTests(SqlServerDatabaseFixture fixture) : ICl
             await page.SetViewportSizeAsync(width, 900);
             foreach (var (name, route) in new[] { ("members", "/Member"), ("venues", "/Venue"), ("types", "/EventType") })
             {
-                await page.GotoAsync($"http://localhost{route}?fit=2");
+                await page.GotoAsync($"http://localhost{route}?fit={(width < 768 ? "3m" : "3d")}");
                 await page.EvaluateAsync("document.fonts.ready");
                 Assert.True(await page.EvaluateAsync<bool>("document.documentElement.scrollWidth <= window.innerWidth"), $"{name} overflow at {width}px");
                 if (name == "members")
@@ -217,6 +242,17 @@ public sealed class CompactListFlowTests(SqlServerDatabaseFixture fixture) : ICl
                 await page.ScreenshotAsync(new() { Path = Path.Combine(Path.GetTempPath(), $"attendta-table-{name}-{width}.png"), FullPage = true });
             }
         }
+        await page.SetViewportSizeAsync(390, 600);
+        await page.GotoAsync("http://localhost/Member?pageSize=12");
+        await page.WaitForURLAsync("**/Member?pageSize=5&page=1&fit=3m");
+        Assert.Equal(5, await page.Locator("[data-member-id]").CountAsync());
+        var lastRow = page.Locator("[data-member-id]").Last;
+        await lastRow.ScrollIntoViewIfNeededAsync();
+        Assert.True(await lastRow.IsVisibleAsync());
+        var pager = page.Locator("[data-paging-size]");
+        await pager.ScrollIntoViewIfNeededAsync();
+        Assert.True(await pager.IsVisibleAsync());
+        Assert.True(await pager.EvaluateAsync<bool>("el => { const r = el.getBoundingClientRect(); return r.bottom <= innerHeight && r.top >= 0; }"));
         Assert.Empty(errors);
     }
 

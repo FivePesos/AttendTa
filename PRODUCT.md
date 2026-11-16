@@ -37,7 +37,7 @@ Used by a University of Cebu student organization on a laptop at the door and on
   Venue details add photo, contact and availability notes. Classification descriptions expand
   inline only when clipped; short descriptions do not need a separate details action.
   The server applies search and page-specific filters before counting and paging. Auto-fit
-  starts at five records and adapts to available window space up to 25; narrow screens stack
+  uses five records per page on mobile and adapts between five and ten on larger screens; narrow screens stack
   labelled rows and retain natural page scrolling. One footer shows the real range, total
   and page boundaries. Fetched account/membership decisions and deactivation previews restore
   focus to the visible row-menu button; impact previews include the server-read target name and email.
