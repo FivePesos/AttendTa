@@ -15,16 +15,41 @@ namespace ASI.Basecode.Services.Services
     {
         private readonly IUserRepository _userRepository;
         private readonly IPasswordHasher _passwordHasher;
+        private readonly IAccountRequestRepository _requests;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="AccountService"/> class.
         /// </summary>
         /// <param name="userRepository">The user repository.</param>
         /// <param name="passwordHasher">The single password hasher.</param>
-        public AccountService(IUserRepository userRepository, IPasswordHasher passwordHasher)
+        public AccountService(IUserRepository userRepository, IPasswordHasher passwordHasher, IAccountRequestRepository requests)
         {
             _userRepository = userRepository ?? throw new ArgumentNullException(nameof(userRepository));
             _passwordHasher = passwordHasher ?? throw new ArgumentNullException(nameof(passwordHasher));
+            _requests = requests ?? throw new ArgumentNullException(nameof(requests));
+        }
+
+        public async Task<LoginOutcome> LoginAsync(string email, string password, CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(email) || string.IsNullOrEmpty(password))
+                return new(LoginStatus.Invalid);
+
+            var normalizedEmail = email.Trim();
+            var user = await _userRepository.GetByEmailAsync(normalizedEmail, cancellationToken);
+            if (user is not null)
+            {
+                var validPassword = _passwordHasher.Verify(password, user.Password);
+                if (!user.IsActive || !validPassword) return new(LoginStatus.Invalid);
+                var authenticated = await ToAuthenticatedUserAsync(user, cancellationToken);
+                return authenticated is null ? new(LoginStatus.Invalid) : new(LoginStatus.Authenticated, authenticated);
+            }
+
+            var request = await _requests.GetPendingCredentialAsync(normalizedEmail, cancellationToken);
+            var validRequestPassword = _passwordHasher.Verify(password, request?.PasswordHash);
+            if (request is null || !validRequestPassword
+                || !await _requests.IsPendingCredentialAsync(request.RequestId, request.PasswordHash, cancellationToken))
+                return new(LoginStatus.Invalid);
+            return new(LoginStatus.Pending);
         }
 
         /// <inheritdoc />

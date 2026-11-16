@@ -8,6 +8,8 @@ namespace ASI.Basecode.Data.Interfaces;
 
 public interface IAccountRequestRepository
 {
+    Task<PendingRequestCredential> GetPendingCredentialAsync(string email, CancellationToken cancellationToken = default);
+    Task<bool> IsPendingCredentialAsync(int requestId, string passwordHash, CancellationToken cancellationToken = default);
     Task<AccountRequest> LockAccountRequestAsync(int requestId, CancellationToken cancellationToken = default);
 
     /// <summary>Counts requests for one status, or every request when <paramref name="status"/> is null.</summary>

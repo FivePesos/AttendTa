@@ -30,6 +30,7 @@ Used by a University of Cebu student organization on a laptop at the door and on
   delivery plan is recorded in `docs/ui-ux-implementation-plan.md`.
 
 - Authentication by email and password with role-based access for administrator, officer, and member.
+- A membership applicant who signs in with a pending request's correct password sees that the request awaits approval, without receiving a session; all other failed sign-ins remain generic.
 - Membership requests are reviewed and approved or declined with a reason; decisions are audited.
 - Compact operational lists keep identity, status and decision facts visible; secondary
   contact information, full reasons and exact timestamps use shared Show details dialogs.

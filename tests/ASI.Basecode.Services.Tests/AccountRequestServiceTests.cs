@@ -823,6 +823,8 @@ public class AccountRequestServiceTests
 
     private sealed class FakeAccountRequestRepository : IAccountRequestRepository
     {
+        public Task<PendingRequestCredential> GetPendingCredentialAsync(string email, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<bool> IsPendingCredentialAsync(int requestId, string passwordHash, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public List<AccountRequest> Requests { get; } = new();
 
         public Task<int> CountByStatusAsync(AccountRequestStatusCode? status, string search, CancellationToken cancellationToken = default)
