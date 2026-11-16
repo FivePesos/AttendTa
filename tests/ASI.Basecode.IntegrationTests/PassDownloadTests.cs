@@ -21,15 +21,18 @@ public sealed class PassDownloadTests(SqlServerDatabaseFixture fixture) : IClass
 {
     private const string UnavailableBody = "This pass is unavailable.";
 
-    [Fact]
-    public async Task PassPngIsOwnerScopedAndEveryUnavailableRequestIsTheSameForbidden()
+    [Theory]
+    [InlineData(RoleCode.Member)]
+    [InlineData(RoleCode.Officer)]
+    [InlineData(RoleCode.Admin)]
+    public async Task PassPngIsOwnerScopedAndEveryUnavailableRequestIsTheSameForbidden(RoleCode role)
     {
         var ct = TestContext.Current.CancellationToken;
         var suffix = Guid.NewGuid().ToString("N");
 
         var memberEmail = $"passes-{suffix}@attendta.test";
         var password = MemberEventTestSupport.NewPassword();
-        var memberUser = await MemberEventTestSupport.SeedUserAsync(fixture.ConnectionString, memberEmail, password, RoleCode.Member, ct);
+        var memberUser = await MemberEventTestSupport.SeedUserAsync(fixture.ConnectionString, memberEmail, password, role, ct);
         var member = await MemberEventTestSupport.SeedMemberAsync(fixture.ConnectionString, memberUser.Id, MembershipStatusCode.Active, ct);
         var (typeId, venueId) = await MemberEventTestSupport.SeedReferencesAsync(fixture.ConnectionString, memberUser.Id, ct);
 

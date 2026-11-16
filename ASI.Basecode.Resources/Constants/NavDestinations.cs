@@ -16,5 +16,7 @@ namespace ASI.Basecode.Resources.Constants
         public const string RegistrationReview = "Registration review";
         public const string Certificates = "Certificates";
         public const string Reports = "Reports";
+        public const string MyEvents = "My Events";
+        public const string MyPasses = "My Passes";
     }
 }

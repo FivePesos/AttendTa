@@ -401,6 +401,8 @@ public class AuthenticationFlowTests : IClassFixture<SqlServerDatabaseFixture>, 
             var menu = Extract(html, "id=\"account-menu\"", "</div>");
             Assert.Contains("Sign out", menu, StringComparison.Ordinal);
             Assert.DoesNotContain("Profile", menu, StringComparison.Ordinal);
+            Assert.Contains("/MyEvents", rail, StringComparison.Ordinal);
+            Assert.Contains("/Passes", rail, StringComparison.Ordinal);
             Assert.Contains("/Member", html, StringComparison.Ordinal);
             Assert.Contains("/EventType", html, StringComparison.Ordinal);
             Assert.Contains("/Venue", html, StringComparison.Ordinal);
@@ -422,6 +424,28 @@ public class AuthenticationFlowTests : IClassFixture<SqlServerDatabaseFixture>, 
             Assert.DoesNotContain("/Venue", html, StringComparison.Ordinal);
             Assert.Contains("/Profile", html, StringComparison.Ordinal);
         }
+    }
+
+    [Theory]
+    [InlineData(AdminEmail)]
+    [InlineData(OfficerEmail)]
+    [InlineData(MissingProfileEmail)]
+    public async Task PersonalPagesExplainMissingProfileAndProtectUnknownResources(string email)
+    {
+        Assert.Equal(HttpStatusCode.Redirect, (await SignInAsync(email, Password)).StatusCode);
+        var ct = TestContext.Current.CancellationToken;
+        foreach (var path in new[] { "/Passes", "/MyEvents/Registrations", "/MyEvents/Attendance", "/MyEvents/Certificates" })
+        {
+            using var response = await client.GetAsync(path, ct);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var html = await response.Content.ReadAsStringAsync(ct);
+            Assert.Contains("A linked member profile is needed", html, StringComparison.Ordinal);
+            Assert.Contains("Contact an administrator", html, StringComparison.Ordinal);
+        }
+        foreach (var path in new[] { "/Passes/Qr/2147483647", "/Passes/Qr/2147483647?download=true" })
+            Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync(path, ct)).StatusCode);
+        foreach (var path in new[] { "/MyEvents/Certificates/2147483647/Pdf", "/MyEvents/Certificates/2147483647/Pdf?download=true" })
+            Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync(path, ct)).StatusCode);
     }
 
     [Fact]
