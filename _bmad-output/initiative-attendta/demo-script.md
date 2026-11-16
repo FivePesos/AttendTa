@@ -163,11 +163,11 @@ refusal.
 
 ## 4. Administrator beats
 
-Sign in as `maria.dizon@gmail.com`. The Home page shows the Administrator shortcut cards.
+Sign in as `maria.dizon@gmail.com`. The Home page shows Administrator destinations.
 
 | # | Beat | Route / action | Expected outcome | 390px check |
 |---|---|---|---|---|
-| A1 | Home | `/Home/Index` | "Welcome back, Maria Clara Dizon", the "Run the organization" and "Records and requests" cards, including Accounts and Activity log | Cards stack to one column; the mobile Menu opens every link |
+| A1 | Home | `/Home/Index` | "Welcome back, Maria Clara Dizon", Browse events, and the Manage records and Run operations sections, including Accounts and Activity log | Heading and link fit; the mobile Menu opens every link |
 | A2 | Account requests | `/AccountRequest` → Approve Camille Torres → Approve request | Queue shows 1 pending; the dialog names the applicant and the consequence; the notice says "Account request approved." | Dialog fits, reason/actions reachable |
 | A3 | Members | `/Member` → search Camille | Camille Torres, `UC-2026-0110`, Active, with a mobile number | Table scrolls inside its container |
 | A4 | Master data | `/EventType` → New Event Type; `/Venue` → New Venue; `/Member` → Edit | Each centered dialog loads its fields and Cancel/Save; no placeholder copy | Dialogs are single-column and fit the viewport |
@@ -184,7 +184,7 @@ Sign in as `rafael.santos@gmail.com`.
 
 | # | Beat | Route / action | Expected outcome | 390px check |
 |---|---|---|---|---|
-| O1 | Home | `/Home/Index` | Officer cards; no Accounts or Activity log | Cards stack; Menu opens |
+| O1 | Home | `/Home/Index` | Browse events, Manage records and Run operations; no Accounts or Activity log | Heading and link fit; Menu opens |
 | O2 | Event dossier | `/Event/1`, `/Event/2` and `/Event/3` | Metadata, capacity, status-aware roster; Leadership Summit shows Complete event; Community Outreach is cancelled; Founders' Week shows the check-in control | Roster scrolls; actions stay reachable |
 | O3 | Completion | `/Event/1` → Complete event → Confirm | "Event completed."; status Completed; roster read-only. Completing Founders' Week before its start is refused with "An event cannot be completed before it starts."; completing the cancelled Community Outreach is refused | Dialog fits |
 | O4 | Registration review | `/RegistrationReview/Index` | Daniel Navarro pending on Founders' Week; approve/decline with a reason | Cards stack; buttons reachable |
@@ -208,7 +208,7 @@ Sign in as `liza.fernandez@gmail.com`.
 
 | # | Beat | Route / action | Expected outcome | 390px check |
 |---|---|---|---|---|
-| M1 | Home | `/Home/Index` | Member cards: Browse events, My Passes, My Events, Profile | Cards stack; Menu opens |
+| M1 | Home | `/Home/Index` | Your participation: Browse events, My Passes, My Events, Profile | Links fit; Menu opens |
 | M2 | Browse events | `/Events` | Three seeded events plus the newly published Peer Tutoring Session; covers load; badges show Completed / Check-in open / Signup open | One column; covers keep their aspect ratio |
 | M3 | Event detail | `/MemberEvents/Details?id=3` | Confirmed registration panel with Cancel; `?id=2` shows the cancelled state; `?id=1` shows the completed state | Status panel stacks under the hero |
 | M4 | Signup | Open the newly published event → Submit registration | "Registration submitted. Your request is pending review."; the panel changes to Pending review | Button and panel fit |
