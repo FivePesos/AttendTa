@@ -133,7 +133,6 @@ public static class HotspotCertificateCommand
             return 1;
         }
 
-        var completed = false;
         try
         {
             Directory.CreateDirectory(directory);
@@ -142,7 +141,6 @@ public static class HotspotCertificateCommand
             {
                 WriteFiles(bundle, directory, password);
                 WriteSummary(bundle, directory, output);
-                completed = true;
             }
             finally
             {
@@ -155,16 +153,8 @@ public static class HotspotCertificateCommand
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException)
         {
             error.WriteLine($"The hotspot certificate files could not be written: {exception.Message}");
+            error.WriteLine("Output files may remain. Inspect them and choose a new --out directory before retrying.");
             return 1;
-        }
-        finally
-        {
-            // A partial run must not leave files behind: the "already contains" guard would block
-            // a retry with the same --out directory.
-            if (!completed)
-            {
-                DeleteFilesWrittenByThisRun(directory, fileNames);
-            }
         }
 
         return 0;
@@ -175,17 +165,16 @@ public static class HotspotCertificateCommand
         string directory,
         string password)
     {
-        File.WriteAllBytes(
+        WriteNewFile(
             Path.Combine(directory, RootCertificateFileName),
             bundle.RootPublicCertificate.Export(X509ContentType.Cert));
 
         var rootPfxPath = Path.Combine(directory, RootPfxFileName);
-        File.WriteAllBytes(
+        WriteNewFile(
             rootPfxPath,
-            bundle.RootCertificate.Export(X509ContentType.Pfx, password));
-        SetOwnerOnlyUnixMode(rootPfxPath);
+            bundle.RootCertificate.Export(X509ContentType.Pfx, password), privateKey: true);
 
-        File.WriteAllBytes(
+        WriteNewFile(
             Path.Combine(directory, ServerCertificateFileName),
             bundle.ServerPublicCertificate.Export(X509ContentType.Cert));
 
@@ -197,41 +186,20 @@ public static class HotspotCertificateCommand
         };
 
         var serverPfxPath = Path.Combine(directory, ServerPfxFileName);
-        File.WriteAllBytes(
+        WriteNewFile(
             serverPfxPath,
-            chain.Export(X509ContentType.Pfx, password));
-        SetOwnerOnlyUnixMode(serverPfxPath);
+            chain.Export(X509ContentType.Pfx, password), privateKey: true);
     }
 
-    // The private-key PFX files are host-only secrets; owner read/write keeps them off shared
-    // accounts. The public .cer files stay readable so they can be installed on phones.
-    private static void SetOwnerOnlyUnixMode(string path)
+    private static void WriteNewFile(string path, byte[] contents, bool privateKey = false)
     {
-        if (!OperatingSystem.IsWindows())
+        var options = new FileStreamOptions { Mode = FileMode.CreateNew, Access = FileAccess.Write, Share = FileShare.None };
+        if (privateKey && !OperatingSystem.IsWindows())
         {
-            File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+            options.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
         }
-    }
-
-    private static void DeleteFilesWrittenByThisRun(string directory, IEnumerable<string> fileNames)
-    {
-        foreach (var fileName in fileNames)
-        {
-            var path = Path.Combine(directory, fileName);
-            try
-            {
-                if (File.Exists(path))
-                {
-                    File.Delete(path);
-                }
-            }
-            catch (IOException)
-            {
-            }
-            catch (UnauthorizedAccessException)
-            {
-            }
-        }
+        using var stream = new FileStream(path, options);
+        stream.Write(contents);
     }
 
     private static void WriteSummary(
