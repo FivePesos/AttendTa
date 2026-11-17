@@ -51,7 +51,7 @@
     }
     function focusForm() {
         const errors = body.querySelector('.validation-summary-errors');
-        (errors || body.querySelector('input:not([type="hidden"]):not([readonly]):not([disabled]), textarea, select, button'))?.focus();
+        (errors || body.querySelector('.input-validation-error:not([type="hidden"]):not([disabled])') || body.querySelector('input:not([type="hidden"]):not([readonly]):not([disabled]), textarea, select, button'))?.focus();
     }
     function clearPreview() {
         if (previewUrl) {
