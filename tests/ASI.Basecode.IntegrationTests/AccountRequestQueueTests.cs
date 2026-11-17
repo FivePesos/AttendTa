@@ -91,7 +91,7 @@ public sealed class AccountRequestQueueTests : IClassFixture<SqlServerDatabaseFi
         Assert.Equal(ids.AsEnumerable().Reverse().Take(5), pageIds);
         Assert.Contains($"data-request-id=\"{ids[^1]}\"", firstPage, StringComparison.Ordinal);
         Assert.DoesNotContain($"data-request-id=\"{ids[0]}\"", firstPage, StringComparison.Ordinal);
-        Assert.Contains("2026-11-05 20:30", firstPage, StringComparison.Ordinal);
+        Assert.Contains("2026-11-05 08:30 PM", firstPage, StringComparison.Ordinal);
         Assert.DoesNotContain(PasswordHashMarker, firstPage, StringComparison.Ordinal);
         Assert.Contains("status=pending&amp;keep=alpha&amp;keep=beta&amp;page=2", firstPage, StringComparison.Ordinal);
         Assert.Contains("aria-label=\"Next page\"", firstPage, StringComparison.Ordinal);

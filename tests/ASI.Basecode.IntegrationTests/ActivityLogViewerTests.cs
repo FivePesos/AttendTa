@@ -77,7 +77,7 @@ public sealed class ActivityLogViewerTests : IClassFixture<SqlServerDatabaseFixt
 
         Assert.Equal(5, firstPageIds.Length);
         Assert.Equal(logIds.Take(5), firstPageIds);
-        Assert.Contains("2026-11-05 20:35", firstPage, StringComparison.Ordinal);
+        Assert.Contains("2026-11-05 08:35 PM", firstPage, StringComparison.Ordinal);
         Assert.Contains("Activity Log Admin", firstPage, StringComparison.Ordinal);
         Assert.Contains("User", firstPage, StringComparison.Ordinal);
         Assert.Contains("System process", firstPage, StringComparison.Ordinal);
@@ -91,7 +91,7 @@ public sealed class ActivityLogViewerTests : IClassFixture<SqlServerDatabaseFixt
         Assert.DoesNotContain("Delete", firstPage, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("asp-action=\"", firstPage, StringComparison.Ordinal);
         var lastPage = await adminClient.GetStringAsync("/admin/auditlogs?page=6", TestContext.Current.CancellationToken);
-        Assert.Contains("2026-11-05 20:30", lastPage, StringComparison.Ordinal);
+        Assert.Contains("2026-11-05 08:30 PM", lastPage, StringComparison.Ordinal);
         Assert.Equal(logIds.Skip(25), ExtractLogIds(lastPage));
         Assert.Contains("Page 6 of 6", lastPage, StringComparison.Ordinal);
         Assert.Contains("aria-label=\"Previous page\"", lastPage, StringComparison.Ordinal);

@@ -68,6 +68,7 @@ Used by a University of Cebu student organization on a laptop at the door and on
 - The Events list opens cancellation and read-only cover dialogs without leaving the current filters and page. Cancellation retries retain the reason and report stale or unavailable events; standalone pages remain available as fallbacks.
 - Failed dossier registration decisions retain the participant/registration context and entered reason for correction; review-queue failures stay within their original workflow.
 - Registrations are pending, confirmed, waitlisted, or cancelled; seat allocation is transactional.
+- Registration rosters show submission date and time in adjacent Manila-time columns. Promotion confirmation names the next eligible participant across the full queue; if that candidate changes, the officer must refresh and confirm again.
 - Attendance is recorded by QR or manual lookup; certificates are issued one at a time from an eligibility review.
 - The door scanner keeps scan and explicit manual check-in outcomes visible with participant identity and the original check-in time. Camera permission failure offers pass-code and manual alternatives; leaving camera mode cancels pending camera startup.
 - Participation reports are per event and include attendance rate, no-shows, and course/year distribution.

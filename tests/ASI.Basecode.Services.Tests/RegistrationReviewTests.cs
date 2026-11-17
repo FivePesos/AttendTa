@@ -47,7 +47,7 @@ public sealed class RegistrationReviewTests
     {
         var actor = new Actor(authenticated, role);
         var service = new RegistrationReviewService(null!, null!, null!, null!, null!, actor, null!, null!, TimeProvider.System);
-        var error = await Assert.ThrowsAsync<DomainException>(() => service.PromoteNextAsync(1, TestContext.Current.CancellationToken));
+        var error = await Assert.ThrowsAsync<DomainException>(() => service.PromoteNextAsync(1, 1, TestContext.Current.CancellationToken));
         Assert.Equal(OutcomeCode.Forbidden, error.Outcome);
     }
 
@@ -171,7 +171,7 @@ public sealed class RegistrationReviewTests
 
         if (succeeds)
         {
-            await harness.Service.PromoteNextAsync(ReviewHarness.EventId, TestContext.Current.CancellationToken);
+            await harness.Service.PromoteNextAsync(ReviewHarness.EventId, ReviewHarness.RegistrationId, TestContext.Current.CancellationToken);
 
             Assert.Equal(RegistrationStatusCode.Confirmed, harness.Registration.RegistrationStatusId);
             Assert.Equal(ReviewHarness.ActorUserId, harness.Registration.ConfirmedBy);
@@ -184,7 +184,7 @@ public sealed class RegistrationReviewTests
         else
         {
             var error = await Assert.ThrowsAsync<DomainException>(() =>
-                harness.Service.PromoteNextAsync(ReviewHarness.EventId, TestContext.Current.CancellationToken));
+                harness.Service.PromoteNextAsync(ReviewHarness.EventId, ReviewHarness.RegistrationId, TestContext.Current.CancellationToken));
 
             Assert.Equal(OutcomeCode.CutoffPassed, error.Outcome);
             Assert.Equal(RegistrationStatusCode.Waitlisted, harness.Registration.RegistrationStatusId);
@@ -193,6 +193,17 @@ public sealed class RegistrationReviewTests
             Assert.Null(harness.Registration.QrToken);
             Assert.Empty(harness.Audit.Entries);
         }
+    }
+
+    [Fact]
+    public async Task PromotionRefusesAChangedCandidateWithoutPromotingTheReplacement()
+    {
+        var harness = new ReviewHarness(RegistrationStatusCode.Waitlisted, Start.AddTicks(-1));
+        var error = await Assert.ThrowsAsync<DomainException>(() =>
+            harness.Service.PromoteNextAsync(ReviewHarness.EventId, ReviewHarness.RegistrationId + 1, TestContext.Current.CancellationToken));
+        Assert.Equal(OutcomeCode.Stale, error.Outcome);
+        Assert.Equal(RegistrationStatusCode.Waitlisted, harness.Registration.RegistrationStatusId);
+        Assert.Empty(harness.Audit.Entries);
     }
 
     [Fact]

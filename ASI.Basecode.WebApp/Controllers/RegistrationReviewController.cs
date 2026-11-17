@@ -25,6 +25,8 @@ public sealed class RegistrationReviewController(IHttpContextAccessor accessor, 
         ViewBag.Status = status;
         ViewBag.EventId = eventId;
         ViewData["EventOptions"] = await review.GetEventOptionsAsync(cancellationToken);
+        if (status == "waitlisted" && eventId.HasValue)
+            ViewData["PromotionCandidate"] = await review.GetPromotionCandidateAsync(eventId.Value, cancellationToken);
         return View(await review.GetPageAsync(status, eventId, page, cancellationToken));
     }
 
@@ -92,8 +94,8 @@ public sealed class RegistrationReviewController(IHttpContextAccessor accessor, 
     [HttpPost, ValidateAntiForgeryToken]
     public Task<IActionResult> Cancel(int id, string reason, string status, int? eventId, int? page, CancellationToken cancellationToken = default) => Decide(() => review.CancelAsync(id, reason, cancellationToken), status, eventId, page, id: id, dialog: "registration-cancel", reason: reason);
     [HttpPost, ValidateAntiForgeryToken]
-    public Task<IActionResult> Promote(int eventId, int? page, CancellationToken cancellationToken = default) =>
-        Decide(() => review.PromoteNextAsync(eventId, cancellationToken), "waitlisted", eventId, page, "Next eligible participant promoted.", eventId, "promote");
+    public Task<IActionResult> Promote(int eventId, int expectedRegistrationId, int? page, CancellationToken cancellationToken = default) =>
+        Decide(() => review.PromoteNextAsync(eventId, expectedRegistrationId, cancellationToken), "waitlisted", eventId, page, "Next eligible participant promoted.", eventId, "promote");
 
     private async Task<IActionResult> Decide(Func<Task> command, string status, int? eventId, int? page, string successMessage = "Registration updated.", int id = 0, string dialog = null, string reason = null)
     {
@@ -105,13 +107,13 @@ public sealed class RegistrationReviewController(IHttpContextAccessor accessor, 
             if (dossier)
             {
                 TempData["DossierError"] = ex.Message;
-                TempData["DossierDialog"] = dialog;
+                TempData["DossierDialog"] = dialog == "promote" ? null : dialog;
                 TempData["DossierId"] = id;
                 TempData["DossierReason"] = reason;
             }
             else
             {
-                TempData["ReviewDialog"] = dialog;
+                TempData["ReviewDialog"] = dialog == "promote" ? null : dialog;
                 TempData["ReviewId"] = id;
                 TempData["ReviewReason"] = reason;
             }

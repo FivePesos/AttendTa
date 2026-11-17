@@ -75,7 +75,7 @@
             day: '2-digit',
             hour: '2-digit',
             minute: '2-digit',
-            hour12: false
+            hour12: true
         }).formatToParts(date).forEach(function (part) {
             parts[part.type] = part.value;
         });
