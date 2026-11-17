@@ -5,8 +5,10 @@
     var token = Antiforgery.GetAndStoreTokens(Context).RequestToken;
     var error = TempData["ErrorMessage"] as string;
     var success = TempData["SuccessMessage"] as string;
-    var message = !string.IsNullOrWhiteSpace(error) ? error : success;
+    var info = TempData["InfoMessage"] as string;
+    var message = !string.IsNullOrWhiteSpace(error) ? error : !string.IsNullOrWhiteSpace(success) ? success : info;
     var isError = !string.IsNullOrWhiteSpace(error);
+    var isInfo = !isError && string.IsNullOrWhiteSpace(success);
     var authenticated = User.Identity?.IsAuthenticated == true;
     var management = User.IsInRole(RoleCodes.Admin) || User.IsInRole(RoleCodes.Officer);
     var shellWidth = authenticated ? null : ViewData["ShellWidth"] as string;
@@ -34,7 +36,7 @@
         <main id="main-content" class="main-content" tabindex="-1">
             @if (!string.IsNullOrWhiteSpace(message))
             {
-                <div class="notice @(isError ? "notice-error" : "notice-success")" role="@(isError ? "alert" : "status")">@message</div>
+                <div class="notice @(isError ? "notice-error" : isInfo ? "notice-amber" : "notice-success")" role="@(isError ? "alert" : "status")">@message</div>
             }
             @RenderBody()
             @if (ViewData["CertificatePreview"] is true) { <partial name="_CertificatePreview" /> }

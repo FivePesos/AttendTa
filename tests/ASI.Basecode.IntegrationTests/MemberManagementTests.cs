@@ -31,8 +31,10 @@ public sealed class MemberManagementTests(SqlServerDatabaseFixture fixture) : IC
         new DbContextOptionsBuilder<AsiBasecodeDBContext>().UseSqlServer(fixture.ConnectionString)
             .AddInterceptors(interceptors).Options);
 
-    [Fact]
-    public async Task MemberEditorSavesAndDisplaysValidationErrorsInBrowser()
+    [Theory]
+    [InlineData(390)]
+    [InlineData(1440)]
+    public async Task MemberEditorSavesAndDisplaysValidationErrorsInBrowser(int width)
     {
         var ct = TestContext.Current.CancellationToken;
         var seeded = await SeedMemberAsync(MembershipStatusCode.Active, ct, withLoginPasswords: true);
@@ -48,7 +50,7 @@ public sealed class MemberManagementTests(SqlServerDatabaseFixture fixture) : IC
         await SignInAsync(client, seeded.ActorEmail, ManagementPassword, ct);
         using var playwright = await Playwright.CreateAsync();
         await using var browser = await playwright.Chromium.LaunchAsync(new() { Headless = true });
-        var page = await browser.NewPageAsync();
+        var page = await browser.NewPageAsync(new() { ViewportSize = new() { Width = width, Height = 700 } });
         await page.RouteAsync("**/*", async route =>
         {
             using var request = new HttpRequestMessage(new HttpMethod(route.Request.Method), route.Request.Url);
@@ -72,6 +74,18 @@ public sealed class MemberManagementTests(SqlServerDatabaseFixture fixture) : IC
             await page.Locator("#record-dialog #FullName").WaitForAsync();
         }
         await OpenEditor();
+        await page.Locator("#record-dialog button[type='submit']").ClickAsync();
+        await page.Locator("#record-dialog").WaitForAsync(new() { State = WaitForSelectorState.Hidden });
+        var notice = page.Locator("[data-member-edit-unchanged]");
+        Assert.Contains("No changes were made to the member.", await notice.InnerTextAsync());
+        var edit = page.Locator($"[data-record-open='edit-member-{seeded.MemberId}']");
+        Assert.True(await edit.EvaluateAsync<bool>("element => element === document.activeElement"));
+        Assert.Contains("member-edit-unchanged", await edit.GetAttributeAsync("aria-describedby"), StringComparison.Ordinal);
+        Assert.Equal("status", await notice.GetAttributeAsync("role"));
+        Assert.True(await notice.EvaluateAsync<bool>("element => { const r = element.getBoundingClientRect(); const h = document.querySelector('.topbar').getBoundingClientRect(); return r.top >= h.bottom && r.bottom <= innerHeight; }"));
+        var geometry = await edit.EvaluateAsync<string>("element => { const r = element.getBoundingClientRect(); const n = document.querySelector('[data-member-edit-unchanged]').getBoundingClientRect(); return JSON.stringify({ top: r.top, bottom: r.bottom, noticeBottom: n.bottom, height: innerHeight }); }");
+        Assert.True(await edit.EvaluateAsync<bool>("element => { const r = element.getBoundingClientRect(); const n = document.querySelector('[data-member-edit-unchanged]').getBoundingClientRect(); return r.top >= n.bottom && r.bottom <= innerHeight; }"), geometry);
+        await OpenEditor();
         await page.Locator("#record-dialog #FullName").FillAsync("Edited Member Name");
         await page.Locator("#record-dialog button[type='submit']").ClickAsync();
         await page.Locator("#record-dialog").WaitForAsync(new() { State = WaitForSelectorState.Hidden });
@@ -90,6 +104,210 @@ public sealed class MemberManagementTests(SqlServerDatabaseFixture fixture) : IC
         using var standalone = await client.GetAsync($"/Member/Edit/{seeded.MemberId}", ct);
         var html = await standalone.Content.ReadAsStringAsync(ct);
         Assert.Contains("action=\"/Member/Edit\"", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task EquivalentMemberEditPreservesStoredValuesMetadataAndAudit()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var seeded = await SeedMemberAsync(MembershipStatusCode.Active, ct);
+        await using (var setup = Context())
+        {
+            var member = await setup.Members.SingleAsync(item => item.MemberId == seeded.MemberId, ct);
+            member.Course = "BS Information Technology";
+            member.Section = "a";
+            member.MobileNumber = "09171234567";
+            await setup.SaveChangesAsync(ct);
+        }
+        await using (var writer = Context())
+        {
+            var changed = await CreateService(writer, seeded.ActorId).UpdateMemberAsync(new MemberViewModel
+            {
+                MemberId = seeded.MemberId, FullName = " original  MEMBER name ",
+                StudentNumber = $" {seeded.StudentNumber} ", Course = "BSIT", YearLevel = 2,
+                Section = "A", MobileNumber = " 09171234567 ", MembershipType = " Regular "
+            }, ct);
+            Assert.False(changed);
+        }
+        await using var observer = Context();
+        var after = await observer.Members.AsNoTracking().SingleAsync(item => item.MemberId == seeded.MemberId, ct);
+        var user = await observer.Users.AsNoTracking().SingleAsync(item => item.Id == seeded.UserId, ct);
+        Assert.Equal("BS Information Technology", after.Course);
+        Assert.Equal("a", after.Section);
+        Assert.Null(after.UpdatedAt);
+        Assert.Null(after.UpdatedBy);
+        Assert.Null(user.UpdatedTime);
+        Assert.Null(user.UpdatedById);
+        Assert.Equal("Original Member Name", user.Name);
+        Assert.False(await observer.ActivityLogs.AnyAsync(item => item.EntityType == "members" && item.EntityId == seeded.MemberId, ct));
+    }
+
+    [Fact]
+    public async Task StandaloneUnchangedEditShowsNeutralNotice()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var seeded = await SeedMemberAsync(MembershipStatusCode.Active, ct, withLoginPasswords: true);
+        await using (var setup = Context())
+        {
+            var member = await setup.Members.SingleAsync(item => item.MemberId == seeded.MemberId, ct);
+            member.Course = "BSIT";
+            member.MobileNumber = "09171234567";
+            await setup.SaveChangesAsync(ct);
+        }
+        using var factory = new AttendTaWebApplicationFactory(fixture.ConnectionString);
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
+        await SignInAsync(client, seeded.ActorEmail, ManagementPassword, ct);
+        using var page = await client.GetAsync($"/Member/Edit/{seeded.MemberId}", ct);
+        var html = await page.Content.ReadAsStringAsync(ct);
+        var token = Regex.Match(html, "name=\"__RequestVerificationToken\"[^>]*value=\"([^\"]+)\"", RegexOptions.IgnoreCase).Groups[1].Value;
+        Assert.False(string.IsNullOrWhiteSpace(token));
+        using var response = await client.PostAsync("/Member/Edit", new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["__RequestVerificationToken"] = token, ["MemberId"] = seeded.MemberId.ToString(),
+            ["FullName"] = "Original Member Name", ["StudentNumber"] = seeded.StudentNumber,
+            ["Course"] = "BSIT", ["YearLevel"] = "2", ["Section"] = "A",
+            ["MobileNumber"] = "09171234567", ["MembershipType"] = "Regular"
+        }), ct);
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        using var result = await client.GetAsync(response.Headers.Location!, ct);
+        Assert.Contains("No changes were made to the member.", await result.Content.ReadAsStringAsync(ct), StringComparison.Ordinal);
+        await using var observer = Context();
+        Assert.False(await observer.ActivityLogs.AnyAsync(item => item.EntityType == "members" && item.EntityId == seeded.MemberId, ct));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task HttpEditNormalizesBeforeValidationWithoutIgnoringBindingErrors(bool dialog)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var seeded = await SeedMemberAsync(MembershipStatusCode.Active, ct, withLoginPasswords: true);
+        await using (var setup = Context())
+        {
+            var member = await setup.Members.SingleAsync(item => item.MemberId == seeded.MemberId, ct);
+            member.Course = "BSIT";
+            member.MobileNumber = "09171234567";
+            await setup.SaveChangesAsync(ct);
+        }
+        using var factory = new AttendTaWebApplicationFactory(fixture.ConnectionString);
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
+        await SignInAsync(client, seeded.ActorEmail, ManagementPassword, ct);
+        using var page = await client.GetAsync($"/Member/Edit/{seeded.MemberId}", ct);
+        var html = await page.Content.ReadAsStringAsync(ct);
+        var token = Regex.Match(html, "name=\"__RequestVerificationToken\"[^>]*value=\"([^\"]+)\"", RegexOptions.IgnoreCase).Groups[1].Value;
+        var fields = new Dictionary<string, string>
+        {
+            ["__RequestVerificationToken"] = token, ["MemberId"] = seeded.MemberId.ToString(),
+            ["FullName"] = " original MEMBER name ", ["StudentNumber"] = $" {seeded.StudentNumber} ",
+            ["Course"] = " BS Information Technology ", ["YearLevel"] = "2", ["Section"] = " a ",
+            ["MobileNumber"] = " 09171234567 ", ["MembershipType"] = " Regular "
+        };
+        if (dialog) client.DefaultRequestHeaders.Add("X-Record-Dialog", "true");
+        using var response = await client.PostAsync("/Member/Edit", new FormUrlEncodedContent(fields), ct);
+        if (dialog)
+            Assert.Contains("\"saved\":true", await response.Content.ReadAsStringAsync(ct), StringComparison.Ordinal);
+        else
+            Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+
+        fields["YearLevel"] = "not-a-number";
+        using var invalid = await client.PostAsync("/Member/Edit", new FormUrlEncodedContent(fields), ct);
+        Assert.Equal(HttpStatusCode.OK, invalid.StatusCode);
+        var invalidHtml = await invalid.Content.ReadAsStringAsync(ct);
+        AssertFieldError(invalidHtml, "YearLevel");
+        Assert.Contains("value=\"BSIT\" selected", invalidHtml, StringComparison.Ordinal);
+        Assert.Contains("value=\"A\" selected", invalidHtml, StringComparison.Ordinal);
+        Assert.Contains("value=\"Regular\" selected", invalidHtml, StringComparison.Ordinal);
+        fields["YearLevel"] = "2";
+        fields["StudentNumber"] = UniqueStudentNumber();
+        using var correction = await client.PostAsync("/Member/Edit", new FormUrlEncodedContent(fields), ct);
+        var correctionHtml = await correction.Content.ReadAsStringAsync(ct);
+        Assert.Contains("A reason is required", correctionHtml, StringComparison.Ordinal);
+        Assert.Contains("value=\"BSIT\" selected", correctionHtml, StringComparison.Ordinal);
+        Assert.Contains("value=\"A\" selected", correctionHtml, StringComparison.Ordinal);
+        Assert.Contains("value=\"Regular\" selected", correctionHtml, StringComparison.Ordinal);
+        await using var observer = Context();
+        Assert.False(await observer.ActivityLogs.AnyAsync(item => item.EntityType == "members" && item.EntityId == seeded.MemberId, ct));
+    }
+
+    [Fact]
+    public async Task UnrelatedEditPreservesEquivalentStoredStudentNumber()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var seeded = await SeedMemberAsync(MembershipStatusCode.Active, ct);
+        var storedNumber = $" {seeded.StudentNumber} ";
+        await using (var setup = Context())
+        {
+            var member = await setup.Members.SingleAsync(item => item.MemberId == seeded.MemberId, ct);
+            member.StudentNumber = storedNumber;
+            await setup.SaveChangesAsync(ct);
+        }
+        await using (var writer = Context())
+        {
+            Assert.True(await CreateService(writer, seeded.ActorId).UpdateMemberAsync(new MemberViewModel
+            {
+                MemberId = seeded.MemberId, FullName = "Changed Name", StudentNumber = seeded.StudentNumber,
+                Course = "BSIT", YearLevel = 2, Section = "A", MembershipType = "Regular"
+            }, ct));
+        }
+        await using var observer = Context();
+        Assert.Equal(storedNumber, (await observer.Members.AsNoTracking().SingleAsync(item => item.MemberId == seeded.MemberId, ct)).StudentNumber);
+        var audit = await observer.ActivityLogs.AsNoTracking().SingleAsync(item => item.EntityType == "members" && item.EntityId == seeded.MemberId, ct);
+        Assert.Equal(AuditActions.MemberEdited, audit.Action);
+        Assert.Null(audit.Reason);
+        Assert.Contains(storedNumber, audit.NewValues, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task EditComparesFreshMemberEvenWhenPreviouslyTracked()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var seeded = await SeedMemberAsync(MembershipStatusCode.Active, ct);
+        await using var writer = Context();
+        var tracked = await writer.Members.SingleAsync(item => item.MemberId == seeded.MemberId, ct);
+        await using (var other = Context())
+        {
+            var member = await other.Members.SingleAsync(item => item.MemberId == seeded.MemberId, ct);
+            member.Course = "BSIT";
+            member.MobileNumber = null;
+            await other.SaveChangesAsync(ct);
+        }
+        Assert.Equal("Original course", tracked.Course);
+        Assert.False(await CreateService(writer, seeded.ActorId).UpdateMemberAsync(new MemberViewModel
+        {
+            MemberId = seeded.MemberId, FullName = "Original Member Name", StudentNumber = seeded.StudentNumber,
+            Course = "BSIT", YearLevel = 2, Section = "A", MembershipType = "Regular"
+        }, ct));
+        await using var observer = Context();
+        var persisted = await observer.Members.AsNoTracking().SingleAsync(item => item.MemberId == seeded.MemberId, ct);
+        Assert.Equal("BSIT", persisted.Course);
+        Assert.Null(persisted.UpdatedAt);
+        Assert.False(await observer.ActivityLogs.AnyAsync(item => item.EntityType == "members" && item.EntityId == seeded.MemberId, ct));
+    }
+
+    [Fact]
+    public async Task GeneralMemberReadPreservesDirtyTrackedValuesAndEditRefusesToDiscardThem()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var seeded = await SeedMemberAsync(MembershipStatusCode.Active, ct);
+        await using var writer = Context();
+        var work = new UnitOfWork(writer);
+        var repository = new MemberRepository(work);
+        var tracked = await repository.GetMemberAsync(seeded.MemberId, ct);
+        tracked.Course = "Unsaved change";
+        Assert.Same(tracked, await repository.GetMemberAsync(seeded.MemberId, ct));
+        Assert.Equal("Unsaved change", tracked.Course);
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            CreateService(writer, seeded.ActorId, work, repository).UpdateMemberAsync(new MemberViewModel
+            {
+                MemberId = seeded.MemberId, FullName = "Original Member Name", StudentNumber = seeded.StudentNumber,
+                Course = "BSIT", YearLevel = 2, Section = "A", MembershipType = "Regular"
+            }, ct));
+        Assert.Contains("unsaved tracked changes", exception.Message, StringComparison.Ordinal);
+        Assert.Equal(EntityState.Modified, writer.Entry(tracked).State);
+        Assert.Equal("Unsaved change", tracked.Course);
+        await using var observer = Context();
+        Assert.Equal("Original course", (await observer.Members.AsNoTracking().SingleAsync(item => item.MemberId == seeded.MemberId, ct)).Course);
+        Assert.False(await observer.ActivityLogs.AnyAsync(item => item.EntityType == "members" && item.EntityId == seeded.MemberId, ct));
     }
 
     [Fact]
@@ -756,6 +974,8 @@ public sealed class MemberManagementTests(SqlServerDatabaseFixture fixture) : IC
         public Task<MemberRecord> GetMemberRecordByUserIdAsync(int userId, CancellationToken cancellationToken = default) => inner.GetMemberRecordByUserIdAsync(userId, cancellationToken);
         public Task<Member> GetMemberByUserIdAsync(int userId, CancellationToken cancellationToken = default) => inner.GetMemberByUserIdAsync(userId, cancellationToken);
         public Task<Member> GetMemberAsync(int memberId, CancellationToken cancellationToken = default) => inner.GetMemberAsync(memberId, cancellationToken);
+        public void EnsureMemberCanRefresh(int memberId) => inner.EnsureMemberCanRefresh(memberId);
+        public Task<Member> GetMemberForEditAsync(int memberId, CancellationToken cancellationToken = default) => inner.GetMemberForEditAsync(memberId, cancellationToken);
         public Task<bool> UserHasMemberProfileAsync(int userId, CancellationToken cancellationToken = default) => inner.UserHasMemberProfileAsync(userId, cancellationToken);
         public Task<bool> StudentNumberExistsAsync(string studentNumber, int? excludeId = null, CancellationToken cancellationToken = default) => inner.StudentNumberExistsAsync(studentNumber, excludeId, cancellationToken);
 

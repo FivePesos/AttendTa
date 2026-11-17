@@ -4,3 +4,6 @@
 - source_plan: `_bmad-output/plan-modal-copy-clarity.md`
   summary: Restore the full solution build after the user ID rename.
   evidence: Release build fails in `AccountLoginMatrixTests.cs:104` because `User.UserId` no longer exists; the separate backend PR already includes a correction.
+- source_plan: none
+  summary: Address legacy member values that fail current validation and student numbers that differ only by whitespace.
+  evidence: Split from stale-form protection at the user's request; legacy data policy and database uniqueness require separate decisions.

@@ -5,6 +5,18 @@ namespace ASI.Basecode.Services.ServiceModels
 {
     public class MemberViewModel
     {
+        public void Normalize()
+        {
+            FullName = ProfileOptions.NormalizeName(FullName);
+            StudentNumber = StudentNumber?.Trim();
+            Course = ProfileOptions.NormalizeCourse(Course);
+            Section = ProfileOptions.NormalizeSection(Section);
+            MobileNumber = string.IsNullOrWhiteSpace(MobileNumber) ? null : MobileNumber.Trim();
+            MembershipType = string.IsNullOrWhiteSpace(MembershipType) ? null : MembershipType.Trim();
+            StudentNumberCorrectionReason = string.IsNullOrWhiteSpace(StudentNumberCorrectionReason)
+                ? null : StudentNumberCorrectionReason.Trim();
+        }
+
         public int MemberId { get; set; }
 
         // Display-only. The linked users.user_id, read from the member record.
