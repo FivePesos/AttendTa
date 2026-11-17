@@ -57,6 +57,20 @@ namespace ASI.Basecode.Services.Services
             return member == null ? null : ToViewModel(member);
         }
 
+        public async Task<MemberViewModel> GetMemberEditorAsync(int id, CancellationToken cancellationToken = default)
+        {
+            RequireManagementActor();
+            return await _unitOfWork.ExecuteInTransactionAsync(async ct =>
+            {
+                var initial = await _repository.GetMemberRecordAsync(id, ct);
+                if (initial == null) return null;
+                var user = await _userRepository.LockUserAsync(initial.UserId, ct);
+                if (user == null) return null;
+                var current = await _repository.GetMemberRecordAsync(id, ct);
+                return current == null || current.UserId != user.Id ? null : ToViewModel(current);
+            }, cancellationToken);
+        }
+
         public async Task<MemberViewModel> GetSelfProfileAsync(CancellationToken cancellationToken = default)
         {
             if (!_currentActor.IsAuthenticated || !string.Equals(_currentActor.Role, RoleCodes.Member, StringComparison.Ordinal))
@@ -132,7 +146,7 @@ namespace ASI.Basecode.Services.Services
             }, cancellationToken);
         }
 
-        public async Task<bool> UpdateMemberAsync(MemberViewModel model, CancellationToken cancellationToken = default)
+        public async Task<bool> UpdateMemberAsync(MemberViewModel model, CancellationToken cancellationToken = default, MemberEditSnapshot original = null)
         {
             ArgumentNullException.ThrowIfNull(model);
             var verifiedActorId = RequireManagementActor();
@@ -158,6 +172,9 @@ namespace ASI.Basecode.Services.Services
                 {
                     throw new DomainException(OutcomeCode.NotFound, "Member not found.");
                 }
+
+                if (original == null || member.UserId != user.Id || original != MemberEditSnapshot.FromEntities(member, user.Name))
+                    throw new DomainException(OutcomeCode.Stale, "This form is out of date or could not be verified.");
 
                 Validate(model);
                 var correctingStudentNumber = !string.Equals(member.StudentNumber?.Trim(), model.StudentNumber, StringComparison.Ordinal);

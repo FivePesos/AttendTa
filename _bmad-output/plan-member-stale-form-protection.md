@@ -3,14 +3,14 @@ title: 'Protect member edits from stale forms'
 type: 'bugfix'
 ticket: ''
 created: '2026-11-17'
-status: 'ready-for-dev'
+status: 'built'
 baseline_revision: 'ac8118749672a43e6550ab7d77a190d1503ac76c'
 route: 'full'
 route_source: 'auto'
 risk: 'high'
-review: ''
-review_source: ''
-lenses_ran: []
+review: 'quick'
+review_source: 'pinned'
+lenses_ran: ['quick']
 review_loop_iteration: 0
 context: []
 ---
@@ -52,10 +52,10 @@ context: []
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `ASI.Basecode.Services/Services/MemberService.cs` and relevant interfaces/models — compare original editable state against fresh member and linked user under the lock; reject stale or invalid state without writes and preserve no-op semantics. Specify canonical normalization consistently with existing edit behavior.
-- [ ] `ASI.Basecode.WebApp/Controllers/MemberController.cs`, `Views/Member/` and token service/registration — create and verify protected record-bound version evidence, carry it through both editors and validation failures, and give a clear reload path that does not silently discard input.
-- [ ] `tests/ASI.Basecode.IntegrationTests/MemberManagementTests.cs` and applicable tests — verify each matrix case, concurrent cooperating writers, per-row changes, tampering, no-op, audit/metadata absence and both UI paths.
-- [ ] Run required scoped UI critique and polish; document limitations and any deferred unrelated findings.
+- [x] `ASI.Basecode.Services/Services/MemberService.cs` and relevant interfaces/models — compare original editable state against fresh member and linked user under the lock; reject stale or invalid state without writes and preserve no-op semantics. Specify canonical normalization consistently with existing edit behavior.
+- [x] `ASI.Basecode.WebApp/Controllers/MemberController.cs`, `Views/Member/` and token service/registration — create and verify protected record-bound version evidence, carry it through both editors and validation failures, and give a clear reload path that does not silently discard input.
+- [x] `tests/ASI.Basecode.IntegrationTests/MemberManagementTests.cs` and applicable tests — verify each matrix case, concurrent cooperating writers, per-row changes, tampering, no-op, audit/metadata absence and both UI paths.
+- [x] Run required scoped UI critique and polish; document limitations and any deferred unrelated findings.
 
 **Acceptance Criteria:**
 - Given two forms loaded for one member, when the first saves a valid edit and the second submits, then the second sees a conflict and the first edit remains intact without a second audit entry.
@@ -68,14 +68,71 @@ context: []
 
 Not started. An implementation attempt was aborted before producing usable code, and its partial edits were discarded. Nothing on this plan is built or verified; start from the task list above.
 
+2026-11-17 follow-up: added `MemberEditSnapshot`, a purpose-separated
+`MemberEditSnapshotProtector`, and two focused normalization/identity tests. Neither component
+is connected to the form or update transaction; stale edits remain possible. The protector has
+not yet been tested. Do not treat this as a completed safeguard. The focused tests passed via
+`tests/ASI.Basecode.Services.Tests/bin/Release/net10.0/ASI.Basecode.Services.Tests.exe -class ASI.Basecode.Services.Tests.MemberEditSnapshotTests`.
+
+2026-11-17 implementation in progress: wired protected snapshots into both member editors and
+the locked update path. The Release solution builds and the two snapshot normalization tests
+pass. Existing member integration tests still need to supply original snapshots; new end-to-end,
+tamper, concurrency, audit, and browser recovery tests remain outstanding. The UI detector found
+no source findings, but scoped visual critique and polish were not completed. No SQL test
+connection was configured. Do not treat this work as verified or complete.
+
+2026-11-17 test continuation: updated the existing service and HTTP member tests for version
+evidence and added independent-form coverage for every editable field, invalid and wrong-record
+tokens, retry behavior, user identity, metadata/audit absence, and a writer blocked on the
+linked-user lock. The Release build passed; the focused LocalDB member integration class passed
+42/42, including Chromium dialog conflict checks at 390px and 1440px; snapshot tests passed 2/2.
+The full integration suite and scoped design critique/polish were not run in this continuation.
+The browser test checks the reload link and reopening, but does not follow the new-tab link.
+
+Reload-link follow-up: Chromium now follows the actual new-tab link from both dialog and
+standalone conflict forms at 390px and 1440px. It verifies the fresh values and version, retained
+input and original version in the old form, and a successful fresh save. Focused new cases passed
+4/4 and the member integration class passed 46/46 on disposable LocalDB. The test observes the
+save's 302 response and database state; its in-memory browser proxy cannot follow that redirect.
+
+Scoped critique follow-up: recovery instructions appear only for stale or unverifiable evidence,
+including when other fields are invalid. They explain transferring edits and saving the fresh
+form; the dialog announces conflict recovery instead of field-error guidance. Focused LocalDB
+member integration tests passed 47/47 (including 390px and 1440px Chromium interactions), snapshot
+tests 2/2, and dialog guard tests 10/10. The Member markup detector returned no findings. No
+manual visual, screen-reader, or cross-browser polish inspection was performed in this pass.
+
+Verification-gap follow-up: added dialog and standalone tests where the form is already stale
+before an invalid submission, retains its version and input, then rejects the corrected retry.
+The waiting-writer test now signals the intercepted lock command before the winner changes and
+commits the user row, rather than using a delay as evidence of the attempt. Release build passed
+and the disposable LocalDB member integration class passed 49/49.
+
 The existing user lock prevents races among writers that follow that protocol; it does not protect against arbitrary direct SQL or other writers that bypass it. A snapshot detects different current values, not a change subsequently reverted to the same values. Confirm GET reads a coherent member/user snapshot and do not claim broader database-enforced guarantees.
 
 ## Plan Change Log
 
 ## Review Triage Log
 
+- **medium — patch:** A valid token for a different member reaches the validation-only
+  re-render without conflict recovery when other fields are invalid; compare its member ID
+  with the submitted ID before that return.
+- **medium — verification gap:** The scoped UI critique and polish passes ran, but manual
+  visual and assistive-technology inspection was unavailable; retain this limitation in the
+  handoff rather than claiming those checks passed.
+
 ## Verification
 
 - `dotnet build ASI.Basecode.sln --configuration Release`
 - Run focused member integration and service tests after the build, including independent competing form and lock tests; use disposable local SQL only.
 - Test dialog and standalone conflict, preserved input, reload, keyboard and mobile behavior. Run JavaScript/CSS verification as applicable.
+
+Follow-up verification: standalone conflicts now focus the summary; dialog and standalone
+summaries describe their recovery instructions, and the dialog has visible focus and spacing.
+Chromium exercised both editors at 390px and 1440px, including keyboard recovery and saving in
+the fresh editor. The unchanged-save viewport test now waits for reload and delayed scrolling;
+the timing hypothesis is supported by a delayed-load regression but not proven for the original
+failure. Service tests passed 407/407, JavaScript tests 51/51, and the full LocalDB integration
+suite passed 645/645 after a prior run failed the intermittent viewport assertion. The user
+visually confirmed the conflict behavior. Actual screen-reader announcement and other browser
+engines remain unverified.

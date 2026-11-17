@@ -18,6 +18,7 @@ namespace ASI.Basecode.Services.ServiceModels
         }
 
         public int MemberId { get; set; }
+        public string EditVersion { get; set; }
 
         // Display-only. The linked users.user_id, read from the member record.
         public int UserId { get; set; }
