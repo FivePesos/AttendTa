@@ -143,8 +143,8 @@ public sealed class EventDraftFlowTests(SqlServerDatabaseFixture fixture) : ICla
 
         var list = await officerClient.GetStringAsync("/Event", ct);
         Assert.Contains($"data-event-id=\"{eventId}\"", list, StringComparison.Ordinal);
-        Assert.Contains("2026-12-10 09:00", list, StringComparison.Ordinal);
-        Assert.Contains("2026-12-09 17:30", list, StringComparison.Ordinal);
+        Assert.Contains("2026-12-10 09:00 AM", list, StringComparison.Ordinal);
+        Assert.Contains("2026-12-09 05:30 PM", list, StringComparison.Ordinal);
         Assert.Contains("Active Type", list, StringComparison.Ordinal);
         Assert.Contains("Active Room", list, StringComparison.Ordinal);
         Assert.Contains($"href=\"/Event/Edit?id={eventId}\"", list, StringComparison.Ordinal);

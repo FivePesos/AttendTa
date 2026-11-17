@@ -77,7 +77,7 @@ public sealed class MemberEventBrowsingFlowTests(SqlServerDatabaseFixture fixtur
 
         var firstPage = await client.GetStringAsync("/Events", ct);
         Assert.Contains("Page 1 of 6", firstPage, StringComparison.Ordinal);
-        Assert.Contains("2099-12-01 09:00", firstPage, StringComparison.Ordinal);
+        Assert.Contains("2099-12-01 09:00 AM", firstPage, StringComparison.Ordinal);
         Assert.DoesNotContain("Draft event", firstPage, StringComparison.Ordinal);
         Assert.DoesNotContain("Cancelled event", firstPage, StringComparison.Ordinal);
         Assert.DoesNotContain($"data-event-id=\"{draft.EventId}\"", firstPage, StringComparison.Ordinal);
@@ -213,7 +213,7 @@ public sealed class MemberEventRegistrationFlowTests(SqlServerDatabaseFixture fi
 
         var detail = await client.GetStringAsync($"/MemberEvents/Details?id={eventItem.EventId}", ct);
         Assert.Contains("Submit registration", detail, StringComparison.Ordinal);
-        Assert.Contains("2099-12-10 09:00", detail, StringComparison.Ordinal);
+        Assert.Contains("2099-12-10 09:00 AM", detail, StringComparison.Ordinal);
 
         var token = await MemberEventTestSupport.AntiforgeryTokenAsync(client, $"/MemberEvents/Details?id={eventItem.EventId}", ct);
         var submitted = await client.PostAsync($"/MemberEvents/Register?id={eventItem.EventId}",
@@ -541,7 +541,7 @@ public sealed class MemberEventDeadlineFlowTests(SqlServerDatabaseFixture fixtur
         var detailUrl = $"/MemberEvents/Details?id={eventItem.EventId}";
         var detail = await staleClient.GetStringAsync(detailUrl, ct);
         Assert.Contains("Submit registration", detail, StringComparison.Ordinal);
-        Assert.Contains("2026-11-06 20:00", detail, StringComparison.Ordinal);
+        Assert.Contains("2026-11-06 08:00 PM", detail, StringComparison.Ordinal);
         var staleToken = await MemberEventTestSupport.AntiforgeryTokenAsync(staleClient, detailUrl, ct);
         var earlyToken = await MemberEventTestSupport.AntiforgeryTokenAsync(earlyClient, detailUrl, ct);
         var earlyResponse = await earlyClient.PostAsync($"/MemberEvents/Register?id={eventItem.EventId}",
@@ -570,9 +570,9 @@ public sealed class MemberEventDeadlineFlowTests(SqlServerDatabaseFixture fixtur
         Assert.True(card.Success, "The published event must remain in the feed.");
         Assert.Contains("Signup closed", card.Value, StringComparison.Ordinal);
         Assert.Contains("Signup deadline", card.Value, StringComparison.Ordinal);
-        Assert.Contains("2026-11-06 20:00", card.Value, StringComparison.Ordinal);
+        Assert.Contains("2026-11-06 08:00 PM", card.Value, StringComparison.Ordinal);
         var closedDetail = await staleClient.GetStringAsync(detailUrl, ct);
-        Assert.Contains("Signup closed on 2026-11-06 20:00", closedDetail, StringComparison.Ordinal);
+        Assert.Contains("Signup closed on 2026-11-06 08:00 PM", closedDetail, StringComparison.Ordinal);
         Assert.DoesNotContain("Submit registration", closedDetail, StringComparison.Ordinal);
 
         await using var context = MemberEventTestSupport.Context(fixture.ConnectionString);

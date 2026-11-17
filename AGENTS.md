@@ -170,8 +170,8 @@ The impeccable design skill is installed at `.opencode/skills/impeccable`, with 
 Exception (2026-11-06 demo rescope, project owner): tickets in the demo and integration phases of `_bmad-output/initiative-attendta/delivery-queue.md` do not run per-ticket critique or polish. The demo rehearsal (8.15) runs critique and polish once for the demo surface, and 8.12 and 2.11 run them for the integrated app. Each pull request still keeps green CI and one peer approval.
 
 ## Subagents
-Subagents (`general`, `explore`) run on `mistral/deepseek-v4-1-flash-1017`, set in `opencode.jsonc`
-with no pinned variant. The orchestrator chooses the reasoning effort for each task by passing
+Subagents (`general`, `explore`) default to `openai/gpt-6.1-terra#low`, set in `opencode.jsonc`.
+The orchestrator chooses a different reasoning effort when needed by passing
 `model` to the `subagent` tool:
 - `#low` — mechanical lookups, pattern searches, formatting, small single-file edits.
 - `#high` — normal research, implementation, and review work.
@@ -181,10 +181,8 @@ with no pinned variant. The orchestrator chooses the reasoning effort for each t
 Start at the cheapest effort that will reliably finish the task and escalate only when the result
 is insufficient; do not default to `#max`.
 
-The same model is also pinned in the global `~/.config/opencode/opencode.json` as a machine-wide
-fallback. Project config outranks global config, so any repository can override it, while sessions
-that fall outside this tree — notably the worktrees under `~/.local/share/opencode/worktree/` — still
-get the intended subagent model instead of inheriting the parent session's.
+Project configuration overrides global configuration. Other worktrees need the updated project
+configuration in their checked-out revision or their own local override.
 
 ## Current assignment scope
 Master Data only — Member Management, Event Type Management, Venue Management (Admin & Officer).

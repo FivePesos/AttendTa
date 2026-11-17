@@ -117,6 +117,7 @@ namespace ASI.Basecode.WebApp.Controllers
             status = status?.ToLowerInvariant();
             if (status is not ("pending" or "confirmed" or "waitlisted" or "cancelled")) status = "pending";
             var roster = await _review.GetPageAsync(status, id, page, cancellationToken);
+            ViewData["PromotionCandidate"] = await _review.GetPromotionCandidateAsync(id, cancellationToken);
             async Task<int> Count(string value) => value == status ? roster.TotalCount :
                 await _review.GetCountAsync(value, id, cancellationToken);
             var model = new EventDossierViewModel

@@ -97,7 +97,7 @@ public sealed class MyEventsAttendanceQueryTests(SqlServerDatabaseFixture fixtur
         Assert.Equal(expectedFirstPage, firstPageIds);
 
         // The newest row renders its Manila recorded time, method label and Valid badge.
-        Assert.Contains("2026-01-01 12:20", firstPage, StringComparison.Ordinal);
+        Assert.Contains("2026-01-01 12:20 PM", firstPage, StringComparison.Ordinal);
         Assert.Contains("QR code", firstPage, StringComparison.Ordinal);
         Assert.Contains("Manual search", firstPage, StringComparison.Ordinal);
         Assert.Contains("Student number", firstPage, StringComparison.Ordinal);

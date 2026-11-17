@@ -130,11 +130,20 @@ public sealed class RegistrationReviewService(IRegistrationRepository registrati
         return outcomes;
     }
 
-    public async Task PromoteNextAsync(int eventId, CancellationToken ct = default)
+    public async Task<RegistrationSummary> GetPromotionCandidateAsync(int eventId, CancellationToken ct = default)
+    {
+        RequireManagement();
+        var candidate = await registrations.DiscoverPromotionCandidateAsync(eventId, ct);
+        if (candidate == null) return null;
+        return (await registrations.GetSummariesAsync(new[] { candidate.RegistrationId }, ct)).FirstOrDefault();
+    }
+
+    public async Task PromoteNextAsync(int eventId, int expectedRegistrationId, CancellationToken ct = default)
     {
         var actorId = RequireManagement();
         var candidate = await registrations.DiscoverPromotionCandidateAsync(eventId, ct);
-        if (candidate == null) throw new DomainException(OutcomeCode.Invalid, "No eligible waitlisted registration to promote.");
+        if (candidate == null || candidate.RegistrationId != expectedRegistrationId)
+            throw new DomainException(OutcomeCode.Stale, "The waitlist changed. Refresh and try again.");
         await unitOfWork.ExecuteInTransactionAsync(async token =>
         {
             var (user, member, eventItem) = await LockOwnerAndEventAsync(candidate.UserId, candidate.EventId, token);
