@@ -12,7 +12,8 @@ namespace ASI.Basecode.Services.Interfaces
         Task<MemberViewModel> GetMemberAsync(int id, CancellationToken cancellationToken = default);
         Task<MemberViewModel> GetSelfProfileAsync(CancellationToken cancellationToken = default);
         Task<bool> HasMemberProfileAsync(int userId, CancellationToken cancellationToken = default);
-        Task UpdateMemberAsync(MemberViewModel model, CancellationToken cancellationToken = default);
+        /// <returns>True if the profile was changed; false if it was already equivalent.</returns>
+        Task<bool> UpdateMemberAsync(MemberViewModel model, CancellationToken cancellationToken = default);
         Task CreateMemberFromApprovedAccountRequestAsync(int userId, MemberViewModel model, CancellationToken cancellationToken = default);
     }
 }

@@ -85,7 +85,7 @@ namespace ASI.Basecode.Services.Services
                 throw new DomainException(OutcomeCode.Invalid, "A valid linked user is required to create a member.");
             }
 
-            Normalize(model);
+            model.Normalize();
             Validate(model);
 
             await _unitOfWork.ExecuteInTransactionAsync(async ct =>
@@ -132,13 +132,14 @@ namespace ASI.Basecode.Services.Services
             }, cancellationToken);
         }
 
-        public async Task UpdateMemberAsync(MemberViewModel model, CancellationToken cancellationToken = default)
+        public async Task<bool> UpdateMemberAsync(MemberViewModel model, CancellationToken cancellationToken = default)
         {
             ArgumentNullException.ThrowIfNull(model);
             var verifiedActorId = RequireManagementActor();
-            Normalize(model);
+            model.Normalize();
 
-            await _unitOfWork.ExecuteInTransactionAsync(async ct =>
+            _repository.EnsureMemberCanRefresh(model.MemberId);
+            return await _unitOfWork.ExecuteInTransactionAsync(async ct =>
             {
                 var memberRecord = await _repository.GetMemberRecordAsync(model.MemberId, ct);
                 if (memberRecord == null)
@@ -152,14 +153,14 @@ namespace ASI.Basecode.Services.Services
                     throw new DomainException(OutcomeCode.NotFound, "The linked account was not found.");
                 }
 
-                var member = await _repository.GetMemberAsync(model.MemberId, ct);
+                var member = await _repository.GetMemberForEditAsync(model.MemberId, ct);
                 if (member == null)
                 {
                     throw new DomainException(OutcomeCode.NotFound, "Member not found.");
                 }
 
                 Validate(model);
-                var correctingStudentNumber = !string.Equals(member.StudentNumber, model.StudentNumber, StringComparison.Ordinal);
+                var correctingStudentNumber = !string.Equals(member.StudentNumber?.Trim(), model.StudentNumber, StringComparison.Ordinal);
                 var reason = string.IsNullOrWhiteSpace(model.StudentNumberCorrectionReason)
                     ? null
                     : model.StudentNumberCorrectionReason.Trim();
@@ -174,11 +175,22 @@ namespace ASI.Basecode.Services.Services
                     throw new DomainException(OutcomeCode.Duplicate, "Student number already exists.", nameof(MemberViewModel.StudentNumber));
                 }
 
+                if (!correctingStudentNumber
+                    && string.Equals(ProfileOptions.NormalizeName(user.Name), model.FullName, StringComparison.Ordinal)
+                    && string.Equals(ProfileOptions.NormalizeCourse(member.Course), model.Course, StringComparison.Ordinal)
+                    && member.YearLevel == model.YearLevel
+                    && string.Equals(ProfileOptions.NormalizeSection(member.Section), model.Section, StringComparison.Ordinal)
+                    && string.Equals(NormalizeOptional(member.MobileNumber), model.MobileNumber, StringComparison.Ordinal)
+                    && string.Equals(NormalizeOptional(member.MembershipType), model.MembershipType, StringComparison.Ordinal))
+                {
+                    return false;
+                }
+
                 var oldValues = Snapshot(member, user.Name);
                 user.Name = model.FullName;
                 user.UpdatedById = verifiedActorId;
                 user.UpdatedTime = _timeProvider.GetUtcNow().UtcDateTime;
-                member.StudentNumber = model.StudentNumber;
+                if (correctingStudentNumber) member.StudentNumber = model.StudentNumber;
                 member.Course = model.Course;
                 member.YearLevel = model.YearLevel;
                 member.Section = model.Section;
@@ -197,6 +209,7 @@ namespace ASI.Basecode.Services.Services
                     OldValues: oldValues,
                     NewValues: Snapshot(member, user.Name)));
                 await _unitOfWork.SaveChangesAsync(ct);
+                return true;
             }, cancellationToken);
         }
 
@@ -227,18 +240,8 @@ namespace ASI.Basecode.Services.Services
             return actorId;
         }
 
-        private static void Normalize(MemberViewModel model)
-        {
-            model.FullName = ProfileOptions.NormalizeName(model.FullName);
-            model.StudentNumber = model.StudentNumber?.Trim();
-            model.Course = ProfileOptions.NormalizeCourse(model.Course);
-            model.Section = ProfileOptions.NormalizeSection(model.Section);
-            model.MobileNumber = string.IsNullOrWhiteSpace(model.MobileNumber) ? null : model.MobileNumber.Trim();
-            model.MembershipType = string.IsNullOrWhiteSpace(model.MembershipType) ? null : model.MembershipType.Trim();
-            model.StudentNumberCorrectionReason = string.IsNullOrWhiteSpace(model.StudentNumberCorrectionReason)
-                ? null
-                : model.StudentNumberCorrectionReason.Trim();
-        }
+        private static string NormalizeOptional(string value) =>
+            string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
         private static void Validate(MemberViewModel model)
         {

@@ -526,6 +526,8 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
         public Task<MemberRecord> GetMemberRecordByUserIdAsync(int userId, CancellationToken cancellationToken = default) => inner.GetMemberRecordByUserIdAsync(userId, cancellationToken);
         public Task<Member> GetMemberByUserIdAsync(int userId, CancellationToken cancellationToken = default) => inner.GetMemberByUserIdAsync(userId, cancellationToken);
         public Task<Member> GetMemberAsync(int memberId, CancellationToken cancellationToken = default) => inner.GetMemberAsync(memberId, cancellationToken);
+        public void EnsureMemberCanRefresh(int memberId) => inner.EnsureMemberCanRefresh(memberId);
+        public Task<Member> GetMemberForEditAsync(int memberId, CancellationToken cancellationToken = default) => inner.GetMemberForEditAsync(memberId, cancellationToken);
         public Task<bool> UserHasMemberProfileAsync(int userId, CancellationToken cancellationToken = default) => inner.UserHasMemberProfileAsync(userId, cancellationToken);
         public Task<bool> StudentNumberExistsAsync(string studentNumber, int? excludeId = null, CancellationToken cancellationToken = default) => inner.StudentNumberExistsAsync(studentNumber, excludeId, cancellationToken);
         public Task UpdateMemberAsync(Member member, CancellationToken cancellationToken = default) => inner.UpdateMemberAsync(member, cancellationToken);

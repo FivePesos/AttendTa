@@ -7,7 +7,13 @@
     var statusFilter = ViewBag.Status as string;
     var searchTerm = ViewBag.Search as string;
     var listError = ViewData["ListError"] as string;
+    var unchangedMessage = TempData["MemberUnchangedMessage"] as string;
 
+}
+
+@if (!string.IsNullOrWhiteSpace(unchangedMessage))
+{
+    <div id="member-edit-unchanged" class="notice notice-amber" role="status" data-member-edit-unchanged>@unchangedMessage</div>
 }
 
 <div class="page-heading">

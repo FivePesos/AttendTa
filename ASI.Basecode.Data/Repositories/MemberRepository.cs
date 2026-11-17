@@ -104,10 +104,23 @@ namespace ASI.Basecode.Data.Repositories
                 .SingleOrDefaultAsync(member => member.UserId == userId, cancellationToken);
         }
 
-        public Task<Member> GetMemberAsync(int memberId, CancellationToken cancellationToken = default)
+        public Task<Member> GetMemberAsync(int memberId, CancellationToken cancellationToken = default) =>
+            this.GetDbSet<Member>().FirstOrDefaultAsync(member => member.MemberId == memberId, cancellationToken);
+
+        public void EnsureMemberCanRefresh(int memberId)
         {
-            return this.GetDbSet<Member>()
-                .FirstOrDefaultAsync(member => member.MemberId == memberId, cancellationToken);
+            var entry = Context.ChangeTracker.Entries<Member>().FirstOrDefault(item => item.Entity.MemberId == memberId);
+            if (entry != null && entry.State != EntityState.Unchanged)
+                throw new InvalidOperationException("Cannot refresh a member with unsaved tracked changes.");
+        }
+
+        public async Task<Member> GetMemberForEditAsync(int memberId, CancellationToken cancellationToken = default)
+        {
+            EnsureMemberCanRefresh(memberId);
+            var entry = Context.ChangeTracker.Entries<Member>().FirstOrDefault(item => item.Entity.MemberId == memberId);
+            if (entry == null) return await GetMemberAsync(memberId, cancellationToken);
+            await entry.ReloadAsync(cancellationToken);
+            return entry.State == EntityState.Detached ? null : entry.Entity;
         }
 
         public Task AddMemberAsync(Member member, CancellationToken cancellationToken = default)

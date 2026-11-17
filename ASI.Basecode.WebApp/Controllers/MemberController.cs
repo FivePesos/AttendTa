@@ -144,6 +144,15 @@ namespace ASI.Basecode.WebApp.Controllers
         [HttpPost]
         public async Task<IActionResult> Edit(MemberViewModel model)
         {
+            model.Normalize();
+            // Only clear validation for normalized string fields; keep binding errors (for example YearLevel).
+            foreach (var field in new[] { nameof(model.FullName), nameof(model.StudentNumber), nameof(model.Course),
+                nameof(model.Section), nameof(model.MobileNumber), nameof(model.MembershipType), nameof(model.StudentNumberCorrectionReason) })
+                ModelState.ClearValidationState(field);
+            ModelState.SetModelValue(nameof(model.Course), model.Course, model.Course);
+            ModelState.SetModelValue(nameof(model.Section), model.Section, model.Section);
+            ModelState.SetModelValue(nameof(model.MembershipType), model.MembershipType, model.MembershipType);
+            TryValidateModel(model);
             if (!ModelState.IsValid)
             {
                 await RestoreCanonicalEmailAsync(model);
@@ -152,8 +161,9 @@ namespace ASI.Basecode.WebApp.Controllers
 
             try
             {
-                await _memberService.UpdateMemberAsync(model, HttpContext.RequestAborted);
-                TempData["SuccessMessage"] = "Member updated successfully.";
+                var changed = await _memberService.UpdateMemberAsync(model, HttpContext.RequestAborted);
+                if (changed) TempData["SuccessMessage"] = "Member updated successfully.";
+                else TempData["MemberUnchangedMessage"] = "No changes were made to the member.";
                 if (IsRecordDialog) return Json(new { saved = true });
                 return RedirectToAction("Index");
             }

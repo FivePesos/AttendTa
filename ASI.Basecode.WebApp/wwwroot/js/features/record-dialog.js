@@ -33,8 +33,21 @@
     const previous = sessionStorage.getItem(restoreKey);
     if (previous) {
         sessionStorage.removeItem(restoreKey);
-        (Array.from(document.querySelectorAll('[data-record-open]')).find(a => a.dataset.recordOpen === previous)
-            || document.querySelector('[data-record-open]'))?.focus();
+        const restored = Array.from(document.querySelectorAll('[data-record-open]')).find(a => a.dataset.recordOpen === previous);
+        const unchanged = document.querySelector('[data-member-edit-unchanged]');
+        if (restored && unchanged && previous.startsWith('edit-member-')) {
+            unchanged.classList.add('record-result-sticky');
+            restored.classList.add('record-result-focus');
+            const descriptions = (restored.getAttribute('aria-describedby') || '').split(/\s+/).filter(Boolean);
+            if (!descriptions.includes(unchanged.id)) descriptions.push(unchanged.id);
+            restored.setAttribute('aria-describedby', descriptions.join(' '));
+        }
+        (restored || document.querySelector('[data-record-open]'))?.focus();
+        if (restored && unchanged && previous.startsWith('edit-member-')) {
+            window.addEventListener('load', () => {
+                if (document.activeElement === restored) restored.scrollIntoView({ block: 'center', inline: 'nearest' });
+            }, { once: true });
+        }
     }
     function focusForm() {
         const errors = body.querySelector('.validation-summary-errors');

@@ -802,7 +802,7 @@ public class AccountRequestServiceTests
         public Task<MemberViewModel> GetMemberAsync(int id, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<MemberViewModel> GetSelfProfileAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<bool> HasMemberProfileAsync(int userId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Task UpdateMemberAsync(MemberViewModel model, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<bool> UpdateMemberAsync(MemberViewModel model, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task CreateMemberFromApprovedAccountRequestAsync(int userId, MemberViewModel model, CancellationToken cancellationToken = default)
         {
             Calls.Add((userId, model));
@@ -929,6 +929,8 @@ public class AccountRequestServiceTests
 
         public Task<Member> GetMemberAsync(int memberId, CancellationToken cancellationToken = default) =>
             Task.FromResult(Members.FirstOrDefault(member => member.MemberId == memberId)!);
+        public void EnsureMemberCanRefresh(int memberId) => throw new NotSupportedException();
+        public Task<Member> GetMemberForEditAsync(int memberId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
         public Task AddMemberAsync(Member member, CancellationToken cancellationToken = default)
         {
