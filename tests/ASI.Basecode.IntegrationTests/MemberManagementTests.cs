@@ -164,18 +164,36 @@ public sealed class MemberManagementTests(SqlServerDatabaseFixture fixture) : IC
         await page.Locator("#record-dialog #StudentNumber").FillAsync("123");
         await page.Locator("#record-dialog #MobileNumber").FillAsync("123");
         await page.Locator("#record-dialog button[type='submit']").ClickAsync();
-        await page.Locator("#record-dialog .validation-summary-errors").WaitForAsync();
+        await page.Locator("#record-dialog #StudentNumber-validation.field-validation-error").WaitForAsync();
         Assert.Equal(0, await page.Locator("#record-dialog [data-record-conflict]").CountAsync());
-        Assert.Null(await page.Locator("#record-dialog .validation-summary-errors").GetAttributeAsync("aria-describedby"));
-        Assert.True(await page.Locator("#record-dialog .validation-summary-errors").EvaluateAsync<bool>("element => getComputedStyle(element).marginBottom === '0px'"));
+        Assert.Equal(0, await page.Locator("#record-dialog .validation-summary-errors").CountAsync());
         Assert.Equal("Please correct the highlighted errors.", await page.Locator("#record-dialog [data-record-message]").InnerTextAsync());
         Assert.Contains("8-digit", await page.Locator("#StudentNumber-validation").InnerTextAsync());
         Assert.Contains("11-digit", await page.Locator("#MobileNumber-validation").InnerTextAsync());
+        Assert.True(await page.Locator("#record-dialog #StudentNumber").EvaluateAsync<bool>("element => element === document.activeElement"));
+        Assert.Equal(1, await page.Locator("#record-dialog").GetByText("Enter an 8-digit student number.", new() { Exact = true }).CountAsync());
+        if (Environment.GetEnvironmentVariable("ATTENDTA_VISUAL_DIR") is string visualDir)
+            await page.ScreenshotAsync(new() { Path = System.IO.Path.Combine(visualDir, $"attendta-member-dialog-{width}.png"), FullPage = true });
+        await page.Locator("#record-dialog #MobileNumber").FocusAsync();
+        await page.Keyboard.PressAsync("Tab");
+        await page.Keyboard.PressAsync("Tab");
+        await page.Keyboard.PressAsync("Tab");
+        Assert.True(await page.Locator("#record-dialog button[type='submit']").EvaluateAsync<bool>("element => element === document.activeElement && element.getBoundingClientRect().bottom <= document.querySelector('#record-dialog').getBoundingClientRect().bottom"));
+        await page.Keyboard.PressAsync("Shift+Tab");
+        Assert.True(await page.Locator("#record-dialog [data-record-close]").Last.EvaluateAsync<bool>("element => element === document.activeElement"));
         await page.Locator("#record-dialog [data-record-close]").First.ClickAsync();
         Assert.True(await page.Locator("[data-discard-prompt]").IsVisibleAsync());
         using var standalone = await client.GetAsync($"/Member/Edit/{seeded.MemberId}", ct);
         var html = await standalone.Content.ReadAsStringAsync(ct);
         Assert.Contains("action=\"/Member/Edit\"", html, StringComparison.Ordinal);
+        await page.GotoAsync($"http://localhost/Member/Edit/{seeded.MemberId}");
+        await page.Locator("#StudentNumber").FillAsync("123");
+        await page.Locator("form.form-panel button[type='submit']").ClickAsync();
+        await page.Locator("#StudentNumber-validation.field-validation-error").WaitForAsync();
+        Assert.Equal(1, await page.GetByText("Enter an 8-digit student number.", new() { Exact = true }).CountAsync());
+        Assert.Equal(0, await page.Locator(".validation-summary-errors").CountAsync());
+        if (Environment.GetEnvironmentVariable("ATTENDTA_VISUAL_DIR") is string standaloneVisualDir)
+            await page.ScreenshotAsync(new() { Path = System.IO.Path.Combine(standaloneVisualDir, $"attendta-member-standalone-{width}.png"), FullPage = true });
     }
 
     [Theory]
@@ -406,6 +424,31 @@ public sealed class MemberManagementTests(SqlServerDatabaseFixture fixture) : IC
         Assert.Contains("value=\"Regular\" selected", correctionHtml, StringComparison.Ordinal);
         await using var observer = Context();
         Assert.False(await observer.ActivityLogs.AnyAsync(item => item.EntityType == "members" && item.EntityId == seeded.MemberId, ct));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task DuplicateStudentNumberAppearsOnlyBesideItsField(bool dialog)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var seeded = await SeedValidMemberAsync(ct);
+        var other = await SeedMemberAsync(MembershipStatusCode.Active, ct);
+        using var factory = new AttendTaWebApplicationFactory(fixture.ConnectionString);
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
+        await SignInAsync(client, seeded.ActorEmail, ManagementPassword, ct);
+        var fields = await ReadEditFieldsAsync(client, seeded, dialog, ct);
+        fields["StudentNumber"] = other.StudentNumber;
+        fields["StudentNumberCorrectionReason"] = "Correct the number";
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/Member/Edit") { Content = new FormUrlEncodedContent(fields) };
+        if (dialog) request.Headers.Add("X-Record-Dialog", "true");
+        using var response = await client.SendAsync(request, ct);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var html = await response.Content.ReadAsStringAsync(ct);
+        AssertFieldError(html, "StudentNumber");
+        Assert.Single(Regex.Matches(html, "Student number already exists\\.", RegexOptions.IgnoreCase));
+        Assert.Matches("(?is)<span[^>]*data-valmsg-for=\"StudentNumber\"[^>]*>.*?Student number already exists\\..*?</span>", html);
+        Assert.DoesNotContain("validation-summary-errors", html, StringComparison.Ordinal);
     }
 
     [Fact]
