@@ -15,6 +15,8 @@ using ASI.Basecode.Services.ServiceModels;
 using ASI.Basecode.Services.Services;
 using ASI.Basecode.Services.Security;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.DataProtection;
+using ASI.Basecode.WebApp.Authentication;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Playwright;
@@ -32,9 +34,10 @@ public sealed class MemberManagementTests(SqlServerDatabaseFixture fixture) : IC
             .AddInterceptors(interceptors).Options);
 
     [Theory]
-    [InlineData(390)]
-    [InlineData(1440)]
-    public async Task MemberEditorSavesAndDisplaysValidationErrorsInBrowser(int width)
+    [InlineData(390, false)]
+    [InlineData(390, true)]
+    [InlineData(1440, false)]
+    public async Task MemberEditorSavesAndDisplaysValidationErrorsInBrowser(int width, bool changeFocusBeforeLoad)
     {
         var ct = TestContext.Current.CancellationToken;
         var seeded = await SeedMemberAsync(MembershipStatusCode.Active, ct, withLoginPasswords: true);
@@ -51,8 +54,16 @@ public sealed class MemberManagementTests(SqlServerDatabaseFixture fixture) : IC
         using var playwright = await Playwright.CreateAsync();
         await using var browser = await playwright.Chromium.LaunchAsync(new() { Headless = true });
         var page = await browser.NewPageAsync(new() { ViewportSize = new() { Width = width, Height = 700 } });
+        var delayedImageStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseImage = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var delayReloadImage = false;
         await page.RouteAsync("**/*", async route =>
         {
+            if (delayReloadImage && route.Request.Url.Contains("/img/attendta-logo.jpg", StringComparison.OrdinalIgnoreCase))
+            {
+                delayedImageStarted.TrySetResult();
+                await releaseImage.Task;
+            }
             using var request = new HttpRequestMessage(new HttpMethod(route.Request.Method), route.Request.Url);
             if (route.Request.Headers.TryGetValue("x-record-dialog", out var dialogHeader))
                 request.Headers.Add("X-Record-Dialog", dialogHeader);
@@ -74,17 +85,48 @@ public sealed class MemberManagementTests(SqlServerDatabaseFixture fixture) : IC
             await page.Locator("#record-dialog #FullName").WaitForAsync();
         }
         await OpenEditor();
-        await page.Locator("#record-dialog button[type='submit']").ClickAsync();
-        await page.Locator("#record-dialog").WaitForAsync(new() { State = WaitForSelectorState.Hidden });
+        Assert.Equal(0, await page.Locator("#record-dialog [data-record-conflict]").CountAsync());
+        delayReloadImage = width == 390;
+        var reloaded = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        void OnFrameNavigated(object? sender, IFrame frame)
+        {
+            if (frame == page.MainFrame) reloaded.TrySetResult();
+        }
+        page.FrameNavigated += OnFrameNavigated;
+        try
+        {
+            await page.Locator("#record-dialog button[type='submit']").ClickAsync();
+            await reloaded.Task.WaitAsync(TimeSpan.FromSeconds(10), ct);
+            await page.WaitForLoadStateAsync(LoadState.DOMContentLoaded);
+            if (delayReloadImage)
+            {
+                await delayedImageStarted.Task.WaitAsync(TimeSpan.FromSeconds(10), ct);
+                await page.WaitForFunctionAsync("() => document.querySelector('[data-member-edit-unchanged]') && document.activeElement?.matches('[data-record-open].record-result-focus')");
+                Assert.NotEqual("complete", await page.EvaluateAsync<string>("document.readyState"));
+                await page.EvaluateAsync("() => { const edit = document.querySelector('[data-record-open].record-result-focus'); window.scrollTo(0, 0); const original = edit.scrollIntoView; edit.scrollIntoView = function(...args) { window.__restoredScrollCalled = true; return original.apply(this, args); }; }");
+                if (changeFocusBeforeLoad)
+                    await page.EvaluateAsync("() => { const notice = document.querySelector('[data-member-edit-unchanged]'); notice.tabIndex = -1; notice.focus({ preventScroll: true }); }");
+            }
+        }
+        finally
+        {
+            page.FrameNavigated -= OnFrameNavigated;
+            releaseImage.TrySetResult();
+        }
+        await page.WaitForLoadStateAsync(LoadState.Load);
+        if (changeFocusBeforeLoad)
+        {
+            Assert.True(await page.Locator("[data-member-edit-unchanged]").EvaluateAsync<bool>("element => element === document.activeElement"));
+            Assert.False(await page.EvaluateAsync<bool>("Boolean(window.__restoredScrollCalled)"));
+            return;
+        }
+        if (delayReloadImage) Assert.True(await page.EvaluateAsync<bool>("Boolean(window.__restoredScrollCalled)"));
         var notice = page.Locator("[data-member-edit-unchanged]");
         Assert.Contains("No changes were made to the member.", await notice.InnerTextAsync());
         var edit = page.Locator($"[data-record-open='edit-member-{seeded.MemberId}']");
-        Assert.True(await edit.EvaluateAsync<bool>("element => element === document.activeElement"));
         Assert.Contains("member-edit-unchanged", await edit.GetAttributeAsync("aria-describedby"), StringComparison.Ordinal);
         Assert.Equal("status", await notice.GetAttributeAsync("role"));
-        Assert.True(await notice.EvaluateAsync<bool>("element => { const r = element.getBoundingClientRect(); const h = document.querySelector('.topbar').getBoundingClientRect(); return r.top >= h.bottom && r.bottom <= innerHeight; }"));
-        var geometry = await edit.EvaluateAsync<string>("element => { const r = element.getBoundingClientRect(); const n = document.querySelector('[data-member-edit-unchanged]').getBoundingClientRect(); return JSON.stringify({ top: r.top, bottom: r.bottom, noticeBottom: n.bottom, height: innerHeight }); }");
-        Assert.True(await edit.EvaluateAsync<bool>("element => { const r = element.getBoundingClientRect(); const n = document.querySelector('[data-member-edit-unchanged]').getBoundingClientRect(); return r.top >= n.bottom && r.bottom <= innerHeight; }"), geometry);
+        await page.WaitForFunctionAsync("selector => { const edit = document.querySelector(selector), notice = document.querySelector('[data-member-edit-unchanged]'), header = document.querySelector('.topbar'); if (!edit || !notice || !header || document.activeElement !== edit) return false; const r = edit.getBoundingClientRect(), n = notice.getBoundingClientRect(), h = header.getBoundingClientRect(); return n.top >= h.bottom && n.bottom <= innerHeight && r.top >= n.bottom && r.bottom <= innerHeight; }", $"[data-record-open='edit-member-{seeded.MemberId}']", new() { Timeout = 10000 });
         await OpenEditor();
         await page.Locator("#record-dialog #FullName").FillAsync("Edited Member Name");
         await page.Locator("#record-dialog button[type='submit']").ClickAsync();
@@ -93,10 +135,40 @@ public sealed class MemberManagementTests(SqlServerDatabaseFixture fixture) : IC
             Assert.Equal("Edited Member Name", (await observer.Users.AsNoTracking().SingleAsync(item => item.Id == seeded.UserId, ct)).Name);
         await OpenEditor();
         Assert.Equal("Edited Member Name", await page.Locator("#record-dialog #FullName").InputValueAsync());
+        await page.Locator("#record-dialog #FullName").FillAsync("Unsaved Browser Input");
+        await page.Locator("#record-dialog #StudentNumberCorrectionReason").FillAsync("Keep browser reason");
+        await using (var competing = Context())
+        {
+            var service = CreateService(competing, seeded.ActorId);
+            var model = await service.GetMemberEditorAsync(seeded.MemberId, ct);
+            var version = MemberEditSnapshot.FromModel(model);
+            model.Section = "B";
+            Assert.True(await service.UpdateMemberAsync(model, ct, version));
+        }
+        await page.Locator("#record-dialog button[type='submit']").ClickAsync();
+        var errors = page.Locator("#record-dialog .validation-summary-errors");
+        await errors.WaitForAsync();
+        Assert.Contains("out of date", await errors.InnerTextAsync(), StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Your input is retained", await page.Locator("#record-dialog [data-record-message]").InnerTextAsync(), StringComparison.Ordinal);
+        Assert.DoesNotContain("highlighted errors", await page.Locator("#record-dialog [data-record-message]").InnerTextAsync(), StringComparison.Ordinal);
+        Assert.True(await errors.EvaluateAsync<bool>("element => element === document.activeElement"));
+        Assert.Equal("Unsaved Browser Input", await page.Locator("#record-dialog #FullName").InputValueAsync());
+        Assert.Equal("Keep browser reason", await page.Locator("#record-dialog #StudentNumberCorrectionReason").InputValueAsync());
+        Assert.Equal("_blank", await page.Locator("#record-dialog a:has-text('Open latest member')").GetAttributeAsync("target"));
+        await page.Keyboard.PressAsync("Escape");
+        Assert.True(await page.Locator("[data-discard-prompt]").IsVisibleAsync());
+        await page.Locator("[data-discard-prompt] button:has-text('Discard changes')").ClickAsync();
+        await page.Locator("#record-dialog").WaitForAsync(new() { State = WaitForSelectorState.Hidden });
+        await OpenEditor();
+        Assert.Equal("B", await page.Locator("#record-dialog #Section").InputValueAsync());
         await page.Locator("#record-dialog #StudentNumber").FillAsync("123");
         await page.Locator("#record-dialog #MobileNumber").FillAsync("123");
         await page.Locator("#record-dialog button[type='submit']").ClickAsync();
         await page.Locator("#record-dialog .validation-summary-errors").WaitForAsync();
+        Assert.Equal(0, await page.Locator("#record-dialog [data-record-conflict]").CountAsync());
+        Assert.Null(await page.Locator("#record-dialog .validation-summary-errors").GetAttributeAsync("aria-describedby"));
+        Assert.True(await page.Locator("#record-dialog .validation-summary-errors").EvaluateAsync<bool>("element => getComputedStyle(element).marginBottom === '0px'"));
+        Assert.Equal("Please correct the highlighted errors.", await page.Locator("#record-dialog [data-record-message]").InnerTextAsync());
         Assert.Contains("8-digit", await page.Locator("#StudentNumber-validation").InnerTextAsync());
         Assert.Contains("11-digit", await page.Locator("#MobileNumber-validation").InnerTextAsync());
         await page.Locator("#record-dialog [data-record-close]").First.ClickAsync();
@@ -104,6 +176,112 @@ public sealed class MemberManagementTests(SqlServerDatabaseFixture fixture) : IC
         using var standalone = await client.GetAsync($"/Member/Edit/{seeded.MemberId}", ct);
         var html = await standalone.Content.ReadAsStringAsync(ct);
         Assert.Contains("action=\"/Member/Edit\"", html, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(false, 390)]
+    [InlineData(false, 1440)]
+    [InlineData(true, 390)]
+    [InlineData(true, 1440)]
+    public async Task ConflictReloadLinkOpensCurrentEditorWithoutDiscardingStaleInput(bool dialog, int width)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var seeded = await SeedValidMemberAsync(ct);
+        using var factory = new AttendTaWebApplicationFactory(fixture.ConnectionString);
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
+        await SignInAsync(client, seeded.ActorEmail, ManagementPassword, ct);
+        using var playwright = await Playwright.CreateAsync();
+        await using var browser = await playwright.Chromium.LaunchAsync(new() { Headless = true });
+        await using var browserContext = await browser.NewContextAsync(new() { ViewportSize = new() { Width = width, Height = 700 } });
+        await browserContext.RouteAsync("**/*", async route =>
+        {
+            using var request = new HttpRequestMessage(new HttpMethod(route.Request.Method), route.Request.Url);
+            if (route.Request.Headers.TryGetValue("x-record-dialog", out var dialogHeader))
+                request.Headers.Add("X-Record-Dialog", dialogHeader);
+            if (route.Request.PostDataBuffer is byte[] body)
+            {
+                request.Content = new ByteArrayContent(body);
+                request.Content.Headers.TryAddWithoutValidation("Content-Type", route.Request.Headers["content-type"]);
+            }
+            using var response = await client.SendAsync(request, ct);
+            var headers = response.Headers.Concat(response.Content.Headers)
+                .Where(header => header.Key is not ("Transfer-Encoding" or "Content-Length" or "Content-Encoding"))
+                .ToDictionary(header => header.Key, header => string.Join(", ", header.Value));
+            await route.FulfillAsync(new() { Status = (int)response.StatusCode, Headers = headers, BodyBytes = await response.Content.ReadAsByteArrayAsync(ct) });
+        });
+        var page = await browserContext.NewPageAsync();
+        await page.GotoAsync(dialog
+            ? $"http://localhost/Member?search={Uri.EscapeDataString(seeded.MemberEmail)}"
+            : $"http://localhost/Member/Edit/{seeded.MemberId}");
+        if (dialog) await page.Locator($"[data-record-open='edit-member-{seeded.MemberId}']").ClickAsync();
+        var form = page.Locator(dialog ? "#record-dialog form[data-record-form]" : "form.form-panel");
+        await form.Locator("#FullName").WaitForAsync();
+        Assert.Equal(0, await form.Locator("[data-record-conflict]").CountAsync());
+        Assert.Equal(0, await form.Locator("[aria-describedby^='member-edit-recovery-']").CountAsync());
+        var originalVersion = await form.Locator("input[name='EditVersion']").InputValueAsync();
+        await form.Locator("#FullName").FillAsync("Unsaved Browser Input");
+        await form.Locator("#StudentNumberCorrectionReason").FillAsync("Keep browser reason");
+        await using (var competing = Context())
+        {
+            var service = CreateService(competing, seeded.ActorId);
+            var model = await service.GetMemberEditorAsync(seeded.MemberId, ct);
+            var snapshot = MemberEditSnapshot.FromModel(model);
+            model.FullName = "Winning Editor";
+            model.Section = "B";
+            Assert.True(await service.UpdateMemberAsync(model, ct, snapshot));
+        }
+        await form.Locator("button[type='submit']").ClickAsync();
+        await form.Locator(".validation-summary-errors").WaitForAsync();
+        Assert.Contains("out of date", await form.Locator(".validation-summary-errors").InnerTextAsync(), StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("copy the changes you want to keep into the fresh form, then save that form", await form.Locator("[data-record-conflict]").InnerTextAsync(), StringComparison.Ordinal);
+        Assert.Equal("Unsaved Browser Input", await form.Locator("#FullName").InputValueAsync());
+        Assert.Equal("Keep browser reason", await form.Locator("#StudentNumberCorrectionReason").InputValueAsync());
+        Assert.Equal(originalVersion, await form.Locator("input[name='EditVersion']").InputValueAsync());
+
+        var summary = form.Locator(".validation-summary-errors");
+        Assert.True(await summary.EvaluateAsync<bool>("element => element === document.activeElement"));
+        var recoveryId = await summary.GetAttributeAsync("aria-describedby");
+        Assert.False(string.IsNullOrWhiteSpace(recoveryId));
+        Assert.Equal(1, await page.Locator($"[id='{recoveryId}']").CountAsync());
+        Assert.Equal(recoveryId, await form.Locator("[data-record-conflict]").GetAttributeAsync("id"));
+        if (dialog)
+        {
+            Assert.True(await summary.EvaluateAsync<bool>("element => { const style = getComputedStyle(element), recovery = element.parentElement.querySelector('[data-record-conflict]'); return style.outlineStyle === 'solid' && style.outlineWidth === '2px' && style.outlineColor === 'rgb(29, 78, 216)' && style.outlineOffset === '2px' && recovery.getBoundingClientRect().top - element.getBoundingClientRect().bottom >= 16; }"));
+        }
+        Assert.True(await form.Locator("[data-record-conflict]").EvaluateAsync<bool>("element => { const next = element.parentElement.querySelector('label[for=Email]'); return next.getBoundingClientRect().top - element.getBoundingClientRect().bottom >= 16; }"));
+        var recovery = form.GetByRole(AriaRole.Link, new() { Name = "Open latest member in a new tab" });
+        if (dialog)
+        {
+            await page.Keyboard.PressAsync("Tab");
+            Assert.True(await page.Locator("#record-dialog [aria-label='Close editor']").EvaluateAsync<bool>("element => element === document.activeElement"));
+        }
+        await page.Keyboard.PressAsync("Tab");
+        Assert.True(await recovery.EvaluateAsync<bool>("element => element === document.activeElement"));
+        var fresh = await browserContext.RunAndWaitForPageAsync(async () =>
+        {
+            await page.Keyboard.PressAsync("Enter");
+        });
+        await fresh.WaitForLoadStateAsync();
+        Assert.Equal($"http://localhost/Member/Edit/{seeded.MemberId}", fresh.Url);
+        var freshForm = fresh.Locator("form.form-panel");
+        await freshForm.Locator("#FullName").WaitForAsync();
+        Assert.Equal("Winning Editor", await freshForm.Locator("#FullName").InputValueAsync());
+        Assert.Equal("B", await freshForm.Locator("#Section").InputValueAsync());
+        Assert.NotEqual(originalVersion, await freshForm.Locator("input[name='EditVersion']").InputValueAsync());
+        Assert.Equal("Unsaved Browser Input", await form.Locator("#FullName").InputValueAsync());
+        Assert.Equal("Keep browser reason", await form.Locator("#StudentNumberCorrectionReason").InputValueAsync());
+        Assert.Equal(originalVersion, await form.Locator("input[name='EditVersion']").InputValueAsync());
+
+        await freshForm.Locator("#FullName").FillAsync("Fresh Editor Save");
+        var saveResponse = await fresh.RunAndWaitForResponseAsync(
+            async () => await freshForm.Locator("button[type='submit']").ClickAsync(),
+            response => response.Request.Method == "POST" && response.Url.EndsWith("/Member/Edit", StringComparison.Ordinal));
+        Assert.Equal(302, saveResponse.Status);
+        await using var observer = Context();
+        Assert.Equal("Fresh Editor Save", (await observer.Users.AsNoTracking().SingleAsync(x => x.Id == seeded.UserId, ct)).Name);
+        Assert.Equal(2, await observer.ActivityLogs.CountAsync(x => x.EntityType == "members" && x.EntityId == seeded.MemberId, ct));
+        Assert.Equal("Unsaved Browser Input", await form.Locator("#FullName").InputValueAsync());
+        Assert.Equal("Keep browser reason", await form.Locator("#StudentNumberCorrectionReason").InputValueAsync());
     }
 
     [Fact]
@@ -121,7 +299,7 @@ public sealed class MemberManagementTests(SqlServerDatabaseFixture fixture) : IC
         }
         await using (var writer = Context())
         {
-            var changed = await CreateService(writer, seeded.ActorId).UpdateMemberAsync(new MemberViewModel
+            var changed = await UpdateCurrentMemberAsync(CreateService(writer, seeded.ActorId), new MemberViewModel
             {
                 MemberId = seeded.MemberId, FullName = " original  MEMBER name ",
                 StudentNumber = $" {seeded.StudentNumber} ", Course = "BSIT", YearLevel = 2,
@@ -163,7 +341,7 @@ public sealed class MemberManagementTests(SqlServerDatabaseFixture fixture) : IC
         Assert.False(string.IsNullOrWhiteSpace(token));
         using var response = await client.PostAsync("/Member/Edit", new FormUrlEncodedContent(new Dictionary<string, string>
         {
-            ["__RequestVerificationToken"] = token, ["MemberId"] = seeded.MemberId.ToString(),
+            ["__RequestVerificationToken"] = token, ["EditVersion"] = HiddenValue(html, "EditVersion"), ["MemberId"] = seeded.MemberId.ToString(),
             ["FullName"] = "Original Member Name", ["StudentNumber"] = seeded.StudentNumber,
             ["Course"] = "BSIT", ["YearLevel"] = "2", ["Section"] = "A",
             ["MobileNumber"] = "09171234567", ["MembershipType"] = "Regular"
@@ -197,7 +375,7 @@ public sealed class MemberManagementTests(SqlServerDatabaseFixture fixture) : IC
         var token = Regex.Match(html, "name=\"__RequestVerificationToken\"[^>]*value=\"([^\"]+)\"", RegexOptions.IgnoreCase).Groups[1].Value;
         var fields = new Dictionary<string, string>
         {
-            ["__RequestVerificationToken"] = token, ["MemberId"] = seeded.MemberId.ToString(),
+            ["__RequestVerificationToken"] = token, ["EditVersion"] = HiddenValue(html, "EditVersion"), ["MemberId"] = seeded.MemberId.ToString(),
             ["FullName"] = " original MEMBER name ", ["StudentNumber"] = $" {seeded.StudentNumber} ",
             ["Course"] = " BS Information Technology ", ["YearLevel"] = "2", ["Section"] = " a ",
             ["MobileNumber"] = " 09171234567 ", ["MembershipType"] = " Regular "
@@ -217,6 +395,7 @@ public sealed class MemberManagementTests(SqlServerDatabaseFixture fixture) : IC
         Assert.Contains("value=\"BSIT\" selected", invalidHtml, StringComparison.Ordinal);
         Assert.Contains("value=\"A\" selected", invalidHtml, StringComparison.Ordinal);
         Assert.Contains("value=\"Regular\" selected", invalidHtml, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-record-conflict", invalidHtml, StringComparison.Ordinal);
         fields["YearLevel"] = "2";
         fields["StudentNumber"] = UniqueStudentNumber();
         using var correction = await client.PostAsync("/Member/Edit", new FormUrlEncodedContent(fields), ct);
@@ -243,7 +422,7 @@ public sealed class MemberManagementTests(SqlServerDatabaseFixture fixture) : IC
         }
         await using (var writer = Context())
         {
-            Assert.True(await CreateService(writer, seeded.ActorId).UpdateMemberAsync(new MemberViewModel
+            Assert.True(await UpdateCurrentMemberAsync(CreateService(writer, seeded.ActorId), new MemberViewModel
             {
                 MemberId = seeded.MemberId, FullName = "Changed Name", StudentNumber = seeded.StudentNumber,
                 Course = "BSIT", YearLevel = 2, Section = "A", MembershipType = "Regular"
@@ -272,7 +451,7 @@ public sealed class MemberManagementTests(SqlServerDatabaseFixture fixture) : IC
             await other.SaveChangesAsync(ct);
         }
         Assert.Equal("Original course", tracked.Course);
-        Assert.False(await CreateService(writer, seeded.ActorId).UpdateMemberAsync(new MemberViewModel
+        Assert.False(await UpdateCurrentMemberAsync(CreateService(writer, seeded.ActorId), new MemberViewModel
         {
             MemberId = seeded.MemberId, FullName = "Original Member Name", StudentNumber = seeded.StudentNumber,
             Course = "BSIT", YearLevel = 2, Section = "A", MembershipType = "Regular"
@@ -297,7 +476,7 @@ public sealed class MemberManagementTests(SqlServerDatabaseFixture fixture) : IC
         Assert.Same(tracked, await repository.GetMemberAsync(seeded.MemberId, ct));
         Assert.Equal("Unsaved change", tracked.Course);
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            CreateService(writer, seeded.ActorId, work, repository).UpdateMemberAsync(new MemberViewModel
+            UpdateCurrentMemberAsync(CreateService(writer, seeded.ActorId, work, repository), new MemberViewModel
             {
                 MemberId = seeded.MemberId, FullName = "Original Member Name", StudentNumber = seeded.StudentNumber,
                 Course = "BSIT", YearLevel = 2, Section = "A", MembershipType = "Regular"
@@ -394,7 +573,7 @@ public sealed class MemberManagementTests(SqlServerDatabaseFixture fixture) : IC
         var correctedNumber = UniqueStudentNumber();
         await using (var writer = Context())
         {
-            await CreateService(writer, seeded.ActorId).UpdateMemberAsync(new MemberViewModel
+            await UpdateCurrentMemberAsync(CreateService(writer, seeded.ActorId), new MemberViewModel
             {
                 MemberId = seeded.MemberId,
                 FullName = "Corrected Member Name",
@@ -452,7 +631,7 @@ public sealed class MemberManagementTests(SqlServerDatabaseFixture fixture) : IC
         var seeded = await SeedMemberAsync(MembershipStatusCode.Active, ct);
         await using (var writer = Context())
         {
-            await CreateService(writer, seeded.ActorId).UpdateMemberAsync(new MemberViewModel
+            await UpdateCurrentMemberAsync(CreateService(writer, seeded.ActorId), new MemberViewModel
             {
                 MemberId = seeded.MemberId,
                 FullName = "Renamed Member",
@@ -487,7 +666,7 @@ public sealed class MemberManagementTests(SqlServerDatabaseFixture fixture) : IC
         var candidateNumber = UniqueStudentNumber();
         repository.StudentNumberForRace = candidateNumber;
 
-        var exception = await Assert.ThrowsAsync<DomainException>(() => service.UpdateMemberAsync(new MemberViewModel
+        var exception = await Assert.ThrowsAsync<DomainException>(() => UpdateCurrentMemberAsync(service, new MemberViewModel
         {
             MemberId = seeded.MemberId,
             FullName = "Attempted change",
@@ -517,7 +696,7 @@ public sealed class MemberManagementTests(SqlServerDatabaseFixture fixture) : IC
         await using var writer = Context();
         var service = CreateService(writer, seeded.ActorId);
 
-        var exception = await Assert.ThrowsAsync<DomainException>(() => service.UpdateMemberAsync(new MemberViewModel
+        var exception = await Assert.ThrowsAsync<DomainException>(() => UpdateCurrentMemberAsync(service, new MemberViewModel
         {
             MemberId = seeded.MemberId,
             FullName = "Must not change",
@@ -547,7 +726,7 @@ public sealed class MemberManagementTests(SqlServerDatabaseFixture fixture) : IC
         await using var writer = Context(new FailWhenActivityLogIsSaved());
         var service = CreateService(writer, seeded.ActorId);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => service.UpdateMemberAsync(new MemberViewModel
+        await Assert.ThrowsAsync<InvalidOperationException>(() => UpdateCurrentMemberAsync(service, new MemberViewModel
         {
             MemberId = seeded.MemberId,
             FullName = "Should roll back",
@@ -575,6 +754,7 @@ public sealed class MemberManagementTests(SqlServerDatabaseFixture fixture) : IC
         var signal = new UserLockCommandSignal();
         await using var writer = Context(signal);
         var service = CreateService(writer, seeded.ActorId);
+        var original = MemberEditSnapshot.FromModel(await service.GetMemberAsync(seeded.MemberId, ct));
         await using var lockOwner = Context();
         await using var transaction = await lockOwner.Database.BeginTransactionAsync(ct);
         Assert.NotNull(await new UserRepository(new UnitOfWork(lockOwner)).LockUserAsync(seeded.UserId, ct));
@@ -587,7 +767,7 @@ public sealed class MemberManagementTests(SqlServerDatabaseFixture fixture) : IC
             Course = "BSIT",
             YearLevel = 2,
             Section = "A"
-        }, ct);
+        }, ct, original);
         var committed = false;
         try
         {
@@ -630,7 +810,7 @@ public sealed class MemberManagementTests(SqlServerDatabaseFixture fixture) : IC
         };
         typeof(MemberViewModel).GetProperty(field)!.SetValue(model, value);
 
-        var exception = await Assert.ThrowsAsync<DomainException>(() => service.UpdateMemberAsync(model, ct));
+        var exception = await Assert.ThrowsAsync<DomainException>(() => UpdateCurrentMemberAsync(service, model, ct));
 
         Assert.Equal(OutcomeCode.Invalid, exception.Outcome);
         Assert.Equal(field, exception.Field);
@@ -651,7 +831,7 @@ public sealed class MemberManagementTests(SqlServerDatabaseFixture fixture) : IC
         await using var writer = Context();
         var service = CreateService(writer, seeded.ActorId);
 
-        var exception = await Assert.ThrowsAsync<DomainException>(() => service.UpdateMemberAsync(new MemberViewModel
+        var exception = await Assert.ThrowsAsync<DomainException>(() => UpdateCurrentMemberAsync(service, new MemberViewModel
         {
             MemberId = seeded.MemberId,
             FullName = "Unchanged Member",
@@ -673,7 +853,7 @@ public sealed class MemberManagementTests(SqlServerDatabaseFixture fixture) : IC
         var seeded = await SeedMemberAsync(MembershipStatusCode.Active, ct);
         await using (var writer = Context())
         {
-            await CreateService(writer, seeded.ActorId).UpdateMemberAsync(new MemberViewModel
+            await UpdateCurrentMemberAsync(CreateService(writer, seeded.ActorId), new MemberViewModel
             {
                 MemberId = seeded.MemberId,
                 FullName = "Section Case Member",
@@ -696,7 +876,7 @@ public sealed class MemberManagementTests(SqlServerDatabaseFixture fixture) : IC
         var seeded = await SeedMemberAsync(MembershipStatusCode.Active, ct);
         await using (var writer = Context())
         {
-            await CreateService(writer, seeded.ActorId).UpdateMemberAsync(new MemberViewModel
+            await UpdateCurrentMemberAsync(CreateService(writer, seeded.ActorId), new MemberViewModel
             {
                 MemberId = seeded.MemberId,
                 FullName = "JOHN PAUL A. SINGCO",
@@ -744,6 +924,7 @@ public sealed class MemberManagementTests(SqlServerDatabaseFixture fixture) : IC
         using var response = await managementClient.PostAsync("/Member/Edit", new FormUrlEncodedContent(new Dictionary<string, string>
         {
             ["__RequestVerificationToken"] = token,
+            ["EditVersion"] = HiddenValue(html, "EditVersion"),
             ["MemberId"] = seeded.MemberId.ToString(),
             ["FullName"] = "Tampered attempt",
             ["Email"] = "attacker@example.invalid",
@@ -763,6 +944,7 @@ public sealed class MemberManagementTests(SqlServerDatabaseFixture fixture) : IC
         using var invalidModelResponse = await managementClient.PostAsync("/Member/Edit", new FormUrlEncodedContent(new Dictionary<string, string>
         {
             ["__RequestVerificationToken"] = token,
+            ["EditVersion"] = HiddenValue(html, "EditVersion"),
             ["MemberId"] = seeded.MemberId.ToString(),
             ["FullName"] = "",
             ["Email"] = "invalid-model@example.invalid",
@@ -780,6 +962,7 @@ public sealed class MemberManagementTests(SqlServerDatabaseFixture fixture) : IC
         using var offRuleResponse = await managementClient.PostAsync("/Member/Edit", new FormUrlEncodedContent(new Dictionary<string, string>
         {
             ["__RequestVerificationToken"] = token,
+            ["EditVersion"] = HiddenValue(html, "EditVersion"),
             ["MemberId"] = seeded.MemberId.ToString(),
             ["FullName"] = "Off-rule profile",
             ["Email"] = "off-rule@example.invalid",
@@ -843,6 +1026,291 @@ public sealed class MemberManagementTests(SqlServerDatabaseFixture fixture) : IC
         Assert.Equal(HttpStatusCode.OK, page.StatusCode);
         var html = await page.Content.ReadAsStringAsync(ct);
         Assert.Contains($"value=\"{expectedOption}\" selected", html, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(false, "FullName", "First Editor Name")]
+    [InlineData(true, "StudentNumber", "87654321")]
+    [InlineData(false, "Course", "BSCS")]
+    [InlineData(true, "YearLevel", "3")]
+    [InlineData(false, "Section", "B")]
+    [InlineData(true, "MobileNumber", "09181112222")]
+    [InlineData(false, "MembershipType", "Honors")]
+    public async Task IndependentFormsRejectStaleEditsAcrossEditableFields(bool dialog, string field, string newValue)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var seeded = await SeedValidMemberAsync(ct);
+        using var factory = new AttendTaWebApplicationFactory(fixture.ConnectionString);
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
+        await SignInAsync(client, seeded.ActorEmail, ManagementPassword, ct);
+        var first = await ReadEditFieldsAsync(client, seeded, dialog, ct);
+        var second = await ReadEditFieldsAsync(client, seeded, dialog, ct);
+        if (field == "StudentNumber") newValue = UniqueStudentNumber();
+        first[field] = newValue;
+        first["StudentNumberCorrectionReason"] = "Verified correction";
+        second["FullName"] = "Second Editor Input";
+        second["StudentNumberCorrectionReason"] = "Keep this reason";
+        if (dialog) client.DefaultRequestHeaders.Add("X-Record-Dialog", "true");
+
+        using var saved = await client.PostAsync("/Member/Edit", new FormUrlEncodedContent(first), ct);
+        Assert.Equal(dialog ? HttpStatusCode.OK : HttpStatusCode.Redirect, saved.StatusCode);
+        if (dialog) Assert.Contains("\"saved\":true", await saved.Content.ReadAsStringAsync(ct), StringComparison.Ordinal);
+        await using var before = Context();
+        var beforeMember = await before.Members.AsNoTracking().SingleAsync(x => x.MemberId == seeded.MemberId, ct);
+        var beforeUser = await before.Users.AsNoTracking().SingleAsync(x => x.Id == seeded.UserId, ct);
+        var beforeSnapshot = MemberEditSnapshot.FromEntities(beforeMember, beforeUser.Name);
+        var memberUpdated = (beforeMember.UpdatedAt, beforeMember.UpdatedBy);
+        var userUpdated = (beforeUser.UpdatedTime, beforeUser.UpdatedById);
+
+        using var rejected = await client.PostAsync("/Member/Edit", new FormUrlEncodedContent(second), ct);
+        Assert.Equal(HttpStatusCode.OK, rejected.StatusCode);
+        var html = await rejected.Content.ReadAsStringAsync(ct);
+        Assert.Contains("out of date", html, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Second Editor Input", html, StringComparison.Ordinal);
+        Assert.Contains("Keep this reason", html, StringComparison.Ordinal);
+        Assert.Equal(second["EditVersion"], HiddenValue(html, "EditVersion"));
+        Assert.Contains($"/Member/Edit/{seeded.MemberId}", html, StringComparison.Ordinal);
+        Assert.Contains("target=\"_blank\"", html, StringComparison.Ordinal);
+        await using var after = Context();
+        var afterMember = await after.Members.AsNoTracking().SingleAsync(x => x.MemberId == seeded.MemberId, ct);
+        var afterUser = await after.Users.AsNoTracking().SingleAsync(x => x.Id == seeded.UserId, ct);
+        Assert.Equal(beforeSnapshot, MemberEditSnapshot.FromEntities(afterMember, afterUser.Name));
+        Assert.Equal(memberUpdated, (afterMember.UpdatedAt, afterMember.UpdatedBy));
+        Assert.Equal(userUpdated, (afterUser.UpdatedTime, afterUser.UpdatedById));
+        Assert.Equal(1, await after.ActivityLogs.CountAsync(x => x.EntityType == "members" && x.EntityId == seeded.MemberId, ct));
+    }
+
+    [Theory]
+    [InlineData(false, "missing")]
+    [InlineData(true, "malformed")]
+    [InlineData(false, "tampered")]
+    [InlineData(true, "wrong-member")]
+    [InlineData(false, "wrong-member-invalid")]
+    [InlineData(true, "wrong-member-invalid")]
+    [InlineData(false, "other-key")]
+    [InlineData(true, "missing-invalid")]
+    public async Task InvalidVersionEvidenceCannotWrite(bool dialog, string variant)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var seeded = await SeedValidMemberAsync(ct);
+        using var factory = new AttendTaWebApplicationFactory(fixture.ConnectionString);
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
+        await SignInAsync(client, seeded.ActorEmail, ManagementPassword, ct);
+        var fields = await ReadEditFieldsAsync(client, seeded, dialog, ct);
+        fields["FullName"] = "Must Not Persist";
+        switch (variant)
+        {
+            case "missing": fields.Remove("EditVersion"); break;
+            case "missing-invalid": fields.Remove("EditVersion"); fields["YearLevel"] = "invalid"; break;
+            case "malformed": fields["EditVersion"] = "not-a-token"; break;
+            case "tampered": fields["EditVersion"] = fields["EditVersion"][..^3] + "xxx"; break;
+            case "wrong-member":
+            case "wrong-member-invalid":
+                var other = await SeedValidMemberAsync(ct);
+                fields["EditVersion"] = (await ReadEditFieldsAsync(client, other, dialog, ct))["EditVersion"];
+                if (variant == "wrong-member-invalid") fields["YearLevel"] = "invalid";
+                break;
+            case "other-key":
+                fields["EditVersion"] = new MemberEditSnapshotProtector(new EphemeralDataProtectionProvider())
+                    .Protect(new MemberEditSnapshot(seeded.MemberId, seeded.UserId, "Original Member Name", seeded.StudentNumber, "BSIT", 2, "A", "09171234567", "Regular"));
+                break;
+        }
+        if (dialog) client.DefaultRequestHeaders.Add("X-Record-Dialog", "true");
+        using var response = await client.PostAsync("/Member/Edit", new FormUrlEncodedContent(fields), ct);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var html = await response.Content.ReadAsStringAsync(ct);
+        Assert.Contains("out of date", html, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("copy the changes you want to keep into the fresh form, then save that form", html, StringComparison.Ordinal);
+        if (variant is "missing-invalid" or "wrong-member-invalid") AssertFieldError(html, "YearLevel");
+        Assert.Contains("Must Not Persist", html, StringComparison.Ordinal);
+        Assert.Contains($"/Member/Edit/{seeded.MemberId}", html, StringComparison.Ordinal);
+        await using var observer = Context();
+        var member = await observer.Members.AsNoTracking().SingleAsync(x => x.MemberId == seeded.MemberId, ct);
+        var user = await observer.Users.AsNoTracking().SingleAsync(x => x.Id == seeded.UserId, ct);
+        Assert.Equal("Original Member Name", user.Name);
+        Assert.Null(member.UpdatedAt);
+        Assert.Null(user.UpdatedTime);
+        Assert.False(await observer.ActivityLogs.AnyAsync(x => x.EntityType == "members" && x.EntityId == seeded.MemberId, ct));
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public async Task ValidationRetryKeepsOriginalVersionAndDetectsLaterChanges(bool dialog, bool becomesStale)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var seeded = await SeedValidMemberAsync(ct);
+        using var factory = new AttendTaWebApplicationFactory(fixture.ConnectionString);
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
+        await SignInAsync(client, seeded.ActorEmail, ManagementPassword, ct);
+        var fields = await ReadEditFieldsAsync(client, seeded, dialog, ct);
+        var original = fields["EditVersion"];
+        fields["FullName"] = "Retry Input";
+        fields["YearLevel"] = "invalid";
+        if (dialog) client.DefaultRequestHeaders.Add("X-Record-Dialog", "true");
+        using var invalid = await client.PostAsync("/Member/Edit", new FormUrlEncodedContent(fields), ct);
+        var invalidHtml = await invalid.Content.ReadAsStringAsync(ct);
+        AssertFieldError(invalidHtml, "YearLevel");
+        Assert.DoesNotContain("data-record-conflict", invalidHtml, StringComparison.Ordinal);
+        Assert.Equal(original, HiddenValue(invalidHtml, "EditVersion"));
+        if (becomesStale)
+        {
+            await using var writer = Context();
+            var service = CreateService(writer, seeded.ActorId);
+            var model = await service.GetMemberEditorAsync(seeded.MemberId, ct);
+            var snapshot = MemberEditSnapshot.FromModel(model);
+            model.Section = "B";
+            Assert.True(await service.UpdateMemberAsync(model, ct, snapshot));
+        }
+        fields["YearLevel"] = "2";
+        fields["EditVersion"] = HiddenValue(invalidHtml, "EditVersion");
+        using var retry = await client.PostAsync("/Member/Edit", new FormUrlEncodedContent(fields), ct);
+        var html = await retry.Content.ReadAsStringAsync(ct);
+        if (becomesStale)
+        {
+            Assert.Equal(HttpStatusCode.OK, retry.StatusCode);
+            Assert.Contains("out of date", html, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("Retry Input", html, StringComparison.Ordinal);
+            Assert.Equal(original, HiddenValue(html, "EditVersion"));
+        }
+        else if (dialog) Assert.Contains("\"saved\":true", html, StringComparison.Ordinal);
+        else Assert.Equal(HttpStatusCode.Redirect, retry.StatusCode);
+        await using var observer = Context();
+        Assert.Equal(becomesStale ? "Original Member Name" : "Retry Input", (await observer.Users.AsNoTracking().SingleAsync(x => x.Id == seeded.UserId, ct)).Name);
+        Assert.Equal(1, await observer.ActivityLogs.CountAsync(x => x.EntityType == "members" && x.EntityId == seeded.MemberId, ct));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task AlreadyStaleFormKeepsVersionThroughValidationAndRejectsCorrectedRetry(bool dialog)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var seeded = await SeedValidMemberAsync(ct);
+        using var factory = new AttendTaWebApplicationFactory(fixture.ConnectionString);
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
+        await SignInAsync(client, seeded.ActorEmail, ManagementPassword, ct);
+        var fields = await ReadEditFieldsAsync(client, seeded, dialog, ct);
+        var original = fields["EditVersion"];
+        fields["FullName"] = "Retry Input";
+        fields["StudentNumberCorrectionReason"] = "Keep retry reason";
+        fields["YearLevel"] = "invalid";
+        await using (var writer = Context())
+        {
+            var service = CreateService(writer, seeded.ActorId);
+            var winner = await service.GetMemberEditorAsync(seeded.MemberId, ct);
+            var version = MemberEditSnapshot.FromModel(winner);
+            winner.Section = "B";
+            Assert.True(await service.UpdateMemberAsync(winner, ct, version));
+        }
+        if (dialog) client.DefaultRequestHeaders.Add("X-Record-Dialog", "true");
+        using var invalid = await client.PostAsync("/Member/Edit", new FormUrlEncodedContent(fields), ct);
+        Assert.Equal(HttpStatusCode.OK, invalid.StatusCode);
+        var invalidHtml = await invalid.Content.ReadAsStringAsync(ct);
+        AssertFieldError(invalidHtml, "YearLevel");
+        Assert.Contains("Retry Input", invalidHtml, StringComparison.Ordinal);
+        Assert.Contains("Keep retry reason", invalidHtml, StringComparison.Ordinal);
+        Assert.Equal(original, HiddenValue(invalidHtml, "EditVersion"));
+
+        fields["YearLevel"] = "2";
+        fields["EditVersion"] = HiddenValue(invalidHtml, "EditVersion");
+        using var retry = await client.PostAsync("/Member/Edit", new FormUrlEncodedContent(fields), ct);
+        Assert.Equal(HttpStatusCode.OK, retry.StatusCode);
+        var conflictHtml = await retry.Content.ReadAsStringAsync(ct);
+        Assert.Contains("out of date", conflictHtml, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("data-record-conflict", conflictHtml, StringComparison.Ordinal);
+        Assert.Contains("Retry Input", conflictHtml, StringComparison.Ordinal);
+        Assert.Contains("Keep retry reason", conflictHtml, StringComparison.Ordinal);
+        Assert.Equal(original, HiddenValue(conflictHtml, "EditVersion"));
+        await using var observer = Context();
+        Assert.Equal("B", (await observer.Members.AsNoTracking().SingleAsync(x => x.MemberId == seeded.MemberId, ct)).Section);
+        Assert.Equal("Original Member Name", (await observer.Users.AsNoTracking().SingleAsync(x => x.Id == seeded.UserId, ct)).Name);
+        Assert.Equal(1, await observer.ActivityLogs.CountAsync(x => x.EntityType == "members" && x.EntityId == seeded.MemberId, ct));
+    }
+
+    [Fact]
+    public async Task WaitingEditRechecksSnapshotAfterCooperatingWriterCommits()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var seeded = await SeedValidMemberAsync(ct);
+        await using var initialContext = Context();
+        var model = await CreateService(initialContext, seeded.ActorId).GetMemberEditorAsync(seeded.MemberId, ct);
+        var original = MemberEditSnapshot.FromModel(model);
+        model.FullName = "Waiting Editor";
+        var signal = new UserLockCommandSignal();
+        await using var waitingContext = Context(signal);
+        var service = CreateService(waitingContext, seeded.ActorId);
+        await using var owner = Context();
+        await using var tx = await owner.Database.BeginTransactionAsync(ct);
+        var user = await new UserRepository(new UnitOfWork(owner)).LockUserAsync(seeded.UserId, ct);
+        var pending = service.UpdateMemberAsync(model, ct, original);
+        var committed = false;
+        try
+        {
+            await signal.Started.Task.WaitAsync(TimeSpan.FromSeconds(10), ct);
+            Assert.False(pending.IsCompleted);
+            user.Name = "Winning Editor";
+            await owner.SaveChangesAsync(ct);
+            await tx.CommitAsync(ct);
+            committed = true;
+            var error = await Assert.ThrowsAsync<DomainException>(() => pending);
+            Assert.Equal(OutcomeCode.Stale, error.Outcome);
+        }
+        finally
+        {
+            if (!committed) await tx.RollbackAsync(CancellationToken.None);
+            try { await pending; } catch { }
+        }
+        await using var observer = Context();
+        Assert.Equal("Winning Editor", (await observer.Users.AsNoTracking().SingleAsync(x => x.Id == seeded.UserId, ct)).Name);
+        Assert.Null((await observer.Members.AsNoTracking().SingleAsync(x => x.MemberId == seeded.MemberId, ct)).UpdatedAt);
+        Assert.False(await observer.ActivityLogs.AnyAsync(x => x.EntityType == "members" && x.EntityId == seeded.MemberId, ct));
+    }
+
+    [Fact]
+    public async Task StaleEvidenceIsRejectedBeforeAnOtherwiseUnchangedEdit()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var seeded = await SeedValidMemberAsync(ct);
+        await using var context = Context();
+        var service = CreateService(context, seeded.ActorId);
+        var model = await service.GetMemberEditorAsync(seeded.MemberId, ct);
+        var wrongUser = MemberEditSnapshot.FromModel(model) with { UserId = seeded.UserId + 1 };
+        var error = await Assert.ThrowsAsync<DomainException>(() => service.UpdateMemberAsync(model, ct, wrongUser));
+        Assert.Equal(OutcomeCode.Stale, error.Outcome);
+        await using var observer = Context();
+        Assert.Null((await observer.Members.AsNoTracking().SingleAsync(x => x.MemberId == seeded.MemberId, ct)).UpdatedAt);
+        Assert.False(await observer.ActivityLogs.AnyAsync(x => x.EntityType == "members" && x.EntityId == seeded.MemberId, ct));
+    }
+
+    private async Task<SeededMember> SeedValidMemberAsync(CancellationToken ct)
+    {
+        var seeded = await SeedMemberAsync(MembershipStatusCode.Active, ct, withLoginPasswords: true);
+        await using var context = Context();
+        var member = await context.Members.SingleAsync(x => x.MemberId == seeded.MemberId, ct);
+        member.Course = "BSIT";
+        member.MobileNumber = "09171234567";
+        await context.SaveChangesAsync(ct);
+        return seeded;
+    }
+
+    private static async Task<Dictionary<string, string>> ReadEditFieldsAsync(HttpClient client, SeededMember seeded, bool dialog, CancellationToken ct)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"/Member/Edit/{seeded.MemberId}");
+        if (dialog) request.Headers.Add("X-Record-Dialog", "true");
+        using var response = await client.SendAsync(request, ct);
+        response.EnsureSuccessStatusCode();
+        var html = await response.Content.ReadAsStringAsync(ct);
+        return new Dictionary<string, string>
+        {
+            ["__RequestVerificationToken"] = HiddenValue(html, "__RequestVerificationToken"),
+            ["EditVersion"] = HiddenValue(html, "EditVersion"), ["MemberId"] = seeded.MemberId.ToString(),
+            ["FullName"] = "Original Member Name", ["StudentNumber"] = seeded.StudentNumber,
+            ["Course"] = "BSIT", ["YearLevel"] = "2", ["Section"] = "A",
+            ["MobileNumber"] = "09171234567", ["MembershipType"] = "Regular"
+        };
     }
 
     private async Task<SeededMember> SeedMemberAsync(MembershipStatusCode status, CancellationToken cancellationToken, bool withLoginPasswords = false)
@@ -922,6 +1390,12 @@ public sealed class MemberManagementTests(SqlServerDatabaseFixture fixture) : IC
             new ActivityLogWriter(context, actor, TimeProvider.System));
     }
 
+    private static async Task<bool> UpdateCurrentMemberAsync(MemberService service, MemberViewModel model, CancellationToken ct)
+    {
+        var current = await service.GetMemberAsync(model.MemberId, ct);
+        return await service.UpdateMemberAsync(model, ct, MemberEditSnapshot.FromModel(current));
+    }
+
     private async Task SignInAsync(HttpClient client, string email, string password, CancellationToken cancellationToken)
     {
         using var page = await client.GetAsync("/Account/Login", cancellationToken);
@@ -939,6 +1413,13 @@ public sealed class MemberManagementTests(SqlServerDatabaseFixture fixture) : IC
     }
 
     private static string UniqueStudentNumber() => ProfileFixtures.NewStudentNumber();
+
+    private static string HiddenValue(string html, string name)
+    {
+        var match = Regex.Match(html, $"name=\"{Regex.Escape(name)}\"[^>]*value=\"([^\"]*)\"", RegexOptions.IgnoreCase);
+        Assert.True(match.Success, $"Missing hidden field {name}");
+        return WebUtility.HtmlDecode(match.Groups[1].Value);
+    }
 
     private static void AssertFieldError(string html, string field)
     {

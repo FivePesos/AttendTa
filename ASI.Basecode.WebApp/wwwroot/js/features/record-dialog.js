@@ -172,7 +172,9 @@
             if (!html.includes('data-record-form')) throw new Error();
             clearPreview();
             body.innerHTML = html;
-            message.textContent = 'Please correct the highlighted errors.';
+            message.textContent = body.querySelector('[data-record-conflict]')
+                ? 'The member could not be saved. Your input is retained; follow the recovery instructions.'
+                : 'Please correct the highlighted errors.';
             setBusy(false);
             focusForm();
         } catch {

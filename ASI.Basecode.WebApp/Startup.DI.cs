@@ -48,6 +48,7 @@ namespace ASI.Basecode.WebApp
             this._services.AddScoped<IAccountAccessCommands, AccountAccessService>();
             this._services.AddScoped<IMembershipAccessCommands, MembershipAccessService>();
             this._services.AddScoped<IMemberService, MemberService>();
+            this._services.AddSingleton<MemberEditSnapshotProtector>();
             this._services.AddScoped<IEventTypeService, EventTypeService>();
             this._services.AddScoped<IVenueService, VenueService>();
             this._services.AddScoped<IEventLifecycleService, EventLifecycleService>();
