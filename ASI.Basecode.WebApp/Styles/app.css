@@ -526,7 +526,15 @@
   .pagination-summary { margin: 0; color: var(--color-ink-secondary); font-size: 13px; font-variant-numeric: tabular-nums; }
   .paging-mode { font-size: 12px; }
   .list-toolbar { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; margin: 0 0 16px; }
-  .list-toolbar .field { flex: 0 1 160px; min-width: 110px; margin: 0; }
+  .list-toolbar .field { flex: 0 1 190px; min-width: 110px; margin: 0; }
+  .list-toolbar .field:has(> select[name="filter"]) { flex: 0 1 280px; min-width: min(100%, 220px); max-width: 280px; }
+  .list-toolbar .field:has(> select[name="eventId"]) { flex: 0 1 230px; min-width: min(100%, 220px); max-width: 230px; }
+  .list-toolbar .field:has(> select option[value="PendingApproval"]) { flex: 0 1 160px; min-width: 110px; max-width: 160px; }
+  .list-toolbar .field:has(> select option[value="not-attended"]) { flex: 0 1 150px; }
+  @media (max-width: 640px) {
+    .list-toolbar .field:has(> select[name="filter"]),
+    .list-toolbar .field:has(> select[name="eventId"]) { flex-basis: 100%; max-width: none; }
+  }
   .list-search-field { flex: 1 1 280px; min-width: 0; max-width: 440px; }
   .list-toolbar .search-group { flex-wrap: nowrap; margin: 0; }
   .list-toolbar .search-group input { flex: 1 1 auto; }
@@ -710,6 +718,17 @@
   .field select:focus-visible,
   .field textarea:focus-visible,
   .field-control:focus-visible { outline: 2px solid var(--color-cobalt); outline-offset: 2px; }
+  .list-toolbar .field select {
+    appearance: none;
+    padding-right: 32px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none' stroke='%233a3d43' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m3 4.5 3 3 3-3'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    background-size: 12px;
+  }
+  @media (forced-colors: active) {
+    .list-toolbar .field select { appearance: auto; }
+  }
   .field input[readonly] { background: var(--color-surface-subtle); }
   .field input:disabled,
   .field select:disabled,
