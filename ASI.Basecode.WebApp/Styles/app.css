@@ -527,6 +527,14 @@
   .paging-mode { font-size: 12px; }
   .list-toolbar { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; margin: 0 0 16px; }
   .list-toolbar .field { flex: 0 1 190px; min-width: 110px; margin: 0; }
+  .list-toolbar .field:has(> select[name="filter"]) { flex: 0 1 280px; min-width: min(100%, 220px); max-width: 280px; }
+  .list-toolbar .field:has(> select[name="eventId"]) { flex: 0 1 230px; min-width: min(100%, 220px); max-width: 230px; }
+  .list-toolbar .field:has(> select option[value="PendingApproval"]) { flex: 0 1 160px; min-width: 110px; max-width: 160px; }
+  .list-toolbar .field:has(> select option[value="not-attended"]) { flex: 0 1 150px; }
+  @media (max-width: 640px) {
+    .list-toolbar .field:has(> select[name="filter"]),
+    .list-toolbar .field:has(> select[name="eventId"]) { flex-basis: 100%; max-width: none; }
+  }
   .list-search-field { flex: 1 1 280px; min-width: 0; max-width: 440px; }
   .list-toolbar .search-group { flex-wrap: nowrap; margin: 0; }
   .list-toolbar .search-group input { flex: 1 1 auto; }
