@@ -13,6 +13,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Playwright;
 using Xunit;
 
 namespace ASI.Basecode.IntegrationTests;
@@ -55,6 +56,7 @@ public sealed class EventCombinedEditFlowTests(SqlServerDatabaseFixture fixture)
         using var anonymous = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
         await EventDraftTestSupport.SignInAsync(officer, officerEmail, password, ct);
         await EventDraftTestSupport.SignInAsync(member, memberEmail, password, ct);
+        await VerifyCoverCheckboxAsync(officer, draftId, ct);
         var token = await EventDraftTestSupport.AntiforgeryTokenAsync(officer, "/Event", ct);
         var memberToken = await EventDraftTestSupport.AntiforgeryTokenAsync(member, "/Home/Index", ct);
 
@@ -200,6 +202,45 @@ public sealed class EventCombinedEditFlowTests(SqlServerDatabaseFixture fixture)
         Assert.Single(afterRollback.Audit);
         Assert.True(File.Exists(Physical(publishedAfter.Row.ImagePath)));
         Assert.True(File.Exists(Physical(nestedPath)));
+    }
+
+    private static async Task VerifyCoverCheckboxAsync(HttpClient client, int eventId, CancellationToken ct)
+    {
+        using var playwright = await Playwright.CreateAsync();
+        await using var browser = await playwright.Chromium.LaunchAsync(new() { Headless = true });
+        var page = await browser.NewPageAsync();
+        await page.RouteAsync("**/*", async route =>
+        {
+            using var response = await client.GetAsync(route.Request.Url, ct);
+            var headers = response.Headers.Concat(response.Content.Headers)
+                .Where(header => header.Key is not ("Transfer-Encoding" or "Content-Length" or "Content-Encoding"))
+                .ToDictionary(header => header.Key, header => string.Join(", ", header.Value));
+            await route.FulfillAsync(new() { Status = (int)response.StatusCode, Headers = headers, BodyBytes = await response.Content.ReadAsByteArrayAsync(ct) });
+        });
+        foreach (var width in new[] { 1440, 390 })
+        {
+            await page.SetViewportSizeAsync(width, 900);
+            await page.GotoAsync($"http://localhost/Event/Edit?id={eventId}");
+            var checkbox = page.GetByRole(AriaRole.Checkbox, new() { Name = "Remove current cover" });
+            var label = page.Locator("label.cover-remove");
+            var box = await checkbox.BoundingBoxAsync();
+            var target = await label.BoundingBoxAsync();
+            var help = await page.Locator("#cover-help").BoundingBoxAsync();
+            Assert.NotNull(box);
+            Assert.NotNull(target);
+            Assert.NotNull(help);
+            Assert.InRange(box.Width, 15, 17);
+            Assert.InRange(box.Height, 15, 17);
+            Assert.True(target.Height >= 44);
+            Assert.True(target.Y >= help.Y + help.Height);
+            Assert.InRange(Math.Abs(target.X - help.X), 0, 1);
+            Assert.True(await page.EvaluateAsync<bool>("document.documentElement.scrollWidth <= innerWidth"));
+            await checkbox.FocusAsync();
+            await page.Keyboard.PressAsync("Space");
+            Assert.True(await checkbox.IsCheckedAsync());
+            await label.ClickAsync();
+            Assert.False(await checkbox.IsCheckedAsync());
+        }
     }
 
     private static byte[] Jpeg(byte marker) => [0xff, 0xd8, 0xff, marker, 0, 0, 0, 0];
