@@ -155,4 +155,24 @@ public sealed class ListPresentationTests
         context.Request.QueryString = new("?status=all&page=2");
         Assert.False(ListPagingLabels.IsFiltered(context.Request));
     }
+
+    [Fact]
+    public void CertificateFilterAllIsCountedOnlyWhenItIsApplied()
+    {
+        var context = new DefaultHttpContext();
+        context.Request.RouteValues["controller"] = "CertificateLedger";
+        context.Request.QueryString = new("?filter=all");
+        Assert.True(ListPagingLabels.IsFiltered(context.Request));
+        context.Request.QueryString = new("?Filter=all");
+        Assert.True(ListPagingLabels.IsFiltered(context.Request));
+        context.Request.QueryString = new("?status=Eligible");
+        Assert.False(ListPagingLabels.IsFiltered(context.Request));
+        context.Request.QueryString = new("?tab=issued&filter=all");
+        Assert.False(ListPagingLabels.IsFiltered(context.Request));
+        context.Request.QueryString = new("?filter=Issued");
+        Assert.False(ListPagingLabels.IsFiltered(context.Request));
+        context.Request.RouteValues["controller"] = "MemberEvents";
+        context.Request.QueryString = new("?filter=all");
+        Assert.False(ListPagingLabels.IsFiltered(context.Request));
+    }
 }

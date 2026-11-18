@@ -84,3 +84,7 @@
   summary: `MemberService.UpdateMemberAsync` validates the view model inside the transaction, after the user row lock is taken.
   status: deferred
   evidence: Already recorded above under the plan's own review; this review confirmed the same ordering at `MemberService.cs:136` (normalize) and `:158` (validate). Nothing is mutated on refusal, so the exposure is a momentarily held lock on a request that is about to be refused. Moving `Validate` beside `Normalize` would close it.
+
+- source_plan: `_bmad-output/initiative-attendta/plan-243-promotion-assertion.md`
+  summary: Review event dossier submission date and time alignment separately from Registration Review.
+  evidence: Event/Details.cshtml uses numeric cells under left-aligned headings; the dossier is a separate existing UI surface outside this test-only fix.

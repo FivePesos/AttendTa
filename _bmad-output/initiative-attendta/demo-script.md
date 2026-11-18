@@ -188,7 +188,7 @@ Sign in as `rafael.santos@gmail.com`.
 | O2 | Event dossier | `/Event/1`, `/Event/2` and `/Event/3` | Metadata, capacity, status-aware roster; Leadership Summit shows Complete event; Community Outreach is cancelled; Founders' Week shows the check-in control | Roster scrolls; actions stay reachable |
 | O3 | Completion | `/Event/1` → Complete event → Confirm | "Event completed."; status Completed; roster read-only. Completing Founders' Week before its start is refused with "An event cannot be completed before it starts."; completing the cancelled Community Outreach is refused | Dialog fits |
 | O4 | Registration review | `/RegistrationReview/Index` | Daniel Navarro pending on Founders' Week; approve/decline with a reason | Cards stack; buttons reachable |
-| O5 | Door scan | `/CheckIn` → Founders' Week → Pass code → paste Liza's pass token → Check in | "Liza Fernandez checked in." with name, student number, Manila time, and "Check-in recorded."; a second scan says "Already checked in. This is the original time." | Tabs, input, and outcome panel fit |
+| O5 | Door scan | `/CheckIn` → Founders' Week → Camera scan → scan Liza's QR pass | "Liza Fernandez checked in." with name, student number, Manila time, and "Check-in recorded."; a second scan says "Already checked in. This is the original time." | Tabs and outcome panel fit |
 | O6 | Manual lookup | `/CheckIn` → Manual lookup → `Liza` → Search | Liza is found with "Checked in"; searching alone does not record | Table scrolls |
 | O7 | Invalidation | Recorded check-ins → Invalidate | Dialog names the participant and requires a reason; Cancel leaves the check-in intact | Dialog fits |
 | O8 | Certificate review | `/Certificates?eventId=1` | Pending reviews; approve one; decline another with a required reason; the declined row shows "Decision final" | Table scrolls; dialogs fit |
@@ -199,8 +199,7 @@ The report reads real SQL attendance, so it reflects the check-ins recorded thro
 scanner and manual lookup. The seeded Leadership Summit has no check-ins, so O10 shows no valid
 attendees and every confirmed row as a no-show unless one is recorded on event 1 first.
 
-The member's door pass and its token are read from the pass page; the token is the
-registration's stored `qr_token`.
+The member opens the door pass on the pass page and presents its QR image for scanning.
 
 ## 6. Member beats
 
@@ -224,7 +223,7 @@ Sign in as `liza.fernandez@gmail.com`.
 2. Tables scroll inside their own container; the document itself does not scroll horizontally.
 3. Dialogs stay centered, fit the viewport, and keep their actions reachable.
 4. Event cards and pass cards collapse to one column; the QR is not cropped or stretched.
-5. The scanner tabs, pass-code input, and outcome panel are usable without horizontal scroll.
+5. The scanner tabs, manual lookup, and outcome panel are usable without horizontal scroll.
 6. The report summary cards stack; the participant table scrolls; breakdown bars stay readable.
 
 ## 8. Known limits

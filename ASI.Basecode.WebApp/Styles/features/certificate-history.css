@@ -9,21 +9,13 @@
   .certificate-history .data-table th:nth-child(3), .certificate-history .data-table td:nth-child(3),
   .certificate-history .data-table th:last-child, .certificate-history .data-table td:last-child { position: static; box-shadow: none; }
   .certificate-meta { display: block; margin-top: 4px; color: var(--color-ink-muted); font-weight: 400; }
+  .certificate-history .data-table .certificate-meta { color: var(--color-ink-muted); font-weight: 400; text-align: left; }
   .certificate-context, .certificate-reason { margin: 6px 0 0; color: var(--color-ink-muted); font-size: 12.5px; }
-  .certificate-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; }
-  /* Row actions read as text links, so a page of issued certificates never becomes a wall of cobalt fills. */
-  .certificate-link {
-    color: var(--color-cobalt);
-    font-size: 12.5px;
-    font-weight: 600;
-    text-decoration: none;
-    white-space: nowrap;
-  }
-  .certificate-link:hover { color: var(--color-cobalt-deep); text-decoration: underline; }
-  .certificate-link:focus-visible { outline: 2px solid var(--color-cobalt); outline-offset: 2px; }
+  .certificate-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
   .certificate-history ::selection { background: var(--color-cobalt-tint); color: var(--color-ink); }
   @media (max-width: 640px) {
     .certificate-history .data-table { min-width: 0; }
     .certificate-history .data-table tbody th, .certificate-history .data-table td:nth-child(2) { width: auto; }
+    .certificate-actions .button { min-height: 44px; }
   }
 }

@@ -2,14 +2,15 @@
 @using Microsoft.AspNetCore.Http.Extensions
 @{
     ViewData["ListControls"] = true;
-    ViewData["Title"] = "Event Classifications";
+    ViewData["Title"] = "Event types";
     ViewData["Feature"] = "record-dialog";
     var statusFilter = ViewBag.Status as string;
+    var hasSearch = !string.IsNullOrWhiteSpace(Context.Request.Query["search"].ToString());
     var listError = ViewData["ListError"] as string;
 }
 
 <div class="page-heading">
-    <h1>Event Classifications</h1>
+    <h1>Event types</h1>
     <a asp-action="Create" class="button button-primary" data-record-open="create-event-type" data-record-title="New Event Type">New Event Type</a>
 </div>
 
@@ -31,7 +32,7 @@
         <a href="@Context.Request.GetEncodedPathAndQuery()">Try again</a>
     </div>
     <div class="table-scroll" role="region" aria-label="Event Type table" tabindex="0" data-list-region>
-        <table class="data-table table-sticky">
+        <table class="data-table table-sticky event-type-table">
             <thead>
                 <tr>
                     <th scope="col">Type Name</th>
@@ -46,7 +47,7 @@
 else if (Model.Items.Count == 0)
 {
     <div class="table-scroll" role="region" aria-label="Event Type table" tabindex="0" data-list-region>
-        <table class="data-table table-sticky">
+        <table class="data-table table-sticky event-type-table">
             <thead>
                 <tr>
                     <th scope="col">Type Name</th>
@@ -58,7 +59,11 @@ else if (Model.Items.Count == 0)
             <tbody>
                 <tr>
                     <td colspan="4" class="empty-state">
-                        @if (string.IsNullOrEmpty(statusFilter))
+                        @if (hasSearch)
+                        {
+                            <text>No event types match your search. Adjust the search or use Reset to see other records.</text>
+                        }
+                        else if (string.IsNullOrEmpty(statusFilter))
                         {
                             <text>No event types yet. Use "New Event Type" to create the first one.</text>
                         }
@@ -75,7 +80,7 @@ else if (Model.Items.Count == 0)
 else
 {
     <div class="table-scroll" role="region" aria-label="Event Type table" tabindex="0" data-list-region>
-        <table class="data-table table-sticky">
+        <table class="data-table table-sticky event-type-table">
             <thead>
                 <tr>
                     <th scope="col">Type Name</th>

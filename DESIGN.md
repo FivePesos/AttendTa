@@ -145,6 +145,10 @@ Manage records and Run operations sections; these descriptive headings do not re
 groups. Page heads carry the title, an optional one-line description, and — only where the
 action exists — a single primary button on the right.
 
+**Owner exception (2026-11-18):** Management Home places its two existing destination sections
+side by side on wide screens and stacks them on smaller screens. Their destinations remain
+vertical rows; Member Home retains its single participation section.
+
 Responsive: below 1024px the rail collapses into the existing disclosure menu and the top bar
 keeps the breadcrumb and the role indicator; the member header collapses its destinations and
 account block into the same disclosure menu. Below 768px gutters drop to 16px and page heads
