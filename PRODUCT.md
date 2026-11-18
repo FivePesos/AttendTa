@@ -81,6 +81,7 @@ Used by a University of Cebu student organization on a laptop at the door and on
 - The MVP is a light-theme web application; there is no dark mode, native app, or offline mode.
 - The officer certificate ledger supports completed-event review, final decline reasons, bounded bulk approval of eligibility reviews while issuance stays individual, and PDF viewing/download with the approved template and signatory. Reviews are real database rows and every issued document is retained in the private file store; each decision writes its own audit entry.
 - My Certificates shows the member's pending, eligible, declined, issued and unavailable records with review reasons, independently paged history, and issued-only View/Download PDF. The history is the member's own confirmed registrations and their real certificate rows; a row offers a document only when its certificate is issued with a retained file. Every document read checks the current owner and returns the same not-found for another member's record or an unknown id.
+- Certificate history groups event and issue dates beneath their respective details, with bordered View and Download controls when the retained PDF is available; an unissued certificate is not presented as a broken document.
 
 ## Brand Commitments
 

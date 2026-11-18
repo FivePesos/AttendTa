@@ -322,8 +322,19 @@ public sealed class CertificateLedgerFlowTests(SqlServerDatabaseFixture fixture)
         await MemberEventTestSupport.SignInAsync(ownerClient, memberEmails[1], password, ct);
         var memberHistory = await ownerClient.GetStringAsync("/MyEvents/Certificates", ct);
         Assert.Contains($"AT-2026-{registrationIds[1]:D6}", memberHistory, StringComparison.Ordinal);
+        Assert.Contains("class=\"button button-small button-secondary\"", memberHistory, StringComparison.Ordinal);
         browserClient = ownerClient;
-        await page.GotoAsync("http://localhost/MyEvents/Certificates?fit=2");
+        foreach (var width in new[] { 1440, 390 })
+        {
+            await page.SetViewportSizeAsync(width, 900);
+            await page.GotoAsync("http://localhost/MyEvents/Certificates?fit=2");
+            Assert.Equal("left", await page.Locator(".certificate-event .certificate-meta").First.EvaluateAsync<string>("el => getComputedStyle(el).textAlign"));
+            Assert.Equal("left", await page.Locator("[data-label='Issue details'] .certificate-meta").First.EvaluateAsync<string>("el => getComputedStyle(el).textAlign"));
+            Assert.True(await page.EvaluateAsync<bool>("document.documentElement.scrollWidth <= innerWidth"));
+            if (width == 390)
+                Assert.True(await page.Locator(".certificate-actions .button").First.EvaluateAsync<bool>("el => el.getBoundingClientRect().height >= 44"));
+            await page.ScreenshotAsync(new() { Path = Path.Combine(Path.GetTempPath(), $"attendta-personal-certificates-{width}.png"), FullPage = true });
+        }
         await page.Locator("[data-certificate-pdf]").ClickAsync();
         await page.GetByText("Certificate loaded.", new() { Exact = true }).WaitForAsync();
         await page.Keyboard.PressAsync("Escape");
@@ -460,6 +471,7 @@ public sealed class CertificateLedgerFlowTests(SqlServerDatabaseFixture fixture)
         Assert.DoesNotContain("data-certificate-pdf=", unavailableRegistry);
         var unavailableHistory = await ownerClient.GetStringAsync("/MyEvents/Certificates", ct);
         Assert.Contains("Document unavailable", unavailableHistory);
+        Assert.Contains("Contact an officer for help.", unavailableHistory);
         Assert.Contains($"AT-2026-{registrationIds[1]:D6}", unavailableHistory);
         Assert.Contains("Issued", unavailableHistory);
         Assert.DoesNotContain("data-certificate-pdf=", unavailableHistory);

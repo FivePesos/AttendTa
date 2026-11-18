@@ -31,6 +31,31 @@ public sealed class ManagementPersonalCertificateTests(SqlServerDatabaseFixture 
         Assert.Equal(pdfBytes, await download.Content.ReadAsByteArrayAsync(ct));
     }
 
+    [Fact]
+    public async Task UnissuedHistoryDoesNotSuggestTheDocumentIsBroken()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var email = $"unissued-certificate-{Guid.NewGuid():N}@attendta.test";
+        var password = MemberEventTestSupport.NewPassword();
+        var user = await MemberEventTestSupport.SeedUserAsync(fixture.ConnectionString, email, password, RoleCode.Member, ct);
+        var member = await MemberEventTestSupport.SeedMemberAsync(fixture.ConnectionString, user.Id, MembershipStatusCode.Active, ct);
+        var (typeId, venueId) = await MemberEventTestSupport.SeedReferencesAsync(fixture.ConnectionString, user.Id, ct);
+        var startsAt = DateTime.UtcNow.AddDays(7);
+        var eventItem = await MemberEventTestSupport.SeedEventAsync(fixture.ConnectionString, user.Id, typeId, venueId,
+            EventStatusCode.Published, startsAt, startsAt.AddDays(-1), 20, null, $"Unissued {Guid.NewGuid():N}", ct);
+        await MemberEventTestSupport.SeedRegistrationAsync(fixture.ConnectionString, eventItem.EventId,
+            member.MemberId, RegistrationStatusCode.Confirmed, user.Id, ct);
+
+        await using var factory = new AttendTaWebApplicationFactory(fixture.ConnectionString);
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        await MemberEventTestSupport.SignInAsync(client, email, password, ct);
+        var html = await client.GetStringAsync("/MyEvents/Certificates", ct);
+
+        Assert.Contains("No certificate is available yet.", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("Contact an officer", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-certificate-pdf=", html, StringComparison.Ordinal);
+    }
+
     [Theory]
     [InlineData(RoleCode.Officer)]
     [InlineData(RoleCode.Admin)]
