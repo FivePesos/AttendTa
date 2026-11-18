@@ -413,3 +413,65 @@ test('scan outcome and log show Manila-local time without a timezone suffix', as
     assert.equal(result.children[0].children[3].textContent, '2026-01-02 02:30');
     assert.equal(log.children[0].children[2].textContent, '2026-01-02 02:30');
 });
+
+test('scanner keyboard navigation wraps between camera and manual lookup', () => {
+    const camera = createElement('button'), manual = createElement('button');
+    const panels = { camera: {}, manual: {} };
+    for (const [element, name] of [[camera, 'camera'], [manual, 'manual']]) {
+        element.attributes = { 'data-scanner-mode': name, 'aria-controls': name, 'aria-selected': name === 'camera' ? 'true' : 'false' };
+        element.getAttribute = key => element.attributes[key];
+    }
+    const events = [];
+    const root = { querySelector: () => null, querySelectorAll: () => [camera, manual] };
+    const document = { querySelector: () => root, getElementById: id => panels[id], dispatchEvent: event => events.push(event.type) };
+    const source = fs.readFileSync(path.join(__dirname, '..', 'wwwroot', 'js', 'features', 'scanner.js'), 'utf8');
+    vm.runInNewContext(source, { document, window: {}, CustomEvent: function (type) { this.type = type; } });
+    let prevented = false;
+    camera.listeners.keydown[0]({ key: 'ArrowLeft', preventDefault() { prevented = true; } });
+    assert.equal(prevented, true);
+    assert.equal(manual.attributes['aria-selected'], 'true');
+    assert.equal(manual.focused, true);
+    assert.equal(panels.camera.hidden, true);
+    assert.equal(panels.manual.hidden, false);
+    assert.deepEqual(events, ['scanner:camera-stop']);
+    manual.listeners.keydown[0]({ key: 'ArrowRight', preventDefault() {} });
+    assert.equal(camera.attributes['aria-selected'], 'true');
+    assert.equal(panels.camera.hidden, false);
+});
+
+test('camera posts decoded QR using the hidden scan form', async () => {
+    const form = { action: '/CheckIn/Scan', elements: { eventId: { value: '12' } }, hidden: true };
+    const start = createElement('button'), stop = createElement('button'), next = createElement('button');
+    const video = { readyState: 4, HAVE_ENOUGH_DATA: 4, videoWidth: 1, videoHeight: 1, play() {} };
+    const elements = { '[data-scan-form]': form, '[data-camera-start]': start, '[data-camera-stop]': stop, '[data-scan-next]': next, '[data-scanner-video]': video };
+    const root = { querySelector: selector => elements[selector] || null };
+    const canvas = { getContext: () => ({ drawImage() {}, getImageData: () => ({ data: [], width: 1, height: 1 }) }) };
+    const document = { querySelector: () => root, createElement: () => canvas, addEventListener() {} };
+    let frame, posted, stopped = false;
+    const window = { jsQR: () => ({ data: 'synthetic-token' }), addEventListener() {}, AttendTaScanner: { postScan: (actualForm, token) => { posted = { actualForm, token }; return Promise.resolve(); } } };
+    const source = fs.readFileSync(path.join(__dirname, '..', 'wwwroot', 'js', 'features', 'scanner-camera.js'), 'utf8');
+    vm.runInNewContext(source, { window, document, navigator: { mediaDevices: { getUserMedia: () => Promise.resolve({ getTracks: () => [{ stop() { stopped = true; } }] }) } }, requestAnimationFrame: callback => { frame = callback; return 1; }, cancelAnimationFrame() {} });
+    start.listeners.click[0]();
+    await flush();
+    frame();
+    await flush();
+    assert.equal(posted.actualForm, form);
+    assert.equal(posted.token, 'synthetic-token');
+    assert.equal(stopped, true);
+    assert.equal(next.hidden, false);
+});
+
+test('unavailable camera directs the officer to manual lookup', () => {
+    const start = createElement('button'), note = createElement('p');
+    const elements = { '[data-scan-form]': {}, '[data-camera-start]': start, '[data-camera-note]': note };
+    const root = { querySelector: selector => elements[selector] || null };
+    let outcome;
+    const window = { jsQR() {}, addEventListener() {}, AttendTaScanner: { render: value => { outcome = value; } } };
+    const document = { querySelector: () => root, createElement: () => ({ getContext: () => null }), addEventListener() {} };
+    const source = fs.readFileSync(path.join(__dirname, '..', 'wwwroot', 'js', 'features', 'scanner-camera.js'), 'utf8');
+    vm.runInNewContext(source, { window, document, navigator: {}, cancelAnimationFrame() {} });
+    start.listeners.click[0]();
+    assert.equal(outcome.outcome, 'camera-unavailable');
+    assert.match(note.textContent, /manual lookup/i);
+    assert.doesNotMatch(note.textContent, /pass code/i);
+});

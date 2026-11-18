@@ -1,6 +1,6 @@
 // Door scanner shared behaviour. Loaded by the CheckIn view after the locally
-// served jsQR decoder. The camera and manual adapters use the small API this file exposes; the
-// pass-code form posts the same contract with form-encoded AJAX and renders the JSON outcome.
+// served jsQR decoder. The camera adapter uses the small API this file exposes to post scans
+// and render the JSON outcome.
 (function () {
     'use strict';
 
@@ -47,7 +47,7 @@
         });
     });
 
-    // The panels render visible so the pass-code and manual lookup forms work without JavaScript.
+    // The panels render visible so manual lookup works without JavaScript.
     // With JavaScript the tabs take over and show only the selected mode.
     var initialMode = modes.filter(function (mode) {
         return mode.getAttribute('aria-selected') === 'true';
@@ -218,29 +218,6 @@
                 render(outcome);
                 return outcome;
             });
-    }
-
-    var scanForm = root.querySelector('[data-scan-form]');
-    if (scanForm) {
-        scanForm.addEventListener('submit', function (event) {
-            event.preventDefault();
-            var input = scanForm.querySelector('input[name="token"]');
-            var value = input && input.value.trim();
-            if (!value) {
-                if (input) input.focus();
-                return;
-            }
-
-            var button = scanForm.querySelector('button[type="submit"]');
-            if (button) button.disabled = true;
-            postScan(scanForm, value).then(function () {
-                if (button) button.disabled = false;
-                if (input) {
-                    input.value = '';
-                    input.focus();
-                }
-            });
-        });
     }
 
     window.AttendTaScanner = {

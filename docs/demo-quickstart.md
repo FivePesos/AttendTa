@@ -113,7 +113,7 @@ certificate review/issue/download, the report, access changes and the Activity L
 | Symptom | Cause | Fix |
 |---|---|---|
 | `ConnectionStrings:DefaultConnection is not configured` | The process environment does not carry the connection string | Set `ConnectionStrings__DefaultConnection` before starting |
-| Camera shows "not available" | No camera, permission denied, or the page is not on `https://` or `localhost` | Use the Pass code or Manual lookup tab; serve HTTPS for phones |
+| Camera shows "not available" | No camera, permission denied, or the page is not on `https://` or `localhost` | Use Manual lookup; serve HTTPS for phones |
 | The starting state is empty | The scenario seed did not run, or it ran against another database | Re-run the scenario seed in step 4 |
 
 ## Reset
