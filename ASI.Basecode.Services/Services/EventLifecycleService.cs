@@ -23,7 +23,7 @@ namespace ASI.Basecode.Services.Services
     /// <summary>
     /// Event lifecycle use cases: draft creation and editing, publish, cancel, complete, and cover
     /// management. Every write locks the Event Type, then the Venue, then the Event, in the order
-    /// AD-4 requires, and never converts time zones (AD-11).
+    /// AD-4 requires. Stored event timestamps remain UTC (AD-11).
     /// </summary>
     public class EventLifecycleService : IEventLifecycleService
     {
@@ -128,6 +128,7 @@ namespace ASI.Basecode.Services.Services
             var actorUserId = RequireManagementActor();
             var title = RequiredTitle(model);
             ValidateTimes(model);
+            ValidateCreationDates(model);
             ValidateLimit(model);
 
             string newPath = null;
@@ -916,6 +917,19 @@ namespace ASI.Basecode.Services.Services
             {
                 throw new DomainException(OutcomeCode.Invalid, "The signup deadline cannot be after the event start.", nameof(EventViewModel.RegistrationDeadline));
             }
+        }
+
+        private void ValidateCreationDates(EventViewModel model)
+        {
+            var manila = TimeZoneInfo.FindSystemTimeZoneById("Asia/Manila");
+            var today = TimeZoneInfo.ConvertTime(_timeProvider.GetUtcNow(), manila).Date;
+            var midnightUtc = TimeZoneInfo.ConvertTimeToUtc(today, manila);
+
+            if (model.StartsAt < midnightUtc)
+                throw new DomainException(OutcomeCode.Invalid, "Start date must be today or later.", nameof(EventViewModel.StartsAt));
+
+            if (model.RegistrationDeadline < midnightUtc)
+                throw new DomainException(OutcomeCode.Invalid, "Signup deadline must be today or later.", nameof(EventViewModel.RegistrationDeadline));
         }
 
         private static void ValidateLimit(EventViewModel model)

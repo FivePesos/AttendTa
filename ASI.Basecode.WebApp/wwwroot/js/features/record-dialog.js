@@ -1,5 +1,15 @@
 (() => {
     'use strict';
+    document.addEventListener('focusin', event => {
+        const input = event.target.closest('[data-manila-date-min]');
+        if (!input) return;
+        const parts = new Intl.DateTimeFormat('en-CA', {
+            timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit'
+        }).formatToParts(new Date());
+        const part = type => parts.find(item => item.type === type).value;
+        const today = `${part('year')}-${part('month')}-${part('day')}T00:00`;
+        if (today > input.min) input.min = today;
+    });
     let fallbackPreviewUrl;
     document.addEventListener('change', event => {
         const input = event.target.closest('input[type="file"]');
