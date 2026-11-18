@@ -52,6 +52,9 @@ Used by a University of Cebu student organization on a laptop at the door and on
 - Final Phase 2 polish keeps three-dot menus last in every action group, labels Search
   consistently beside filter fields, and distinguishes completed events in blue from cancelled
   events in red while preserving their visible status names.
+- Management tables reserve action space according to their controls rather than a fixed share of
+  wide screens. Event-type descriptions receive more room, venue capacity stays right-aligned
+  with separation from status, and registration submission dates and times align with their headings.
 - Management Home groups record and operations destinations side by side on wide screens and
   stacks them on smaller screens; Member Home keeps its single participation group.
 - Account role changes use the existing shared editor modal, with inline validation and the

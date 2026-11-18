@@ -45,6 +45,14 @@ public sealed class EventTypeManagementFlowTests(SqlServerDatabaseFixture fixtur
 
         await SeedEventTypesAsync(officerId, ct);
 
+        var noMatches = await officerClient.GetStringAsync("/EventType?search=no-such-event-type", ct);
+        Assert.Contains("No event types match your search.", noMatches, StringComparison.Ordinal);
+        Assert.DoesNotContain("No event types yet.", noMatches, StringComparison.Ordinal);
+        Assert.Contains("Reset", noMatches, StringComparison.Ordinal);
+
+        var filteredNoMatches = await officerClient.GetStringAsync("/EventType?status=active&search=no-such-event-type", ct);
+        Assert.Contains("No event types match your search.", filteredNoMatches, StringComparison.Ordinal);
+
         var firstPageResponse = await officerClient.GetAsync("/EventType", ct);
         Assert.Equal(HttpStatusCode.OK, firstPageResponse.StatusCode);
         var firstPage = await firstPageResponse.Content.ReadAsStringAsync(ct);
