@@ -20,6 +20,7 @@
     var startsInvalid = Invalid(nameof(EventViewModel.StartsAt));
     var deadlineInvalid = Invalid(nameof(EventViewModel.RegistrationDeadline));
     var limitInvalid = Invalid(nameof(EventViewModel.ParticipantLimit));
+    var earliest = Model.EventId == 0 ? ViewData["EventCreationToday"] as string : null;
 }
 
 <fieldset>
@@ -77,19 +78,19 @@ else
                         <option value="@venue.VenueId" selected="@(venue.VenueId == Model.VenueId)">@venue.RoomName (capacity @venue.Capacity)</option>
                     }
                 </select>
-                <small id="VenueId-help" class="muted">The participant limit cannot exceed the selected venue capacity.</small>
+                <small id="VenueId-help" class="field-hint">The participant limit cannot exceed the selected venue capacity.</small>
                 <span id="VenueId-validation" asp-validation-for="VenueId" class="field-error"></span>
             </div>
             <div class="field">
                 <label asp-for="StartsAt" class="field-label">Event starts <span class="required" aria-hidden="true">*</span></label>
-                <input asp-for="StartsAt" type="datetime-local" value="@startsValue" aria-describedby="StartsAt-validation StartsAt-help" aria-required="true" aria-invalid="@(startsInvalid ? "true" : null)" class="field-control" required />
-                <small id="StartsAt-help" class="field-hint">When the event itself begins.</small>
+                <input asp-for="StartsAt" type="datetime-local" min="@earliest" data-manila-date-min="@(earliest != null ? "true" : null)" value="@startsValue" aria-describedby="StartsAt-validation StartsAt-help" aria-required="true" aria-invalid="@(startsInvalid ? "true" : null)" class="field-control" required />
+                <small id="StartsAt-help" class="field-hint">@(Model.EventId == 0 ? "Choose today or a later date. Times are in Manila time." : "When the event itself begins.")</small>
                 <span id="StartsAt-validation" asp-validation-for="StartsAt" class="field-error"></span>
             </div>
             <div class="field">
                 <label asp-for="RegistrationDeadline" class="field-label">Registration closes <span class="required" aria-hidden="true">*</span></label>
-                <input asp-for="RegistrationDeadline" type="datetime-local" value="@deadlineValue" aria-describedby="RegistrationDeadline-validation RegistrationDeadline-help" aria-required="true" aria-invalid="@(deadlineInvalid ? "true" : null)" class="field-control" required />
-                <small id="RegistrationDeadline-help" class="muted">The signup deadline cannot be after the event start.</small>
+                <input asp-for="RegistrationDeadline" type="datetime-local" min="@earliest" data-manila-date-min="@(earliest != null ? "true" : null)" value="@deadlineValue" aria-describedby="RegistrationDeadline-validation RegistrationDeadline-help" aria-required="true" aria-invalid="@(deadlineInvalid ? "true" : null)" class="field-control" required />
+                <small id="RegistrationDeadline-help" class="field-hint">@(Model.EventId == 0 ? "Choose today or a later date, no later than the event start. Times are in Manila time." : "The signup deadline cannot be after the event start.")</small>
                 <span id="RegistrationDeadline-validation" asp-validation-for="RegistrationDeadline" class="field-error"></span>
             </div>
             <div class="field">
@@ -114,7 +115,7 @@ else
         }
         <div class="field @(Model.HasCover ? null : "field-span-2")">
             <label for="cover" class="field-label">@(Model.HasCover ? "Replace event cover" : "Upload event cover")</label>
-            <input id="cover" name="cover" type="file" accept="image/jpeg,image/png,.jpg,.jpeg,.png" class="field-control" aria-describedby="cover-help cover-validation@(ViewData["CoverReselect"] is true ? " cover-reselect" : "")" />
+            <input id="cover" name="cover" type="file" accept="image/jpeg,image/png,.jpg,.jpeg,.png" class="field-control @(Invalid("cover") ? "input-validation-error" : null)" aria-invalid="@(Invalid("cover") ? "true" : null)" aria-describedby="cover-help cover-validation@(ViewData["CoverReselect"] is true ? " cover-reselect" : "")" />
             <small id="cover-help" class="field-hint">Optional for drafts. JPEG or PNG, up to 2 MiB. A cover is required to publish.</small>
             @if (ViewData["CoverReselect"] is true)
             {

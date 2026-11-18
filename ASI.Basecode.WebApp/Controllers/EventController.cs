@@ -35,8 +35,12 @@ namespace ASI.Basecode.WebApp.Controllers
 
         private bool IsRecordDialog => Request.Headers["X-Record-Dialog"] == "true";
 
-        private IActionResult Editor(EventViewModel model) =>
-            IsRecordDialog ? PartialView("_Editor", model) : View(model);
+        private IActionResult Editor(EventViewModel model)
+        {
+            ViewData["EventCreationToday"] = ManilaTimeFormatter.ToLocal(_timeProvider.GetUtcNow().UtcDateTime)
+                .ToString("yyyy-MM-dd'T'00:00", System.Globalization.CultureInfo.InvariantCulture);
+            return IsRecordDialog ? PartialView("_Editor", model) : View(model);
+        }
 
         public EventController(IHttpContextAccessor httpContextAccessor,
                                ILoggerFactory loggerFactory,
@@ -198,6 +202,8 @@ namespace ASI.Basecode.WebApp.Controllers
         [HttpPost]
         public async Task<IActionResult> Create(EventViewModel model, IFormFile cover, CancellationToken cancellationToken)
         {
+            NormalizeEmptySelection(nameof(model.TypeId), "Select an event type.");
+            NormalizeEmptySelection(nameof(model.VenueId), "Select a venue.");
             if (!ModelState.IsValid)
             {
                 ViewData["CoverReselect"] = cover != null;
@@ -225,6 +231,15 @@ namespace ASI.Basecode.WebApp.Controllers
                 ViewData["CoverReselect"] = cover != null;
                 ModelState.AddModelError("cover", ex is InvalidDataException ? ex.Message : "The save could not be confirmed. Check the events list before trying again to avoid a duplicate.");
                 return Editor(await WithOptionsAsync(model, cancellationToken));
+            }
+        }
+
+        private void NormalizeEmptySelection(string field, string message)
+        {
+            if (ModelState.TryGetValue(field, out var entry) && string.IsNullOrWhiteSpace(entry.AttemptedValue))
+            {
+                entry.Errors.Clear();
+                ModelState.AddModelError(field, message);
             }
         }
 

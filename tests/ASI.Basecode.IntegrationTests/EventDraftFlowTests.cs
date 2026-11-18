@@ -2,6 +2,7 @@ using System.Data.Common;
 using System.Globalization;
 using System.Net;
 using System.Security.Cryptography;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using ASI.Basecode.Data;
 using ASI.Basecode.Data.Interfaces;
@@ -17,6 +18,7 @@ using AutoMapper;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
@@ -420,6 +422,110 @@ public sealed class EventDraftValidationFlowTests(SqlServerDatabaseFixture fixtu
         var token = await EventDraftTestSupport.AntiforgeryTokenAsync(client, "/Event", cancellationToken);
         values["__RequestVerificationToken"] = token;
         return await client.PostAsync("/Event/Edit", EventDraftTestSupport.Form(values), cancellationToken);
+    }
+}
+
+public sealed class EventCreateValidationTests(SqlServerDatabaseFixture fixture) : IClassFixture<SqlServerDatabaseFixture>
+{
+    // 23:00 UTC is already 07:00 the following day in Manila.
+    private static readonly DateTimeOffset Now = new(2026, 11, 19, 23, 0, 0, TimeSpan.Zero);
+
+    [Fact]
+    public async Task CreateValidationUsesManilaDateAndDisplaysFieldErrorsOnlyBesideFields()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var suffix = Guid.NewGuid().ToString("N");
+        var email = $"validation-{suffix}@attendta.test";
+        var password = Convert.ToHexString(RandomNumberGenerator.GetBytes(32)) + "aA1!";
+        var actor = await EventDraftTestSupport.SeedUsersAsync(fixture.ConnectionString, email, $"member-{suffix}@attendta.test", password, ct);
+        var (typeId, venueId) = await EventDraftTestSupport.SeedActiveReferencesAsync(fixture.ConnectionString, actor, 40, ct);
+        await using var factory = new AttendTaWebApplicationFactory(fixture.ConnectionString);
+        factory.ConfigureServicesForTesting = services => services.AddSingleton<TimeProvider>(new FixedClock());
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
+        await EventDraftTestSupport.SignInAsync(client, email, password, ct);
+        client.DefaultRequestHeaders.Add("X-Record-Dialog", "true");
+
+        var create = await client.GetStringAsync("/Event/Create", ct);
+        foreach (var field in new[] { "StartsAt", "RegistrationDeadline" })
+        {
+            var input = Input(create, field);
+            Assert.Contains("min=\"2026-11-20T00:00\"", input, StringComparison.Ordinal);
+        }
+
+        async Task<HttpResponseMessage> Post(string title, string start, string deadline, string venue)
+        {
+            var token = await EventDraftTestSupport.AntiforgeryTokenAsync(client, "/Event/Create", ct);
+            return await client.PostAsync("/Event/Create", EventDraftTestSupport.Form(new Dictionary<string, string>
+            {
+                ["Title"] = title, ["TypeId"] = typeId.ToString(CultureInfo.InvariantCulture),
+                ["VenueId"] = venue, ["StartsAt"] = start, ["RegistrationDeadline"] = deadline,
+                ["ParticipantLimit"] = "10", ["__RequestVerificationToken"] = token
+            }), ct);
+        }
+
+        var validVenue = venueId.ToString(CultureInfo.InvariantCulture);
+        var missingVenue = await Post($"Missing venue {suffix}", "2026-11-21T09:00", "2026-11-20T09:00", "");
+        Assert.Equal(HttpStatusCode.OK, missingVenue.StatusCode);
+        var invalidHtml = await missingVenue.Content.ReadAsStringAsync(ct);
+        AssertFieldError(invalidHtml, "VenueId", "Select a venue.");
+
+        foreach (var (title, start, deadline, field) in new[]
+        {
+            ($"Past start {suffix}", "2026-11-19T23:00", "2026-11-19T22:00", "StartsAt"),
+            ($"Past deadline {suffix}", "2026-11-21T09:00", "2026-11-19T23:00", "RegistrationDeadline"),
+            ($"Deadline after start {suffix}", "2026-11-20T05:00", "2026-11-20T05:01", "RegistrationDeadline")
+        })
+        {
+            var response = await Post(title, start, deadline, validVenue);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var html = await response.Content.ReadAsStringAsync(ct);
+            var error = Regex.Match(html, $@"<span\b[^>]*id=""{field}-validation""[^>]*>(.*?)</span>", RegexOptions.Singleline);
+            Assert.True(error.Success, $"Missing validation span for {field}.");
+            var message = WebUtility.HtmlDecode(Regex.Replace(error.Groups[1].Value, "<[^>]+>", "")).Trim();
+            Assert.False(string.IsNullOrEmpty(message));
+            AssertFieldError(html, field, message);
+            await using var context = EventDraftTestSupport.Context(fixture.ConnectionString);
+            Assert.False(await context.Events.AnyAsync(e => e.Title == title, ct));
+        }
+
+        var acceptedTitle = $"Earlier today {suffix}";
+        var accepted = await Post(acceptedTitle, "2026-11-20T06:00", "2026-11-20T05:00", validVenue);
+        Assert.Equal(HttpStatusCode.OK, accepted.StatusCode);
+        using var result = JsonDocument.Parse(await accepted.Content.ReadAsStringAsync(ct));
+        Assert.True(result.RootElement.GetProperty("saved").GetBoolean());
+        await using var observer = EventDraftTestSupport.Context(fixture.ConnectionString);
+        var draft = await observer.Events.AsNoTracking().SingleAsync(e => e.Title == acceptedTitle, ct);
+        Assert.Equal(EventStatusCode.Draft, draft.EventStatusId);
+        Assert.False(await observer.Events.AnyAsync(e => e.Title == $"Missing venue {suffix}", ct));
+
+        var edit = await client.GetStringAsync($"/Event/Edit?id={draft.EventId}", ct);
+        foreach (var field in new[] { "StartsAt", "RegistrationDeadline" })
+            Assert.DoesNotContain(" min=", Input(edit, field), StringComparison.Ordinal);
+    }
+
+    private static string Input(string html, string field)
+    {
+        var match = Regex.Match(html, $@"<input\b(?=[^>]*\bname=""{field}"")[^>]*>", RegexOptions.IgnoreCase);
+        Assert.True(match.Success, $"Missing input for {field}.");
+        return match.Value;
+    }
+
+    private static void AssertFieldError(string html, string field, string message)
+    {
+        var decoded = WebUtility.HtmlDecode(html);
+        var span = Regex.Match(decoded, $@"<span\b[^>]*id=""{field}-validation""[^>]*>(.*?)</span>", RegexOptions.Singleline);
+        Assert.True(span.Success, $"Missing validation span for {field}.");
+        Assert.Contains(message, span.Groups[1].Value, StringComparison.Ordinal);
+        var validationSpans = Regex.Matches(decoded, @"<span\b[^>]*data-valmsg-for=""[^""]+""[^>]*>.*?</span>", RegexOptions.Singleline);
+        Assert.Equal(1, validationSpans.Cast<Match>().Count(item => item.Value.Contains(message, StringComparison.Ordinal)));
+        var summary = Regex.Match(decoded, @"<div\b[^>]*data-record-errors[^>]*>.*?</div>", RegexOptions.Singleline);
+        if (summary.Success)
+            Assert.DoesNotContain(message, summary.Value, StringComparison.Ordinal);
+    }
+
+    private sealed class FixedClock : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => Now;
     }
 }
 

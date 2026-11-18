@@ -167,6 +167,68 @@ public class EventLifecycleServiceTests
         Assert.Equal(Start, Assert.Single(harness.Events.Items).RegistrationDeadline);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task CreationRejectsPreviousManilaDateBeforeAnyWrites(bool invalidStart)
+    {
+        var clock = new FixedClock { Now = new DateTimeOffset(2026, 3, 9, 16, 0, 0, TimeSpan.Zero) };
+        var harness = new Harness(clock);
+        var model = Model("Orientation", 1, 1);
+        var midnight = clock.Now.UtcDateTime;
+        model.StartsAt = invalidStart ? midnight.AddTicks(-1) : midnight;
+        model.RegistrationDeadline = midnight.AddTicks(-1);
+
+        using var cover = new MemoryStream([1]);
+        var error = await Assert.ThrowsAsync<DomainException>(() => harness.Service.CreateDraftWithCoverAsync(
+            model, cover, ".jpg", TestContext.Current.CancellationToken));
+
+        Assert.Equal(OutcomeCode.Invalid, error.Outcome);
+        Assert.Equal(invalidStart ? nameof(EventViewModel.StartsAt) : nameof(EventViewModel.RegistrationDeadline), error.Field);
+        Assert.Empty(harness.Events.Items);
+        Assert.Empty(harness.Audit.Entries);
+        Assert.Empty(harness.Locks);
+        Assert.Equal(0, harness.UnitOfWork.CommitCount);
+    }
+
+    [Fact]
+    public async Task CreationUsesManilaMidnightAndAllowsEarlierTimesToday()
+    {
+        var clock = new FixedClock { Now = new DateTimeOffset(2026, 3, 9, 15, 59, 59, TimeSpan.Zero) };
+        var harness = new Harness(clock);
+        var type = harness.AddType("Workshop", true);
+        var venue = harness.AddVenue("Room", 30, true);
+        var model = Model("Orientation", type.TypeId, venue.VenueId);
+        model.StartsAt = new DateTime(2026, 3, 8, 16, 0, 0, DateTimeKind.Utc);
+        model.RegistrationDeadline = model.StartsAt;
+
+        await harness.Service.CreateDraftAsync(model, TestContext.Current.CancellationToken);
+        clock.Now = clock.Now.AddSeconds(1);
+        var error = await Assert.ThrowsAsync<DomainException>(() =>
+            harness.Service.CreateDraftAsync(model, TestContext.Current.CancellationToken));
+
+        Assert.Equal(nameof(EventViewModel.StartsAt), error.Field);
+        Assert.Single(harness.Events.Items);
+        Assert.Single(harness.Audit.Entries);
+    }
+
+    [Fact]
+    public async Task EditingStillAllowsDatesBeforeToday()
+    {
+        var clock = new FixedClock();
+        var harness = new Harness(clock);
+        var type = harness.AddType("Workshop", true);
+        var venue = harness.AddVenue("Room", 30, true);
+        var model = Model("Orientation", type.TypeId, venue.VenueId);
+        model.EventId = await harness.Service.CreateDraftAsync(model, TestContext.Current.CancellationToken);
+        clock.Now = new DateTimeOffset(2026, 3, 11, 0, 0, 0, TimeSpan.Zero);
+        model.Title = "Edited";
+
+        await harness.Service.UpdateDraftAsync(model, TestContext.Current.CancellationToken);
+
+        Assert.Equal("Edited", Assert.Single(harness.Events.Items).Title);
+    }
+
     [Fact]
     public async Task EditingADraftUpdatesTheRowAndWritesOneEventUpdatedEntryWithOldAndNewValues()
     {
@@ -1140,7 +1202,7 @@ public class EventLifecycleServiceTests
             Registrations = new MemoryRegistrations();
             Audit = new RecordingAudit();
             Actor = actor ?? new FixedActor(7);
-            Clock = clock ?? TimeProvider.System;
+            Clock = clock ?? new FixedClock();
             Cancellations = new RecordingCancellations(Registrations, Audit, Actor, Clock);
             UnitOfWork = new TransactionUnitOfWork(Events, Registrations, Audit);
             Service = new EventLifecycleService(
