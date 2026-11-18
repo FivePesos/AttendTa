@@ -28,7 +28,7 @@ else if (Model.Rows.Count > 0)
                         MyCertificateState.Eligible => ("Eligible", "badge-approved", "Approved for a certificate. Awaiting issuance."),
                         MyCertificateState.Declined => ("Declined", "badge-rejected", "A certificate will not be issued for this attendance."),
                         MyCertificateState.Issued => ("Issued", "badge-completed", row.HasDocument ? "Your certificate is ready." : "The PDF is currently unavailable. Contact an officer for help."),
-                        _ => ("Unavailable", "badge-closed", "No certificate is available yet. Contact an officer if you need help.")
+                        _ => ("Unavailable", "badge-closed", "No certificate is available yet.")
                     };
                     <tr data-certificate-id="@row.CertificateId">
                         <th scope="row" data-label="Event" class="certificate-event">
@@ -58,8 +58,8 @@ else if (Model.Rows.Count > 0)
                             @if (row.State == MyCertificateState.Issued && row.HasDocument)
                             {
                                 <div class="certificate-actions">
-                                    <a class="certificate-link" asp-controller="MyCertificates" asp-action="Pdf" asp-route-id="@row.CertificateId" data-certificate-pdf="@Url.Action("Pdf", "MyCertificates", new { id = row.CertificateId })" data-certificate-title="@row.EventTitle" data-certificate-number="@row.CertificateNumber" aria-label="View certificate for @row.EventTitle">View PDF</a>
-                                    <a class="certificate-link" asp-controller="MyCertificates" asp-action="Pdf" asp-route-id="@row.CertificateId" asp-route-download="true" aria-label="Download certificate for @row.EventTitle">Download PDF</a>
+                                    <a class="button button-small button-secondary" asp-controller="MyCertificates" asp-action="Pdf" asp-route-id="@row.CertificateId" data-certificate-pdf="@Url.Action("Pdf", "MyCertificates", new { id = row.CertificateId })" data-certificate-title="@row.EventTitle" data-certificate-number="@row.CertificateNumber" aria-label="View certificate for @row.EventTitle">View PDF</a>
+                                    <a class="button button-small button-secondary" asp-controller="MyCertificates" asp-action="Pdf" asp-route-id="@row.CertificateId" asp-route-download="true" aria-label="Download certificate for @row.EventTitle">Download PDF</a>
                                 </div>
                             }
                             else

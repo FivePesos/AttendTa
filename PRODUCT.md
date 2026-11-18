@@ -52,6 +52,11 @@ Used by a University of Cebu student organization on a laptop at the door and on
 - Final Phase 2 polish keeps three-dot menus last in every action group, labels Search
   consistently beside filter fields, and distinguishes completed events in blue from cancelled
   events in red while preserving their visible status names.
+- Management tables reserve action space according to their controls rather than a fixed share of
+  wide screens. Event-type descriptions receive more room, venue capacity stays right-aligned
+  with separation from status, and registration submission dates and times align with their headings.
+- Management Home groups record and operations destinations side by side on wide screens and
+  stacks them on smaller screens; Member Home keeps its single participation group.
 - Account role changes use the existing shared editor modal, with inline validation and the
   same audited role command. Search remains Search; one Reset clears criteria while preserving
   the selected event/history section. Taller screens show more rows through measured Auto-fit.
@@ -70,12 +75,13 @@ Used by a University of Cebu student organization on a laptop at the door and on
 - Registrations are pending, confirmed, waitlisted, or cancelled; seat allocation is transactional.
 - Registration rosters show submission date and time in adjacent Manila-time columns. Promotion confirmation names the next eligible participant across the full queue; if that candidate changes, the officer must refresh and confirm again.
 - Attendance is recorded by QR or manual lookup; certificates are issued one at a time from an eligibility review.
-- The door scanner keeps scan and explicit manual check-in outcomes visible with participant identity and the original check-in time. Camera permission failure offers pass-code and manual alternatives; leaving camera mode cancels pending camera startup.
+- The door scanner keeps scan and explicit manual check-in outcomes visible with participant identity and the original check-in time. Camera permission failure offers manual lookup; leaving camera mode cancels pending camera startup.
 - Participation reports are per event and include attendance rate, no-shows, and course/year distribution.
 - No hard deletes. Activity logs are append-only. Passwords are stored only as Argon2id hashes.
 - The MVP is a light-theme web application; there is no dark mode, native app, or offline mode.
 - The officer certificate ledger supports completed-event review, final decline reasons, bounded bulk approval of eligibility reviews while issuance stays individual, and PDF viewing/download with the approved template and signatory. Reviews are real database rows and every issued document is retained in the private file store; each decision writes its own audit entry.
 - My Certificates shows the member's pending, eligible, declined, issued and unavailable records with review reasons, independently paged history, and issued-only View/Download PDF. The history is the member's own confirmed registrations and their real certificate rows; a row offers a document only when its certificate is issued with a retained file. Every document read checks the current owner and returns the same not-found for another member's record or an unknown id.
+- Certificate history groups event and issue dates beneath their respective details, with bordered View and Download controls when the retained PDF is available; an unissued certificate is not presented as a broken document.
 
 ## Brand Commitments
 

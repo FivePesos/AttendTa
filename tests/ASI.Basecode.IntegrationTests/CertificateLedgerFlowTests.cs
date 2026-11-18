@@ -56,6 +56,9 @@ public sealed class CertificateLedgerFlowTests(SqlServerDatabaseFixture fixture)
         Assert.Equal(HttpStatusCode.Redirect, anonymousPdf.StatusCode);
         Assert.StartsWith("/Account/Login", MemberEventTestSupport.LocationPath(anonymousPdf), StringComparison.Ordinal);
         await MemberEventTestSupport.SignInAsync(client, email, password, ct);
+        var noCompletedEvents = await client.GetStringAsync("/Certificates?search=missing", ct);
+        Assert.Contains("No completed events available", noCompletedEvents, StringComparison.Ordinal);
+        Assert.DoesNotContain("No reviews match your search or filters", noCompletedEvents, StringComparison.Ordinal);
         using var memberClient = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
         await MemberEventTestSupport.SignInAsync(memberClient, memberEmail, password, ct);
         Assert.Contains("AccessDenied", MemberEventTestSupport.LocationPath(await memberClient.GetAsync("/Certificates", ct)), StringComparison.Ordinal);
@@ -83,6 +86,26 @@ public sealed class CertificateLedgerFlowTests(SqlServerDatabaseFixture fixture)
         Assert.Contains("Participant 2", html, StringComparison.Ordinal);
         Assert.Contains("Decline reason", html, StringComparison.Ordinal);
         Assert.DoesNotMatch("(?i)demo|mock|prototype|simulated|fixture", html);
+        var emptyEvent = await MemberEventTestSupport.SeedEventAsync(fixture.ConnectionString, officer.Id, type, venue,
+            EventStatusCode.Completed, startsAt.AddDays(-10), startsAt.AddDays(-11), 20, null, "Empty completed event", ct);
+        var noIssuedYet = await client.GetStringAsync($"/Certificates?eventId={emptyEvent.EventId}&tab=issued", ct);
+        Assert.Contains("No certificates issued yet", noIssuedYet, StringComparison.Ordinal);
+        var noReviewsYet = await client.GetStringAsync($"/Certificates?eventId={emptyEvent.EventId}", ct);
+        Assert.Contains("No reviews to display", noReviewsYet, StringComparison.Ordinal);
+        var noReviewsMatch = await client.GetStringAsync($"/Certificates?eventId={eventItem.EventId}&search=not-a-participant", ct);
+        Assert.Contains("No reviews match your search or filters", noReviewsMatch, StringComparison.Ordinal);
+        Assert.Contains("Reset", noReviewsMatch, StringComparison.Ordinal);
+        var noFilteredReviews = await client.GetStringAsync($"/Certificates?eventId={eventItem.EventId}&filter=Eligible", ct);
+        Assert.Contains("No reviews match your search or filters", noFilteredReviews, StringComparison.Ordinal);
+        Assert.Contains("Reset", noFilteredReviews, StringComparison.Ordinal);
+        var legacyFilter = await client.GetStringAsync($"/Certificates?eventId={eventItem.EventId}&filter=all", ct);
+        Assert.Contains("No reviews match your search or filters", legacyFilter, StringComparison.Ordinal);
+        Assert.Contains("0 matching reviews", legacyFilter, StringComparison.Ordinal);
+        var capitalizedFilter = await client.GetStringAsync($"/Certificates?eventId={eventItem.EventId}&Filter=all", ct);
+        Assert.Contains("0 matching reviews", capitalizedFilter, StringComparison.Ordinal);
+        var ignoredFilter = await client.GetStringAsync($"/Certificates?eventId={eventItem.EventId}&tab=issued&filter=all", ct);
+        Assert.Contains("Participant 1", ignoredFilter, StringComparison.Ordinal);
+        Assert.DoesNotContain("matching certificate", ignoredFilter, StringComparison.Ordinal);
         var token = await MemberEventTestSupport.AntiforgeryTokenAsync(client, "/Certificates", ct);
 
         using var playwright = await Playwright.CreateAsync();
@@ -210,6 +233,12 @@ public sealed class CertificateLedgerFlowTests(SqlServerDatabaseFixture fixture)
         }
         var registry = await client.GetStringAsync("/Certificates?tab=issued", ct);
         Assert.Contains("Participant 2", registry, StringComparison.Ordinal);
+        var noIssuedMatch = await client.GetStringAsync($"/Certificates?eventId={eventItem.EventId}&tab=issued&search=not-a-participant", ct);
+        Assert.Contains("No certificates match your search", noIssuedMatch, StringComparison.Ordinal);
+        Assert.DoesNotContain("No certificates issued yet", noIssuedMatch, StringComparison.Ordinal);
+        Assert.Contains("Reset", noIssuedMatch, StringComparison.Ordinal);
+        Assert.Matches($"<option value=\"{eventItem.EventId}\" selected=\"selected\"", noIssuedMatch);
+        Assert.Matches("(?s)<a class=\"filter-tab\"[^>]*aria-current=\"page\"[^>]*>\\s*Issued Registry", noIssuedMatch);
         var missingRow = System.Text.RegularExpressions.Regex.Match(registry, $"<tr data-registration-id=\"{registrationIds[0]}\".*?</tr>", System.Text.RegularExpressions.RegexOptions.Singleline).Value;
         Assert.Contains("Document unavailable", missingRow);
         Assert.DoesNotContain("data-certificate-pdf", missingRow);
@@ -293,8 +322,19 @@ public sealed class CertificateLedgerFlowTests(SqlServerDatabaseFixture fixture)
         await MemberEventTestSupport.SignInAsync(ownerClient, memberEmails[1], password, ct);
         var memberHistory = await ownerClient.GetStringAsync("/MyEvents/Certificates", ct);
         Assert.Contains($"AT-2026-{registrationIds[1]:D6}", memberHistory, StringComparison.Ordinal);
+        Assert.Contains("class=\"button button-small button-secondary\"", memberHistory, StringComparison.Ordinal);
         browserClient = ownerClient;
-        await page.GotoAsync("http://localhost/MyEvents/Certificates?fit=2");
+        foreach (var width in new[] { 1440, 390 })
+        {
+            await page.SetViewportSizeAsync(width, 900);
+            await page.GotoAsync("http://localhost/MyEvents/Certificates?fit=2");
+            Assert.Equal("left", await page.Locator(".certificate-event .certificate-meta").First.EvaluateAsync<string>("el => getComputedStyle(el).textAlign"));
+            Assert.Equal("left", await page.Locator("[data-label='Issue details'] .certificate-meta").First.EvaluateAsync<string>("el => getComputedStyle(el).textAlign"));
+            Assert.True(await page.EvaluateAsync<bool>("document.documentElement.scrollWidth <= innerWidth"));
+            if (width == 390)
+                Assert.True(await page.Locator(".certificate-actions .button").First.EvaluateAsync<bool>("el => el.getBoundingClientRect().height >= 44"));
+            await page.ScreenshotAsync(new() { Path = Path.Combine(Path.GetTempPath(), $"attendta-personal-certificates-{width}.png"), FullPage = true });
+        }
         await page.Locator("[data-certificate-pdf]").ClickAsync();
         await page.GetByText("Certificate loaded.", new() { Exact = true }).WaitForAsync();
         await page.Keyboard.PressAsync("Escape");
@@ -431,6 +471,7 @@ public sealed class CertificateLedgerFlowTests(SqlServerDatabaseFixture fixture)
         Assert.DoesNotContain("data-certificate-pdf=", unavailableRegistry);
         var unavailableHistory = await ownerClient.GetStringAsync("/MyEvents/Certificates", ct);
         Assert.Contains("Document unavailable", unavailableHistory);
+        Assert.Contains("Contact an officer for help.", unavailableHistory);
         Assert.Contains($"AT-2026-{registrationIds[1]:D6}", unavailableHistory);
         Assert.Contains("Issued", unavailableHistory);
         Assert.DoesNotContain("data-certificate-pdf=", unavailableHistory);

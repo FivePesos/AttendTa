@@ -37,11 +37,21 @@ public sealed class EventTypeManagementFlowTests(SqlServerDatabaseFixture fixtur
         var emptyResponse = await officerClient.GetAsync("/EventType", ct);
         Assert.Equal(HttpStatusCode.OK, emptyResponse.StatusCode);
         var empty = await emptyResponse.Content.ReadAsStringAsync(ct);
+        Assert.Contains("<h1>Event types</h1>", empty, StringComparison.Ordinal);
+        Assert.DoesNotContain("Event Classifications", empty, StringComparison.Ordinal);
         Assert.Contains("No event types yet. Use \"New Event Type\" to create the first one.", empty, StringComparison.Ordinal);
         Assert.Contains("data-table", empty, StringComparison.Ordinal);
         Assert.DoesNotContain("aria-label=\"Pagination\"", empty, StringComparison.Ordinal);
 
         await SeedEventTypesAsync(officerId, ct);
+
+        var noMatches = await officerClient.GetStringAsync("/EventType?search=no-such-event-type", ct);
+        Assert.Contains("No event types match your search.", noMatches, StringComparison.Ordinal);
+        Assert.DoesNotContain("No event types yet.", noMatches, StringComparison.Ordinal);
+        Assert.Contains("Reset", noMatches, StringComparison.Ordinal);
+
+        var filteredNoMatches = await officerClient.GetStringAsync("/EventType?status=active&search=no-such-event-type", ct);
+        Assert.Contains("No event types match your search.", filteredNoMatches, StringComparison.Ordinal);
 
         var firstPageResponse = await officerClient.GetAsync("/EventType", ct);
         Assert.Equal(HttpStatusCode.OK, firstPageResponse.StatusCode);

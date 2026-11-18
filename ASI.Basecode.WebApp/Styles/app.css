@@ -899,7 +899,9 @@
   /* Separate numeric capacity from the adjacent status without changing stacked mobile rows. */
   @media (min-width: 641px) {
     .venue-table th.numeric { width: 144px; }
-    .venue-table :is(th, td).numeric { padding-right: 40px; }
+    .venue-table :is(th, td).numeric { padding-right: 56px; }
+    /* Give descriptive text the larger share without changing its reading alignment. */
+    .event-type-table thead th:first-child { width: 30%; }
   }
   [data-expandable-content] { margin: 0; }
   .text-disclosure { min-height: 32px; margin-top: 4px; padding: 4px 0; border: 0; background: transparent; color: var(--color-cobalt); font: inherit; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
@@ -914,6 +916,12 @@
   .actions-wide { min-width: 0; }
   .data-table th.actions { width: 30%; text-align: right; }
   .data-table th.actions-tight { width: 140px; }
+  .data-table th.actions-balanced { width: 200px; }
+  .data-table th.actions-decision { width: 232px; }
+  @media (min-width: 641px) and (max-width: 850px) {
+    .data-table th.actions-balanced,
+    .data-table th.actions-decision { width: 30%; }
+  }
   .row-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; justify-content: flex-end; }
   .row-actions > .row-menu-trigger { order: 1; flex: 0 0 auto; }
   .row-actions .button { min-height: 32px; padding: 0 10px; font-size: 12px; }
