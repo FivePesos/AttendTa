@@ -37,6 +37,8 @@ public sealed class EventTypeManagementFlowTests(SqlServerDatabaseFixture fixtur
         var emptyResponse = await officerClient.GetAsync("/EventType", ct);
         Assert.Equal(HttpStatusCode.OK, emptyResponse.StatusCode);
         var empty = await emptyResponse.Content.ReadAsStringAsync(ct);
+        Assert.Contains("<h1>Event types</h1>", empty, StringComparison.Ordinal);
+        Assert.DoesNotContain("Event Classifications", empty, StringComparison.Ordinal);
         Assert.Contains("No event types yet. Use \"New Event Type\" to create the first one.", empty, StringComparison.Ordinal);
         Assert.Contains("data-table", empty, StringComparison.Ordinal);
         Assert.DoesNotContain("aria-label=\"Pagination\"", empty, StringComparison.Ordinal);

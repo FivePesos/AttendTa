@@ -2,14 +2,14 @@
 @using Microsoft.AspNetCore.Http.Extensions
 @{
     ViewData["ListControls"] = true;
-    ViewData["Title"] = "Event Classifications";
+    ViewData["Title"] = "Event types";
     ViewData["Feature"] = "record-dialog";
     var statusFilter = ViewBag.Status as string;
     var listError = ViewData["ListError"] as string;
 }
 
 <div class="page-heading">
-    <h1>Event Classifications</h1>
+    <h1>Event types</h1>
     <a asp-action="Create" class="button button-primary" data-record-open="create-event-type" data-record-title="New Event Type">New Event Type</a>
 </div>
 

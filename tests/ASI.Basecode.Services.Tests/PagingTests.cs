@@ -86,4 +86,20 @@ public class PagingTests
         Assert.Equal(85_899_346, normalizedPage);
         Assert.Equal(2_147_483_625, request.GetOffset(normalizedPage));
     }
+
+    [Theory]
+    [InlineData(0, 50, 0, 0, 1)]
+    [InlineData(26, 999, 26, 26, 2)]
+    [InlineData(int.MaxValue, int.MaxValue, 2_147_483_626, int.MaxValue, 85_899_346)]
+    public void RequestQueueDelegatesRangeAndClampingToItsPage(int total, int requestedPage, int first, int last, int pageNumber)
+    {
+        var page = new PagedResult<AccountRequestQueueItemViewModel>(Array.Empty<AccountRequestQueueItemViewModel>(), requestedPage, total, 25);
+        var queue = new AccountRequestQueueViewModel(page, "pending", 0, 0, 0);
+
+        Assert.Equal(pageNumber, queue.PageNumber);
+        Assert.Equal(first, queue.FirstItemNumber);
+        Assert.Equal(last, queue.LastItemNumber);
+        Assert.Equal(page.FirstItemNumber, queue.FirstItemNumber);
+        Assert.Equal(page.LastItemNumber, queue.LastItemNumber);
+    }
 }

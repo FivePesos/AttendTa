@@ -381,3 +381,35 @@ test('a scan posts the layout meta token as the antiforgery header', async () =>
     assert.equal(call.options.body, 'eventId=12&token=abc123');
     assert.doesNotMatch(call.options.body, /RequestVerificationToken/);
 });
+
+test('scan outcome and log show Manila-local time without a timezone suffix', async () => {
+    const result = createElement('div');
+    const log = createElement('tbody');
+    const root = {
+        querySelector: selector => selector === '[data-scan-result]' ? result : null,
+        querySelectorAll: () => []
+    };
+    const document = {
+        querySelector(selector) {
+            if (selector === '[data-scanner]') return root;
+            if (selector === '[data-scan-log]') return log;
+            return null;
+        },
+        createElement,
+        dispatchEvent() {}
+    };
+    const window = {};
+    const source = fs.readFileSync(path.join(__dirname, '..', 'wwwroot', 'js', 'features', 'scanner.js'), 'utf8');
+    vm.runInNewContext(source, {
+        window, document, URLSearchParams, Intl, Date, console,
+        fetch: () => Promise.resolve({ json: () => Promise.resolve({
+            outcome: 'success', registrationId: 42, memberName: 'Test Member',
+            studentNumber: '12345678', recordedAt: '2026-01-01T18:30:00Z'
+        }) })
+    });
+
+    await window.AttendTaScanner.postScan({ action: '/CheckIn/Scan', elements: { eventId: { value: '12' } } }, 'test-token');
+
+    assert.equal(result.children[0].children[3].textContent, '2026-01-02 02:30');
+    assert.equal(log.children[0].children[2].textContent, '2026-01-02 02:30');
+});

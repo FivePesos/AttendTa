@@ -79,7 +79,7 @@
         }).formatToParts(date).forEach(function (part) {
             parts[part.type] = part.value;
         });
-        return parts.year + '-' + parts.month + '-' + parts.day + ' ' + parts.hour + ':' + parts.minute + ' Asia/Manila';
+        return parts.year + '-' + parts.month + '-' + parts.day + ' ' + parts.hour + ':' + parts.minute;
     }
 
     function render(outcome) {
