@@ -100,6 +100,12 @@ public sealed class CertificateLedgerFlowTests(SqlServerDatabaseFixture fixture)
         Assert.Contains("Reset", noFilteredReviews, StringComparison.Ordinal);
         var legacyFilter = await client.GetStringAsync($"/Certificates?eventId={eventItem.EventId}&filter=all", ct);
         Assert.Contains("No reviews match your search or filters", legacyFilter, StringComparison.Ordinal);
+        Assert.Contains("0 matching reviews", legacyFilter, StringComparison.Ordinal);
+        var capitalizedFilter = await client.GetStringAsync($"/Certificates?eventId={eventItem.EventId}&Filter=all", ct);
+        Assert.Contains("0 matching reviews", capitalizedFilter, StringComparison.Ordinal);
+        var ignoredFilter = await client.GetStringAsync($"/Certificates?eventId={eventItem.EventId}&tab=issued&filter=all", ct);
+        Assert.Contains("Participant 1", ignoredFilter, StringComparison.Ordinal);
+        Assert.DoesNotContain("matching certificate", ignoredFilter, StringComparison.Ordinal);
         var token = await MemberEventTestSupport.AntiforgeryTokenAsync(client, "/Certificates", ct);
 
         using var playwright = await Playwright.CreateAsync();

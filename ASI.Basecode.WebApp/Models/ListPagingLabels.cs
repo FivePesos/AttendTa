@@ -19,7 +19,16 @@ public static class ListPagingLabels
         return count == 1 ? noun : noun == "entry" ? "entries" : noun + "s";
     }
 
-    public static bool IsFiltered(HttpRequest request) => request.Query.Any(pair =>
-        !ListReadOptionsFactory.IsRetiredFilter(request, pair.Key) && pair.Key is "search" or "filter" or "status" or "course" or "year" or "type" or "typeId" or "role" or "from" or "to"
-        && !string.IsNullOrWhiteSpace(pair.Value) && !string.Equals(pair.Value, "all", StringComparison.OrdinalIgnoreCase));
+    public static bool IsFiltered(HttpRequest request)
+    {
+        if (string.Equals(request.RouteValues["controller"]?.ToString(), "CertificateLedger", StringComparison.OrdinalIgnoreCase))
+        {
+            var options = ListReadOptionsFactory.From(request);
+            return !string.IsNullOrWhiteSpace(options.Search) || !string.IsNullOrWhiteSpace(options.Filter);
+        }
+
+        return request.Query.Any(pair =>
+            !ListReadOptionsFactory.IsRetiredFilter(request, pair.Key) && pair.Key is "search" or "filter" or "status" or "course" or "year" or "type" or "typeId" or "role" or "from" or "to"
+            && !string.IsNullOrWhiteSpace(pair.Value) && !string.Equals(pair.Value, "all", StringComparison.OrdinalIgnoreCase));
+    }
 }
