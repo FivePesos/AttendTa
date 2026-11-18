@@ -36,6 +36,7 @@ public sealed class EventCombinedDraftFlowTests(SqlServerDatabaseFixture fixture
         var actor = await EventDraftTestSupport.SeedUsersAsync(fixture.ConnectionString, email, $"member-{suffix}@attendta.test", password, ct);
         var (typeId, venueId) = await EventDraftTestSupport.SeedActiveReferencesAsync(fixture.ConnectionString, actor, 40, ct);
         await using var factory = new AttendTaWebApplicationFactory(fixture.ConnectionString);
+        factory.ConfigureServicesForTesting = services => services.AddSingleton<TimeProvider>(EventDraftTestSupport.DraftClock);
         using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
         await EventDraftTestSupport.SignInAsync(client, email, password, ct);
         var token = await EventDraftTestSupport.AntiforgeryTokenAsync(client, "/Event/Create", ct);
@@ -90,6 +91,7 @@ public sealed class EventDraftFlowTests(SqlServerDatabaseFixture fixture) : ICla
         await EventDraftTestSupport.SeedInactiveReferencesAsync(fixture.ConnectionString, officerId, ct);
 
         await using var factory = new AttendTaWebApplicationFactory(fixture.ConnectionString);
+        factory.ConfigureServicesForTesting = services => services.AddSingleton<TimeProvider>(EventDraftTestSupport.DraftClock);
         using var officerClient = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
         using var memberClient = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
 
@@ -109,6 +111,7 @@ public sealed class EventDraftFlowTests(SqlServerDatabaseFixture fixture) : ICla
         Assert.Contains(">Events</a>", empty, StringComparison.Ordinal);
 
         var createPage = await officerClient.GetStringAsync("/Event/Create", ct);
+        Assert.Contains("min=\"2026-11-20T00:00\"", createPage, StringComparison.Ordinal);
         Assert.Contains("Active Type", createPage, StringComparison.Ordinal);
         Assert.Contains("Active Room", createPage, StringComparison.Ordinal);
         Assert.DoesNotContain("Inactive Type", createPage, StringComparison.Ordinal);
@@ -135,6 +138,7 @@ public sealed class EventDraftFlowTests(SqlServerDatabaseFixture fixture) : ICla
             var created = await context.Events.AsNoTracking().SingleAsync(item => item.Title == "Cyber Security Seminar", ct);
             Assert.Equal(EventStatusCode.Draft, created.EventStatusId);
             Assert.Equal(officerId, created.CreatedBy);
+            Assert.Equal(EventDraftTestSupport.DraftClock.GetUtcNow().UtcDateTime, created.CreatedAt);
             Assert.Equal(new DateTime(2026, 12, 10, 1, 0, 0), created.StartsAt);
             Assert.Equal(new DateTime(2026, 12, 9, 9, 30, 0), created.RegistrationDeadline);
             Assert.Equal("Learn the basics", created.Description);
@@ -238,6 +242,7 @@ public sealed class EventDraftValidationFlowTests(SqlServerDatabaseFixture fixtu
         var (inactiveTypeId, inactiveVenueId) = await EventDraftTestSupport.SeedInactiveReferencesAsync(fixture.ConnectionString, officerId, ct);
 
         await using var factory = new AttendTaWebApplicationFactory(fixture.ConnectionString);
+        factory.ConfigureServicesForTesting = services => services.AddSingleton<TimeProvider>(EventDraftTestSupport.DraftClock);
         using var officerClient = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
         await EventDraftTestSupport.SignInAsync(officerClient, officerEmail, password, ct);
 
@@ -586,7 +591,7 @@ public sealed class EventDraftPersistenceTests(SqlServerDatabaseFixture fixture)
         var (typeId, venueId) = await EventDraftTestSupport.SeedActiveReferencesAsync(fixture.ConnectionString, actorId, capacity: 30, ct);
         var recorder = new LockOrderRecorder();
         await using var context = EventDraftTestSupport.Context(fixture.ConnectionString, recorder);
-        var service = EventDraftTestSupport.Service(context, actorId);
+        var service = EventDraftTestSupport.Service(context, actorId, EventDraftTestSupport.DraftClock);
 
         var id = await service.CreateDraftAsync(new EventViewModel
         {
@@ -607,6 +612,7 @@ public sealed class EventDraftPersistenceTests(SqlServerDatabaseFixture fixture)
         var created = await observer.Events.AsNoTracking().SingleAsync(item => item.EventId == id, ct);
         Assert.Equal(EventStatusCode.Draft, created.EventStatusId);
         Assert.Equal(actorId, created.CreatedBy);
+        Assert.Equal(EventDraftTestSupport.DraftClock.GetUtcNow().UtcDateTime, created.CreatedAt);
         Assert.Equal(new DateTime(2026, 12, 10, 1, 0, 0), created.StartsAt);
         Assert.Equal(new DateTime(2026, 12, 9, 9, 30, 0), created.RegistrationDeadline);
         Assert.Null(created.UpdatedBy);
@@ -641,7 +647,7 @@ public sealed class EventDraftEditPersistenceTests(SqlServerDatabaseFixture fixt
         int eventId;
         await using (var seed = EventDraftTestSupport.Context(fixture.ConnectionString))
         {
-            eventId = await EventDraftTestSupport.Service(seed, actorId).CreateDraftAsync(new EventViewModel
+            eventId = await EventDraftTestSupport.Service(seed, actorId, EventDraftTestSupport.DraftClock).CreateDraftAsync(new EventViewModel
             {
                 Title = "Before",
                 TypeId = typeId,
@@ -654,7 +660,7 @@ public sealed class EventDraftEditPersistenceTests(SqlServerDatabaseFixture fixt
 
         var recorder = new EventDraftPersistenceTests.LockOrderRecorder();
         await using var context = EventDraftTestSupport.Context(fixture.ConnectionString, recorder);
-        var service = EventDraftTestSupport.Service(context, actorId);
+        var service = EventDraftTestSupport.Service(context, actorId, EventDraftTestSupport.DraftClock);
 
         await service.UpdateDraftAsync(new EventViewModel
         {
@@ -692,6 +698,14 @@ public sealed class EventDraftEditPersistenceTests(SqlServerDatabaseFixture fixt
 
 internal static class EventDraftTestSupport
 {
+    // December fixtures must remain in the future regardless of the machine's date.
+    public static readonly TimeProvider DraftClock = new FixedDraftClock();
+
+    private sealed class FixedDraftClock : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => new(2026, 11, 19, 23, 0, 0, TimeSpan.Zero);
+    }
+
     public static readonly IMapper Mapper = new MapperConfiguration(config =>
     {
         config.CreateMap<EventViewModel, Event>();

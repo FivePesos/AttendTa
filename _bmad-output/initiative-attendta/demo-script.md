@@ -1,5 +1,10 @@
 # AttendTa demo script
 
+> **Historical rehearsal only:** This guide is not a verified #269 release walkthrough.
+> Its setup includes unsafe command-line secret examples and a destructive reset; do not
+> follow those steps. Starting-state and certificate claims below conflict with the seed.
+> All scenarios require a fresh verification on an approved isolated host.
+
 Presenter document for the 8.15 rehearsal and the client demo. It covers the repeatable
 starting state, the pre-flight, the per-role beats, the 390px checks, the known limits, and
 the demo-ticket coverage map. The evidence from the 7 November 2026 rehearsal is in
