@@ -52,6 +52,8 @@ Used by a University of Cebu student organization on a laptop at the door and on
 - Final Phase 2 polish keeps three-dot menus last in every action group, labels Search
   consistently beside filter fields, and distinguishes completed events in blue from cancelled
   events in red while preserving their visible status names.
+- Management Home groups record and operations destinations side by side on wide screens and
+  stacks them on smaller screens; Member Home keeps its single participation group.
 - Account role changes use the existing shared editor modal, with inline validation and the
   same audited role command. Search remains Search; one Reset clears criteria while preserving
   the selected event/history section. Taller screens show more rows through measured Auto-fit.
