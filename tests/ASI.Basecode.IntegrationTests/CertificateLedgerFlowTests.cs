@@ -56,6 +56,9 @@ public sealed class CertificateLedgerFlowTests(SqlServerDatabaseFixture fixture)
         Assert.Equal(HttpStatusCode.Redirect, anonymousPdf.StatusCode);
         Assert.StartsWith("/Account/Login", MemberEventTestSupport.LocationPath(anonymousPdf), StringComparison.Ordinal);
         await MemberEventTestSupport.SignInAsync(client, email, password, ct);
+        var noCompletedEvents = await client.GetStringAsync("/Certificates?search=missing", ct);
+        Assert.Contains("No completed events available", noCompletedEvents, StringComparison.Ordinal);
+        Assert.DoesNotContain("No reviews match your search or filters", noCompletedEvents, StringComparison.Ordinal);
         using var memberClient = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
         await MemberEventTestSupport.SignInAsync(memberClient, memberEmail, password, ct);
         Assert.Contains("AccessDenied", MemberEventTestSupport.LocationPath(await memberClient.GetAsync("/Certificates", ct)), StringComparison.Ordinal);
@@ -83,6 +86,20 @@ public sealed class CertificateLedgerFlowTests(SqlServerDatabaseFixture fixture)
         Assert.Contains("Participant 2", html, StringComparison.Ordinal);
         Assert.Contains("Decline reason", html, StringComparison.Ordinal);
         Assert.DoesNotMatch("(?i)demo|mock|prototype|simulated|fixture", html);
+        var emptyEvent = await MemberEventTestSupport.SeedEventAsync(fixture.ConnectionString, officer.Id, type, venue,
+            EventStatusCode.Completed, startsAt.AddDays(-10), startsAt.AddDays(-11), 20, null, "Empty completed event", ct);
+        var noIssuedYet = await client.GetStringAsync($"/Certificates?eventId={emptyEvent.EventId}&tab=issued", ct);
+        Assert.Contains("No certificates issued yet", noIssuedYet, StringComparison.Ordinal);
+        var noReviewsYet = await client.GetStringAsync($"/Certificates?eventId={emptyEvent.EventId}", ct);
+        Assert.Contains("No reviews to display", noReviewsYet, StringComparison.Ordinal);
+        var noReviewsMatch = await client.GetStringAsync($"/Certificates?eventId={eventItem.EventId}&search=not-a-participant", ct);
+        Assert.Contains("No reviews match your search or filters", noReviewsMatch, StringComparison.Ordinal);
+        Assert.Contains("Reset", noReviewsMatch, StringComparison.Ordinal);
+        var noFilteredReviews = await client.GetStringAsync($"/Certificates?eventId={eventItem.EventId}&filter=Eligible", ct);
+        Assert.Contains("No reviews match your search or filters", noFilteredReviews, StringComparison.Ordinal);
+        Assert.Contains("Reset", noFilteredReviews, StringComparison.Ordinal);
+        var legacyFilter = await client.GetStringAsync($"/Certificates?eventId={eventItem.EventId}&filter=all", ct);
+        Assert.Contains("No reviews match your search or filters", legacyFilter, StringComparison.Ordinal);
         var token = await MemberEventTestSupport.AntiforgeryTokenAsync(client, "/Certificates", ct);
 
         using var playwright = await Playwright.CreateAsync();
@@ -210,6 +227,12 @@ public sealed class CertificateLedgerFlowTests(SqlServerDatabaseFixture fixture)
         }
         var registry = await client.GetStringAsync("/Certificates?tab=issued", ct);
         Assert.Contains("Participant 2", registry, StringComparison.Ordinal);
+        var noIssuedMatch = await client.GetStringAsync($"/Certificates?eventId={eventItem.EventId}&tab=issued&search=not-a-participant", ct);
+        Assert.Contains("No certificates match your search", noIssuedMatch, StringComparison.Ordinal);
+        Assert.DoesNotContain("No certificates issued yet", noIssuedMatch, StringComparison.Ordinal);
+        Assert.Contains("Reset", noIssuedMatch, StringComparison.Ordinal);
+        Assert.Matches($"<option value=\"{eventItem.EventId}\" selected=\"selected\"", noIssuedMatch);
+        Assert.Matches("(?s)<a class=\"filter-tab\"[^>]*aria-current=\"page\"[^>]*>\\s*Issued Registry", noIssuedMatch);
         var missingRow = System.Text.RegularExpressions.Regex.Match(registry, $"<tr data-registration-id=\"{registrationIds[0]}\".*?</tr>", System.Text.RegularExpressions.RegexOptions.Singleline).Value;
         Assert.Contains("Document unavailable", missingRow);
         Assert.DoesNotContain("data-certificate-pdf", missingRow);

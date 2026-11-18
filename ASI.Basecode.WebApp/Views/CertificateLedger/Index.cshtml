@@ -6,6 +6,8 @@
     ViewData["Feature"] = "certificate-ledger";
     ViewData["CertificatePreview"] = true;
     var tab = Model.ActiveTab == CertificateLedgerTab.Issued ? "issued" : "eligibility";
+    var readOptions = ListReadOptionsFactory.From(Context.Request);
+    var hasCriteria = !string.IsNullOrWhiteSpace(readOptions.Search) || !string.IsNullOrWhiteSpace(readOptions.Filter);
     ViewData["ResultNoun"] = tab == "issued" ? "certificate" : "review";
     // Only a pending review can be selected, so the selection surface and its column appear only
     // where there is something to select. The Issued Registry stays a plain table.
@@ -85,8 +87,21 @@
 @if (Model.Rows.Count == 0 && ViewData["LedgerError"] == null)
 {
     <section class="empty-panel" role="status">
-        <h2>@(Model.Selector.HasOptions ? (tab == "issued" ? "No certificates issued yet" : "No reviews to display") : "No completed events available")</h2>
-        <p>@(Model.Selector.HasOptions ? (tab == "issued" ? "Approve an eligible attendee and issue their certificate from Eligibility Review." : "Certificate reviews appear for checked-in members when an event is completed.") : "Complete an event to begin reviewing attendance for certificates.")</p>
+        @if (!Model.Selector.HasOptions)
+        {
+            <h2>No completed events available</h2>
+            <p>Complete an event to begin reviewing attendance for certificates.</p>
+        }
+        else if (hasCriteria)
+        {
+            <h2>@(tab == "issued" ? "No certificates match your search" : "No reviews match your search or filters")</h2>
+            <p>@(tab == "issued" ? "Adjust your search or use Reset to see other certificates for this event." : "Adjust your search or filters, or use Reset to see other reviews for this event.")</p>
+        }
+        else
+        {
+            <h2>@(tab == "issued" ? "No certificates issued yet" : "No reviews to display")</h2>
+            <p>@(tab == "issued" ? "Approve an eligible attendee and issue their certificate from Eligibility Review." : "Certificate reviews appear for checked-in members when an event is completed.")</p>
+        }
     </section>
 }
 else if (Model.Rows.Count > 0)
