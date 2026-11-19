@@ -8,6 +8,8 @@
     if (!root) return;
 
     var result = root.querySelector('[data-scan-result]');
+    var redirectOutcome = root.querySelector('[data-redirect-outcome]');
+    if (redirectOutcome) redirectOutcome.focus();
     var modes = Array.prototype.slice.call(root.querySelectorAll('[data-scanner-mode]'));
 
     function panelFor(mode) {
@@ -87,6 +89,8 @@
         result.innerHTML = '';
 
         var box = document.createElement('div');
+        box.id = 'check-in-result';
+        box.setAttribute('tabindex', '-1');
         box.className = 'scanner-outcome scanner-outcome-' + (outcome.outcome || 'invalid');
         box.setAttribute('role', outcome.outcome === 'success' || outcome.outcome === 'repeat' ? 'status' : 'alert');
 

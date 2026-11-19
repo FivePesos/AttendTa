@@ -15,6 +15,11 @@
     </div>
 </div>
 
+@if (lastOutcome != null)
+{
+    <p><a href="#check-in-result">View check-in result</a></p>
+}
+
 @if (!Model.HasEvent)
 {
     <section class="empty-panel" aria-labelledby="scanner-empty-heading">
@@ -149,7 +154,7 @@ else
         <div class="scanner-result" aria-live="polite" data-scan-result>
             @if (lastOutcome != null)
             {
-                <div class="scanner-outcome scanner-outcome-@lastOutcome.Outcome" role="@(lastOutcome.IsRecorded ? "status" : "alert")">
+                <div id="check-in-result" tabindex="-1" data-redirect-outcome class="scanner-outcome scanner-outcome-@lastOutcome.Outcome" role="@(lastOutcome.IsRecorded ? "status" : "alert")">
                     <h3>@(lastOutcome.Outcome switch
                         {
                             CheckInOutcomeViewModel.Success => "Checked in",
