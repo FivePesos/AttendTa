@@ -7,3 +7,6 @@
 - source_plan: none
   summary: Address legacy member values that fail current validation and student numbers that differ only by whitespace.
   evidence: Split from stale-form protection at the user's request; legacy data policy and database uniqueness require separate decisions.
+- source_plan: none
+  summary: Add upcoming/past event filtering to Registration Review while preserving access to history.
+  evidence: Split from cancellation-action availability at the user's request; implement after the first fix.

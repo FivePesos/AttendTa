@@ -265,8 +265,12 @@ public async Task<IReadOnlyList<MyPassRow>> GetMyPassRowsAsync(int userId, Cance
         var ordered = status == RegistrationStatusCode.Waitlisted
             ? rows.OrderBy(row => row.r.ReviewedAt).ThenBy(row => row.r.RegistrationId)
             : rows.OrderBy(row => row.r.SubmittedAt).ThenBy(row => row.r.RegistrationId);
+        var validAttendance = ParticipationFacts.ValidAttendances(GetDbSet<Attendance>().AsNoTracking());
         return ordered.Select(row => new RegistrationReviewRow(row.r.RegistrationId, row.e.EventId, row.e.Title, row.u.Name, row.m.StudentNumber, row.r.SubmittedAt, row.r.RegistrationStatusId)
         {
+            EventStatus = row.e.EventStatusId,
+            EventStartsAt = row.e.StartsAt,
+            HasValidAttendance = validAttendance.Any(a => a.RegistrationId == row.r.RegistrationId),
             Course = row.r.CourseSnapshot,
             YearLevel = row.r.YearLevelSnapshot,
             DeclineReason = row.r.RegistrationStatusId == RegistrationStatusCode.Cancelled ? row.r.ReviewNotes : null

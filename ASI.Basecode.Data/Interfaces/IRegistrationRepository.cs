@@ -128,6 +128,10 @@ public sealed record OwnedPassRow(int RegistrationId, int EventId, ASI.Basecode.
 public sealed record ConfirmedLookupRow(int RegistrationId, string MemberName, string StudentNumber, bool HasAttendance, DateTime? InvalidatedAt);
 public sealed record RegistrationReviewRow(int RegistrationId, int EventId, string EventTitle, string MemberName, string StudentNumber, DateTime SubmittedAt, ASI.Basecode.Data.Models.Lookups.RegistrationStatusCode Status)
 {
+    public ASI.Basecode.Data.Models.Lookups.EventStatusCode EventStatus { get; init; }
+    public DateTime EventStartsAt { get; init; }
+    public bool HasValidAttendance { get; init; }
+    public string CancellationUnavailableReason { get; set; }
     /// <summary>The course captured at signup, used by the participation report breakdowns.</summary>
     public string Course { get; init; }
 

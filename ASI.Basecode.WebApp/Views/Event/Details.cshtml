@@ -178,6 +178,7 @@
                     var cutoffLabel = Model.HasStarted && row.Status is RegistrationStatusCode.Pending or RegistrationStatusCode.Waitlisted;
                     var details = new Dictionary<string, string> { ["Student number"] = row.StudentNumber, ["Event"] = item.Title, ["Submitted"] = ManilaTimeFormatter.Format(row.SubmittedAt), ["Status"] = row.Status.ToString() };
                     if (!string.IsNullOrWhiteSpace(row.DeclineReason)) details["Decline reason"] = row.DeclineReason;
+                    if (row.Status is RegistrationStatusCode.Confirmed or RegistrationStatusCode.Waitlisted && row.CancellationUnavailableReason != null) details["Cancellation"] = row.CancellationUnavailableReason;
                     <tr data-registration-id="@row.RegistrationId">
                         @if (hasSelectableRows)
                         {
@@ -214,9 +215,11 @@
                                 <button type="button" class="button button-primary button-small" data-dialog-open="approve" data-dialog-value-id="@row.RegistrationId" data-dialog-value-summary="Review @row.MemberName (@row.StudentNumber) for approval?">Approve</button>
                                 <button type="button" class="button button-secondary button-small button-quiet-danger" data-dialog-open="decline" data-dialog-value-id="@row.RegistrationId" data-dialog-value-summary="Decline @row.MemberName (@row.StudentNumber)?">Decline</button>
                             }
-                            else if (Model.CanReview && row.Status is RegistrationStatusCode.Confirmed or RegistrationStatusCode.Waitlisted)
+                            else if (row.Status is RegistrationStatusCode.Confirmed or RegistrationStatusCode.Waitlisted)
                             {
+                                if (row.CancellationUnavailableReason == null) {
                                 <button type="button" class="button button-secondary button-small button-quiet-danger" data-dialog-open="registration-cancel" data-dialog-value-id="@row.RegistrationId" data-dialog-value-summary="Cancel the registration for @row.MemberName (@row.StudentNumber)?">Cancel registration</button>
+                                } else { <span class="muted cancellation-unavailable">Cancellation unavailable</span> }
                             }
                             else { <span class="muted">No actions available</span> }
                             <partial name="_DetailsButton" model='@(new RecordDetailsViewModel($"registration-details-{row.RegistrationId}", row.MemberName, details, null))' />
@@ -239,8 +242,8 @@
 {
     var eventCommand = decision.Item1 is "event-cancel" or "complete";
     var retry = reopen == decision.Item1;
-    <dialog id="@decision.Item1" class="task-dialog" aria-labelledby="@decision.Item1-title" aria-describedby="@decision.Item1-summary@(decision.Item1 == "promote" ? " promote-consequence" : "")" data-reopen="@(retry ? "true" : null)" data-reopen-id="@failedId" data-reopen-reason="@reason">
-        <form asp-controller="@(eventCommand ? "Event" : "RegistrationReview")" asp-action="@decision.Item3" method="post">
+    <dialog id="@decision.Item1" class="task-dialog" aria-labelledby="@decision.Item1-title" aria-describedby="@decision.Item1-summary@(decision.Item1 == "promote" ? " promote-consequence" : "")" data-reopen="@(retry ? "true" : null)" data-list-preserve="@(retry ? "true" : null)" data-reopen-id="@failedId" data-reopen-reason="@reason">
+        <form asp-controller="@(eventCommand ? "Event" : "RegistrationReview")" asp-action="@decision.Item3" asp-route-search="@Context.Request.Query["search"]" asp-route-pageSize="@Context.Request.Query["pageSize"]" method="post">
             <input type="hidden" name="id" value="@item.EventId" data-dialog-field="id" />
             <input type="hidden" name="eventId" value="@item.EventId" /><input type="hidden" name="status" value="@Model.Status" /><input type="hidden" name="page" value="@Model.Roster.PageNumber" /><input type="hidden" name="dossier" value="true" />
             @if (decision.Item1 == "promote") { <input type="hidden" name="expectedRegistrationId" value="@promotionCandidate?.RegistrationId" /> }
