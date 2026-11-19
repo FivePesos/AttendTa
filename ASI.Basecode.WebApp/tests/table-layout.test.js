@@ -19,6 +19,39 @@ test('affected tables select a content-sized action column without changing Memb
     assert.match(css, /@media \(min-width: 641px\) and \(max-width: 850px\)[\s\S]*?th\.actions-decision\s*\{\s*width:\s*30%/);
 });
 
+test('attendance and check-in rows retain responsive labels and aligned actions', () => {
+    const attendance = read('Views/MyEvents/_AttendanceHistoryPartial.cshtml');
+    assert.match(attendance, /<th scope="row" data-label="Event">/);
+    assert.match(attendance, /data-label="Recorded" class="numeric cell-date"/);
+    assert.match(attendance, /Reason: @row\.InvalidationReason/);
+    const css = read('Styles/app.css');
+    assert.match(css, /\.attendance-history \.data-table tbody th\[scope="row"\]\s*\{[^}]*text-transform:\s*none/s);
+    assert.match(css, /\.attendance-history \.data-table tbody th\[scope="row"\]\s*\{[^}]*overflow-wrap:\s*anywhere/s);
+    const checkin = read('Views/CheckIn/Index.cshtml');
+    for (const label of ['Participant', 'Student number', 'Attendance', 'Recorded', 'Outcome', 'Action']) {
+        assert.ok(checkin.includes(`data-label="${label}"`));
+    }
+    assert.match(checkin, /result\.CanInvalidate/);
+    const scanner = read('wwwroot/js/features/scanner.js');
+    assert.match(scanner, /data-dialog-open.*invalidate-dialog/);
+    assert.match(scanner, /button button-quiet-danger/);
+});
+
+test('venue editor shares preview and standalone script patterns', () => {
+    const form = read('Views/Venue/_Form.cshtml');
+    assert.match(form, /data-record-preview-alt="Preview of selected venue photo"/);
+    assert.match(form, /Current photo/);
+    assert.match(form, /Choose the photo again/);
+    for (const file of ['Views/Venue/Create.cshtml', 'Views/Venue/Edit.cshtml']) {
+        assert.match(read(file), /js\/features\/record-dialog\.js/);
+    }
+});
+
+test('mobile attendance row headers grow with wrapped event titles', () => {
+    const css = read('Styles/features/my-events.css');
+    assert.match(css, /@media\s*\(max-width:\s*640px\)\s*\{\s*\.my-events-panel \.attendance-history \.data-table tbody th\[scope="row"\]\s*\{[^}]*height:\s*auto\s*;/);
+});
+
 test('registration dates align with their headings and event type widths cover every table state', () => {
     const review = read('Views/RegistrationReview/Index.cshtml');
     assert.match(review, /data-label="Submission date" class="numeric cell-date"/);

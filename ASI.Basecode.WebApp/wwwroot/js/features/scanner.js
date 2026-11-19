@@ -124,9 +124,10 @@
         result.appendChild(box);
     }
 
-    function cell(text) {
+    function cell(text, label) {
         var td = document.createElement('td');
         td.textContent = text || '';
+        td.setAttribute('data-label', label);
         return td;
     }
 
@@ -142,17 +143,18 @@
 
         var row = document.createElement('tr');
         row.setAttribute('data-registration-id', outcome.registrationId);
-        row.appendChild(cell(outcome.memberName));
+        row.appendChild(cell(outcome.memberName, 'Participant'));
 
-        var student = cell(outcome.studentNumber);
-        student.className = 'numeric';
+        var student = cell(outcome.studentNumber, 'Student number');
+        student.className = 'numeric cell-identifier';
         row.appendChild(student);
 
-        var time = cell(formatTime(outcome.recordedAt));
-        time.className = 'numeric';
+        var time = cell(formatTime(outcome.recordedAt), 'Recorded');
+        time.className = 'numeric cell-date';
         row.appendChild(time);
 
         var outcomeCell = document.createElement('td');
+        outcomeCell.setAttribute('data-label', 'Outcome');
         var badge = document.createElement('span');
         badge.className = 'badge badge-open';
         badge.textContent = 'Recorded';
@@ -161,15 +163,19 @@
 
         var action = document.createElement('td');
         action.className = 'actions';
+        action.setAttribute('data-label', 'Action');
+        var actions = document.createElement('div');
+        actions.className = 'row-actions';
         var button = document.createElement('button');
         button.type = 'button';
-        button.className = 'button button-small button-secondary';
+        button.className = 'button button-quiet-danger';
         button.setAttribute('data-dialog-open', 'invalidate-dialog');
         button.setAttribute('data-dialog-value-id', String(outcome.registrationId));
         button.setAttribute('data-dialog-value-summary',
             'Invalidate the check-in for ' + outcome.memberName + ' (' + outcome.studentNumber + ')?');
         button.textContent = 'Invalidate';
-        action.appendChild(button);
+        actions.appendChild(button);
+        action.appendChild(actions);
         row.appendChild(action);
 
         body.prepend(row);
