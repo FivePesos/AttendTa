@@ -128,7 +128,7 @@ namespace ASI.Basecode.WebApp.Controllers
             {
                 Event = item, Status = status, Roster = roster,
                 PendingCount = await Count("pending"), ConfirmedCount = await Count("confirmed"),
-                WaitlistedCount = await Count("waitlisted"),
+                WaitlistedCount = await Count("waitlisted"), CancelledCount = await Count("cancelled"),
                 HasStarted = item.StartsAt <= _timeProvider.GetUtcNow().UtcDateTime
             };
             // A POST re-render keeps every list link pointing at the GET dossier route. Both values

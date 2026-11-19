@@ -89,7 +89,7 @@ else
             else
             {
                 <div class="table-scroll" role="region" aria-label="Confirmed participants" tabindex="0">
-                    <table class="data-table table-sticky">
+                    <table class="data-table table-sticky check-in-table">
                         <thead>
                             <tr>
                                 <th scope="col">Participant</th>
@@ -133,7 +133,7 @@ else
                                         }
                                         else
                                         {
-                                            <div class="row-actions"><span class="muted">@(row.IsInvalidated ? "Invalidated" : "Checked in")</span></div>
+                                            <div class="row-actions"><span class="muted check-in-action-text">@(row.IsInvalidated ? "No actions available" : "Checked in")</span></div>
                                         }
                                     </td>
                                 </tr>
@@ -178,7 +178,7 @@ else
     <section class="panel" aria-labelledby="scanner-log-heading">
         <h2 id="scanner-log-heading">Recorded check-ins</h2>
         <div class="table-scroll" role="region" aria-label="Recorded check-ins" tabindex="0">
-            <table class="data-table table-sticky">
+            <table class="data-table table-sticky check-in-table">
                 <thead>
                     <tr>
                         <th scope="col">Participant</th>

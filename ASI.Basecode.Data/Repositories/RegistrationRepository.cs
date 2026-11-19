@@ -58,7 +58,10 @@ public sealed class RegistrationRepository : BaseRepository, IRegistrationReposi
                    venue.RoomName,
                    eventItem.StartsAt,
                    eventItem.EventStatusId,
-                   registration.RegistrationStatusId))
+                   registration.RegistrationStatusId)
+               {
+                   DeclineReason = registration.RegistrationStatusId == RegistrationStatusCode.Cancelled ? registration.ReviewNotes : null
+               })
             .Skip(skip)
             .Take(take)
             .ToListAsync(cancellationToken);
@@ -265,7 +268,8 @@ public async Task<IReadOnlyList<MyPassRow>> GetMyPassRowsAsync(int userId, Cance
         return ordered.Select(row => new RegistrationReviewRow(row.r.RegistrationId, row.e.EventId, row.e.Title, row.u.Name, row.m.StudentNumber, row.r.SubmittedAt, row.r.RegistrationStatusId)
         {
             Course = row.r.CourseSnapshot,
-            YearLevel = row.r.YearLevelSnapshot
+            YearLevel = row.r.YearLevelSnapshot,
+            DeclineReason = row.r.RegistrationStatusId == RegistrationStatusCode.Cancelled ? row.r.ReviewNotes : null
         });
     }
 
