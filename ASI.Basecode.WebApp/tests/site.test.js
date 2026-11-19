@@ -441,10 +441,11 @@ test('live success and repeat preserve immediate invalidation actions and existi
     assert.equal(log.children.length, 1);
     const first = log.children[0];
     assert.equal(first.attributes['data-registration-id'], '42');
-    assert.deepEqual(first.children.map(cell => cell.attributes['data-label']), ['Participant', 'Student number', 'Recorded', 'Outcome', 'Action']);
+    assert.deepEqual(first.children.map(cell => cell.attributes['data-label']), ['Participant', 'Student number', 'Recorded', 'Outcome', 'Reason', 'Action']);
     assert.equal(first.children[0].textContent, 'Alex');
-    const button = first.children[4].children[0].children[0];
-    assert.equal(first.children[4].children[0].className, 'row-actions');
+    assert.equal(first.children[4].textContent, '—');
+    const button = first.children[5].children[0].children[0];
+    assert.equal(first.children[5].children[0].className, 'row-actions');
     assert.equal(button.className, 'button button-quiet-danger');
     assert.equal(button.attributes['data-dialog-open'], 'invalidate-dialog');
     assert.equal(button.attributes['data-dialog-value-id'], '42');
@@ -455,7 +456,7 @@ test('live success and repeat preserve immediate invalidation actions and existi
     await window.AttendTaScanner.postScan(form, 'other-repeat');
     assert.equal(log.children.length, 2);
     assert.equal(log.children[0].attributes['data-registration-id'], '43');
-    assert.equal(log.children[0].children[4].children[0].children[0].attributes['data-dialog-value-id'], '43');
+    assert.equal(log.children[0].children[5].children[0].children[0].attributes['data-dialog-value-id'], '43');
     assert.equal(log.children[1], first);
 });
 

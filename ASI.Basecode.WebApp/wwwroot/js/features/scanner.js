@@ -161,6 +161,8 @@
         outcomeCell.appendChild(badge);
         row.appendChild(outcomeCell);
 
+        row.appendChild(cell('—', 'Reason'));
+
         var action = document.createElement('td');
         action.className = 'actions';
         action.setAttribute('data-label', 'Action');
