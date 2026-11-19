@@ -28,11 +28,14 @@ test('attendance and check-in rows retain responsive labels and aligned actions'
     assert.match(css, /\.attendance-history \.data-table tbody th\[scope="row"\]\s*\{[^}]*text-transform:\s*none/s);
     assert.match(css, /\.attendance-history \.data-table tbody th\[scope="row"\]\s*\{[^}]*overflow-wrap:\s*anywhere/s);
     const checkin = read('Views/CheckIn/Index.cshtml');
-    for (const label of ['Participant', 'Student number', 'Attendance', 'Recorded', 'Outcome', 'Action']) {
+    for (const label of ['Participant', 'Student number', 'Attendance', 'Recorded', 'Outcome', 'Reason', 'Action']) {
         assert.ok(checkin.includes(`data-label="${label}"`));
     }
     assert.match(checkin, /result\.CanInvalidate/);
-    assert.match(checkin, /<td data-label="Outcome">[\s\S]*?Reason: @result\.Message[\s\S]*?<td data-label="Action"/);
+    assert.match(checkin, /<th scope="col">Reason<\/th>/);
+    assert.match(checkin, /<td data-label="Reason">.*result\.IsInvalidated.*result\.Message/);
+    assert.match(checkin, /colspan="6" class="empty-state"/);
+    assert.match(checkin, /<div class="row-actions"><span class="muted">@\(row\.IsInvalidated/);
     const log = checkin.split('<tbody data-scan-log>')[1];
     const actionCell = log.match(/<td data-label="Action"[^>]*>([\s\S]*?)<\/td>/)[1];
     assert.doesNotMatch(actionCell, /@result\.Message/);
@@ -40,6 +43,7 @@ test('attendance and check-in rows retain responsive labels and aligned actions'
     const scanner = read('wwwroot/js/features/scanner.js');
     assert.match(scanner, /data-dialog-open.*invalidate-dialog/);
     assert.match(scanner, /button button-quiet-danger/);
+    assert.match(scanner, /row\.appendChild\(cell\('—', 'Reason'\)\)/);
 });
 
 test('venue editor shares preview and standalone script patterns', () => {

@@ -133,7 +133,7 @@ else
                                         }
                                         else
                                         {
-                                            <span class="muted">@(row.IsInvalidated ? "Invalidated" : "Checked in")</span>
+                                            <div class="row-actions"><span class="muted">@(row.IsInvalidated ? "Invalidated" : "Checked in")</span></div>
                                         }
                                     </td>
                                 </tr>
@@ -185,6 +185,7 @@ else
                         <th scope="col">Student number</th>
                         <th scope="col">Recorded</th>
                         <th scope="col">Outcome</th>
+                        <th scope="col">Reason</th>
                         <th scope="col" class="actions actions-tight">Action</th>
                     </tr>
                 </thead>
@@ -192,7 +193,7 @@ else
                     @if (Model.RecentResults.Count == 0)
                     {
                         <tr>
-                            <td colspan="5" class="empty-state">No check-ins recorded for this event yet.</td>
+                            <td colspan="6" class="empty-state">No check-ins recorded for this event yet.</td>
                         </tr>
                     }
                     else
@@ -207,16 +208,13 @@ else
                                     @if (result.IsInvalidated)
                                     {
                                         <span class="badge badge-inactive">Invalidated</span>
-                                        @if (!string.IsNullOrWhiteSpace(result.Message))
-                                        {
-                                            <div class="muted">Reason: @result.Message</div>
-                                        }
                                     }
                                     else
                                     {
                                         <span class="badge badge-open">Recorded</span>
                                     }
                                 </td>
+                                <td data-label="Reason">@(result.IsInvalidated && !string.IsNullOrWhiteSpace(result.Message) ? result.Message : "—")</td>
                                 <td data-label="Action" class="actions">
                                     @if (result.CanInvalidate)
                                     {
@@ -232,11 +230,11 @@ else
                                     }
                                     else if (result.IsInvalidated)
                                     {
-                                        <span class="muted">No actions available</span>
+                                        <div class="row-actions"><span class="muted checkin-action-message">No actions available</span></div>
                                     }
                                     else
                                     {
-                                        <span class="muted">Certificate issued</span>
+                                        <div class="row-actions"><span class="muted">Certificate issued</span></div>
                                     }
                                 </td>
                             </tr>
