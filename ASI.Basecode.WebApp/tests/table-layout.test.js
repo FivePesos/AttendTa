@@ -23,7 +23,7 @@ test('attendance and check-in rows retain responsive labels and aligned actions'
     const attendance = read('Views/MyEvents/_AttendanceHistoryPartial.cshtml');
     assert.match(attendance, /<th scope="row" data-label="Event">/);
     assert.match(attendance, /data-label="Recorded" class="numeric cell-date"/);
-    assert.match(attendance, /Reason: @row\.InvalidationReason/);
+    assert.match(attendance, /Reason: <partial name="_ReasonContent" model=".*row\.InvalidationReason/);
     const css = read('Styles/app.css');
     assert.match(css, /\.attendance-history \.data-table tbody th\[scope="row"\]\s*\{[^}]*text-transform:\s*none/s);
     assert.match(css, /\.attendance-history \.data-table tbody th\[scope="row"\]\s*\{[^}]*overflow-wrap:\s*anywhere/s);
@@ -33,7 +33,7 @@ test('attendance and check-in rows retain responsive labels and aligned actions'
     }
     assert.match(checkin, /result\.CanInvalidate/);
     assert.match(checkin, /<th scope="col">Reason<\/th>/);
-    assert.match(checkin, /<td data-label="Reason">.*result\.IsInvalidated.*result\.Message/);
+    assert.match(checkin, /<td data-label="Reason"><partial name="_ReasonContent" model=".*result\.IsInvalidated.*result\.Message/);
     assert.match(checkin, /colspan="6" class="empty-state"/);
     assert.match(checkin, /<div class="row-actions"><span class="muted">@\(row\.IsInvalidated/);
     const log = checkin.split('<tbody data-scan-log>')[1];
@@ -54,6 +54,32 @@ test('venue editor shares preview and standalone script patterns', () => {
     for (const file of ['Views/Venue/Create.cshtml', 'Views/Venue/Edit.cshtml']) {
         assert.match(read(file), /js\/features\/record-dialog\.js/);
     }
+});
+
+test('certificate history gives reasons a dedicated responsive column', () => {
+    const view = read('Views/MyEvents/_CertificateLinkPartial.cshtml');
+    assert.match(view, /<th scope="col">Reason<\/th>/);
+    assert.match(view, /<td data-label="Reason"><partial name="_ReasonContent" model="@\(row\.Reason/);
+    const ledger = read('Views/CertificateLedger/Index.cshtml');
+    assert.match(ledger, /<th scope="col">Reason<\/th>/);
+    assert.match(ledger, /<td data-label="Reason"><partial name="_ReasonContent" model="@\(row\.Reason/);
+    const reason = read('Views/Shared/_ReasonContent.cshtml');
+    assert.match(reason, /Model\.Length > 160/);
+    assert.match(reason, /Model\.Split\('\\n'\)\.Length > 4/);
+    assert.match(reason, /<details class="reason-disclosure">/);
+    assert.match(reason, /class="reason-content">@Model/);
+    const css = read('Styles/app.css');
+    assert.match(css, /\.reason-content\s*\{[^}]*white-space:\s*pre-wrap;[^}]*overflow-wrap:\s*anywhere/);
+});
+
+test('long event descriptions remain available without overwhelming the page', () => {
+    const description = read('Views/Shared/_DescriptionContent.cshtml');
+    assert.match(description, /Model\.Length > 500/);
+    assert.match(description, /Model\.Split\('\\n'\)\.Length > 8/);
+    assert.match(description, /<details class="reason-disclosure">/);
+    assert.match(description, /class="reason-content">@Model/);
+    assert.match(read('Views/Event/Details.cshtml'), /<partial name="_DescriptionContent" model="item\.Description"/);
+    assert.match(read('Views/MemberEvents/Details.cshtml'), /<partial name="_DescriptionContent" model="Model\.Description"/);
 });
 
 test('mobile attendance row headers grow with wrapped event titles', () => {

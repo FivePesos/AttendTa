@@ -214,7 +214,7 @@ else
                                         <span class="badge badge-open">Recorded</span>
                                     }
                                 </td>
-                                <td data-label="Reason">@(result.IsInvalidated && !string.IsNullOrWhiteSpace(result.Message) ? result.Message : "—")</td>
+                                <td data-label="Reason"><partial name="_ReasonContent" model="@(result.IsInvalidated ? result.Message ?? string.Empty : string.Empty)" /></td>
                                 <td data-label="Action" class="actions">
                                     @if (result.CanInvalidate)
                                     {

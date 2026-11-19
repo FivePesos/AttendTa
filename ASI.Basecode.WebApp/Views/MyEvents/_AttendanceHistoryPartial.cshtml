@@ -24,7 +24,7 @@
                                 <span class="badge badge-inactive">Invalidated</span>
                                 @if (!string.IsNullOrWhiteSpace(row.InvalidationReason))
                                 {
-                                    <span class="muted">Reason: @row.InvalidationReason</span>
+                                    <div class="muted">Reason: <partial name="_ReasonContent" model="@(row.InvalidationReason ?? string.Empty)" /></div>
                                 }
                             }
                             else

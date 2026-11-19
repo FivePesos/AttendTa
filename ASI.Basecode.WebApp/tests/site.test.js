@@ -95,6 +95,50 @@ function clickEvent(trigger) {
 
 const flush = () => new Promise(resolve => setImmediate(resolve));
 
+test('cancelled empty manual searches do not leave the search button busy', () => {
+    const button = createElement('button');
+    button.textContent = 'Search';
+    button.dataset.submittingLabel = 'Searching…';
+    const input = createElement('input');
+    const form = createElement('form');
+    form.querySelector = selector => selector === 'button[type="submit"]' ? button : null;
+    const root = {
+        querySelector: selector => selector === '[data-lookup-form]' ? form : selector === '#lookup-query' ? input : null,
+        querySelectorAll: () => []
+    };
+    const handlers = {};
+    const document = {
+        body: createElement('body'), clickHandlers: [], createElement,
+        querySelector: selector => selector === '[data-scanner]' ? root : null,
+        getElementById: () => null,
+        addEventListener(type, handler) {
+            (handlers[type] ||= []).push(handler);
+            if (type === 'click') this.clickHandlers.push(handler);
+        }
+    };
+    runSite(document, () => {});
+    const manual = fs.readFileSync(path.join(__dirname, '../wwwroot/js/features/scanner-manual.js'), 'utf8');
+    vm.runInNewContext(manual, { document });
+    for (const value of ['', '   ']) {
+        input.value = value;
+        const event = { target: form, submitter: button, defaultPrevented: false, preventDefault() { this.defaultPrevented = true; } };
+        form.listeners.submit[0](event);
+        handlers.submit[0](event);
+        assert.equal(event.defaultPrevented, true);
+        assert.equal(button.disabled, undefined);
+        assert.equal(button.textContent, 'Search');
+        assert.equal(input.focused, true);
+    }
+    input.value = 'Alex';
+    button.getAttribute = () => 'Searching…';
+    const event = { target: form, submitter: button, defaultPrevented: false, preventDefault() { this.defaultPrevented = true; } };
+    form.listeners.submit[0](event);
+    handlers.submit[0](event);
+    assert.equal(event.defaultPrevented, false);
+    assert.equal(button.disabled, true);
+    assert.equal(button.textContent, 'Searching…');
+});
+
 test('row details close their menu and restore focus to its visible invoker', () => {
     const body = createElement('body'), dialog = createElement('dialog'), invoker = createElement('button');
     const menu = { id: 'row-menu-test', hidePopover() { this.hidden = true; } };

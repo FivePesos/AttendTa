@@ -919,6 +919,10 @@
     .event-type-table thead th:first-child { width: 30%; }
   }
   [data-expandable-content] { margin: 0; }
+  .reason-content { white-space: pre-wrap; overflow-wrap: anywhere; }
+  .reason-disclosure summary { cursor: pointer; color: var(--color-cobalt); text-decoration: underline; text-underline-offset: 3px; }
+  .reason-disclosure summary:focus-visible { outline: 2px solid var(--color-cobalt); outline-offset: 3px; }
+  .reason-disclosure p { margin: 8px 0 0; }
   .text-disclosure { min-height: 32px; margin-top: 4px; padding: 4px 0; border: 0; background: transparent; color: var(--color-cobalt); font: inherit; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
   .text-disclosure:hover { color: var(--color-ink); }
   .text-disclosure:focus-visible { outline: 2px solid var(--color-cobalt); outline-offset: 3px; }

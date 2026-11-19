@@ -106,7 +106,7 @@
     </div>
     @if (!string.IsNullOrWhiteSpace(item.Description))
     {
-        <p class="dossier-description">@item.Description</p>
+        <div class="dossier-description"><partial name="_DescriptionContent" model="item.Description" /></div>
     }
     <div class="dossier-checkin">
         <partial name="_CheckInControl" model="new CheckInControlViewModel { EventId = item.EventId, IsCheckInOpen = item.IsCheckInOpen, CanChange = published, Dossier = true }" />
