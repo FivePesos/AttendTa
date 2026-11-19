@@ -9,6 +9,7 @@
                     <th scope="col">Recorded</th>
                     <th scope="col">Method</th>
                     <th scope="col">State</th>
+                    <th scope="col">Reason</th>
                 </tr>
             </thead>
             <tbody>
@@ -22,16 +23,13 @@
                             @if (row.IsInvalidated)
                             {
                                 <span class="badge badge-inactive">Invalidated</span>
-                                @if (!string.IsNullOrWhiteSpace(row.InvalidationReason))
-                                {
-                                    <div class="muted">Reason: <partial name="_ReasonContent" model="@(row.InvalidationReason ?? string.Empty)" /></div>
-                                }
                             }
                             else
                             {
                                 <span class="badge badge-active">Valid</span>
                             }
                         </td>
+                        <td data-label="Reason"><partial name="_ReasonContent" model="@(row.IsInvalidated ? row.InvalidationReason ?? string.Empty : string.Empty)" /></td>
                     </tr>
                 }
             </tbody>

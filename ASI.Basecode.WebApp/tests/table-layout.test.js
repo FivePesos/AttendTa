@@ -23,7 +23,8 @@ test('attendance and check-in rows retain responsive labels and aligned actions'
     const attendance = read('Views/MyEvents/_AttendanceHistoryPartial.cshtml');
     assert.match(attendance, /<th scope="row" data-label="Event">/);
     assert.match(attendance, /data-label="Recorded" class="numeric cell-date"/);
-    assert.match(attendance, /Reason: <partial name="_ReasonContent" model=".*row\.InvalidationReason/);
+    assert.match(attendance, /<th scope="col">Reason<\/th>/);
+    assert.match(attendance, /<td data-label="Reason"><partial name="_ReasonContent" model=".*row\.IsInvalidated.*row\.InvalidationReason/);
     const css = read('Styles/app.css');
     assert.match(css, /\.attendance-history \.data-table tbody th\[scope="row"\]\s*\{[^}]*text-transform:\s*none/s);
     assert.match(css, /\.attendance-history \.data-table tbody th\[scope="row"\]\s*\{[^}]*overflow-wrap:\s*anywhere/s);
