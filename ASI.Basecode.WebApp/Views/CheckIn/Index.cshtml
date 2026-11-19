@@ -207,6 +207,10 @@ else
                                     @if (result.IsInvalidated)
                                     {
                                         <span class="badge badge-inactive">Invalidated</span>
+                                        @if (!string.IsNullOrWhiteSpace(result.Message))
+                                        {
+                                            <div class="muted">Reason: @result.Message</div>
+                                        }
                                     }
                                     else
                                     {
@@ -228,7 +232,7 @@ else
                                     }
                                     else if (result.IsInvalidated)
                                     {
-                                        <span class="muted">@result.Message</span>
+                                        <span class="muted">No actions available</span>
                                     }
                                     else
                                     {

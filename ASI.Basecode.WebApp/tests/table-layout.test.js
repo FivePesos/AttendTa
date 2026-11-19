@@ -32,6 +32,11 @@ test('attendance and check-in rows retain responsive labels and aligned actions'
         assert.ok(checkin.includes(`data-label="${label}"`));
     }
     assert.match(checkin, /result\.CanInvalidate/);
+    assert.match(checkin, /<td data-label="Outcome">[\s\S]*?Reason: @result\.Message[\s\S]*?<td data-label="Action"/);
+    const log = checkin.split('<tbody data-scan-log>')[1];
+    const actionCell = log.match(/<td data-label="Action"[^>]*>([\s\S]*?)<\/td>/)[1];
+    assert.doesNotMatch(actionCell, /@result\.Message/);
+    assert.match(actionCell, /else if \(result\.IsInvalidated\)[\s\S]*?No actions available/);
     const scanner = read('wwwroot/js/features/scanner.js');
     assert.match(scanner, /data-dialog-open.*invalidate-dialog/);
     assert.match(scanner, /button button-quiet-danger/);
