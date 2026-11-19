@@ -28,6 +28,7 @@ test('attendance and check-in rows retain responsive labels and aligned actions'
     assert.match(css, /\.attendance-history \.data-table tbody th\[scope="row"\]\s*\{[^}]*text-transform:\s*none/s);
     assert.match(css, /\.attendance-history \.data-table tbody th\[scope="row"\]\s*\{[^}]*overflow-wrap:\s*anywhere/s);
     const checkin = read('Views/CheckIn/Index.cshtml');
+    assert.match(checkin, /row\.IsInvalidated \? "No actions available" : "Checked in"/);
     for (const label of ['Participant', 'Student number', 'Attendance', 'Recorded', 'Outcome', 'Action']) {
         assert.ok(checkin.includes(`data-label="${label}"`));
     }
@@ -67,4 +68,17 @@ test('registration dates align with their headings and event type widths cover e
     assert.match(css, /\.data-table \.numeric\.cell-date\s*\{\s*text-align:\s*left/);
     assert.match(css, /\.event-type-table thead th:first-child\s*\{\s*width:\s*30%/);
     assert.match(css, /\.venue-table :is\(th, td\)\.numeric\s*\{\s*padding-right:\s*56px/);
+});
+
+test('check-in action spacing is scoped and roster dates match their headers', () => {
+    const view = read('Views/CheckIn/Index.cshtml');
+    assert.equal((view.match(/table-sticky check-in-table/g) || []).length, 2);
+    const css = read('Styles/features/check-in.css');
+    assert.match(css, /\.check-in-table td\.actions\s*\{\s*text-align:\s*right/);
+    assert.match(css, /\.check-in-table \.check-in-action-text\s*\{[^}]*padding-right:\s*8px/);
+    const dossier = read('Views/Event/Details.cshtml');
+    assert.match(dossier, /data-label="Submission date" class="numeric cell-date"/);
+    assert.match(dossier, /data-label="Submission time" class="numeric cell-date"/);
+    assert.match(dossier, /Model\.CancelledCount/);
+    assert.match(read('Views/AccountRequest/Index.cshtml'), /data-label="Course \/ year \/ section"/);
 });
