@@ -10,6 +10,7 @@
 </div>
 
 @{
+    // Include the initial-admin setup action alongside the shared audit action names.
     var actions = typeof(ASI.Basecode.Resources.Constants.AuditActions).GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)
         .Where(field => field.IsLiteral && field.FieldType == typeof(string))
         .Select(field => (string)field.GetRawConstantValue()).Append("user.provisioned").Distinct()

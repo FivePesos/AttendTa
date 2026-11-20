@@ -29,6 +29,7 @@ namespace ASI.Basecode.WebApp.Controllers
         private readonly IAccountRoleService _accountRoleService;
         private readonly IAccessDialogService _accessDialogService;
         private readonly IAccountAccessCommands _accountAccessCommands;
+        // The role editor returns a partial for the dialog and a full page for direct navigation.
         private bool IsRecordDialog => Request.Headers["X-Record-Dialog"] == "true";
         private IActionResult RoleEditor(ChangeAccountRoleViewModel model) =>
             IsRecordDialog ? PartialView("_RoleEditor", model) : View("ChangeRole", model);

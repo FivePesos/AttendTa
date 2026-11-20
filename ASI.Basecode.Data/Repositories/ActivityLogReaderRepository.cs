@@ -247,6 +247,7 @@ public sealed class ActivityLogReaderRepository(IUnitOfWork unitOfWork, ListRead
     private static string NormalizeType(string entityType) =>
         (entityType ?? string.Empty).Trim().ToLowerInvariant();
 
+    // Count and page reads share these conditions so paging totals match the selected filters.
     private IQueryable<ActivityLog> FilteredLogs()
     {
         var query = GetDbSet<ActivityLog>().AsNoTracking();
