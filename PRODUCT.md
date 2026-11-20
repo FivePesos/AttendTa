@@ -59,7 +59,8 @@ Used by a University of Cebu student organization on a laptop at the door and on
   stacks them on smaller screens; Member Home keeps its single participation group.
 - Account role changes use the existing shared editor modal, with inline validation and the
   same audited role command. Search remains Search; one Reset clears criteria while preserving
-  the selected event/history section. Taller screens show more rows through measured Auto-fit.
+  the selected event and section, including status tabs; switching a tab alone does not show
+  Reset. Toolbar dropdown filters continue to be resettable. Taller screens show more rows through measured Auto-fit.
 - Certificate PDF previews open in a shared modal on the issued registry and member history,
   with visible PDF pages, download/new-tab options, loading/error recovery and focus return.
   A small backend read checks retained PDFs before offering links. Missing or corrupt documents

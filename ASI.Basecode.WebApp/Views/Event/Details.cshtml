@@ -25,7 +25,7 @@
         : $"{failedRegistration.MemberName} ({failedRegistration.StudentNumber}) · Registration #{failedRegistrationId}";
     var tabs = new[] { ("pending", "Pending Review", Model.PendingCount), ("confirmed", "Confirmed", Model.ConfirmedCount), ("waitlisted", "Waitlisted", Model.WaitlistedCount), ("cancelled", "Cancelled / declined", Model.CancelledCount) };
     // A POST re-render sets ListPath so the tabs keep pointing at the GET dossier route.
-    var listPath = ViewData["ListPath"] as string;
+    var listPath = Context.Request.Method == "POST" ? ViewData["ListPath"] as string : null;
     var bulkError = ViewBag.BulkError as string;
     var bulkResult = ViewBag.BulkResult as BulkResultViewModel;
     // Selection exists only where a decision can be made: the pending roster of a published event
@@ -139,7 +139,7 @@
     {
         <partial name="_BulkResultPanel" model="bulkResult" />
     }
-    <partial name="_ListToolbar" model='@(new ListToolbarViewModel("Search participant or student number"))' />
+    <partial name="_ListToolbar" model='@(new ListToolbarViewModel("Search participant or student number", StatusIsSection: true))' />
 <p class="muted" data-list-status role="status" data-list-busy-label="Loading records…"></p>
 <nav class="filter-tabs" aria-label="Registration status">
         @foreach (var tab in tabs)
