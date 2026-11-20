@@ -233,7 +233,8 @@ button, or a card with no outline is not part of this system.
   compact Capacity, Status and Actions columns. Capacity headings and values align right.
 - **Search and filters:** each list declares appropriate fields through the shared Razor
   toolbar. Search keeps its action label. One Reset control clears search and list filters,
-  preserving the selected event and history section. Preserve unrelated query criteria across
+  preserving the selected event and section, including status tabs. Status tabs alone do not
+  show Reset; status dropdown filters still do. Preserve unrelated query criteria across
   paging and native decisions.
   Search has the same visible label/field structure as dropdowns, so its top spacing does not
   change when filters are present. Use the shared 16px block spacing; loading feedback follows tabs.

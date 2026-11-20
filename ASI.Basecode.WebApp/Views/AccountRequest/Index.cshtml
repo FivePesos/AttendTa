@@ -89,7 +89,7 @@
     <partial name="_BulkResultPanel" model="bulkResult" />
 }
 
-<partial name="_ListToolbar" model='@(new ListToolbarViewModel("Search name, email, or student number", new ListFilterField[] { ListToolbarViewModel.Course, ListToolbarViewModel.Year }))' />
+<partial name="_ListToolbar" model='@(new ListToolbarViewModel("Search name, email, or student number", new ListFilterField[] { ListToolbarViewModel.Course, ListToolbarViewModel.Year }, StatusIsSection: true))' />
 <div class="sheet-keys">
 
     <nav class="filter-tabs" aria-label="Request status">

@@ -140,7 +140,7 @@ namespace ASI.Basecode.WebApp.Controllers
             // must be a bare path: the pager and ListNavigation.Url append their own query string,
             // so a path that already carried "?id=…" would become "?id=3?status=…".
             ViewData["PagerPath"] = Url.Action(nameof(Details));
-            ViewData["ListPath"] = Url.Action(nameof(Details));
+            if (Request.Method == "POST") ViewData["ListPath"] = Url.Action(nameof(Details));
             return View(nameof(Details), model);
         }
 
