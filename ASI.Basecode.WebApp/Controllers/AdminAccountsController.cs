@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -174,6 +175,12 @@ namespace ASI.Basecode.WebApp.Controllers
                 model.CurrentRoleCode = current.CurrentRoleCode;
                 model.CurrentRoleLabel = current.CurrentRoleLabel;
                 model.Roles = current.Roles;
+                if (!current.Roles.Any(role => string.Equals(role.Code, model.RoleCode, StringComparison.Ordinal)))
+                {
+                    // The posted role is the account's role now (or no longer exists), so it is not
+                    // an offered alternative; the reason is still retained for the correction.
+                    model.RoleCode = null;
+                }
                 ViewBag.Roles = ToSelectList(current.Roles);
                 return true;
             }

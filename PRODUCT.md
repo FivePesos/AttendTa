@@ -58,9 +58,17 @@ Used by a University of Cebu student organization on a laptop at the door and on
 - Management Home groups record and operations destinations side by side on wide screens and
   stacks them on smaller screens; Member Home keeps its single participation group.
 - Account role changes use the existing shared editor modal, with inline validation and the
-  same audited role command. Search remains Search; one Reset clears criteria while preserving
+  same audited role command. The editor offers only a different role and the server refuses a
+  same-role or stale submission after the account row lock, so no write or audit row is created.
+  Search remains Search; one Reset clears criteria while preserving
   the selected event and section, including status tabs; switching a tab alone does not show
   Reset. Toolbar dropdown filters continue to be resettable. Taller screens show more rows through measured Auto-fit.
+- Activity history keeps Occurred, Actor, friendly Action, Affected record and Actions. A single
+  note explains names reflect current records; details show the affected record or an unavailable fallback with its id.
+  The shared Show details dialog lists only allowlisted recorded changes as earlier-to-recorded
+  values and reports missing or malformed snapshots as unavailable
+  instead of inferring prior state. Recorded contact data, raw JSON and technical foreign keys
+  are never shown.
 - Certificate PDF previews open in a shared modal on the issued registry and member history,
   with visible PDF pages, download/new-tab options, loading/error recovery and focus return.
   A small backend read checks retained PDFs before offering links. Missing or corrupt documents
